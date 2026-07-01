@@ -1144,45 +1144,90 @@ function Store() {
 
   // ── Restaurant mode (Fudo-style) ──
   const [restaurantMode, setRestaurantMode] = useState(() => localStorage.getItem('srservi_restaurant_mode') === '1');
-  const [tables, setTables] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('srservi_tables') || '[]'); } catch { return []; }
-  });
-  const [activeTable, setActiveTable] = useState(null); // table object being served
-  const [tableOrders, setTableOrders] = useState(() => {
-    try { return JSON.parse(sessionStorage.getItem('srservi_table_orders') || '{}'); } catch { return {}; }
-  });
+  const [tables, setTables] = useState([]);
+  const [activeTable, setActiveTable] = useState(null);
+  const [tableOrders, setTableOrders] = useState({});
   const [tableConfigOpen, setTableConfigOpen] = useState(false);
-  const [tableConfigCount, setTableConfigCount] = useState('');
-  const [tableBillOpen, setTableBillOpen] = useState(null); // table id viewing bill
-  const [billingTableId, setBillingTableId] = useState(null); // table being billed (cobrar)
-  const [modeToggleTimer, setModeToggleTimer] = useState(null);
+  const [tableMapEditing, setTableMapEditing] = useState(false);
+  const [tableBillOpen, setTableBillOpen] = useState(null);
+  const [billingTableId, setBillingTableId] = useState(null);
+  const [tableActionModal, setTableActionModal] = useState(null);
+  const [tablePersons, setTablePersons] = useState({});
+  const [draggingTable, setDraggingTable] = useState(null);
+  const [resizingTable, setResizingTable] = useState(null);
+  const mapRef = useRef(null);
 
-  const saveTableOrders = (orders) => {
+  const fetchTables = async () => {
+    if (!code) return;
+    try {
+      const res = await fetch(`/api/public/restaurant-tables/${code}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTables(data);
+      }
+    } catch {}
+  };
+
+  const saveTablesToDb = async (newTables) => {
+    if (!code) return;
+    try {
+      const res = await fetch(`/api/public/restaurant-tables/${code}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tables: newTables })
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        setTables(saved);
+        return saved;
+      }
+    } catch {}
+    return newTables;
+  };
+
+  const fetchTableOrder = async (tableId) => {
+    if (!code) return null;
+    try {
+      const res = await fetch(`/api/public/table-order/${code}/${tableId}`);
+      if (res.ok) return await res.json();
+    } catch {}
+    return null;
+  };
+
+  const refreshTableOrders = async () => {
+    if (!code || tables.length === 0) return;
+    const orders = {};
+    for (const t of tables) {
+      const order = await fetchTableOrder(t.id);
+      if (order && order.items?.length > 0) orders[t.id] = order;
+    }
     setTableOrders(orders);
-    sessionStorage.setItem('srservi_table_orders', JSON.stringify(orders));
   };
 
-  const getTableStatus = (tableId) => {
-    const items = tableOrders[tableId];
-    if (!items || items.length === 0) return 'free';
-    return 'occupied';
-  };
+  useEffect(() => {
+    if (restaurantMode && code) {
+      fetchTables();
+    }
+  }, [restaurantMode, code]);
 
-  const addToTable = (tableId, cartItems) => {
-    const existing = tableOrders[tableId] || [];
-    const updated = { ...tableOrders, [tableId]: [...existing, ...cartItems.map(i => ({ ...i, addedAt: Date.now() }))] };
-    saveTableOrders(updated);
-  };
+  useEffect(() => {
+    if (restaurantMode && tables.length > 0) {
+      refreshTableOrders();
+      const interval = setInterval(refreshTableOrders, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [restaurantMode, tables.length]);
 
-  const clearTable = (tableId) => {
-    const updated = { ...tableOrders };
-    delete updated[tableId];
-    saveTableOrders(updated);
-  };
-
+  const getTableStatus = (tableId) => tableOrders[tableId] ? 'occupied' : 'free';
   const getTableTotal = (tableId) => {
-    const items = tableOrders[tableId] || [];
-    return items.reduce((sum, i) => sum + (i.total || (i.unit_price || 0) * (i.quantity || 1)), 0);
+    const order = tableOrders[tableId];
+    if (!order) return 0;
+    return order.total || order.items?.reduce((s, i) => s + (i.unit_price || 0) * (i.quantity || 1), 0) || 0;
+  };
+  const getTableItemCount = (tableId) => {
+    const order = tableOrders[tableId];
+    if (!order?.items) return 0;
+    return order.items.reduce((s, i) => s + (i.quantity || 1), 0);
   };
 
   // Screensaver
@@ -2630,16 +2675,17 @@ function Store() {
             store_id: storeId,
             items,
             payment_method: 'pending',
-            table_number: activeTable.number,
+            table_number: activeTable.id,
+            persons: tablePersons[activeTable.id] || null,
             terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
             customer_comment: paymentComment || null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al enviar pedido');
-        addToTable(activeTable.id, cart);
         setCart([]);
         setPaymentComment('');
         setActiveTable(null);
+        refreshTableOrders();
       } catch (err) {
         alert(err.message);
       } finally {
@@ -2978,7 +3024,7 @@ function Store() {
         setPaymentModalOpen(false);
 
 
-        if (billingTableId) { clearTable(billingTableId); setBillingTableId(null); }
+        if (billingTableId) { refreshTableOrders(); setBillingTableId(null); }
         setCart([]);
         setCartOpen(false);
 
@@ -3074,7 +3120,7 @@ function Store() {
           setPaymentConfirmed(true);
           setLastOrderNumber(order.order_number);
   
-          if (billingTableId) { clearTable(billingTableId); setBillingTableId(null); }
+          if (billingTableId) { refreshTableOrders(); setBillingTableId(null); }
           setCart([]);
           setCartOpen(false);
           setPaymentModalOpen(false);
@@ -3130,8 +3176,7 @@ function Store() {
     const onPaymentSuccess = (orderNumberOverride) => {
       setPaymentConfirmed(true);
       setLastOrderNumber(orderNumberOverride || pendingOrderData.order.order_number);
-      if (activeTable) addToTable(activeTable.id, cart);
-      if (billingTableId) { clearTable(billingTableId); setBillingTableId(null); }
+      if (billingTableId) { refreshTableOrders(); setBillingTableId(null); }
       setCart([]);
       setCartOpen(false);
       setPaymentModalOpen(false);
@@ -4716,90 +4761,186 @@ function Store() {
 
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
 
-      {/* Restaurant mode indicator */}
+      {/* Restaurant mode bar */}
       {restaurantMode && (
         <div style={{ background: 'linear-gradient(135deg, #1e293b, #334155)', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <FontAwesomeIcon icon={faUtensils} style={{ fontSize: 14, color: '#D4AF37' }} />
             <span style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>
-              {activeTable ? `Mesa ${activeTable.number}` : 'Modo Restaurante'}
+              {activeTable ? (activeTable.label || `Mesa ${activeTable.id}`) : 'Modo Restaurante'}
             </span>
+            {activeTable && tablePersons[activeTable.id] && (
+              <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>
+                <FontAwesomeIcon icon={faUser} style={{ marginRight: 3 }} />{tablePersons[activeTable.id]}
+              </span>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {activeTable && (
               <button onClick={() => { setActiveTable(null); setCart([]); }} style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '5px 12px', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 4 }} /> Volver a mesas
+                <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 4 }} /> Mesas
               </button>
             )}
-            <button onClick={() => setTableConfigOpen(true)} style={{ background: 'rgba(212,175,55,0.2)', border: '1px solid rgba(212,175,55,0.4)', borderRadius: 8, padding: '5px 12px', color: '#D4AF37', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              <FontAwesomeIcon icon={faCog} style={{ marginRight: 4 }} /> Mesas
-            </button>
+            {!activeTable && (
+              <button onClick={() => setTableMapEditing(!tableMapEditing)} style={{ background: tableMapEditing ? 'rgba(212,175,55,0.4)' : 'rgba(212,175,55,0.2)', border: '1px solid rgba(212,175,55,0.4)', borderRadius: 8, padding: '5px 12px', color: '#D4AF37', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                <FontAwesomeIcon icon={tableMapEditing ? faCheck : faEdit} style={{ marginRight: 4 }} /> {tableMapEditing ? 'Listo' : 'Editar mapa'}
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {/* ── Restaurant: Table grid ── */}
+      {/* ── Restaurant: Table map ── */}
       {restaurantMode && !activeTable && (
-        <div style={{ flex: 1, padding: '20px 16px', background: '#f8fafc', overflowY: 'auto' }}>
-          {tables.length === 0 ? (
+        <div style={{ flex: 1, background: '#f1f5f9', overflow: 'hidden', position: 'relative' }}>
+          {tables.length === 0 && !tableMapEditing ? (
             <div style={{ textAlign: 'center', padding: '60px 20px' }}>
               <FontAwesomeIcon icon={faChair} style={{ fontSize: 48, marginBottom: 12, color: '#64748b' }} />
               <p style={{ fontSize: 16, color: '#64748b', marginBottom: 16 }}>No hay mesas configuradas</p>
-              <button onClick={() => setTableConfigOpen(true)} style={{ padding: '12px 24px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
-                Configurar mesas
+              <button onClick={() => setTableMapEditing(true)} style={{ padding: '12px 24px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+                <FontAwesomeIcon icon={faPlus} style={{ marginRight: 6 }} /> Crear mapa de mesas
               </button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 14 }}>
-              {tables.map(table => {
-                const status = getTableStatus(table.id);
-                const total = getTableTotal(table.id);
-                const itemCount = (tableOrders[table.id] || []).reduce((s, i) => s + (i.quantity || 1), 0);
-                const tColors = status === 'occupied'
-                  ? { bg: '#fef3c7', border: '#f59e0b', text: '#92400e', badge: '#f59e0b' }
-                  : { bg: '#f0fdf4', border: '#86efac', text: '#166534', badge: '#22c55e' };
-                return (
-                  <div
-                    key={table.id}
-                    onClick={() => { setActiveTable(table); setCart([]); }}
-                    style={{
-                      background: tColors.bg, border: `2px solid ${tColors.border}`, borderRadius: 16,
-                      padding: '20px 14px', textAlign: 'center', cursor: 'pointer',
-                      transition: 'transform 0.15s', position: 'relative',
-                      minHeight: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
-                    }}
-                  >
-                    <div style={{ fontSize: 28, marginBottom: 6, color: tColors.text }}>
-                      <FontAwesomeIcon icon={status === 'occupied' ? faUtensils : faChair} />
-                    </div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: tColors.text }}>
-                      Mesa {table.number}
-                    </div>
-                    {status === 'occupied' && (
-                      <>
-                        <div style={{ fontSize: 12, color: tColors.text, marginTop: 4, opacity: 0.8 }}>
-                          {itemCount} item{itemCount !== 1 ? 's' : ''}
+            <>
+              {tableMapEditing && (
+                <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '8px 12px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button onClick={async () => {
+                    const maxSort = tables.reduce((m, t) => Math.max(m, t.sort_order || 0), 0);
+                    const newTable = { _new: true, id: Date.now(), label: `Mesa ${tables.length + 1}`, capacity: 4, x: 20, y: 20, w: 120, h: 80, shape: 'rect', sort_order: maxSort + 1 };
+                    const updated = [...tables, newTable];
+                    setTables(updated);
+                    await saveTablesToDb(updated);
+                  }} style={{ padding: '6px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                    <FontAwesomeIcon icon={faPlus} style={{ marginRight: 4 }} /> Mesa rectangular
+                  </button>
+                  <button onClick={async () => {
+                    const maxSort = tables.reduce((m, t) => Math.max(m, t.sort_order || 0), 0);
+                    const newTable = { _new: true, id: Date.now(), label: `Mesa ${tables.length + 1}`, capacity: 4, x: 20, y: 20, w: 100, h: 100, shape: 'circle', sort_order: maxSort + 1 };
+                    const updated = [...tables, newTable];
+                    setTables(updated);
+                    await saveTablesToDb(updated);
+                  }} style={{ padding: '6px 14px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                    <FontAwesomeIcon icon={faPlus} style={{ marginRight: 4 }} /> Mesa redonda
+                  </button>
+                </div>
+              )}
+              <div
+                ref={mapRef}
+                style={{ position: 'relative', width: '100%', height: 'calc(100vh - 180px)', overflow: 'auto', background: 'repeating-conic-gradient(#e8ecf0 0% 25%, #f1f5f9 0% 50%) 50% / 40px 40px' }}
+                onPointerUp={() => {
+                  if (draggingTable) {
+                    setDraggingTable(null);
+                    saveTablesToDb(tables);
+                  }
+                  if (resizingTable) {
+                    setResizingTable(null);
+                    saveTablesToDb(tables);
+                  }
+                }}
+                onPointerMove={(e) => {
+                  if (!mapRef.current) return;
+                  const rect = mapRef.current.getBoundingClientRect();
+                  if (draggingTable) {
+                    const mx = e.clientX - rect.left + mapRef.current.scrollLeft - draggingTable.ox;
+                    const my = e.clientY - rect.top + mapRef.current.scrollTop - draggingTable.oy;
+                    setTables(prev => prev.map(t => t.id === draggingTable.id ? { ...t, x: Math.max(0, Math.round(mx / 10) * 10), y: Math.max(0, Math.round(my / 10) * 10) } : t));
+                  }
+                  if (resizingTable) {
+                    const mx = e.clientX - rect.left + mapRef.current.scrollLeft;
+                    const my = e.clientY - rect.top + mapRef.current.scrollTop;
+                    setTables(prev => prev.map(t => {
+                      if (t.id !== resizingTable.id) return t;
+                      const nw = Math.max(60, Math.round((mx - t.x) / 10) * 10);
+                      const nh = Math.max(60, Math.round((my - t.y) / 10) * 10);
+                      return { ...t, w: nw, h: nh };
+                    }));
+                  }
+                }}
+              >
+                <div style={{ position: 'relative', width: 1200, height: 800, minWidth: '100%', minHeight: '100%' }}>
+                  {tables.map(table => {
+                    const status = getTableStatus(table.id);
+                    const total = getTableTotal(table.id);
+                    const itemCount = getTableItemCount(table.id);
+                    const isCircle = table.shape === 'circle';
+                    const occupied = status === 'occupied';
+                    const bgColor = occupied ? '#fef3c7' : '#fff';
+                    const borderColor = occupied ? '#f59e0b' : '#cbd5e1';
+                    const textColor = occupied ? '#92400e' : '#334155';
+                    return (
+                      <div
+                        key={table.id}
+                        style={{
+                          position: 'absolute', left: table.x, top: table.y, width: table.w, height: table.h,
+                          background: bgColor, border: `2px solid ${borderColor}`,
+                          borderRadius: isCircle ? '50%' : 12,
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                          cursor: tableMapEditing ? 'grab' : 'pointer',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.08)', transition: draggingTable?.id === table.id ? 'none' : 'box-shadow 0.2s',
+                          userSelect: 'none', touchAction: 'none', zIndex: draggingTable?.id === table.id ? 100 : 1
+                        }}
+                        onPointerDown={(e) => {
+                          if (!tableMapEditing) return;
+                          e.preventDefault();
+                          const ox = e.nativeEvent.offsetX;
+                          const oy = e.nativeEvent.offsetY;
+                          setDraggingTable({ id: table.id, ox, oy });
+                        }}
+                        onClick={() => {
+                          if (tableMapEditing || draggingTable) return;
+                          setTableActionModal(table);
+                        }}
+                      >
+                        <FontAwesomeIcon icon={occupied ? faUtensils : faChair} style={{ fontSize: Math.min(table.w, table.h) * 0.22, color: textColor, marginBottom: 2 }} />
+                        <div style={{ fontSize: Math.min(13, table.w * 0.1), fontWeight: 800, color: textColor, textAlign: 'center', lineHeight: 1.2 }}>
+                          {table.label}
                         </div>
-                        <div style={{ fontSize: 15, fontWeight: 800, color: tColors.badge, marginTop: 4 }}>
-                          ${total.toLocaleString()}
-                        </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setTableBillOpen(table.id); }}
-                          style={{ marginTop: 8, padding: '5px 14px', background: tColors.badge, color: '#fff', border: 'none', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
-                        >
-                          Ver cuenta
-                        </button>
-                      </>
-                    )}
-                    {status === 'free' && (
-                      <div style={{ fontSize: 12, color: tColors.text, marginTop: 4, opacity: 0.7, fontWeight: 600 }}>
-                        Disponible
+                        {occupied && (
+                          <div style={{ fontSize: 11, fontWeight: 800, color: '#f59e0b', marginTop: 2 }}>
+                            ${total.toLocaleString()} ({itemCount})
+                          </div>
+                        )}
+                        {!occupied && (
+                          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1 }}>
+                            <FontAwesomeIcon icon={faUser} style={{ marginRight: 2, fontSize: 8 }} />{table.capacity}
+                          </div>
+                        )}
+                        {tableMapEditing && (
+                          <>
+                            <div
+                              onPointerDown={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setResizingTable({ id: table.id });
+                              }}
+                              style={{ position: 'absolute', right: -4, bottom: -4, width: 14, height: 14, background: '#D4AF37', borderRadius: 3, cursor: 'nwse-resize', border: '2px solid #fff' }}
+                            />
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setTableConfigOpen(table); }}
+                              style={{ position: 'absolute', top: -8, right: -8, width: 20, height: 20, background: '#3b82f6', color: '#fff', border: '2px solid #fff', borderRadius: '50%', fontSize: 9, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                            >
+                              <FontAwesomeIcon icon={faEdit} />
+                            </button>
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const updated = tables.filter(t => t.id !== table.id);
+                                setTables(updated);
+                                await saveTablesToDb(updated);
+                              }}
+                              style={{ position: 'absolute', top: -8, left: -8, width: 20, height: 20, background: '#ef4444', color: '#fff', border: '2px solid #fff', borderRadius: '50%', fontSize: 9, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                            >
+                              <FontAwesomeIcon icon={faTrash} />
+                            </button>
+                          </>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -8756,7 +8897,7 @@ function Store() {
                   const next = !restaurantMode;
                   setRestaurantMode(next);
                   localStorage.setItem('srservi_restaurant_mode', next ? '1' : '0');
-                  if (next && tables.length === 0) setTableConfigOpen(true);
+                  if (next && tables.length === 0) setTableMapEditing(true);
                   setActiveTable(null);
                   setCart([]);
                   setPinOptionsModalOpen(false);
@@ -9497,31 +9638,57 @@ function Store() {
       )}
 
       {/* ── Restaurant: Table config modal ── */}
-      {tableConfigOpen && (
-        <div className="store-modal-overlay" style={{ zIndex: 99990 }} onClick={() => setTableConfigOpen(false)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 20, padding: '28px 24px', maxWidth: 380, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800, color: '#1a1a2e' }}>Configurar mesas</h3>
-            <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 14px' }}>¿Cuántas mesas tiene tu restaurante?</p>
+      {/* Table edit modal (name, capacity, shape) */}
+      {tableConfigOpen && typeof tableConfigOpen === 'object' && (
+        <div className="store-modal-overlay" style={{ zIndex: 99991 }} onClick={() => setTableConfigOpen(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 20, padding: '24px 20px', maxWidth: 340, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 17, fontWeight: 800, color: '#1a1a2e' }}>
+              <FontAwesomeIcon icon={faEdit} style={{ marginRight: 8, color: '#3b82f6' }} />Editar mesa
+            </h3>
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 4, display: 'block' }}>Nombre</label>
+            <input
+              type="text"
+              defaultValue={tableConfigOpen.label}
+              id="table-edit-label"
+              style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 15, fontWeight: 600, boxSizing: 'border-box', marginBottom: 12 }}
+            />
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 4, display: 'block' }}>Capacidad</label>
             <input
               type="number"
-              value={tableConfigCount}
-              onChange={e => setTableConfigCount(e.target.value)}
-              placeholder="Ej: 12"
-              min="1" max="100"
-              style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #e2e8f0', borderRadius: 10, fontSize: 16, fontWeight: 600, boxSizing: 'border-box', marginBottom: 14, textAlign: 'center' }}
+              defaultValue={tableConfigOpen.capacity || 4}
+              id="table-edit-capacity"
+              min="1" max="50"
+              style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 15, fontWeight: 600, boxSizing: 'border-box', marginBottom: 12 }}
             />
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 4, display: 'block' }}>Forma</label>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {['rect', 'circle'].map(sh => (
+                <button key={sh} id={`table-shape-${sh}`}
+                  onClick={() => {
+                    document.getElementById('table-shape-rect').style.background = sh === 'rect' ? '#3b82f6' : '#f1f5f9';
+                    document.getElementById('table-shape-rect').style.color = sh === 'rect' ? '#fff' : '#334155';
+                    document.getElementById('table-shape-circle').style.background = sh === 'circle' ? '#3b82f6' : '#f1f5f9';
+                    document.getElementById('table-shape-circle').style.color = sh === 'circle' ? '#fff' : '#334155';
+                    document.getElementById('table-edit-shape-val').value = sh;
+                  }}
+                  style={{ flex: 1, padding: '10px', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', background: tableConfigOpen.shape === sh ? '#3b82f6' : '#f1f5f9', color: tableConfigOpen.shape === sh ? '#fff' : '#334155' }}
+                >
+                  {sh === 'rect' ? 'Rectangular' : 'Redonda'}
+                </button>
+              ))}
+            </div>
+            <input type="hidden" id="table-edit-shape-val" defaultValue={tableConfigOpen.shape || 'rect'} />
             <button
-              onClick={() => {
-                const count = parseInt(tableConfigCount) || 0;
-                if (count < 1 || count > 100) return;
-                const newTables = Array.from({ length: count }, (_, i) => ({ id: i + 1, number: i + 1 }));
-                setTables(newTables);
-                localStorage.setItem('srservi_tables', JSON.stringify(newTables));
-                setTableConfigCount('');
+              onClick={async () => {
+                const label = document.getElementById('table-edit-label').value || 'Mesa';
+                const capacity = parseInt(document.getElementById('table-edit-capacity').value) || 4;
+                const shape = document.getElementById('table-edit-shape-val').value;
+                const updated = tables.map(t => t.id === tableConfigOpen.id ? { ...t, label, capacity, shape } : t);
+                setTables(updated);
+                await saveTablesToDb(updated);
                 setTableConfigOpen(false);
               }}
-              disabled={!tableConfigCount || parseInt(tableConfigCount) < 1}
-              style={{ width: '100%', padding: 14, background: !tableConfigCount ? '#e5e7eb' : '#D4AF37', color: !tableConfigCount ? '#9ca3af' : '#000', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: !tableConfigCount ? 'not-allowed' : 'pointer' }}
+              style={{ width: '100%', padding: 12, background: '#D4AF37', color: '#000', border: 'none', borderRadius: 10, fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
             >
               Guardar
             </button>
@@ -9529,73 +9696,134 @@ function Store() {
         </div>
       )}
 
-      {/* ── Restaurant: Table bill modal ── */}
-      {tableBillOpen !== null && (
-        <div className="store-modal-overlay" style={{ zIndex: 99990 }} onClick={() => setTableBillOpen(null)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 20, padding: '24px 20px', maxWidth: 420, width: '92%', maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1a1a2e' }}>
-                <FontAwesomeIcon icon={faMoneyBillWave} style={{ marginRight: 6 }} /> Cuenta — Mesa {tableBillOpen}
-              </h3>
-              <button onClick={() => setTableBillOpen(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: 32, height: 32, fontSize: 16, cursor: 'pointer', color: '#64748b' }}>×</button>
+      {/* Table action modal (click on table in map) */}
+      {tableActionModal && (
+        <div className="store-modal-overlay" style={{ zIndex: 99990 }} onClick={() => setTableActionModal(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 20, padding: '24px 20px', maxWidth: 340, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+              <FontAwesomeIcon icon={getTableStatus(tableActionModal.id) === 'occupied' ? faUtensils : faChair} style={{ fontSize: 28, color: getTableStatus(tableActionModal.id) === 'occupied' ? '#f59e0b' : '#16a34a', marginBottom: 8 }} />
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1a1a2e' }}>{tableActionModal.label || `Mesa ${tableActionModal.id}`}</h3>
+              {getTableStatus(tableActionModal.id) === 'occupied' && (
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#f59e0b', fontWeight: 700 }}>${getTableTotal(tableActionModal.id).toLocaleString()} - {getTableItemCount(tableActionModal.id)} items</p>
+              )}
             </div>
-            {(tableOrders[tableBillOpen] || []).length === 0 ? (
-              <p style={{ color: '#94a3b8', textAlign: 'center', padding: '20px 0' }}>Mesa vacía</p>
-            ) : (
-              <>
-                {(tableOrders[tableBillOpen] || []).map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>
-                        {item.quantity || 1}× {item.product_name || item.name}
-                      </div>
-                      {item.selected_extras?.length > 0 && (
-                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                          + {item.selected_extras.map(e => typeof e === 'object' ? e.name : e).join(', ')}
-                        </div>
-                      )}
-                      {item.selected_complements?.length > 0 && (
-                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                          + {item.selected_complements.map(c => typeof c === 'object' ? c.name : c).join(', ')}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', whiteSpace: 'nowrap', marginLeft: 12 }}>
-                      ${(item.total || (item.unit_price || 0) * (item.quantity || 1)).toLocaleString()}
-                    </div>
-                  </div>
-                ))}
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0 12px', borderTop: '2px solid #e2e8f0', marginTop: 8 }}>
-                  <span style={{ fontWeight: 800, fontSize: 18, color: '#1e293b' }}>Total</span>
-                  <span style={{ fontWeight: 900, fontSize: 20, color: '#D4AF37' }}>
-                    ${getTableTotal(tableBillOpen).toLocaleString()}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button
-                    onClick={() => {
-                      const items = tableOrders[tableBillOpen] || [];
-                      setCart(items);
-                      setBillingTableId(tableBillOpen);
-                      setTableBillOpen(null);
-                      setPaymentModalOpen(true);
-                    }}
-                    style={{ flex: 1, padding: 14, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
-                  >
-                    Cobrar mesa
-                  </button>
-                  <button
-                    onClick={() => { clearTable(tableBillOpen); setTableBillOpen(null); }}
-                    style={{ padding: '14px 18px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
-                  >
-                    Liberar
-                  </button>
-                </div>
-              </>
-            )}
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 4, display: 'block' }}>
+              <FontAwesomeIcon icon={faUser} style={{ marginRight: 4 }} /> Personas en la mesa
+            </label>
+            <input
+              type="number"
+              min="1" max="50"
+              value={tablePersons[tableActionModal.id] || ''}
+              onChange={e => setTablePersons(prev => ({ ...prev, [tableActionModal.id]: parseInt(e.target.value) || '' }))}
+              placeholder={`Capacidad: ${tableActionModal.capacity || 4}`}
+              style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 15, fontWeight: 600, boxSizing: 'border-box', marginBottom: 14 }}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={() => { setActiveTable(tableActionModal); setCart([]); setTableActionModal(null); }}
+                style={{ padding: 14, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              >
+                <FontAwesomeIcon icon={faPlus} /> Agregar productos
+              </button>
+              {getTableStatus(tableActionModal.id) === 'occupied' && (
+                <button
+                  onClick={() => { setTableBillOpen(tableActionModal.id); setTableActionModal(null); }}
+                  style={{ padding: 14, background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                >
+                  <FontAwesomeIcon icon={faMoneyBillWave} /> Ver cuenta
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
+
+      {/* ── Restaurant: Table bill modal ── */}
+      {tableBillOpen !== null && (() => {
+        const order = tableOrders[tableBillOpen];
+        const items = order?.items || [];
+        const billTable = tables.find(t => t.id === tableBillOpen);
+        const billLabel = billTable?.label || `Mesa ${tableBillOpen}`;
+        return (
+          <div className="store-modal-overlay" style={{ zIndex: 99991 }} onClick={() => setTableBillOpen(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 20, padding: '24px 20px', maxWidth: 420, width: '92%', maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1a1a2e' }}>
+                  <FontAwesomeIcon icon={faMoneyBillWave} style={{ marginRight: 6 }} /> {billLabel}
+                </h3>
+                <button onClick={() => setTableBillOpen(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: 32, height: 32, fontSize: 16, cursor: 'pointer', color: '#64748b' }}>×</button>
+              </div>
+              {order?.order_number && (
+                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>Pedido #{order.order_number} {order.persons ? `- ${order.persons} personas` : ''}</div>
+              )}
+              {items.length === 0 ? (
+                <p style={{ color: '#94a3b8', textAlign: 'center', padding: '20px 0' }}>Mesa vacía</p>
+              ) : (
+                <>
+                  {items.map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>
+                          {item.quantity || 1}x {item.product_name || item.name}
+                        </div>
+                        {item.selected_extras?.length > 0 && (
+                          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                            + {item.selected_extras.map(e => typeof e === 'object' ? e.name : e).join(', ')}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', whiteSpace: 'nowrap', marginLeft: 12 }}>
+                        ${((item.unit_price || 0) * (item.quantity || 1)).toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0 12px', borderTop: '2px solid #e2e8f0', marginTop: 8 }}>
+                    <span style={{ fontWeight: 800, fontSize: 18, color: '#1e293b' }}>Total</span>
+                    <span style={{ fontWeight: 900, fontSize: 20, color: '#D4AF37' }}>
+                      ${getTableTotal(tableBillOpen).toLocaleString()}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button
+                      onClick={() => {
+                        const cartItems = items.map(i => ({
+                          product_id: i.product_id,
+                          product_name: i.product_name || i.name,
+                          unit_price: i.unit_price,
+                          quantity: i.quantity || 1,
+                          total: (i.unit_price || 0) * (i.quantity || 1),
+                          selected_extras: i.selected_extras || [],
+                          selected_ingredients: i.selected_ingredients || [],
+                          selected_complements: i.selected_complements || []
+                        }));
+                        setCart(cartItems);
+                        setBillingTableId(tableBillOpen);
+                        setTableBillOpen(null);
+                        setPaymentModalOpen(true);
+                      }}
+                      style={{ flex: 1, padding: 14, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
+                    >
+                      <FontAwesomeIcon icon={faCreditCard} style={{ marginRight: 6 }} /> Cobrar mesa
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (order?.id) {
+                          await fetch(`/api/orders/${order.id}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'completed' }) }).catch(() => {});
+                        }
+                        setTableBillOpen(null);
+                        refreshTableOrders();
+                      }}
+                      style={{ padding: '14px 18px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                    >
+                      Liberar
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
     </PluginProvider>
   );

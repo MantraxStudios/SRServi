@@ -3832,11 +3832,11 @@ export async function createOrder(storeId, orderData) {
   }
 
   const isDeliveryApp = orderData.source === 'delivery_app';
+  const isRestaurantPending = payment_method === 'pending';
   const deliveryStatus = isDeliveryApp ? 'waiting' : null;
-  // Delivery orders are always pending (payment collected at door)
-  const finalStatus = isDeliveryApp ? paidStatus : initialStatus;
-  const finalCashApproved = isDeliveryApp ? true : cashApproved;
-  const finalPaymentProcess = isDeliveryApp ? 1 : paymentProcess;
+  const finalStatus = isDeliveryApp ? paidStatus : isRestaurantPending ? paidStatus : initialStatus;
+  const finalCashApproved = isDeliveryApp ? true : isRestaurantPending ? true : cashApproved;
+  const finalPaymentProcess = isDeliveryApp ? 1 : isRestaurantPending ? 1 : paymentProcess;
 
   const [result] = await pool.execute(
     'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, pos_pin, payment_process, status, table_number, persons, source, customer_phone, customer_name, delivery_address, delivery_status, delivery_customer_id, customer_email, event_name, show_time, customer_comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -6633,7 +6633,7 @@ export async function getRestaurantTablesWithStatus(storeId) {
   const [rows] = await pool.execute(`
     SELECT t.*,
       (SELECT COUNT(*) FROM orders o
-       WHERE o.store_id = ? AND o.table_number = t.id AND o.status = 'pending') > 0 AS occupied
+       WHERE o.store_id = ? AND o.table_number = t.id AND o.status NOT IN ('completed', 'cancelled')) > 0 AS occupied
     FROM restaurant_tables t
     WHERE t.store_id = ?
     ORDER BY t.sort_order ASC, t.id ASC

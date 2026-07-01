@@ -13490,7 +13490,7 @@ app.get('/api/public/table-order/:storeCode/:tableId', async (req, res) => {
     const [rows] = await pool.execute(`
       SELECT o.id, o.order_number, o.total, o.status, o.payment_method, o.created_at, o.table_number, o.persons
       FROM orders o
-      WHERE o.store_id = ? AND o.table_number = ? AND o.status = 'pending'
+      WHERE o.store_id = ? AND o.table_number = ? AND o.status NOT IN ('completed', 'cancelled')
       ORDER BY o.created_at DESC LIMIT 1
     `, [store.id, tableId]);
     if (rows.length === 0) return res.json(null);
@@ -13508,6 +13508,40 @@ app.get('/api/public/table-order/:storeCode/:tableId', async (req, res) => {
       selected_extras: (() => { try { return JSON.parse(r.selected_extras || '[]'); } catch { return []; } })()
     }));
     res.json(order);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Bulk save restaurant tables (POS uses store code)
+app.post('/api/public/restaurant-tables/:storeCode', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const { tables } = req.body;
+    if (!Array.isArray(tables)) return res.status(400).json({ error: 'tables array requerido' });
+    const existingIds = tables.filter(t => t.id && !t._new).map(t => t.id);
+    if (existingIds.length > 0) {
+      const placeholders = existingIds.map(() => '?').join(',');
+      await pool.execute(`DELETE FROM restaurant_tables WHERE store_id = ? AND id NOT IN (${placeholders})`, [store.id, ...existingIds]);
+    } else {
+      await pool.execute('DELETE FROM restaurant_tables WHERE store_id = ?', [store.id]);
+    }
+    const saved = [];
+    for (const t of tables) {
+      if (t.id && !t._new) {
+        await pool.execute(
+          'UPDATE restaurant_tables SET label = ?, capacity = ?, x = ?, y = ?, w = ?, h = ?, shape = ?, sort_order = ? WHERE id = ? AND store_id = ?',
+          [t.label || 'Mesa', t.capacity || 4, t.x || 0, t.y || 0, t.w || 120, t.h || 80, t.shape || 'rect', t.sort_order || 0, t.id, store.id]
+        );
+        saved.push({ ...t, store_id: store.id });
+      } else {
+        const [result] = await pool.execute(
+          'INSERT INTO restaurant_tables (store_id, label, capacity, x, y, w, h, shape, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [store.id, t.label || 'Mesa', t.capacity || 4, t.x || 0, t.y || 0, t.w || 120, t.h || 80, t.shape || 'rect', t.sort_order || 0]
+        );
+        saved.push({ ...t, id: result.insertId, store_id: store.id });
+      }
+    }
+    res.json(saved);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
