@@ -215,57 +215,59 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startApkDownload(storeCode: String) {
-        val progressDialog = AlertDialog.Builder(this)
-            .setTitle("Descargando actualización")
-            .setMessage("Descargando APK...")
-            .setCancelable(false)
-            .create()
-        runOnUiThread { progressDialog.show() }
+        runOnUiThread {
+            val progressDialog = AlertDialog.Builder(this)
+                .setTitle("Descargando actualización")
+                .setMessage("Descargando APK...")
+                .setCancelable(false)
+                .create()
+            progressDialog.show()
 
-        Thread {
-            try {
-                val url = if (storeCode.isNotBlank())
-                    "https://srservi2.srautomatic.com/api/apps/android/download?appName=launcher&storeCode=$storeCode"
-                else
-                    "https://srservi2.srautomatic.com/api/apps/android/download?appName=launcher"
+            Thread {
+                try {
+                    val url = if (storeCode.isNotBlank())
+                        "https://srservi2.srautomatic.com/api/apps/android/download?appName=launcher&storeCode=$storeCode"
+                    else
+                        "https://srservi2.srautomatic.com/api/apps/android/download?appName=launcher"
 
-                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                conn.requestMethod = "GET"
-                conn.connect()
+                    val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                    conn.requestMethod = "GET"
+                    conn.connect()
 
-                val total = conn.contentLengthLong
-                val apkFile = java.io.File(cacheDir, "SRServi-POS-update.apk")
-                val input = conn.inputStream
-                val output = java.io.FileOutputStream(apkFile)
-                val buffer = ByteArray(8192)
-                var downloaded = 0L
-                var bytes: Int
+                    val total = conn.contentLengthLong
+                    val apkFile = java.io.File(cacheDir, "SRServi-POS-update.apk")
+                    val input = conn.inputStream
+                    val output = java.io.FileOutputStream(apkFile)
+                    val buffer = ByteArray(8192)
+                    var downloaded = 0L
+                    var bytes: Int
 
-                while (input.read(buffer).also { bytes = it } != -1) {
-                    output.write(buffer, 0, bytes)
-                    downloaded += bytes
-                    if (total > 0) {
-                        val pct = (downloaded * 100 / total).toInt()
-                        runOnUiThread { progressDialog.setMessage("Descargando... $pct%") }
+                    while (input.read(buffer).also { bytes = it } != -1) {
+                        output.write(buffer, 0, bytes)
+                        downloaded += bytes
+                        if (total > 0) {
+                            val pct = (downloaded * 100 / total).toInt()
+                            runOnUiThread { progressDialog.setMessage("Descargando... $pct%") }
+                        }
+                    }
+                    output.flush()
+                    output.close()
+                    input.close()
+                    conn.disconnect()
+
+                    runOnUiThread {
+                        progressDialog.dismiss()
+                        installApk(apkFile)
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        progressDialog.dismiss()
+                        Toast.makeText(this, "Error al descargar: ${e.message}", Toast.LENGTH_LONG).show()
+                        updateDialogShown = false
                     }
                 }
-                output.flush()
-                output.close()
-                input.close()
-                conn.disconnect()
-
-                runOnUiThread {
-                    progressDialog.dismiss()
-                    installApk(apkFile)
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    progressDialog.dismiss()
-                    Toast.makeText(this, "Error al descargar: ${e.message}", Toast.LENGTH_LONG).show()
-                    updateDialogShown = false
-                }
-            }
-        }.start()
+            }.start()
+        }
     }
 
     private fun installApk(file: java.io.File) {
