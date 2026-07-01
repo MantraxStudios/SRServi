@@ -51,6 +51,9 @@ import {
   faTicket,
   faStar,
   faLayerGroup,
+  faChair,
+  faCog,
+  faStore,
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl, getProductImageUrl } from '../config.js';
@@ -4717,7 +4720,7 @@ function Store() {
       {restaurantMode && (
         <div style={{ background: 'linear-gradient(135deg, #1e293b, #334155)', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 16 }}>🍽️</span>
+            <FontAwesomeIcon icon={faUtensils} style={{ fontSize: 14, color: '#D4AF37' }} />
             <span style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>
               {activeTable ? `Mesa ${activeTable.number}` : 'Modo Restaurante'}
             </span>
@@ -4725,11 +4728,11 @@ function Store() {
           <div style={{ display: 'flex', gap: 8 }}>
             {activeTable && (
               <button onClick={() => { setActiveTable(null); setCart([]); }} style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '5px 12px', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                ← Volver a mesas
+                <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 4 }} /> Volver a mesas
               </button>
             )}
             <button onClick={() => setTableConfigOpen(true)} style={{ background: 'rgba(212,175,55,0.2)', border: '1px solid rgba(212,175,55,0.4)', borderRadius: 8, padding: '5px 12px', color: '#D4AF37', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              ⚙️ Mesas
+              <FontAwesomeIcon icon={faCog} style={{ marginRight: 4 }} /> Mesas
             </button>
           </div>
         </div>
@@ -4740,7 +4743,7 @@ function Store() {
         <div style={{ flex: 1, padding: '20px 16px', background: '#f8fafc', overflowY: 'auto' }}>
           {tables.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>🪑</div>
+              <FontAwesomeIcon icon={faChair} style={{ fontSize: 48, marginBottom: 12, color: '#64748b' }} />
               <p style={{ fontSize: 16, color: '#64748b', marginBottom: 16 }}>No hay mesas configuradas</p>
               <button onClick={() => setTableConfigOpen(true)} style={{ padding: '12px 24px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
                 Configurar mesas
@@ -4766,8 +4769,8 @@ function Store() {
                       minHeight: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
                     }}
                   >
-                    <div style={{ fontSize: 32, marginBottom: 6 }}>
-                      {status === 'occupied' ? '🍽️' : '🪑'}
+                    <div style={{ fontSize: 28, marginBottom: 6, color: tColors.text }}>
+                      <FontAwesomeIcon icon={status === 'occupied' ? faUtensils : faChair} />
                     </div>
                     <div style={{ fontSize: 18, fontWeight: 800, color: tColors.text }}>
                       Mesa {table.number}
@@ -5047,7 +5050,7 @@ function Store() {
       )}
 
 
-      {(!editMode || previewMode) && activeCategory === 'all' && (store?.combos || []).filter(c => c.is_active && c.items?.length > 0).length > 0 && (
+      {(!editMode || previewMode) && !(restaurantMode && !activeTable) && activeCategory === 'all' && (store?.combos || []).filter(c => c.is_active && c.items?.length > 0).length > 0 && (
         <div className="category-section">
           <div className="category-section-header">
             <div className="flex items-center gap-3">
@@ -5098,7 +5101,7 @@ function Store() {
         </div>
       )}
 
-      {(!editMode || previewMode) && activeCategory === 'all' && hasProducts && (
+      {(!editMode || previewMode) && !(restaurantMode && !activeTable) && activeCategory === 'all' && hasProducts && (
         <div className="category-sections" ref={productsAreaRef}>
           {(() => {
             const uncategorized = getSmartProducts().filter(p => !p.category_name);
@@ -5130,7 +5133,7 @@ function Store() {
         </div>
       )}
 
-      {(!editMode || previewMode) && activeCategory !== 'all' && hasProducts && (
+      {(!editMode || previewMode) && !(restaurantMode && !activeTable) && activeCategory !== 'all' && hasProducts && (
         <div className="products-grid">
           {(store?.products || [])
             .filter(product => product.category_name === activeCategory)
@@ -8720,7 +8723,7 @@ function Store() {
                   }}
                   style={{ padding: '14px', borderRadius: '10px', border: '2px solid #2563eb', background: '#eff6ff', color: '#1d4ed8', fontSize: '15px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
-                  🏪 Salir del modo Ticketería
+                  <FontAwesomeIcon icon={faStore} /> Salir del modo Ticketería
                 </button>
               )}
               <button
@@ -8746,7 +8749,7 @@ function Store() {
                 }}
                 style={{ padding: '14px', borderRadius: '10px', border: '2px solid #C8A415', background: '#fffbeb', color: '#92760a', fontSize: '15px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               >
-                🎟️ Modo Ticketería
+                <FontAwesomeIcon icon={faTicketAlt} /> Modo Ticketería
               </button>
               <button
                 onClick={() => {
@@ -8760,7 +8763,7 @@ function Store() {
                 }}
                 style={{ padding: '14px', borderRadius: '10px', border: '2px solid #16a34a', background: restaurantMode ? '#16a34a' : '#f0fdf4', color: restaurantMode ? '#fff' : '#166534', fontSize: '15px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               >
-                🍽️ {restaurantMode ? 'Salir modo Restaurante' : 'Modo Restaurante'}
+                <FontAwesomeIcon icon={faUtensils} /> {restaurantMode ? 'Salir modo Restaurante' : 'Modo Restaurante'}
               </button>
               <button
                 onClick={() => {
@@ -9532,7 +9535,7 @@ function Store() {
           <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 20, padding: '24px 20px', maxWidth: 420, width: '92%', maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1a1a2e' }}>
-                🧾 Cuenta — Mesa {tableBillOpen}
+                <FontAwesomeIcon icon={faMoneyBillWave} style={{ marginRight: 6 }} /> Cuenta — Mesa {tableBillOpen}
               </h3>
               <button onClick={() => setTableBillOpen(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: 32, height: 32, fontSize: 16, cursor: 'pointer', color: '#64748b' }}>×</button>
             </div>
