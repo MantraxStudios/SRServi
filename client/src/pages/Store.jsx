@@ -4637,8 +4637,6 @@ function Store() {
     }
   };
 
-  handleApkUpdateRef.current = handleApkUpdate;
-
   const renderAddProductCard = () => (
     <div className="store-product-wrapper" key="add-product">
       <div className="store-product-card store-add-card" onClick={() => openProdModal()}>
