@@ -8706,7 +8706,7 @@ function Store() {
       {/* PIN Options modal - shown after correct PIN entry */}
       {pinOptionsModalOpen && (
         <div className="store-modal-overlay" onClick={() => setPinOptionsModalOpen(false)} style={ticketMode ? { zIndex: 10001 } : undefined}>
-          <div className="store-pin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '320px' }}>
+          <div className="store-pin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '320px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
               <FontAwesomeIcon icon={faLock} style={{ fontSize: '28px', color: 'var(--store-accent)', marginBottom: '8px' }} />
               <h3 style={{ margin: 0, color: 'var(--store-primary)' }}>¿Qué deseas hacer?</h3>
