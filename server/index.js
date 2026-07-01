@@ -1405,6 +1405,15 @@ app.put('/api/user/settings', authenticateToken, async (req, res) => {
   }
  });
 
+app.get('/api/user/phone', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT phone FROM users WHERE id = ?', [req.user.id]);
+    res.json({ phone: rows[0]?.phone || null });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.put('/api/user/phone', authenticateToken, async (req, res) => {
   try {
     const phone = (req.body.phone || '').trim();

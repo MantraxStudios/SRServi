@@ -161,9 +161,20 @@ function Layout() {
     setFpStoreOpen(false);
   }, [location.pathname]);
 
-  // Check if user needs to add phone number
+  // Check if user needs to add phone number — verify against server
   useEffect(() => {
-    if (user && !user.phone && !isSubAccount) setPhoneModal(true);
+    if (!user || isSubAccount || user.phone) return;
+    fetch(`${API}/api/user/phone`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.phone) {
+          const updated = { ...user, phone: data.phone };
+          localStorage.setItem('user', JSON.stringify(updated));
+        } else {
+          setPhoneModal(true);
+        }
+      })
+      .catch(() => {});
   }, [user]);
 
   const savePhone = async () => {
