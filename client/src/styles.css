@@ -2407,6 +2407,8 @@ h1, h2, h3, h4, h5, h6 {
   cursor: pointer;
   position: relative;
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
   outline: none !important;
   -webkit-tap-highlight-color: transparent !important;
   touch-action: manipulation;
@@ -2746,7 +2748,8 @@ html body .store-container .store-product-card * {
   margin-top: var(--space-3);
   text-align: center;
   width: 100%;
-  max-height: 44px;
+  min-width: 0;
+  max-height: 40px;
   overflow: hidden;
 }
 
@@ -2758,9 +2761,9 @@ html body .store-container .store-product-card * {
   align-items: center;
   gap: var(--space-2);
   flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .store-product-details.out-of-stock {
@@ -2772,11 +2775,14 @@ html body .store-container .store-product-card * {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 60%;
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 .store-product-price {
   font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Empty store */
