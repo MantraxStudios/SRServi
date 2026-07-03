@@ -2749,8 +2749,6 @@ html body .store-container .store-product-card * {
   text-align: center;
   width: 100%;
   min-width: 0;
-  max-height: 40px;
-  overflow: hidden;
 }
 
 .store-product-details {
@@ -2760,10 +2758,7 @@ html body .store-container .store-product-card * {
   justify-content: center;
   align-items: center;
   gap: var(--space-2);
-  flex-wrap: nowrap;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
+  flex-wrap: wrap;
 }
 
 .store-product-details.out-of-stock {
@@ -2772,17 +2767,10 @@ html body .store-container .store-product-card * {
 
 .store-product-name {
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-  flex-shrink: 1;
 }
 
 .store-product-price {
   font-weight: 700;
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 
 /* Empty store */
