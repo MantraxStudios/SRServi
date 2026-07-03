@@ -579,6 +579,8 @@ export default function DeliveryStore() {
   const searchParams = new URLSearchParams(window.location.search);
   const haulmerRef = searchParams.get('ref');
   const haulmerResult = searchParams.get('x_result');
+  const mpRef = searchParams.get('mp_ref');
+  const mpResult = searchParams.get('mp_result');
 
   const [store, setStore] = useState(null);
   const [products, setProducts] = useState([]);
@@ -607,6 +609,16 @@ export default function DeliveryStore() {
   const [activeCategory, setActiveCategory] = useState(null);
 
   useEffect(() => {
+    if (mpRef && mpResult === 'success') {
+      setPayStep('success');
+      setCart([]);
+      window.history.replaceState({}, '', `/delivery/${code}`);
+      return;
+    }
+    if (mpRef && mpResult) {
+      window.history.replaceState({}, '', `/delivery/${code}`);
+      return;
+    }
     if (!haulmerRef || !haulmerRef.startsWith('SRSN-')) return;
     if (haulmerResult === 'completed') {
       const xParams = {};
@@ -638,6 +650,7 @@ export default function DeliveryStore() {
         setDeliverySettings(ds);
         if (ds.payment_cash !== false) setPaymentMethod('cash');
         else if (ds.payment_card) setPaymentMethod('card');
+        else if (ds.payment_mp) setPaymentMethod('mercadopago');
       }
     }).catch(() => {}).finally(() => setLoading(false));
   }, [code]);
@@ -743,7 +756,7 @@ export default function DeliveryStore() {
       const orderBody = {
         store_id: store.id,
         order_type: 'delivery',
-        payment_method: paymentMethod === 'card' ? 'card' : 'cash',
+        payment_method: paymentMethod === 'mercadopago' ? 'mercadopago' : paymentMethod === 'card' ? 'card' : 'cash',
         source: 'delivery_app',
         delivery_address: deliveryAddress,
         delivery_fee: deliveryFee,
@@ -787,6 +800,23 @@ export default function DeliveryStore() {
         if (!hData.success) throw new Error(hData.error || 'Error generando pago Haulmer');
         localStorage.setItem('deliveryLastEstimated', String(deliverySettings?.estimated_minutes || 45));
         window.location.href = hData.paymentUrl;
+        return;
+      }
+
+      if (paymentMethod === 'mercadopago') {
+        const mpRes = await fetch(`${API}/api/delivery/mp-payment`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            store_id: store.id, order_id: order.id,
+            amount: Math.round(finalTotal),
+            customer_email: customer.email,
+            customer_name: customer.name
+          })
+        });
+        const mpData = await mpRes.json();
+        if (!mpData.success) throw new Error(mpData.error || 'Error generando pago Mercado Pago');
+        localStorage.setItem('deliveryLastEstimated', String(deliverySettings?.estimated_minutes || 45));
+        window.location.href = mpData.init_point;
         return;
       }
 
@@ -1169,32 +1199,35 @@ export default function DeliveryStore() {
               {/* Payment */}
               <div style={{ background: '#fff', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
                 <div style={{ fontWeight: 800, fontSize: 12, color: '#9ca3af', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.6 }}>Método de pago</div>
-                {deliverySettings?.payment_cash !== false && deliverySettings?.payment_card ? (
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {[
-                      { value: 'cash', label: '💵 Efectivo', desc: 'Al recibir' },
-                      { value: 'card', label: '💳 Tarjeta Tuu', desc: 'Terminal contra entrega' }
-                    ].map(opt => (
-                      <div key={opt.value} onClick={() => setPaymentMethod(opt.value)} style={{
-                        flex: 1, padding: '12px', borderRadius: 12, cursor: 'pointer',
-                        border: paymentMethod === opt.value ? '2px solid #D4AF37' : '1.5px solid #e5e7eb',
-                        background: paymentMethod === opt.value ? 'rgba(212,175,55,0.06)' : '#f9fafb',
-                        transition: 'all 0.15s'
-                      }}>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: '#111' }}>{opt.label}</div>
-                        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{opt.desc}</div>
+                {(() => {
+                  const methods = [];
+                  if (deliverySettings?.payment_cash !== false) methods.push({ value: 'cash', label: '💵 Efectivo', desc: 'Al recibir' });
+                  if (deliverySettings?.payment_card) methods.push({ value: 'card', label: '💳 Tarjeta Tuu', desc: 'Terminal contra entrega' });
+                  if (deliverySettings?.payment_mp) methods.push({ value: 'mercadopago', label: '🟦 Mercado Pago', desc: 'Pagar online' });
+                  if (methods.length <= 1) {
+                    const m = methods[0] || { value: 'cash', label: '💵 Efectivo', desc: 'Al recibir' };
+                    return (
+                      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#15803d', fontWeight: 600 }}>
+                        {m.label} — {m.desc}
                       </div>
-                    ))}
-                  </div>
-                ) : deliverySettings?.payment_card && deliverySettings?.payment_cash === false ? (
-                  <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#0369a1', fontWeight: 600 }}>
-                    💳 Tarjeta con terminal Tuu (contra entrega)
-                  </div>
-                ) : (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#15803d', fontWeight: 600 }}>
-                    💵 Efectivo contra entrega
-                  </div>
-                )}
+                    );
+                  }
+                  return (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {methods.map(opt => (
+                        <div key={opt.value} onClick={() => setPaymentMethod(opt.value)} style={{
+                          flex: 1, minWidth: 100, padding: '12px', borderRadius: 12, cursor: 'pointer',
+                          border: paymentMethod === opt.value ? '2px solid #D4AF37' : '1.5px solid #e5e7eb',
+                          background: paymentMethod === opt.value ? 'rgba(212,175,55,0.06)' : '#f9fafb',
+                          transition: 'all 0.15s'
+                        }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: '#111' }}>{opt.label}</div>
+                          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{opt.desc}</div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
 
               <button

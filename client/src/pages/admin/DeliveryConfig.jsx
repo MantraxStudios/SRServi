@@ -37,7 +37,8 @@ export default function DeliveryConfig() {
     close_time: '22:00',
     estimated_minutes: 45,
     payment_cash: true,
-    payment_card: false
+    payment_card: false,
+    payment_mp: false
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -67,7 +68,8 @@ export default function DeliveryConfig() {
             close_time: data.close_time || '22:00',
             estimated_minutes: data.estimated_minutes || 45,
             payment_cash: data.payment_cash !== false,
-            payment_card: !!data.payment_card
+            payment_card: !!data.payment_card,
+            payment_mp: !!data.payment_mp
           });
         }
       }
@@ -282,14 +284,15 @@ export default function DeliveryConfig() {
         </p>
         {[
           { key: 'payment_cash', label: '💵 Efectivo contra entrega', desc: 'El cliente paga en efectivo al recibir el pedido' },
-          { key: 'payment_card', label: '💳 Tarjeta contra entrega (Tuu)', desc: 'Tu repartidor cobra con el terminal Tuu al entregar' }
+          { key: 'payment_card', label: '💳 Tarjeta contra entrega (Tuu)', desc: 'Tu repartidor cobra con el terminal Tuu al entregar' },
+          { key: 'payment_mp', label: '🟦 Mercado Pago (online)', desc: 'El cliente paga online antes de recibir el pedido' }
         ].map(opt => (
           <div
             key={opt.key}
             onClick={() => {
               const next = !form[opt.key];
-              if (!next && opt.key === 'payment_cash' && !form.payment_card) return;
-              if (!next && opt.key === 'payment_card' && !form.payment_cash) return;
+              const othersOn = ['payment_cash', 'payment_card', 'payment_mp'].filter(k => k !== opt.key && form[k]).length;
+              if (!next && othersOn === 0) return;
               f(opt.key, next);
             }}
             style={{

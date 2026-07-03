@@ -2608,7 +2608,27 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
       
       if (payment.status === 'approved') {
         const externalRef = payment.external_reference;
-        if (externalRef && externalRef.startsWith('totem-install-')) {
+        if (externalRef && externalRef.startsWith('delivery-')) {
+          const parts = externalRef.split('-');
+          const storeId = parseInt(parts[1]);
+          const orderId = parseInt(parts[2]);
+          if (orderId) {
+            await pool.execute("UPDATE orders SET payment_process = 1, cash_approved = TRUE, status = 'preparing' WHERE id = ? AND payment_process = 0", [orderId]);
+            const [orderRows] = await pool.execute('SELECT * FROM orders WHERE id = ?', [orderId]);
+            if (orderRows[0]) {
+              const [itemRows] = await pool.execute('SELECT * FROM order_items WHERE order_id = ?', [orderId]);
+              const orderNumber = orderRows[0].order_number || null;
+              if (!orderNumber) {
+                const [maxON] = await pool.execute('SELECT MAX(order_number) as m FROM orders WHERE store_id = ?', [storeId]);
+                const nextON = (maxON[0]?.m || 0) + 1;
+                await pool.execute('UPDATE orders SET order_number = ? WHERE id = ?', [nextON, orderId]);
+              }
+              io.to(`store_${storeId}`).emit('new_order', { ...orderRows[0], items: itemRows });
+              io.to(`store_${storeId}`).emit('payment_confirmed', { ...orderRows[0], items: itemRows });
+            }
+            console.log(`[Delivery MP] Pago aprobado para orden #${orderId} tienda ${storeId}`);
+          }
+        } else if (externalRef && externalRef.startsWith('totem-install-')) {
           const parts = externalRef.split('-');
           const rentalId = parseInt(parts[2]);
           if (rentalId) {
@@ -10645,6 +10665,48 @@ async function startServer() {
         }
         res.json({ success: true, order_number: orderNumber });
       } catch (e) { console.error('[Haulmer confirm]', e); res.status(500).json({ error: e.message }); }
+    });
+
+    // POST /api/delivery/mp-payment — create MP preference for delivery order
+    app.post('/api/delivery/mp-payment', async (req, res) => {
+      try {
+        const { store_id, order_id, amount, customer_email, customer_name } = req.body;
+        if (!store_id || !order_id || !amount) return res.status(400).json({ error: 'Faltan datos' });
+
+        const [storeRows] = await pool.execute('SELECT code FROM stores WHERE id = ?', [store_id]);
+        if (!storeRows[0]) return res.status(404).json({ error: 'Tienda no encontrada' });
+
+        const clientUrl = process.env.BASE_URL || 'https://srservi2.srautomatic.com';
+        const storeCode = storeRows[0].code;
+
+        const preferenceClient = new Preference(mpClient);
+        const response = await preferenceClient.create({
+          body: {
+            items: [{
+              id: `delivery-${order_id}`,
+              title: `Pedido Delivery #${order_id}`,
+              quantity: 1,
+              currency_id: 'CLP',
+              unit_price: Math.round(Number(amount))
+            }],
+            payer: { email: customer_email || '', name: customer_name || '' },
+            external_reference: `delivery-${store_id}-${order_id}-${Date.now()}`,
+            notification_url: `${clientUrl}/api/mercadopago-webhook`,
+            back_urls: {
+              success: `${clientUrl}/delivery/${storeCode}?mp_ref=delivery-${order_id}&mp_result=success`,
+              failure: `${clientUrl}/delivery/${storeCode}?mp_ref=delivery-${order_id}&mp_result=failure`,
+              pending: `${clientUrl}/delivery/${storeCode}?mp_ref=delivery-${order_id}&mp_result=pending`
+            },
+            auto_return: 'approved'
+          }
+        });
+
+        if (!response.init_point) return res.status(500).json({ error: 'No se obtuvo link de pago' });
+        res.json({ success: true, init_point: response.init_point, preference_id: response.id });
+      } catch (e) {
+        console.error('[Delivery MP Payment]', e.message);
+        res.status(500).json({ error: e.message });
+      }
     });
 
     // ── Ratings ─────────────────────────────────────────────────────────────

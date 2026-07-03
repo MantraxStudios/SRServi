@@ -6390,6 +6390,7 @@ async function ensureDeliveryTables() {
     const dsNames = dsCols.map(c => c.Field);
     if (!dsNames.includes('payment_cash')) await pool.execute("ALTER TABLE delivery_settings ADD COLUMN payment_cash BOOLEAN NOT NULL DEFAULT TRUE");
     if (!dsNames.includes('payment_card')) await pool.execute("ALTER TABLE delivery_settings ADD COLUMN payment_card BOOLEAN NOT NULL DEFAULT FALSE");
+    if (!dsNames.includes('payment_mp')) await pool.execute("ALTER TABLE delivery_settings ADD COLUMN payment_mp BOOLEAN NOT NULL DEFAULT FALSE");
     if (!dsNames.includes('fee_type')) await pool.execute("ALTER TABLE delivery_settings ADD COLUMN fee_type VARCHAR(10) DEFAULT 'fixed'");
     if (!dsNames.includes('fee_per_km')) await pool.execute("ALTER TABLE delivery_settings ADD COLUMN fee_per_km DECIMAL(10,2) DEFAULT 0");
     if (!dsNames.includes('free_km')) await pool.execute("ALTER TABLE delivery_settings ADD COLUMN free_km DECIMAL(5,2) DEFAULT 0");
@@ -6415,20 +6416,22 @@ export async function getDeliverySettings(storeId) {
 
 export async function upsertDeliverySettings(storeId, data) {
   await ensureDeliveryTables();
-  const { address, lat, lng, radius_km, fee, min_order, hours_source, open_time, close_time, estimated_minutes, payment_cash, payment_card, fee_type, fee_per_km, free_km } = data;
+  const { address, lat, lng, radius_km, fee, min_order, hours_source, open_time, close_time, estimated_minutes, payment_cash, payment_card, payment_mp, fee_type, fee_per_km, free_km } = data;
   const pCash = payment_cash === false ? 0 : 1;
   const pCard = payment_card === true ? 1 : 0;
+  const pMp = payment_mp === true ? 1 : 0;
   await pool.execute(`
-    INSERT INTO delivery_settings (store_id, address, lat, lng, radius_km, fee, min_order, hours_source, open_time, close_time, estimated_minutes, payment_cash, payment_card, fee_type, fee_per_km, free_km)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO delivery_settings (store_id, address, lat, lng, radius_km, fee, min_order, hours_source, open_time, close_time, estimated_minutes, payment_cash, payment_card, payment_mp, fee_type, fee_per_km, free_km)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       address = VALUES(address), lat = VALUES(lat), lng = VALUES(lng),
       radius_km = VALUES(radius_km), fee = VALUES(fee), min_order = VALUES(min_order),
       hours_source = VALUES(hours_source), open_time = VALUES(open_time),
       close_time = VALUES(close_time), estimated_minutes = VALUES(estimated_minutes),
       payment_cash = VALUES(payment_cash), payment_card = VALUES(payment_card),
+      payment_mp = VALUES(payment_mp),
       fee_type = VALUES(fee_type), fee_per_km = VALUES(fee_per_km), free_km = VALUES(free_km)
-  `, [storeId, address || null, lat || null, lng || null, radius_km || 5, fee || 0, min_order || 0, hours_source || 'cash_register', open_time || '09:00', close_time || '22:00', estimated_minutes || 45, pCash, pCard, fee_type || 'fixed', fee_per_km || 0, free_km || 0]);
+  `, [storeId, address || null, lat || null, lng || null, radius_km || 5, fee || 0, min_order || 0, hours_source || 'cash_register', open_time || '09:00', close_time || '22:00', estimated_minutes || 45, pCash, pCard, pMp, fee_type || 'fixed', fee_per_km || 0, free_km || 0]);
   return getDeliverySettings(storeId);
 }
 

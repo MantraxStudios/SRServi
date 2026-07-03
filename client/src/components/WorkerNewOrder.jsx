@@ -81,6 +81,10 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
   const [tables, setTables] = useState([]);
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [orderNote, setOrderNote] = useState('');
+  const [deliveryName, setDeliveryName] = useState('');
+  const [deliveryPhone, setDeliveryPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryFee, setDeliveryFee] = useState(0);
 
   const categoryScrollRef = useRef(null);
   const payEditInputRef = useRef(null);
@@ -568,6 +572,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
     setPaymentCancelled(false);
 
     const total = getEffectiveTotal();
+    const effectiveTotal = orderType === 'delivery' ? Number(total) + Number(deliveryFee || 0) : Number(total);
     const orderData = {
       store_id: storeId,
       order_type: orderType,
@@ -581,11 +586,19 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
         selected_complements: item.selected_complements || []
       })),
       selected_terminal_id: method === 'card' && selectedTerminalId ? parseInt(selectedTerminalId) : null,
-      total: Number(total).toFixed(2),
+      total: effectiveTotal.toFixed(2),
       custom_total: customTotal !== null ? Number(customTotal) : null,
       from_worker: true,
       table_number: orderType === 'serve' && selectedTableId ? selectedTableId : null,
-      customer_comment: orderNote.trim() || null
+      customer_comment: orderNote.trim() || null,
+      ...(orderType === 'delivery' ? {
+        delivery: true,
+        delivery_address: deliveryAddress,
+        delivery_fee: Number(deliveryFee || 0),
+        customer_name: deliveryName,
+        customer_phone: deliveryPhone,
+        source: 'worker_panel'
+      } : {})
     };
 
     try {
@@ -1082,24 +1095,33 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
               </div>
 
               {/* Order type */}
-              {(allowServe || allowTakeout) && (allowServe && allowTakeout) && (
-                <div className="worker-pos-order-type-center">
+              <div className="worker-pos-order-type-center">
+                {allowServe && (
                   <button
                     onClick={() => setOrderType('serve')}
                     className={`worker-pos-type-btn${orderType === 'serve' ? ' active' : ''}`}
                   >
                     <FontAwesomeIcon icon={faUtensils} />
-                    <span>Servir aquí</span>
+                    <span>Servir</span>
                   </button>
+                )}
+                {allowTakeout && (
                   <button
                     onClick={() => { setOrderType('takeout'); setSelectedTableId(null); }}
                     className={`worker-pos-type-btn${orderType === 'takeout' ? ' active' : ''}`}
                   >
                     <FontAwesomeIcon icon={faShoppingBag} />
-                    <span>Para llevar</span>
+                    <span>Llevar</span>
                   </button>
-                </div>
-              )}
+                )}
+                <button
+                  onClick={() => { setOrderType('delivery'); setSelectedTableId(null); }}
+                  className={`worker-pos-type-btn${orderType === 'delivery' ? ' active' : ''}`}
+                >
+                  <FontAwesomeIcon icon={faMotorcycle} />
+                  <span>Delivery</span>
+                </button>
+              </div>
 
               {/* Table selection (only for dine-in) */}
               {orderType === 'serve' && tables.length > 0 && (
@@ -1145,6 +1167,61 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
                 </div>
               )}
 
+              {/* Delivery fields */}
+              {orderType === 'delivery' && (
+                <div style={{ marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Datos de envío
+                  </div>
+                  <input
+                    value={deliveryName}
+                    onChange={e => setDeliveryName(e.target.value)}
+                    placeholder="Nombre del cliente"
+                    style={{
+                      width: '100%', padding: '8px 10px', background: 'rgba(255,255,255,0.06)',
+                      border: deliveryName ? '1px solid rgba(212,175,55,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '8px', color: '#fff', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box'
+                    }}
+                  />
+                  <input
+                    value={deliveryPhone}
+                    onChange={e => setDeliveryPhone(e.target.value)}
+                    placeholder="Teléfono"
+                    type="tel"
+                    style={{
+                      width: '100%', padding: '8px 10px', background: 'rgba(255,255,255,0.06)',
+                      border: deliveryPhone ? '1px solid rgba(212,175,55,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '8px', color: '#fff', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box'
+                    }}
+                  />
+                  <input
+                    value={deliveryAddress}
+                    onChange={e => setDeliveryAddress(e.target.value)}
+                    placeholder="Dirección de entrega *"
+                    style={{
+                      width: '100%', padding: '8px 10px', background: 'rgba(255,255,255,0.06)',
+                      border: deliveryAddress ? '1px solid rgba(212,175,55,0.5)' : '1px solid rgba(255,255,255,0.15)',
+                      borderRadius: '8px', color: '#fff', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box'
+                    }}
+                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>Costo envío:</span>
+                    <input
+                      value={deliveryFee}
+                      onChange={e => setDeliveryFee(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="0"
+                      type="text"
+                      inputMode="numeric"
+                      style={{
+                        width: '80px', padding: '6px 10px', background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px',
+                        color: '#D4AF37', fontSize: '0.85rem', fontWeight: 700, outline: 'none', textAlign: 'right'
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Nota / Comentario del pedido */}
               <div style={{ marginBottom: '8px' }}>
                 <textarea
@@ -1170,12 +1247,12 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
               </div>
 
               <button
-                disabled={cart.length === 0}
+                disabled={cart.length === 0 || (orderType === 'delivery' && !deliveryAddress.trim())}
                 className="worker-pos-checkout-btn"
                 onClick={() => setShowPayModal(true)}
               >
                 <FontAwesomeIcon icon={faShoppingCart} />
-                Cobrar — {currencySymbol}{formatPrice(getEffectiveTotal())}
+                Cobrar — {currencySymbol}{formatPrice(orderType === 'delivery' ? Number(getEffectiveTotal()) + Number(deliveryFee || 0) : getEffectiveTotal())}
               </button>
             </div>
           </div>
@@ -1460,6 +1537,11 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
 
               <div className="worker-pos-pay-modal-total">
                 <span>Total a cobrar</span>
+                {orderType === 'delivery' && Number(deliveryFee) > 0 && (
+                  <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
+                    Productos: {currencySymbol}{formatPrice(getEffectiveTotal())} + Envío: {currencySymbol}{formatPrice(deliveryFee)}
+                  </div>
+                )}
                 {editingPayTotal ? (
                   <input
                     type="number"
@@ -1483,7 +1565,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
                 ) : (
                   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
                     <span className="worker-pos-pay-modal-amount">
-                      {currencySymbol}{formatPrice(getEffectiveTotal())}
+                      {currencySymbol}{formatPrice(orderType === 'delivery' ? Number(getEffectiveTotal()) + Number(deliveryFee || 0) : getEffectiveTotal())}
                     </span>
                     <button
                       onClick={e => { e.stopPropagation(); if (customTotal === null) setCustomTotal(getCartTotal()); setEditingPayTotal(true); }}
@@ -1565,6 +1647,23 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
                         </div>
                         <div className="worker-pos-pay-modal-option-info">
                           <span className="worker-pos-pay-modal-option-title">Efectivo</span>
+                        </div>
+                        <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
+                      </button>
+                    )}
+                    {orderType === 'delivery' && (
+                      <button
+                        className="worker-pos-pay-modal-option"
+                        style={{ animationDelay: '0.4s' }}
+                        disabled={processingPayment}
+                        onClick={() => { setShowPayModal(false); processPayment('transferencia'); }}
+                      >
+                        <div className="worker-pos-pay-modal-option-icon" style={{ backgroundColor: '#6366f120', color: '#6366f1' }}>
+                          <FontAwesomeIcon icon={faBuilding} />
+                        </div>
+                        <div className="worker-pos-pay-modal-option-info">
+                          <span className="worker-pos-pay-modal-option-title">Transferencia</span>
+                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Ya pagó por transferencia</span>
                         </div>
                         <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
                       </button>
