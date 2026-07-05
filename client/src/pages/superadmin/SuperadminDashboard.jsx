@@ -62,8 +62,20 @@ import {
   faChair,
   faUserTie,
   faWifi,
+  faMotorcycle,
+  faUtensils,
+  faCamera,
+  faUserAlt,
+  faCashRegister,
+  faTasks,
+  faClipboardList,
+  faTag,
+  faRobot,
+  faPeopleArrows,
+  faCarrot,
+  faTruck,
 } from '@fortawesome/free-solid-svg-icons';
-import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+import { faWhatsapp, faInstagram, faUber } from '@fortawesome/free-brands-svg-icons';
 
 function SuperadminDashboard() {
   const [activeTab, setActiveTab] = useState('users');
@@ -106,7 +118,7 @@ function SuperadminDashboard() {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [workshopTab, setWorkshopTab] = useState('pending');
   const [appStats, setAppStats] = useState(null);
-  const [appStatsLoading, setAppStatsLoading] = useState(false);
+
   const [feedbackCampaigns, setFeedbackCampaigns] = useState([]);
   const [feedbackResponses, setFeedbackResponses] = useState([]);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
@@ -249,6 +261,8 @@ function SuperadminDashboard() {
     if (!token) return;
     fetch(API + '/api/superadmin/stores', { headers: { Authorization: 'Bearer ' + token } })
       .then(r => r.json()).then(d => { if (Array.isArray(d)) setStores(d); }).catch(() => {});
+    fetch(API + '/api/superadmin/app-stats', { headers: { Authorization: 'Bearer ' + token } })
+      .then(r => r.json()).then(d => setAppStats(d)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -359,13 +373,6 @@ function SuperadminDashboard() {
         const res = await fetch(API + '/api/superadmin/apks', { headers: { 'Authorization': 'Bearer ' + token } });
         const data = await res.json();
         setApkReleases(Array.isArray(data) ? data : []);
-      } else if (activeTab === 'app-stats') {
-        setAppStatsLoading(true);
-        try {
-          const res = await fetch(API + '/api/superadmin/app-stats', { headers: { 'Authorization': 'Bearer ' + token } });
-          const data = await res.json();
-          setAppStats(data);
-        } finally { setAppStatsLoading(false); }
       } else if (activeTab === 'feedback') {
         setFeedbackLoading(true);
         try {
@@ -845,14 +852,6 @@ function SuperadminDashboard() {
           </div>
 
           <div
-            className={`sidebar-nav-item ${activeTab === 'app-stats' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('app-stats'); setMobileMenuOpen(false); }}
-          >
-            <FontAwesomeIcon icon={faChartBar} />
-            {sidebarOpen && <span>Uso de Apps</span>}
-          </div>
-
-          <div
             className={`sidebar-nav-item ${activeTab === 'feedback' ? 'active' : ''}`}
             onClick={() => { setActiveTab('feedback'); setMobileMenuOpen(false); }}
           >
@@ -1014,6 +1013,27 @@ function SuperadminDashboard() {
           </div>
         </header>
 
+        {/* App stats - online & active */}
+        {appStats && (appStats.online_now?.length > 0 || appStats.active_now?.length > 0) && (
+          <div style={{ padding: '16px 24px 0', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+            {appStats.online_now?.map(a => (
+              <div key={`on-${a.app_name}`} style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ width: 7, height: 7, background: '#22c55e', borderRadius: '50%', display: 'inline-block', animation: 'pulse 2s infinite' }} />
+                <span style={{ fontSize: '18px', fontWeight: '800', color: '#16a34a' }}>{a.online_devices}</span>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#166534', textTransform: 'capitalize' }}>{a.app_name}</span>
+                <span style={{ fontSize: '10px', color: '#15803d' }}>({a.online_stores} tiendas)</span>
+              </div>
+            ))}
+            {appStats.active_now?.map(a => (
+              <div key={`act-${a.app_name}`} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px', fontWeight: '800', color: '#1a1a2e' }}>{a.active_devices}</span>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#555', textTransform: 'capitalize' }}>{a.app_name}</span>
+                <span style={{ fontSize: '10px', color: '#888' }}>24h · {a.active_stores} tiendas</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="admin-content">
           <div className="card">
             {activeTab !== 'emails' && (
@@ -1054,35 +1074,35 @@ function SuperadminDashboard() {
                         value: stats.activeUsers,
                         pct: Math.round(stats.activeUsers / stats.totalUsers * 100),
                         color: '#22c55e',
-                        emoji: '✅',
+                        icon: faCheck,
                       },
                       {
                         label: 'Activos hoy',
                         value: stats.usersActiveToday,
                         pct: Math.round(stats.usersActiveToday / stats.totalUsers * 100),
                         color: '#3b82f6',
-                        emoji: '🟢',
+                        icon: faCircle,
                       },
                       {
                         label: 'Con tiendas',
                         value: stats.usersWithStores,
                         pct: Math.round(stats.usersWithStores / stats.totalUsers * 100),
                         color: '#D4AF37',
-                        emoji: '🏪',
+                        icon: faStore,
                       },
                       {
                         label: 'Premium',
                         value: stats.usersPremium,
                         pct: Math.round(stats.usersPremium / stats.totalUsers * 100),
                         color: '#a855f7',
-                        emoji: '⭐',
+                        icon: faCreditCard,
                       },
                       {
                         label: 'Baneados',
                         value: stats.bannedUsers,
                         pct: Math.round(stats.bannedUsers / stats.totalUsers * 100),
                         color: '#ef4444',
-                        emoji: '🚫',
+                        icon: faBan,
                       },
                     ].map(card => (
                       <div
@@ -1095,7 +1115,7 @@ function SuperadminDashboard() {
                           textAlign: 'left',
                         }}
                       >
-                        <div style={{ fontSize: '16px', marginBottom: '2px' }}>{card.emoji}</div>
+                        <div style={{ fontSize: '16px', marginBottom: '2px', color: card.color }}><FontAwesomeIcon icon={card.icon} /></div>
                         <div style={{ fontSize: '26px', fontWeight: '800', color: card.color, lineHeight: 1 }}>{card.value}</div>
                         <div style={{ fontSize: '11px', color: '#888', marginTop: '4px', fontWeight: '600' }}>{card.label}</div>
                         <div style={{ marginTop: '6px', background: 'rgba(255,255,255,0.07)', borderRadius: '4px', height: '4px', overflow: 'hidden' }}>
@@ -1941,99 +1961,6 @@ function SuperadminDashboard() {
                   </div>
                 )}
               </div>
-            ) : activeTab === 'app-stats' ? (
-              <div>
-                {appStatsLoading ? (
-                  <div className="empty-state"><div>Cargando estadísticas...</div></div>
-                ) : !appStats ? (
-                  <div className="empty-state"><FontAwesomeIcon icon={faChartBar} className="empty-state-icon" /><div>Sin datos aún. Las apps reportan actividad al abrirse.</div></div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    {/* Online ahora */}
-                    {appStats.online_now && appStats.online_now.length > 0 && (
-                      <div>
-                        <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: '700', color: '#1a1a2e' }}>
-                          <span style={{ display: 'inline-block', width: 8, height: 8, background: '#22c55e', borderRadius: '50%', marginRight: 8, animation: 'pulse 2s infinite' }} />
-                          Online ahora
-                        </h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
-                          {appStats.online_now.map(a => (
-                            <div key={a.app_name} style={{ background: '#f0fdf4', border: '2px solid #bbf7d0', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                              <div style={{ fontSize: '32px', fontWeight: '800', color: '#16a34a' }}>{a.online_devices}</div>
-                              <div style={{ fontSize: '13px', fontWeight: '700', color: '#166534', marginTop: '4px', textTransform: 'capitalize' }}>{a.app_name}</div>
-                              <div style={{ fontSize: '11px', color: '#15803d', marginTop: '2px' }}>{a.online_stores} tiendas</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Activos últimas 24h */}
-                    <div>
-                      <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: '700', color: '#1a1a2e' }}>Activos en las últimas 24h</h3>
-                      {appStats.active_now.length === 0 ? (
-                        <div style={{ color: '#888', fontSize: '14px' }}>Sin actividad reciente</div>
-                      ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
-                          {appStats.active_now.map(a => (
-                            <div key={a.app_name} style={{ background: '#f8fafc', border: '2px solid #e2e8f0', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                              <div style={{ fontSize: '28px', fontWeight: '800', color: '#1a1a2e' }}>{a.active_devices}</div>
-                              <div style={{ fontSize: '13px', fontWeight: '700', color: '#555', marginTop: '4px', textTransform: 'capitalize' }}>{a.app_name}</div>
-                              <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>{a.active_stores} tiendas</div>
-                              <div style={{ fontSize: '10px', color: '#bbb', marginTop: '4px' }}>último: {new Date(a.last_seen).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Distribución de versiones */}
-                    {appStats.versions.length > 0 && (
-                      <div>
-                        <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: '700', color: '#1a1a2e' }}>Versiones en uso (últimos 7 días)</h3>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                          {appStats.versions.map(v => (
-                            <div key={`${v.app_name}-${v.app_version}`} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 14px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                              <span style={{ fontSize: '11px', fontWeight: '700', color: '#888', textTransform: 'capitalize' }}>{v.app_name}</span>
-                              <span style={{ background: '#1a1a2e', color: '#fff', borderRadius: '6px', padding: '2px 8px', fontSize: '12px', fontWeight: '700' }}>v{v.app_version}</span>
-                              <span style={{ fontSize: '13px', fontWeight: '700', color: '#22c55e' }}>{v.devices} disp.</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Top tiendas */}
-                    {appStats.top_stores.length > 0 && (
-                      <div>
-                        <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: '700', color: '#1a1a2e' }}>Tiendas más activas (últimos 7 días)</h3>
-                        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                            <thead>
-                              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: '700', color: '#555' }}>App</th>
-                                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: '700', color: '#555' }}>Tienda</th>
-                                <th style={{ padding: '10px 16px', textAlign: 'center', fontWeight: '700', color: '#555' }}>Dispositivos</th>
-                                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: '700', color: '#555' }}>Último uso</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {appStats.top_stores.slice(0, 20).map((s, i) => (
-                                <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                                  <td style={{ padding: '10px 16px', textTransform: 'capitalize', fontWeight: '600', color: '#333' }}>{s.app_name}</td>
-                                  <td style={{ padding: '10px 16px', fontFamily: 'monospace', color: '#1a1a2e', fontWeight: '700' }}>{s.store_code || '—'}</td>
-                                  <td style={{ padding: '10px 16px', textAlign: 'center', fontWeight: '700', color: '#22c55e' }}>{s.devices}</td>
-                                  <td style={{ padding: '10px 16px', textAlign: 'right', color: '#888', fontSize: '12px' }}>{new Date(s.last_seen).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
             ) : activeTab === 'feedback' ? (
               <div>
                 {/* Header + send button */}
@@ -2194,7 +2121,7 @@ function SuperadminDashboard() {
                                     else alert('❌ ' + d.error);
                                   }}
                                   style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#10b981', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
-                                >✅ Marcar instalado</button>
+                                ><FontAwesomeIcon icon={faCheck} /> Marcar instalado</button>
                               )}
                               {['pending_payment','active'].includes(r.status) && (
                                 <select
@@ -2481,20 +2408,20 @@ function SuperadminDashboard() {
               </div>
             ) : activeTab === 'apps' ? (() => {
               const APP_COLS = [
-                { key: 'has_delivery', label: 'Delivery', emoji: '🛵' },
-                { key: 'has_tables', label: 'Mesas', emoji: '🍽️' },
-                { key: 'has_attendance', label: 'Asistencia', emoji: '📸' },
-                { key: 'has_workers', label: 'Vendedores', emoji: '👤' },
-                { key: 'has_cash_register', label: 'Caja', emoji: '💰' },
-                { key: 'has_tasks', label: 'Tareas', emoji: '✅' },
-                { key: 'has_procedures', label: 'Proced.', emoji: '📋' },
-                { key: 'has_coupons', label: 'Cupones', emoji: '🎫' },
-                { key: 'has_leon_ia', label: 'León IA', emoji: '🤖' },
-                { key: 'has_aforo', label: 'Aforo', emoji: '👥' },
-                { key: 'has_instagram', label: 'Instagram', emoji: '📷' },
-                { key: 'has_rappi', label: 'Rappi', emoji: '🟠' },
-                { key: 'has_pedidosya', label: 'PedidosYa', emoji: '🟡' },
-                { key: 'has_ubereats', label: 'UberEats', emoji: '⚫' },
+                { key: 'has_delivery', label: 'Delivery', icon: faMotorcycle },
+                { key: 'has_tables', label: 'Mesas', icon: faUtensils },
+                { key: 'has_attendance', label: 'Asistencia', icon: faCamera },
+                { key: 'has_workers', label: 'Vendedores', icon: faUserAlt },
+                { key: 'has_cash_register', label: 'Caja', icon: faCashRegister },
+                { key: 'has_tasks', label: 'Tareas', icon: faTasks },
+                { key: 'has_procedures', label: 'Proced.', icon: faClipboardList },
+                { key: 'has_coupons', label: 'Cupones', icon: faTag },
+                { key: 'has_leon_ia', label: 'León IA', icon: faRobot },
+                { key: 'has_aforo', label: 'Aforo', icon: faUsers },
+                { key: 'has_instagram', label: 'Instagram', icon: faInstagram },
+                { key: 'has_rappi', label: 'Rappi', icon: faCarrot },
+                { key: 'has_pedidosya', label: 'PedidosYa', icon: faTruck },
+                { key: 'has_ubereats', label: 'UberEats', icon: faUber },
               ];
 
               const filteredApps = userApps.filter(u =>
@@ -2515,7 +2442,7 @@ function SuperadminDashboard() {
                       const pct = userApps.length ? Math.round(count / userApps.length * 100) : 0;
                       return (
                         <div key={col.key} style={{ background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 10, padding: '10px 12px' }}>
-                          <div style={{ fontSize: 18 }}>{col.emoji}</div>
+                          <div style={{ fontSize: 18 }}><FontAwesomeIcon icon={col.icon} /></div>
                           <div style={{ fontSize: 11, color: '#888', fontWeight: 600, marginTop: 2 }}>{col.label}</div>
                           <div style={{ fontSize: 20, fontWeight: 900, color: '#111', lineHeight: 1.2 }}>{count}</div>
                           <div style={{ fontSize: 10, color: pct >= 50 ? '#16a34a' : '#6b7280', fontWeight: 600 }}>{pct}% de cuentas</div>
@@ -2544,7 +2471,7 @@ function SuperadminDashboard() {
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
                               {active.map(c => (
                                 <span key={c.key} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'rgba(34,197,94,0.1)', color: '#16a34a', fontWeight: 600 }}>
-                                  {c.emoji} {c.label}
+                                  <FontAwesomeIcon icon={c.icon} style={{ marginRight: 4 }} /> {c.label}
                                 </span>
                               ))}
                               {active.length === 0 && <span style={{ fontSize: 11, color: '#aaa' }}>Sin apps activas</span>}
@@ -2568,7 +2495,7 @@ function SuperadminDashboard() {
                             <th style={{ textAlign: 'left', minWidth: 180 }}>Email</th>
                             <th style={{ minWidth: 60 }}>Score</th>
                             {APP_COLS.map(c => (
-                              <th key={c.key} title={c.label}>{c.emoji}<br /><span style={{ fontWeight: 500 }}>{c.label}</span></th>
+                              <th key={c.key} title={c.label}><FontAwesomeIcon icon={c.icon} /><br /><span style={{ fontWeight: 500 }}>{c.label}</span></th>
                             ))}
                           </tr>
                         </thead>
