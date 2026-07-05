@@ -4821,9 +4821,23 @@ function Store() {
               </button>
             )}
             {!activeTable && (
-              <button onClick={() => setTableMapEditing(!tableMapEditing)} style={{ background: tableMapEditing ? 'rgba(212,175,55,0.4)' : 'rgba(212,175,55,0.2)', border: '1px solid rgba(212,175,55,0.4)', borderRadius: 8, padding: '5px 12px', color: '#D4AF37', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                <FontAwesomeIcon icon={tableMapEditing ? faCheck : faEdit} style={{ marginRight: 4 }} /> {tableMapEditing ? 'Listo' : 'Editar mapa'}
-              </button>
+              <>
+                <button onClick={() => setTableMapEditing(!tableMapEditing)} style={{ background: tableMapEditing ? 'rgba(212,175,55,0.4)' : 'rgba(212,175,55,0.2)', border: '1px solid rgba(212,175,55,0.4)', borderRadius: 8, padding: '5px 12px', color: '#D4AF37', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  <FontAwesomeIcon icon={tableMapEditing ? faCheck : faEdit} style={{ marginRight: 4 }} /> {tableMapEditing ? 'Listo' : 'Editar mapa'}
+                </button>
+                <button
+                  onPointerDown={(e) => {
+                    e.currentTarget.dataset.timer = String(setTimeout(() => {
+                      setPinInput(''); setPinError(''); setPinModalOpen(true);
+                    }, 2000));
+                  }}
+                  onPointerUp={(e) => clearTimeout(Number(e.currentTarget.dataset.timer))}
+                  onPointerLeave={(e) => clearTimeout(Number(e.currentTarget.dataset.timer))}
+                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '5px 10px', color: 'rgba(255,255,255,0.4)', fontSize: 12, cursor: 'pointer' }}
+                >
+                  <FontAwesomeIcon icon={faCog} />
+                </button>
+              </>
             )}
           </div>
         </div>

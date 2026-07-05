@@ -9158,6 +9158,14 @@ app.get('/api/superadmin/app-stats', authenticateSuperadminToken, async (req, re
       GROUP BY app_name
       ORDER BY active_devices DESC
     `);
+    const [onlineNow] = await pool.execute(`
+      SELECT app_name,
+             COUNT(DISTINCT COALESCE(device_id, ip, 'anon')) AS online_devices,
+             COUNT(DISTINCT store_code) AS online_stores
+      FROM app_activity
+      WHERE created_at >= NOW() - INTERVAL 10 MINUTE
+      GROUP BY app_name
+    `);
     const [dailyTrend] = await pool.execute(`
       SELECT app_name,
              DATE(created_at) AS day,
@@ -9184,7 +9192,7 @@ app.get('/api/superadmin/app-stats', authenticateSuperadminToken, async (req, re
       GROUP BY app_name, app_version
       ORDER BY app_name, devices DESC
     `);
-    res.json({ active_now: activeNow, daily_trend: dailyTrend, top_stores: topStores, versions });
+    res.json({ active_now: activeNow, online_now: onlineNow, daily_trend: dailyTrend, top_stores: topStores, versions });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

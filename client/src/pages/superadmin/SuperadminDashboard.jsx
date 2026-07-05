@@ -1949,6 +1949,25 @@ function SuperadminDashboard() {
                   <div className="empty-state"><FontAwesomeIcon icon={faChartBar} className="empty-state-icon" /><div>Sin datos aún. Las apps reportan actividad al abrirse.</div></div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    {/* Online ahora */}
+                    {appStats.online_now && appStats.online_now.length > 0 && (
+                      <div>
+                        <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: '700', color: '#1a1a2e' }}>
+                          <span style={{ display: 'inline-block', width: 8, height: 8, background: '#22c55e', borderRadius: '50%', marginRight: 8, animation: 'pulse 2s infinite' }} />
+                          Online ahora
+                        </h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+                          {appStats.online_now.map(a => (
+                            <div key={a.app_name} style={{ background: '#f0fdf4', border: '2px solid #bbf7d0', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                              <div style={{ fontSize: '32px', fontWeight: '800', color: '#16a34a' }}>{a.online_devices}</div>
+                              <div style={{ fontSize: '13px', fontWeight: '700', color: '#166534', marginTop: '4px', textTransform: 'capitalize' }}>{a.app_name}</div>
+                              <div style={{ fontSize: '11px', color: '#15803d', marginTop: '2px' }}>{a.online_stores} tiendas</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Activos últimas 24h */}
                     <div>
                       <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: '700', color: '#1a1a2e' }}>Activos en las últimas 24h</h3>

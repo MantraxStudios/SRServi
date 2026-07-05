@@ -184,7 +184,8 @@ class MainActivity : ComponentActivity() {
                         hbConn.doOutput = true
                         hbConn.connectTimeout = 8000
                         hbConn.readTimeout = 8000
-                        val body = """{"app_name":"cctv","store_code":"$sc","app_version":"$CCTV_APP_VERSION","event":"open"}"""
+                        val deviceId = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_TOKEN, "") ?: ""
+                        val body = """{"app_name":"cctv","store_code":"$sc","device_id":"$deviceId","app_version":"$CCTV_APP_VERSION","event":"open"}"""
                         hbConn.outputStream.use { it.write(body.toByteArray()) }
                         hbConn.responseCode
                         hbConn.disconnect()
@@ -1477,10 +1478,31 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
         }
     }
 
-    // Reportar encendido al servidor
+    // Reportar encendido al servidor + heartbeat periódico
     LaunchedEffect(Unit) {
         val token = prefs.getString(KEY_TOKEN, null)
         if (!token.isNullOrEmpty()) withContext(Dispatchers.IO) { reportPowerEvent(token, "on") }
+    }
+    LaunchedEffect(deviceToken, offlineMode) {
+        if (offlineMode) return@LaunchedEffect
+        while (true) {
+            delay(300_000) // 5 minutos
+            withContext(Dispatchers.IO) {
+                try {
+                    val sc = if (STORE_CODE == "AUTO_STORE_CODE") "" else STORE_CODE
+                    val conn = openSecureConnection("$BASE_URL/api/app/heartbeat")
+                    conn.requestMethod = "POST"
+                    conn.setRequestProperty("Content-Type", "application/json")
+                    conn.doOutput = true
+                    conn.connectTimeout = 8000
+                    conn.readTimeout = 8000
+                    val body = """{"app_name":"cctv","store_code":"$sc","device_id":"$deviceToken","app_version":"$CCTV_APP_VERSION","event":"heartbeat"}"""
+                    conn.outputStream.use { it.write(body.toByteArray()) }
+                    conn.responseCode
+                    conn.disconnect()
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     // Cargar video y música guardados al iniciar
