@@ -169,54 +169,51 @@ export default function AttendanceAdmin() {
             ))}
           </div>
 
-          <>
-              {/* Toolbar */}
-              <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-                {tab === 'records' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#f4f4f5', borderRadius: 8, padding: '4px 8px', border: '1px solid #e4e4e7' }}>
-                    <button onClick={() => shiftDate(-1)} style={{ background: 'none', border: 'none', color: '#09090b', cursor: 'pointer', padding: '4px 8px', fontSize: 13 }}>
-                      <FontAwesomeIcon icon={faChevronLeft} />
-                    </button>
-                    <input
-                      type="date" value={date}
-                      onChange={e => setDate(e.target.value)}
-                      style={{ background: 'none', border: 'none', color: '#09090b', fontSize: 14, outline: 'none', cursor: 'pointer' }}
-                    />
-                    <button onClick={() => shiftDate(1)} style={{ background: 'none', border: 'none', color: '#09090b', cursor: 'pointer', padding: '4px 8px', fontSize: 13 }}>
-                      <FontAwesomeIcon icon={faChevronRight} />
-                    </button>
-                  </div>
-                )}
-                <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-                  <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#a1a1aa', fontSize: 13 }} />
-                  <input
-                    style={{ width: '100%', padding: '9px 12px 9px 34px', background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 8, color: '#09090b', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
-                    placeholder="Buscar por nombre o RUT..."
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                  />
-                </div>
-                {tab === 'records' && records.length > 0 && (
-                  <button onClick={exportCsv} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 8, color: '#09090b', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                    <FontAwesomeIcon icon={faDownload} /> CSV
-                  </button>
-                )}
-              </div>
-
-              {loading ? (
-                <div style={{ textAlign: 'center', padding: 48, color: '#a1a1aa' }}>Cargando...</div>
-              ) : tab === 'records' ? (
-                <RecordsTable records={filteredRecords} date={date} />
-              ) : (
-                <PersonsTable
-                  persons={filteredPersons}
-                  confirmDelete={confirmDelete}
-                  setConfirmDelete={setConfirmDelete}
-                  deletingId={deletingId}
-                  onDelete={deletePerson}
+          {/* Toolbar */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+            {tab === 'records' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#f4f4f5', borderRadius: 8, padding: '4px 8px', border: '1px solid #e4e4e7' }}>
+                <button onClick={() => shiftDate(-1)} style={{ background: 'none', border: 'none', color: '#09090b', cursor: 'pointer', padding: '4px 8px', fontSize: 13 }}>
+                  <FontAwesomeIcon icon={faChevronLeft} />
+                </button>
+                <input
+                  type="date" value={date}
+                  onChange={e => setDate(e.target.value)}
+                  style={{ background: 'none', border: 'none', color: '#09090b', fontSize: 14, outline: 'none', cursor: 'pointer' }}
                 />
-              )}
-            </>
+                <button onClick={() => shiftDate(1)} style={{ background: 'none', border: 'none', color: '#09090b', cursor: 'pointer', padding: '4px 8px', fontSize: 13 }}>
+                  <FontAwesomeIcon icon={faChevronRight} />
+                </button>
+              </div>
+            )}
+            <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
+              <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#a1a1aa', fontSize: 13 }} />
+              <input
+                style={{ width: '100%', padding: '9px 12px 9px 34px', background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 8, color: '#09090b', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                placeholder="Buscar por nombre o RUT..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            {tab === 'records' && records.length > 0 && (
+              <button onClick={exportCsv} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 8, color: '#09090b', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                <FontAwesomeIcon icon={faDownload} /> CSV
+              </button>
+            )}
+          </div>
+
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: 48, color: '#a1a1aa' }}>Cargando...</div>
+          ) : tab === 'records' ? (
+            <RecordsTable records={filteredRecords} date={date} />
+          ) : (
+            <PersonsTable
+              persons={filteredPersons}
+              confirmDelete={confirmDelete}
+              setConfirmDelete={setConfirmDelete}
+              deletingId={deletingId}
+              onDelete={deletePerson}
+            />
           )}
         </>
       )}
