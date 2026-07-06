@@ -161,7 +161,8 @@
       "Bash(dir \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Desktop\\\\SRServi\\\\client\\\\node_modules\\\\@fortawesome\\\\free-brands-svg-icons\")",
       "Bash(grep \"?$\\\\|? \\($\")",
       "Bash(grep -n \": null$\\\\|: null }\" \"D:/Trabajo/SRServi/client/src/pages/superadmin/SuperadminDashboard.jsx\")",
-      "Bash(grep -n \"null$\" \"D:/Trabajo/SRServi/client/src/pages/superadmin/SuperadminDashboard.jsx\")"
+      "Bash(grep -n \"null$\" \"D:/Trabajo/SRServi/client/src/pages/superadmin/SuperadminDashboard.jsx\")",
+      "PowerShell(\\(Get-Content D:\\\\Trabajo\\\\SRServi\\\\client\\\\src\\\\pages\\\\Store.jsx | Measure-Object -Line\\).Lines)"
     ]
   }
 }

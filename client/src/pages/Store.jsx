@@ -54,7 +54,30 @@ import {
   faChair,
   faCog,
   faStore,
+  faHamburger,
+  faPizzaSlice,
+  faIceCream,
+  faCoffee,
+  faDrumstickBite,
+  faLeaf,
+  faCookieBite,
+  faWineBottle,
+  faThLarge,
 } from '@fortawesome/free-solid-svg-icons';
+
+// Icono heurístico por nombre de categoría (estilo kiosko)
+const catIcon = (name = '') => {
+  const n = name.toLowerCase();
+  if (/(hamburg|burger|combo|sandwich|sánguche)/.test(n)) return faHamburger;
+  if (/(pizza)/.test(n)) return faPizzaSlice;
+  if (/(helado|postre|dulce|ice)/.test(n)) return faIceCream;
+  if (/(café|cafe|te\b|té|bebida caliente)/.test(n)) return faCoffee;
+  if (/(pollo|carne|asado|parrilla|grill)/.test(n)) return faDrumstickBite;
+  if (/(ensalada|veggie|vegan|verdura)/.test(n)) return faLeaf;
+  if (/(galleta|snack|papas|acompañamiento)/.test(n)) return faCookieBite;
+  if (/(bebida|jugo|refresco|cerveza|vino|trago|licor)/.test(n)) return faWineBottle;
+  return faUtensils;
+};
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl, getProductImageUrl } from '../config.js';
 import CameraModal from '../components/CameraModal';
@@ -4598,10 +4621,10 @@ function Store() {
       <div
         key={product.id}
         className={`store-product-wrapper${isOutOfStock ? ' out-of-stock' : ''}${isTopSelling ? ' top-selling' : ''}`}
+        onClick={() => !editMode && !isOutOfStock && openProductModal(product)}
       >
         <div
           className={`store-product-card${isOutOfStock ? ' out-of-stock' : ''}${isTopSelling ? ' top-selling-card' : ''}`}
-          onClick={() => !editMode && openProductModal(product)}
         >
           {isTopSelling && !isOutOfStock && (
             <div className="top-selling-badge">
@@ -4642,23 +4665,23 @@ function Store() {
           </div>
         </div>
         <div className="store-product-info">
+          <div className="store-product-name">{product.name}</div>
+          {product.description && (
+            <p className="store-product-desc">{product.description}</p>
+          )}
           {prepTimes[product.id] > 0 && (
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-              marginBottom: 3,
-              fontSize: '11px', fontWeight: 800, letterSpacing: '0.2px',
-              color: 'var(--store-primary)', opacity: 0.75
-            }}>
+            <div className="store-product-prep">
               <FontAwesomeIcon icon={faClock} style={{ fontSize: 10 }} />
               ~{prepTimes[product.id]} min
             </div>
           )}
-          {product.description && (
-            <p style={{ margin: '0 0 2px', fontSize: '10px', color: 'var(--store-primary)', opacity: 0.5, lineHeight: 1.3, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{product.description}</p>
-          )}
           <div className={`store-product-details${isOutOfStock ? ' out-of-stock' : ''}`}>
-            <span className="store-product-name">{product.name}:</span>
             <span className="store-product-price">{colors.currency.symbol}{formatPrice(product.price)}</span>
+            {!isOutOfStock && (
+              <span className="store-product-add">
+                <FontAwesomeIcon icon={faPlus} />
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -4772,7 +4795,7 @@ function Store() {
           <div className="store-header-spacer" />
           <div className="store-header-actions">
             <div style={{ position: 'relative' }}>
-              <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', padding: '5px 9px', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', color: 'rgba(255,255,255,0.75)', fontSize: '13px' }}>
+              <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: '#fff', border: '1px solid #eee6d8', borderRadius: '999px', padding: '7px 13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#232028', fontSize: '13px', fontWeight: 700, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
                 <FontAwesomeIcon icon={faGlobe} style={{ fontSize: '11px' }} />
                 <span>{LANGUAGES.find(l => l.code === lang)?.flag || '🌐'}</span>
               </button>
@@ -4794,7 +4817,7 @@ function Store() {
         </div>
       </header>
 
-      <div style={{ background: '#f0f0f0', textAlign: 'center', padding: '3px 0', fontSize: 10, color: '#aaa', letterSpacing: '0.4px', lineHeight: 1 }}>
+      <div style={{ background: 'transparent', textAlign: 'center', padding: '3px 0', fontSize: 10, color: '#c3bbaa', letterSpacing: '0.4px', lineHeight: 1 }}>
         {t('poweredBy', lang)}
       </div>
 
@@ -5060,7 +5083,8 @@ function Store() {
         </div>
       )}
 
-      <div className="category-tabs" style={restaurantMode && !activeTable ? { display: 'none' } : {}}>
+      <div className="store-body" style={restaurantMode && !activeTable ? { display: 'none' } : {}}>
+      <div className="category-tabs">
         <div
           ref={categoryRef}
           className="category-tabs-list"
@@ -5070,7 +5094,8 @@ function Store() {
           data-category="all"
           onClick={() => setActiveCategory('all')}
         >
-          {t('all', lang)}
+          <span className="category-tab-icon"><FontAwesomeIcon icon={faThLarge} /></span>
+          <span className="category-tab-label">{t('all', lang)}</span>
         </button>
         {editMode ? (
           <DndContext
@@ -5102,7 +5127,8 @@ function Store() {
               data-category={catObj.name}
               onClick={() => setActiveCategory(catObj.name)}
             >
-              {catObj.name}
+              <span className="category-tab-icon"><FontAwesomeIcon icon={catIcon(catObj.name)} /></span>
+              <span className="category-tab-label">{catObj.name}</span>
             </button>
           ))
         )}
@@ -5114,6 +5140,7 @@ function Store() {
         </div>
       </div>
 
+      <div className="store-main">
       {!hasProducts && (
         <div className="store-empty">
           <div className="store-empty-icon" style={{ background: `linear-gradient(135deg, ${colors.accent}20, ${colors.accent}40)` }}>
@@ -5335,11 +5362,11 @@ function Store() {
                     </div>
                   </div>
                   <div className="store-product-info">
-                    <p style={{ margin: '0 0 2px', fontSize: '10px', color: 'var(--store-primary)', opacity: 0.5, lineHeight: 1.3, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                    <div className="store-product-name">{combo.name}</div>
+                    <p className="store-product-desc">
                       {combo.description || includedText}
                     </p>
                     <div className="store-product-details">
-                      <span className="store-product-name">{combo.name}:</span>
                       <span className="store-product-price">
                         {colors.currency.symbol}{formatPrice(combo.price)}
                         {hasDiscount && (
@@ -5347,6 +5374,9 @@ function Store() {
                             {colors.currency.symbol}{formatPrice(combo.auto_price)}
                           </span>
                         )}
+                      </span>
+                      <span className="store-product-add">
+                        <FontAwesomeIcon icon={faPlus} />
                       </span>
                     </div>
                   </div>
@@ -6024,6 +6054,9 @@ function Store() {
           </div>
         );
       })()}
+
+      </div>{/* /store-main */}
+      </div>{/* /store-body */}
 
       <PluginSlot name="store-footer" context={{ storeId: store?.store?.id, code }} />
 

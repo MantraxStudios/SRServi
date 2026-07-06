@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.44",
+    "@whiskeysockets/baileys": "^7.0.0-rc13",
     "adm-zip": "^0.5.17",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
