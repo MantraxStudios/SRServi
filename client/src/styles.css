@@ -2122,9 +2122,12 @@ h1, h2, h3, h4, h5, h6 {
   --kiosk-muted: #8f8a80;
   --kiosk-orange: #F0810F;
   --kiosk-border: #F0E8D9;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background-color: var(--kiosk-bg);
-  padding-bottom: 96px;
 }
 
 .store-header {
@@ -2186,6 +2189,38 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+/* Saludo estilo kiosko: "¡Hola! 👋 / Elige lo que más se te antoje" */
+.store-header-greeting {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .store-header-brand {
+    flex: 0 1 auto;
+    max-width: 40%;
+  }
+  .store-header-greeting {
+    display: block;
+    padding-left: 20px;
+    margin-left: 8px;
+    border-left: 1px solid var(--kiosk-border, #F0E8D9);
+    flex-shrink: 0;
+  }
+  .store-header-greeting-title {
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--kiosk-dark, #232028);
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+  }
+  .store-header-greeting-sub {
+    font-size: 13px;
+    color: var(--kiosk-muted, #8f8a80);
+    font-weight: 500;
+    margin-top: 1px;
+  }
 }
 
 .store-header-powered {
@@ -2306,20 +2341,33 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
 }
 
-/* ── Store body: sidebar + main (kiosk layout) ── */
+/* ── Store body: sidebar + main (kiosk layout) ──
+   El body ocupa el alto restante; solo .store-main scrollea,
+   el header y las categorías quedan fijos. */
 .store-body {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .store-main {
   min-width: 0;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: 110px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.12) transparent;
 }
 
 /* Category tabs (mobile: horizontal pills / desktop: sidebar) */
 .category-tabs {
-  padding: 12px 14px 4px;
+  padding: 12px 14px 8px;
   background: transparent;
+  flex-shrink: 0;
 }
 
 .category-tabs-list {
@@ -2386,23 +2434,28 @@ h1, h2, h3, h4, h5, h6 {
   opacity: 1;
 }
 
-/* Desktop / tablet: category sidebar */
+/* Desktop / tablet: category sidebar fija a la izquierda */
 @media (min-width: 900px) {
   .store-body {
-    display: flex;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: stretch;
     gap: 8px;
     padding: 8px 20px 0;
     max-width: 1400px;
     margin: 0 auto;
+    width: 100%;
   }
 
   .category-tabs {
     width: 232px;
     flex-shrink: 0;
-    padding: 12px 0 0;
-    position: sticky;
-    top: 12px;
+    padding: 12px 0 16px;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .category-tabs::-webkit-scrollbar {
+    display: none;
   }
 
   .category-tabs-list {

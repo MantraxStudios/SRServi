@@ -1603,6 +1603,8 @@ function Store() {
     if (activeTab) {
       activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
+    // Sube el área de productos al cambiar de categoría (scroll independiente)
+    document.querySelector('.store-main')?.scrollTo({ top: 0 });
   }, [activeCategory]);
 
   const [paymentWaiting, setPaymentWaiting] = useState(false);
@@ -4791,6 +4793,10 @@ function Store() {
             <h1 className="store-header-name">
               {store?.store?.name}
             </h1>
+          </div>
+          <div className="store-header-greeting">
+            <div className="store-header-greeting-title">{t('greetingHi', lang)} 👋</div>
+            <div className="store-header-greeting-sub">{t('greetingSub', lang)}</div>
           </div>
           <div className="store-header-spacer" />
           <div className="store-header-actions">
