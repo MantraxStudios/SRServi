@@ -9853,6 +9853,82 @@ html body .store-container .store-product-card * {
 .store-editor-done:hover { transform: translateY(-1px); filter: brightness(1.07); }
 .store-editor-done:active { transform: scale(0.97); box-shadow: none; }
 
+/* ── Editor en teléfono: targets grandes y barra compacta ── */
+@media (max-width: 640px) {
+  .store-editor-bar {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .store-editor-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .store-editor-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .store-editor-tab {
+    padding: 12px 13px;
+    font-size: 17px;
+    flex-shrink: 0;
+  }
+
+  /* Solo iconos en las pestañas (más espacio) */
+  .editor-tab-label {
+    display: none;
+  }
+
+  .store-editor-done {
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+
+  /* Botones editar/eliminar del producto: tamaño dedo */
+  .store-prod-edit-overlay {
+    display: flex;
+    gap: 8px;
+    top: 6px;
+    right: 6px;
+  }
+
+  .store-prod-edit-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    font-size: 16px;
+  }
+
+  .store-edit-cat-filter-btn {
+    padding: 11px 18px;
+    font-size: 14px;
+  }
+
+  /* Grilla de edición: 2 columnas, tarjetas más grandes */
+  .store-body.editing .products-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  /* Modal de producto del editor a pantalla casi completa */
+  .store-prod-modal {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: 94vh !important;
+    border-radius: 18px;
+    padding: 20px 16px;
+  }
+
+  .store-prod-modal-btn {
+    padding: 15px;
+    font-size: 16px;
+    border-radius: 12px;
+  }
+}
+
 .store-edit-cat-filter-bar {
   display: flex;
   gap: 8px;
