@@ -262,7 +262,7 @@ function SuperadminDashboard() {
     fetch(API + '/api/superadmin/stores', { headers: { Authorization: 'Bearer ' + token } })
       .then(r => r.json()).then(d => { if (Array.isArray(d)) setStores(d); }).catch(() => {});
     fetch(API + '/api/superadmin/app-stats', { headers: { Authorization: 'Bearer ' + token } })
-      .then(r => r.json()).then(d => setAppStats(d)).catch(() => {});
+      .then(r => r.ok ? r.json() : null).then(d => { if (d) setAppStats(d); }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -341,14 +341,25 @@ function SuperadminDashboard() {
         const res = await fetch(API + '/api/superadmin/users', {
           headers: { 'Authorization': 'Bearer ' + token }
         });
+        // Sesión expirada o inválida → volver al login
+        if (res.status === 401 || res.status === 403) {
+          localStorage.removeItem('superadminToken');
+          navigate('/superadmin/login');
+          return;
+        }
         const data = await res.json();
-        setUsers(data);
+        setUsers(Array.isArray(data) ? data : []);
       } else if (activeTab === 'stores') {
         const res = await fetch(API + '/api/superadmin/stores', {
           headers: { 'Authorization': 'Bearer ' + token }
         });
+        if (res.status === 401 || res.status === 403) {
+          localStorage.removeItem('superadminToken');
+          navigate('/superadmin/login');
+          return;
+        }
         const data = await res.json();
-        setStores(data);
+        setStores(Array.isArray(data) ? data : []);
       } else if (activeTab === 'subscriptions') {
         const res = await fetch(API + '/api/superadmin/subscriptions', {
           headers: { 'Authorization': 'Bearer ' + token }
