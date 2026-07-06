@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+﻿import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { detectLanguage, t, LANGUAGES } from '../i18n';
@@ -65,16 +65,16 @@ import {
   faThLarge,
 } from '@fortawesome/free-solid-svg-icons';
 
-// Icono heurístico por nombre de categoría (estilo kiosko)
+// Icono heurÃ­stico por nombre de categorÃ­a (estilo kiosko)
 const catIcon = (name = '') => {
   const n = name.toLowerCase();
-  if (/(hamburg|burger|combo|sandwich|sánguche)/.test(n)) return faHamburger;
+  if (/(hamburg|burger|combo|sandwich|sÃ¡nguche)/.test(n)) return faHamburger;
   if (/(pizza)/.test(n)) return faPizzaSlice;
   if (/(helado|postre|dulce|ice)/.test(n)) return faIceCream;
-  if (/(café|cafe|te\b|té|bebida caliente)/.test(n)) return faCoffee;
+  if (/(cafÃ©|cafe|te\b|tÃ©|bebida caliente)/.test(n)) return faCoffee;
   if (/(pollo|carne|asado|parrilla|grill)/.test(n)) return faDrumstickBite;
   if (/(ensalada|veggie|vegan|verdura)/.test(n)) return faLeaf;
-  if (/(galleta|snack|papas|acompañamiento)/.test(n)) return faCookieBite;
+  if (/(galleta|snack|papas|acompaÃ±amiento)/.test(n)) return faCookieBite;
   if (/(bebida|jugo|refresco|cerveza|vino|trago|licor)/.test(n)) return faWineBottle;
   return faUtensils;
 };
@@ -198,7 +198,7 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
                 border: isSelected ? '2px solid #e53e3e' : '2px solid #ccc',
                 display: 'flex', alignItems: 'center', justifyContent: 'center'
               }}>
-                {isSelected && <span style={{ color: '#fff', fontSize: 13, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+                {isSelected && <span style={{ color: '#fff', fontSize: 13, fontWeight: 900, lineHeight: 1 }}>âœ“</span>}
               </div>
             </div>
           )}
@@ -211,7 +211,7 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
           </div>
         </div>
 
-        {/* 3-dot menu — outside the card so it's not clipped by overflow:hidden */}
+        {/* 3-dot menu â€” outside the card so it's not clipped by overflow:hidden */}
         {!selectionMode && (
         <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 10 }}>
           <button
@@ -286,7 +286,7 @@ function SortableComplementRow({ item, active, onToggle, onEdit, onDelete, showD
         {showDefault && active && (
           <button
             onClick={(ev) => { ev.stopPropagation(); onToggleDefault(); }}
-            title={isDefault ? 'Incluido por defecto (se puede quitar) — clic para quitar' : 'Marcar como incluido por defecto'}
+            title={isDefault ? 'Incluido por defecto (se puede quitar) â€” clic para quitar' : 'Marcar como incluido por defecto'}
             style={{ background: isDefault ? 'rgba(212,175,55,0.18)' : 'none', border: isDefault ? '1px solid #D4AF37' : '1px solid #ddd', color: isDefault ? '#b8860b' : '#bbb', cursor: 'pointer', padding: '3px 7px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', whiteSpace: 'nowrap' }}
           >
             <FontAwesomeIcon icon={faStar} /> Base
@@ -351,7 +351,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
         if (evDate < now || evDate > end) return false;
       }
     }
-    // price filter requires knowing min price of event — skip if no categories loaded
+    // price filter requires knowing min price of event â€” skip if no categories loaded
     return true;
   });
 
@@ -436,7 +436,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
         const chargeD = await chargeR.json();
         if (!chargeD.success) { setPayError(chargeD.error || 'Error activando terminal'); setPhase('error'); return; }
 
-        setWaitMsg(`Cobrando $${initD.totalAmount.toLocaleString('es-CL')} en ${terminalName || 'terminal'}…`);
+        setWaitMsg(`Cobrando $${initD.totalAmount.toLocaleString('es-CL')} en ${terminalName || 'terminal'}â€¦`);
         setPhase('waiting');
         pollTerminal(initD.reference, chargeD.paymentKey, terminalProvider);
         return;
@@ -448,8 +448,8 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
       if (!r.ok) { setPayError(d.error || 'Error'); setPhase('error'); return; }
       if (d.free) { await confirmPurchase(d.reference); return; }
       window.open(d.paymentUrl, '_blank');
-      // Esperar confirmación del webhook
-      setWaitMsg('Esperando confirmación de pago Haulmer…');
+      // Esperar confirmaciÃ³n del webhook
+      setWaitMsg('Esperando confirmaciÃ³n de pago Haulmerâ€¦');
       setPhase('waiting');
       let att = 0;
       const iv = setInterval(async () => {
@@ -474,12 +474,12 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
   const headerTitle = phase === 'events' ? null
     : phase === 'select' || phase === 'confirm' ? selectedEvent?.name
     : phase === 'waiting' ? 'Procesando pago'
-    : phase === 'success' ? '¡Confirmado!'
+    : phase === 'success' ? 'Â¡Confirmado!'
     : 'Error';
 
   return (
     <div style={overlay}>
-      {/* ── Header ── */}
+      {/* â”€â”€ Header â”€â”€ */}
       <div style={{
         background: 'linear-gradient(180deg, #111 0%, #0d0d0d 100%)',
         borderBottom: '2px solid var(--store-accent, #D4AF37)',
@@ -498,11 +498,11 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ color: '#fff', fontWeight: 900, fontSize: 18, lineHeight: 1.1, letterSpacing: 0.3 }}>
-              {headerTitle || 'Ticketería'}
+              {headerTitle || 'TicketerÃ­a'}
             </div>
             {phase === 'events' && (
               <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>
-                Seleccioná un evento
+                SeleccionÃ¡ un evento
               </div>
             )}
           </div>
@@ -522,7 +522,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
                   color: active ? 'var(--store-accent, #D4AF37)' : done ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)',
                   borderBottom: active ? '2px solid var(--store-accent, #D4AF37)' : '2px solid transparent',
                 }}>
-                  {done ? '✓ ' : ''}{label}
+                  {done ? 'âœ“ ' : ''}{label}
                 </div>
               );
             })}
@@ -532,7 +532,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px', background: '#080808' }}>
 
-        {/* ── VirtualKeyboard para búsqueda ── */}
+        {/* â”€â”€ VirtualKeyboard para bÃºsqueda â”€â”€ */}
         {vkbOpen && (
           <VirtualKeyboard
             value={search}
@@ -542,14 +542,14 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
           />
         )}
 
-        {/* ── LISTA DE EVENTOS ── */}
+        {/* â”€â”€ LISTA DE EVENTOS â”€â”€ */}
         {phase === 'events' && (
           <>
           {/* Barra de filtros */}
           {!loadingEvents && allEvents.length > 0 && (
             <div style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-              {/* Búsqueda */}
+              {/* BÃºsqueda */}
               {!!filterCfg.show_search && (
                 <button onClick={() => setVkbOpen(true)} style={{
                   display: 'flex', alignItems: 'center', gap: 10, width: '100%',
@@ -558,15 +558,15 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
                 }}>
                   <FontAwesomeIcon icon={faSearch} style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14 }} />
                   <span style={{ flex: 1, fontSize: 14, color: search ? '#fff' : 'rgba(255,255,255,0.3)', fontWeight: search ? 600 : 400 }}>
-                    {search || 'Buscar evento…'}
+                    {search || 'Buscar eventoâ€¦'}
                   </span>
                   {search && (
-                    <span onClick={e => { e.stopPropagation(); setSearch(''); }} style={{ color: 'rgba(255,255,255,0.4)', fontSize: 18, lineHeight: 1 }}>×</span>
+                    <span onClick={e => { e.stopPropagation(); setSearch(''); }} style={{ color: 'rgba(255,255,255,0.4)', fontSize: 18, lineHeight: 1 }}>Ã—</span>
                   )}
                 </button>
               )}
 
-              {/* Géneros */}
+              {/* GÃ©neros */}
               {!!filterCfg.show_genre && filterCfg.genres?.length > 0 && (
                 <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
                   {['all', ...filterCfg.genres].map(g => {
@@ -584,7 +584,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
                 </div>
               )}
 
-              {/* Países */}
+              {/* PaÃ­ses */}
               {!!filterCfg.show_country && filterCfg.countries?.length > 0 && (
                 <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
                   {['all', ...filterCfg.countries].map(c => {
@@ -620,7 +620,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
           {loadingEvents ? (
             <div style={{ textAlign: 'center', paddingTop: 80 }}>
               <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 36, color: 'var(--store-accent, #D4AF37)' }} />
-              <div style={{ marginTop: 14, color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Cargando eventos…</div>
+              <div style={{ marginTop: 14, color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Cargando eventosâ€¦</div>
             </div>
           ) : events.length === 0 ? (
             <div style={{ textAlign: 'center', paddingTop: 80 }}>
@@ -639,7 +639,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
                 const month   = evDate ? evDate.toLocaleDateString('es-CL', { month: 'short' }).toUpperCase() : '';
                 const weekday = evDate ? evDate.toLocaleDateString('es-CL', { weekday: 'long' }) : '';
                 const year    = evDate ? evDate.getFullYear() : '';
-                const timeStr = ev.time_start ? String(ev.time_start).slice(0,5) + (ev.time_end ? ` – ${String(ev.time_end).slice(0,5)}` : '') : '';
+                const timeStr = ev.time_start ? String(ev.time_start).slice(0,5) + (ev.time_end ? ` â€“ ${String(ev.time_end).slice(0,5)}` : '') : '';
                 return (
                   <div key={ev.id} onClick={() => selectEvent(ev)}
                     style={{ borderRadius: 14, overflow: 'hidden', cursor: 'pointer', position: 'relative', aspectRatio: '2/3', background: '#111', boxShadow: '0 4px 18px rgba(0,0,0,0.6)', transition: 'transform .12s', WebkitTapHighlightColor: 'transparent' }}
@@ -694,7 +694,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
           }</>
         )}
 
-        {/* ── SELECTOR DE ENTRADAS ── */}
+        {/* â”€â”€ SELECTOR DE ENTRADAS â”€â”€ */}
         {phase === 'select' && (
           <div style={{ maxWidth: 500, margin: '0 auto' }}>
             {/* Cabecera con fecha/hora grande */}
@@ -703,7 +703,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
               const dayNum  = evDate ? evDate.toLocaleDateString('es-CL', { day: '2-digit' }) : '';
               const month   = evDate ? evDate.toLocaleDateString('es-CL', { month: 'long' }) : '';
               const weekday = evDate ? evDate.toLocaleDateString('es-CL', { weekday: 'long' }) : '';
-              const timeStr = selectedEvent.time_start ? String(selectedEvent.time_start).slice(0,5) + (selectedEvent.time_end ? ` – ${String(selectedEvent.time_end).slice(0,5)}` : '') : '';
+              const timeStr = selectedEvent.time_start ? String(selectedEvent.time_start).slice(0,5) + (selectedEvent.time_end ? ` â€“ ${String(selectedEvent.time_end).slice(0,5)}` : '') : '';
               return (
                 <div style={{ background: '#111', borderRadius: 16, overflow: 'hidden', marginBottom: 20, border: '1px solid #2a2a2a', boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }}>
                   {selectedEvent.image_url
@@ -732,7 +732,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
               );
             })()}
             {categories.length === 0
-              ? <p style={{ color: 'rgba(255,255,255,0.3)', textAlign: 'center', paddingTop: 30 }}>Este evento no tiene categorías configuradas</p>
+              ? <p style={{ color: 'rgba(255,255,255,0.3)', textAlign: 'center', paddingTop: 30 }}>Este evento no tiene categorÃ­as configuradas</p>
               : categories.map(cat => (
                 <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px', background: qtys[cat.id] > 0 ? 'rgba(212,175,55,0.06)' : '#111', borderRadius: 14, marginBottom: 10, border: `1.5px solid ${qtys[cat.id] > 0 ? 'var(--store-accent, #D4AF37)' : '#222'}`, transition: 'border-color 0.2s, background 0.2s' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -765,7 +765,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
           </div>
         )}
 
-        {/* ── RESUMEN DE COMPRA ── */}
+        {/* â”€â”€ RESUMEN DE COMPRA â”€â”€ */}
         {phase === 'confirm' && (
           <div style={{ maxWidth: 500, margin: '0 auto' }}>
             {/* Info evento */}
@@ -788,7 +788,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
                   {selectedEvent?.time_start && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
                       <FontAwesomeIcon icon={faClock} style={{ color: 'var(--store-accent, #D4AF37)', width: 14 }} />
-                      {String(selectedEvent.time_start).slice(0,5)}{selectedEvent.time_end ? ` – ${String(selectedEvent.time_end).slice(0,5)}` : ''}
+                      {String(selectedEvent.time_start).slice(0,5)}{selectedEvent.time_end ? ` â€“ ${String(selectedEvent.time_end).slice(0,5)}` : ''}
                     </div>
                   )}
                   {selectedEvent?.location && (
@@ -807,7 +807,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
                 <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderBottom: i < arr.length - 1 ? '1px solid #1a1a1a' : 'none' }}>
                   <div>
                     <span style={{ fontWeight: 700, fontSize: 15, color: '#fff' }}>{cat.name}</span>
-                    <span style={{ marginLeft: 10, fontSize: 13, color: 'rgba(255,255,255,0.35)', fontWeight: 600 }}>× {qtys[cat.id]}</span>
+                    <span style={{ marginLeft: 10, fontSize: 13, color: 'rgba(255,255,255,0.35)', fontWeight: 600 }}>Ã— {qtys[cat.id]}</span>
                   </div>
                   <span style={{ fontWeight: 800, color: 'var(--store-accent, #D4AF37)', fontSize: 15 }}>
                     {cat.price === 0 ? 'Gratis' : `$${(cat.price * qtys[cat.id]).toLocaleString('es-CL')}`}
@@ -832,34 +832,34 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
           </div>
         )}
 
-        {/* ── ESPERANDO PAGO ── */}
+        {/* â”€â”€ ESPERANDO PAGO â”€â”€ */}
         {phase === 'waiting' && (
           <div style={{ textAlign: 'center', paddingTop: 80, maxWidth: 340, margin: '0 auto' }}>
             <div style={{ width: 80, height: 80, borderRadius: '50%', border: '3px solid rgba(212,175,55,0.3)', borderTopColor: 'var(--store-accent, #D4AF37)', animation: 'spin 1s linear infinite', margin: '0 auto 24px' }} />
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 8 }}>Esperando pago…</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 8 }}>Esperando pagoâ€¦</div>
             <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginBottom: 6 }}>{waitMsg}</div>
             <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>No cierres esta pantalla</div>
           </div>
         )}
 
-        {/* ── PROCESANDO ── */}
+        {/* â”€â”€ PROCESANDO â”€â”€ */}
         {phase === 'paying' && (
           <div style={{ textAlign: 'center', paddingTop: 80 }}>
             <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 44, color: 'var(--store-accent, #D4AF37)', marginBottom: 20, display: 'block' }} />
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15 }}>Procesando…</div>
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15 }}>Procesandoâ€¦</div>
           </div>
         )}
 
-        {/* ── ÉXITO ── */}
+        {/* â”€â”€ Ã‰XITO â”€â”€ */}
         {phase === 'success' && (
           <div style={{ textAlign: 'center', paddingTop: 20, maxWidth: 440, margin: '0 auto' }}>
             {/* Checkmark */}
             <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(34,197,94,0.12)', border: '2px solid #22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <FontAwesomeIcon icon={faCheckCircle} style={{ color: '#22c55e', fontSize: 38 }} />
             </div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: '#fff', marginBottom: 4 }}>¡Confirmado!</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: '#fff', marginBottom: 4 }}>Â¡Confirmado!</div>
             <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 24 }}>
-              {selectedEvent?.name} · {totalTickets} entrada{totalTickets !== 1 ? 's' : ''}
+              {selectedEvent?.name} Â· {totalTickets} entrada{totalTickets !== 1 ? 's' : ''}
             </div>
 
             {/* QR Card */}
@@ -873,7 +873,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
             </div>
 
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginBottom: 24 }}>
-              El cliente puede fotografiar el código
+              El cliente puede fotografiar el cÃ³digo
             </div>
 
             <button
@@ -885,7 +885,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
           </div>
         )}
 
-        {/* ── ERROR ── */}
+        {/* â”€â”€ ERROR â”€â”€ */}
         {phase === 'error' && (
           <div style={{ textAlign: 'center', paddingTop: 60, maxWidth: 400, margin: '0 auto' }}>
             <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(239,68,68,0.1)', border: '2px solid #ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
@@ -913,13 +913,13 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
                 onClick={() => { if (totalTickets === 0) return; setPhase('confirm'); }}
                 disabled={totalTickets === 0}
                 style={{ ...btn(totalTickets === 0 ? '#1a1a1a' : 'var(--store-accent, #D4AF37)', totalTickets === 0 ? 'rgba(255,255,255,0.2)' : '#000'), flex: 1, cursor: totalTickets === 0 ? 'not-allowed' : 'pointer', fontSize: 14 }}>
-                {totalTickets === 0 ? 'Seleccioná entradas' : `Ver resumen · ${totalTickets} entrada${totalTickets !== 1 ? 's' : ''} ${total > 0 ? `· $${total.toLocaleString('es-CL')}` : '· Gratis'}`}
+                {totalTickets === 0 ? 'SeleccionÃ¡ entradas' : `Ver resumen Â· ${totalTickets} entrada${totalTickets !== 1 ? 's' : ''} ${total > 0 ? `Â· $${total.toLocaleString('es-CL')}` : 'Â· Gratis'}`}
               </button>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button onClick={() => handlePay('terminal')} style={{ ...btn('var(--store-accent, #D4AF37)', '#000'), fontSize: 15 }}>
-                {total === 0 ? '✓ Confirmar (Gratis)' : `Pagar $${total.toLocaleString('es-CL')}`}
+                {total === 0 ? 'âœ“ Confirmar (Gratis)' : `Pagar $${total.toLocaleString('es-CL')}`}
               </button>
               <button onClick={() => setPhase('select')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: 13, cursor: 'pointer', padding: '8px', textAlign: 'center', width: '100%' }}>
                 <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 5 }} />Volver
@@ -1083,7 +1083,7 @@ function Store() {
   const [editingProd, setEditingProd] = useState(null);
   const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, max_extras: '', max_ingredients: '', image_url: '', complements_private: false, complement_group_ids: [] });
   const [storeComplementGroups, setStoreComplementGroups] = useState([]);
-  // Edición de secciones dinámicas desde el editor del tótem
+  // EdiciÃ³n de secciones dinÃ¡micas desde el editor del tÃ³tem
   const [sectionGroupModal, setSectionGroupModal] = useState(null); // { id?, name, min_select, max_select, required }
   const [sectionOptionModal, setSectionOptionModal] = useState(null); // { id?, group_id, name, price, stock, unlimited_stock, imageFile }
   const [sectionEditingGroup, setSectionEditingGroup] = useState(null); // grupo activo para agregar opciones inline
@@ -1166,8 +1166,10 @@ function Store() {
   const [deleteSelectedCountdown, setDeleteSelectedCountdown] = useState(5);
   const [deletingSelected, setDeletingSelected] = useState(false);
 
-  // ── Restaurant mode (Fudo-style) ──
+  // â”€â”€ Restaurant mode (Fudo-style) â”€â”€
   const [restaurantMode, setRestaurantMode] = useState(() => localStorage.getItem('srservi_restaurant_mode') === '1');
+  // En modo ediciÃ³n siempre se muestra la vista normal del tÃ³tem (nunca el mapa de mesas)
+  const restaurantView = restaurantMode && !editMode;
   const [tables, setTables] = useState([]);
   const [activeTable, setActiveTable] = useState(null);
   const [tableOrders, setTableOrders] = useState({});
@@ -1343,7 +1345,7 @@ function Store() {
   useEffect(() => {
     if (!qrReturnRef) return;
 
-    // Referencia nativa Haulmer (prefijo SRSN-) — confirmar y registrar orden
+    // Referencia nativa Haulmer (prefijo SRSN-) â€” confirmar y registrar orden
     if (qrReturnRef.startsWith('SRSN-')) {
       const xResult  = searchParams.get('x_result');
       const xAmount  = searchParams.get('x_amount');
@@ -1394,7 +1396,7 @@ function Store() {
     });
   }, [qrReturnRef]);
 
-  // APK version check disabled in Store.jsx — updates handled via admin panel and MainActivity only
+  // APK version check disabled in Store.jsx â€” updates handled via admin panel and MainActivity only
 
   // Auto-download receipt for successful delivery QR/Haulmer payments
   useEffect(() => {
@@ -1405,7 +1407,7 @@ function Store() {
     }
   }, [qrPaymentResult]);
 
-  // Inactivity timer: only starts AFTER user interacts, then if idle → modal → reload
+  // Inactivity timer: only starts AFTER user interacts, then if idle â†’ modal â†’ reload
   useEffect(() => {
     if (editMode || deliveryMode) return;
     let userHasInteracted = false;
@@ -1447,7 +1449,7 @@ function Store() {
     };
   }, [editMode]);
 
-  // Welcome/language modal disabled — just reset state after order completion
+  // Welcome/language modal disabled â€” just reset state after order completion
   const showWelcomeAfterOrder = () => {
     setCart([]);
     setCartOpen(false);
@@ -1455,7 +1457,7 @@ function Store() {
     setCashPaymentSuccess(false);
   };
 
-  // minimarket redirect removed — handled within the store view directly
+  // minimarket redirect removed â€” handled within the store view directly
 
   useEffect(() => {
     if (!selectedConfiguration) return;
@@ -1507,7 +1509,7 @@ function Store() {
     };
   }, []);
 
-  // Touch drag-to-scroll en las categorías
+  // Touch drag-to-scroll en las categorÃ­as
   useEffect(() => {
     const container = categoryRef.current;
     if (!container) return;
@@ -1559,7 +1561,7 @@ function Store() {
     };
   }, []);
 
-  // Swipe horizontal sobre el store container para cambiar categoría
+  // Swipe horizontal sobre el store container para cambiar categorÃ­a
   useEffect(() => {
     const el = storeContainerRef.current;
     if (!el || editMode) return;
@@ -1596,7 +1598,7 @@ function Store() {
     };
   }, [store?.categories, editMode]);
 
-  // Auto-scroll del tab de categoría activa al cambiar con swipe
+  // Auto-scroll del tab de categorÃ­a activa al cambiar con swipe
   useEffect(() => {
     const container = categoryRef.current;
     if (!container) return;
@@ -1604,7 +1606,7 @@ function Store() {
     if (activeTab) {
       activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
-    // Sube el área de productos al cambiar de categoría (scroll independiente)
+    // Sube el Ã¡rea de productos al cambiar de categorÃ­a (scroll independiente)
     document.querySelector('.store-main')?.scrollTo({ top: 0 });
   }, [activeCategory]);
 
@@ -1729,7 +1731,7 @@ function Store() {
     }
 
     if (isCash) {
-      // Pago en efectivo: aún no está pago, debe pagar en caja
+      // Pago en efectivo: aÃºn no estÃ¡ pago, debe pagar en caja
       ctx.fillStyle = '#D4AF37';
       ctx.font = 'bold 24px Arial';
       ctx.fillText('PAGO EN EFECTIVO', 300, 695);
@@ -1758,7 +1760,7 @@ function Store() {
       .catch(() => {});
   }, [code]);
 
-  // Screensaver timer — independent from the inactivity-reload timer
+  // Screensaver timer â€” independent from the inactivity-reload timer
   useEffect(() => {
     if (!screensaverCfg?.enabled || !screensaverCfg?.timeout_seconds) return;
     const timeout = screensaverCfg.timeout_seconds * 1000;
@@ -1999,7 +2001,7 @@ function Store() {
     setStoreOpeningLoading(true);
     setStoreOpeningError('');
     const token = localStorage.getItem('workerToken') || localStorage.getItem('token') || adminToken;
-    if (!token) { setStoreOpeningError('Iniciá sesión como vendedor primero'); setStoreOpeningLoading(false); return; }
+    if (!token) { setStoreOpeningError('IniciÃ¡ sesiÃ³n como vendedor primero'); setStoreOpeningLoading(false); return; }
     try {
       const res = await fetch('/api/cash-register/open', {
         method: 'POST',
@@ -2010,7 +2012,7 @@ function Store() {
       if (!res.ok) { setStoreOpeningError(data.error || 'Error al abrir caja'); return; }
       setCashRegisterOpen(true);
       setStoreOpeningAmount('');
-    } catch { setStoreOpeningError('Error de conexión'); }
+    } catch { setStoreOpeningError('Error de conexiÃ³n'); }
     finally { setStoreOpeningLoading(false); }
   };
 
@@ -2020,7 +2022,7 @@ function Store() {
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error('Código no encontrado');
+          throw new Error('CÃ³digo no encontrado');
         }
         if (response.status === 403) {
           const data = await response.json();
@@ -2055,7 +2057,7 @@ function Store() {
       setCashRegisterOpen(data.cash_register_open !== false);
       if (data.top_selling) setTopSellingIds(data.top_selling);
 
-      // Tiempo promedio de preparación por producto
+      // Tiempo promedio de preparaciÃ³n por producto
       fetch(`/api/public/${code}/prep-times`)
         .then(r => r.ok ? r.json() : {})
         .then(d => setPrepTimes(d || {}))
@@ -2067,7 +2069,7 @@ function Store() {
         .then(d => { if (d?.config) setLoyaltyConfig(d.config); })
         .catch(() => {});
 
-      // Welcome/language modal disabled — no longer shown on page load
+      // Welcome/language modal disabled â€” no longer shown on page load
 
       const terminalsResponse = await fetch(`/api/public/${code}/pos-terminals`);
       if (terminalsResponse.ok) {
@@ -2116,7 +2118,7 @@ function Store() {
         try {
           const localToken = localStorage.getItem('token');
           if (!localToken || localToken !== adminEditToken) {
-            // Token in URL doesn't match local session — strip it and redirect to login
+            // Token in URL doesn't match local session â€” strip it and redirect to login
             window.location.href = '/login';
             return;
           }
@@ -2205,7 +2207,7 @@ function Store() {
     currency: {
       symbol: store.store.currency_symbol || '$',
       code: store.store.currency_code || 'USD',
-      name: store.store.currency_name || 'Dólar Estadounidense'
+      name: store.store.currency_name || 'DÃ³lar Estadounidense'
     }
   } : {
     primary: '#000000',
@@ -2215,7 +2217,7 @@ function Store() {
     currency: {
       symbol: '$',
       code: 'USD',
-      name: 'Dólar Estadounidense'
+      name: 'DÃ³lar Estadounidense'
     }
   };
 
@@ -2302,7 +2304,7 @@ function Store() {
   // when the focus is already on a text field (so admin editing isn't hijacked).
   useEffect(() => {
     if (anyModalOpen) return;
-    // On non-touch devices the dedicated hidden input handles scanning — skip
+    // On non-touch devices the dedicated hidden input handles scanning â€” skip
     if (!isTouchDevice) return;
     let buffer = '';
     let lastTime = 0;
@@ -2474,7 +2476,7 @@ function Store() {
     setTimeout(() => setNotification(null), 1500);
   };
 
-  // Añade una promoción (banner) al carrito tras confirmación
+  // AÃ±ade una promociÃ³n (banner) al carrito tras confirmaciÃ³n
   const addPromoToCart = (promo) => {
     const price = Number(promo.price) || 0;
     const cartItem = {
@@ -2548,7 +2550,7 @@ function Store() {
     }
   };
 
-  // Después de Extras: si el producto tiene secciones personalizadas, mostrarlas; si no, al carrito
+  // DespuÃ©s de Extras: si el producto tiene secciones personalizadas, mostrarlas; si no, al carrito
   const proceedAfterExtras = () => {
     setExtrasModalOpen(false);
     const hasGroups = Array.isArray(selectedProduct?.complement_groups) && selectedProduct.complement_groups.length > 0;
@@ -2560,14 +2562,14 @@ function Store() {
     }
   };
 
-  // Validación de reglas (mín/obligatorio) de las secciones personalizadas antes de agregar
+  // ValidaciÃ³n de reglas (mÃ­n/obligatorio) de las secciones personalizadas antes de agregar
   const finishGroupsStep = () => {
     const groups = selectedProduct?.complement_groups || [];
     for (const g of groups) {
       const count = (productConfig.selectedComplements || []).filter(s => s.group_id === g.id).length;
       const min = g.required ? Math.max(1, g.min_select || 0) : (g.min_select || 0);
       if (count < min) {
-        alert(`Elegí al menos ${min} en "${g.name}".`);
+        alert(`ElegÃ­ al menos ${min} en "${g.name}".`);
         return;
       }
     }
@@ -2575,7 +2577,7 @@ function Store() {
     setTimeout(() => addToCart(), 100);
   };
 
-  // Alterna una opción de una sección respetando el máximo del grupo
+  // Alterna una opciÃ³n de una secciÃ³n respetando el mÃ¡ximo del grupo
   const toggleComplementOption = (group, option) => {
     setProductConfig(prev => {
       const list = prev.selectedComplements || [];
@@ -2584,14 +2586,14 @@ function Store() {
         return { ...prev, selectedComplements: list.filter(s => s.option_id !== option.id) };
       }
       const inGroup = list.filter(s => s.group_id === group.id);
-      // max_select 0 = sin límite
+      // max_select 0 = sin lÃ­mite
       if (group.max_select > 0 && inGroup.length >= group.max_select) {
         if (group.max_select === 1) {
-          // reemplazar la selección previa del grupo
+          // reemplazar la selecciÃ³n previa del grupo
           const without = list.filter(s => s.group_id !== group.id);
           return { ...prev, selectedComplements: [...without, { group_id: group.id, group_name: group.name, option_id: option.id, name: option.name, price: Number(option.price) || 0 }] };
         }
-        return prev; // alcanzó el máximo
+        return prev; // alcanzÃ³ el mÃ¡ximo
       }
       return { ...prev, selectedComplements: [...list, { group_id: group.id, group_name: group.name, option_id: option.id, name: option.name, price: Number(option.price) || 0 }] };
     });
@@ -2782,7 +2784,7 @@ function Store() {
       return;
     }
 
-    // Si solo hay un método de pago activo, ir directo sin propina
+    // Si solo hay un mÃ©todo de pago activo, ir directo sin propina
     // (excepto en modo TUU Android, que necesita mostrar el modal con los botones TUU)
     if (!deliveryMode && !(tuuModePayFromUrl && androidBridgeAvailable)) {
       const methodCount = [localAcceptCard, localAcceptCash].filter(Boolean).length;
@@ -2800,7 +2802,7 @@ function Store() {
       }
     }
 
-    // Más de un método → mostrar modal con propina configurada
+    // MÃ¡s de un mÃ©todo â†’ mostrar modal con propina configurada
     const configTip = parseFloat(selectedConfiguration?.tip_percentage) || 0;
     setTipPercent(configTip);
     setTipEnabled(configTip > 0);
@@ -2826,7 +2828,7 @@ function Store() {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'No se pudo aplicar el cupón');
+        throw new Error(data.error || 'No se pudo aplicar el cupÃ³n');
       }
       setAppliedCoupon(data);
       setCouponCodeInput(data.coupon_code || couponCodeInput.trim().toUpperCase());
@@ -3142,8 +3144,8 @@ function Store() {
     return () => { clearInterval(interval); clearTimeout(timeout); };
   }, [tuuModePayFromUrl]);
 
-  // Pago con terminal TUU local (app Android → Intent → TUU)
-  // method: 1 = crédito, 2 = débito
+  // Pago con terminal TUU local (app Android â†’ Intent â†’ TUU)
+  // method: 1 = crÃ©dito, 2 = dÃ©bito
   const handleAndroidTuuPayment = async (method) => {
     if (!window.AndroidBridge || cart.length === 0) return;
     setProcessingPayment(true);
@@ -3461,7 +3463,7 @@ function Store() {
     }
   }, [storeComplementGroups]);
 
-  // ===== Secciones dinámicas (editor del tótem) =====
+  // ===== Secciones dinÃ¡micas (editor del tÃ³tem) =====
   const saveSectionGroup = async () => {
     const g = sectionGroupModal;
     if (!g || !g.name.trim()) return;
@@ -3479,7 +3481,7 @@ function Store() {
           required: !!g.required
         })
       });
-      // Si es creación desde el editor de producto, auto-asignar la sección y abrir panel de opciones
+      // Si es creaciÃ³n desde el editor de producto, auto-asignar la secciÃ³n y abrir panel de opciones
       if (!g.id && g._autoAssign) {
         try {
           const created = await res.json();
@@ -3490,7 +3492,7 @@ function Store() {
             }));
             setSectionGroupModal(null);
             await fetchComplements();
-            // Abrir panel de opciones para la sección recién creada
+            // Abrir panel de opciones para la secciÃ³n reciÃ©n creada
             setSectionEditingGroup({ ...created, options: [] });
             return;
           }
@@ -3498,12 +3500,12 @@ function Store() {
       }
       setSectionGroupModal(null);
       await fetchComplements();
-    } catch (e) { console.error('Error guardando sección:', e); }
+    } catch (e) { console.error('Error guardando secciÃ³n:', e); }
     finally { setSectionSaving(false); }
   };
 
   const deleteSectionGroup = async (id) => {
-    if (!confirm('¿Eliminar esta sección y todas sus opciones?')) return;
+    if (!confirm('Â¿Eliminar esta secciÃ³n y todas sus opciones?')) return;
     try {
       await fetch(`/api/public/${code}/complement-groups/${id}`, {
         method: 'DELETE', headers: { 'Content-Type': 'application/json' },
@@ -3530,19 +3532,19 @@ function Store() {
       await fetch(url, { method: o.id ? 'PUT' : 'POST', body: fd });
       setSectionOptionModal(null);
       await fetchComplements();
-      // Si hay un panel de edición inline abierto, refrescarlo con las opciones actualizadas
+      // Si hay un panel de ediciÃ³n inline abierto, refrescarlo con las opciones actualizadas
       if (sectionEditingGroup && sectionEditingGroup.id === o.group_id) {
         setSectionEditingGroup(prev => {
           const updated = storeComplementGroups.find(g => g.id === o.group_id);
           return updated ? { ...updated } : prev;
         });
       }
-    } catch (e) { console.error('Error guardando opción:', e); }
+    } catch (e) { console.error('Error guardando opciÃ³n:', e); }
     finally { setSectionSaving(false); }
   };
 
   const deleteSectionOption = async (id) => {
-    if (!confirm('¿Eliminar esta opción?')) return;
+    if (!confirm('Â¿Eliminar esta opciÃ³n?')) return;
     try {
       await fetch(`/api/public/${code}/complement-options/${id}`, {
         method: 'DELETE', headers: { 'Content-Type': 'application/json' },
@@ -3579,7 +3581,7 @@ function Store() {
   };
 
   const deleteComplement = async (type, id) => {
-    if (!confirm('¿Eliminar?')) return;
+    if (!confirm('Â¿Eliminar?')) return;
     await fetch(`/api/public/${code}/${type === 'extra' ? 'extras' : 'ingredients'}/${id}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -3668,7 +3670,7 @@ function Store() {
   };
 
   const deleteComplementFromModal = async (type, id) => {
-    if (!confirm('¿Eliminar?')) return;
+    if (!confirm('Â¿Eliminar?')) return;
     await fetch(`/api/public/${code}/${type === 'extra' ? 'extras' : 'ingredients'}/${id}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -3787,7 +3789,7 @@ function Store() {
   };
 
   const deleteRm = async (rm) => {
-    if (!confirm(`¿Eliminar "${rm.name}"?`)) return;
+    if (!confirm(`Â¿Eliminar "${rm.name}"?`)) return;
     await fetch(`/api/raw-materials/${rm.id}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
@@ -3933,18 +3935,18 @@ function Store() {
     return Object.fromEntries(sortedEntries);
   };
 
-  // Long-press en cualquier parte: mousedown/touchstart en document → 15s → abre PIN
+  // Long-press en cualquier parte: mousedown/touchstart en document â†’ 15s â†’ abre PIN
   useEffect(() => {
     let timer = null;
     const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
     const start = () => {
       if (anyModalOpenRef.current) return;
       cancel();
-      console.log('[PIN] press inicio — timer 15s');
+      console.log('[PIN] press inicio â€” timer 15s');
       timer = setTimeout(() => {
         timer = null;
         if (anyModalOpenRef.current) return;
-        console.log('[PIN] 15s cumplidos — abriendo modal PIN');
+        console.log('[PIN] 15s cumplidos â€” abriendo modal PIN');
         setPinInput('');
         setPinError('');
         setPinModalOpen(true);
@@ -4125,7 +4127,7 @@ function Store() {
   };
 
   const deleteCat = async (cat) => {
-    if (!confirm(`¿Eliminar "${cat.name}"? Los productos quedarán sin categoría.`)) return;
+    if (!confirm(`Â¿Eliminar "${cat.name}"? Los productos quedarÃ¡n sin categorÃ­a.`)) return;
     try {
       await fetch(`/api/public/${code}/categories/${cat.id}`, {
         method: 'DELETE',
@@ -4180,7 +4182,7 @@ function Store() {
       setExcelRows(data.rows);
       setExcelStep('preview');
     } catch {
-      setExcelError('Error de conexión al leer el archivo');
+      setExcelError('Error de conexiÃ³n al leer el archivo');
     } finally {
       setExcelLoading(false);
       if (excelFileRef.current) excelFileRef.current.value = '';
@@ -4202,7 +4204,7 @@ function Store() {
       setExcelStep('results');
       fetchStore();
     } catch {
-      setExcelError('Error de conexión al importar');
+      setExcelError('Error de conexiÃ³n al importar');
     } finally {
       setExcelLoading(false);
     }
@@ -4231,7 +4233,7 @@ function Store() {
     setProdNewComplements([]);
     if (adminToken) {
       if (product && product.complements_private) {
-        // Lista única: el producto tiene sus propios complementos privados → editar aquí solo lo afecta a él
+        // Lista Ãºnica: el producto tiene sus propios complementos privados â†’ editar aquÃ­ solo lo afecta a Ã©l
         fetch(`/api/public/${code}/products/${product.id}/own-complements`, { cache: 'no-store' })
           .then(r => r.json())
           .then(data => {
@@ -4337,7 +4339,7 @@ function Store() {
   };
 
   const deleteEditorCombo = async (id) => {
-    if (!confirm('¿Eliminar este combo?')) return;
+    if (!confirm('Â¿Eliminar este combo?')) return;
     try {
       const res = await fetch(`/api/combos/${id}?store_id=${store.store.id}`, {
         method: 'DELETE', headers: { 'Authorization': `Bearer ${adminToken}` }
@@ -4465,13 +4467,13 @@ function Store() {
 
         if (targetId) {
           if (!isPrivate && wasPrivate) {
-            // Se desactivó lista única → limpiar copias privadas y volver a la biblioteca compartida
+            // Se desactivÃ³ lista Ãºnica â†’ limpiar copias privadas y volver a la biblioteca compartida
             await fetch(`/api/public/${code}/products/${targetId}/complements-private`, {
               method: 'PUT', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ ...getAuthBody(), private: false })
             });
           } else {
-            // Sincronizar asociaciones (selección + nuevos), deduplicando IDs
+            // Sincronizar asociaciones (selecciÃ³n + nuevos), deduplicando IDs
             const allIngIds = [...new Set([...selectedIngredientIds, ...newIngIds].map(Number))];
             const allExtIds = [...new Set([...selectedExtraIds, ...newExtIds].map(Number))];
             await fetch(`/api/public/${code}/products/${targetId}/complements`, {
@@ -4479,7 +4481,7 @@ function Store() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ ...getAuthBody(), ingredient_ids: allIngIds, extra_ids: allExtIds, default_ingredient_ids: selectedDefaultIngredientIds })
             });
-            // Lista única activada → clonar los vinculados a copias privadas
+            // Lista Ãºnica activada â†’ clonar los vinculados a copias privadas
             if (isPrivate) {
               await fetch(`/api/public/${code}/products/${targetId}/complements-private`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -4492,7 +4494,7 @@ function Store() {
         fetchComplements();
       }
 
-      // Asignar secciones dinámicas al producto (funciona con token o pin)
+      // Asignar secciones dinÃ¡micas al producto (funciona con token o pin)
       try {
         let pid = editingProd?.id;
         if (!pid) {
@@ -4521,7 +4523,7 @@ function Store() {
   };
 
   const deleteProd = async (product) => {
-    if (!confirm(`¿Eliminar "${product.name}"?`)) return;
+    if (!confirm(`Â¿Eliminar "${product.name}"?`)) return;
     try {
       await fetch(`/api/public/${code}/products/${product.id}`, {
         method: 'DELETE',
@@ -4802,7 +4804,7 @@ function Store() {
     )}
     <div
       ref={storeContainerRef}
-      className={`store-container${restaurantMode && !activeTable ? ' restaurant-table-view' : ''}`}
+      className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}`}
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
     >
@@ -4821,7 +4823,7 @@ function Store() {
             </h1>
           </div>
           <div className="store-header-greeting">
-            <div className="store-header-greeting-title">{t('greetingHi', lang)} 👋</div>
+            <div className="store-header-greeting-title">{t('greetingHi', lang)} ðŸ‘‹</div>
             <div className="store-header-greeting-sub">{t('greetingSub', lang)}</div>
           </div>
           <div className="store-header-spacer" />
@@ -4829,7 +4831,7 @@ function Store() {
             <div style={{ position: 'relative' }}>
               <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: '#fff', border: '1px solid #eee6d8', borderRadius: '999px', padding: '7px 13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#232028', fontSize: '13px', fontWeight: 700, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
                 <FontAwesomeIcon icon={faGlobe} style={{ fontSize: '11px' }} />
-                <span>{LANGUAGES.find(l => l.code === lang)?.flag || '🌐'}</span>
+                <span>{LANGUAGES.find(l => l.code === lang)?.flag || 'ðŸŒ'}</span>
               </button>
               {showLangPicker && (
                 <>
@@ -4856,7 +4858,7 @@ function Store() {
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
 
       {/* Restaurant mode bar */}
-      {restaurantMode && (
+      {restaurantView && (
         <div style={{ background: 'linear-gradient(135deg, #1e293b, #334155)', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <FontAwesomeIcon icon={faUtensils} style={{ fontSize: 14, color: '#D4AF37' }} />
@@ -4898,8 +4900,8 @@ function Store() {
         </div>
       )}
 
-      {/* ── Restaurant: Table map ── */}
-      {restaurantMode && !activeTable && (
+      {/* â”€â”€ Restaurant: Table map â”€â”€ */}
+      {restaurantView && !activeTable && (
         <div style={{ flex: 1, background: '#f1f5f9', overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
           {tables.length === 0 && !tableMapEditing ? (
             <div style={{ textAlign: 'center', padding: '60px 20px' }}>
@@ -4947,10 +4949,10 @@ function Store() {
                 {tableMapEditing && (
                   <>
                     <button onClick={() => {
-                      const name = `Sección ${sections.length + 1}`;
+                      const name = `SecciÃ³n ${sections.length + 1}`;
                       setActiveSection(name);
                     }} style={{ padding: '6px 12px', background: '#e0f2fe', color: '#0369a1', border: '1px dashed #7dd3fc', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                      <FontAwesomeIcon icon={faPlus} style={{ marginRight: 4 }} /> Sección
+                      <FontAwesomeIcon icon={faPlus} style={{ marginRight: 4 }} /> SecciÃ³n
                     </button>
                     {activeSection && sections.length > 1 && (
                       <>
@@ -4958,13 +4960,13 @@ function Store() {
                           <FontAwesomeIcon icon={faEdit} /> Renombrar
                         </button>
                         <button onClick={async () => {
-                          if (!confirm(`¿Eliminar sección "${activeSection}" y sus mesas?`)) return;
+                          if (!confirm(`Â¿Eliminar secciÃ³n "${activeSection}" y sus mesas?`)) return;
                           const updated = tables.filter(t => (t.section || 'Primer Piso') !== activeSection);
                           setTables(updated);
                           setActiveSection(sections.find(s => s !== activeSection) || sections[0]);
                           await saveTablesToDb(updated);
                         }} style={{ padding: '4px 8px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
-                          <FontAwesomeIcon icon={faTrash} /> Eliminar sección
+                          <FontAwesomeIcon icon={faTrash} /> Eliminar secciÃ³n
                         </button>
                       </>
                     )}
@@ -5115,7 +5117,7 @@ function Store() {
         </div>
       )}
 
-      <div className="store-body" style={restaurantMode && !activeTable ? { display: 'none' } : {}}>
+      <div className="store-body" style={restaurantView && !activeTable ? { display: 'none' } : {}}>
       <div className="category-tabs">
         <div
           ref={categoryRef}
@@ -5171,7 +5173,7 @@ function Store() {
         )}
         </div>
 
-        {/* Promociones (banners bajo las categorías) */}
+        {/* Promociones (banners bajo las categorÃ­as) */}
         {(!editMode || previewMode) && (store?.promos || []).length > 0 && (
           <div className="store-promos">
             {store.promos.map(promo => (
@@ -5323,18 +5325,18 @@ function Store() {
             {ingredients.length === 0 && <span style={{ color: '#999', fontSize: '13px', padding: '8px' }}>Sin complementos</span>}
           </div>
 
-          {/* ── Secciones personalizadas ── */}
+          {/* â”€â”€ Secciones personalizadas â”€â”€ */}
           <div className="store-editor-comp-header" style={{ marginTop: '18px' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
               Mis secciones ({storeComplementGroups.length})
             </span>
             <button className="store-edit-cat-add-btn" onClick={() => setSectionGroupModal({ name: '', min_select: '0', max_select: '0', required: false })}>
-              <FontAwesomeIcon icon={faPlus} /> Nueva sección
+              <FontAwesomeIcon icon={faPlus} /> Nueva secciÃ³n
             </button>
           </div>
           {storeComplementGroups.length === 0 && (
             <span style={{ color: '#999', fontSize: '13px', padding: '8px', display: 'block' }}>
-              Creá tus propias secciones (ej: Salsas, Bebidas) y luego asignalas a cada producto.
+              CreÃ¡ tus propias secciones (ej: Salsas, Bebidas) y luego asignalas a cada producto.
             </span>
           )}
           {storeComplementGroups.map(group => (
@@ -5343,12 +5345,12 @@ function Store() {
                 <div>
                   <strong style={{ color: 'var(--store-primary)' }}>{group.name}</strong>
                   <span style={{ fontSize: 11, color: '#999', marginLeft: 6 }}>
-                    {group.required ? 'Obligatorio · ' : ''}{group.min_select > 0 ? `mín ${group.min_select} · ` : ''}{group.max_select > 0 ? `máx ${group.max_select}` : 'sin límite'}
+                    {group.required ? 'Obligatorio Â· ' : ''}{group.min_select > 0 ? `mÃ­n ${group.min_select} Â· ` : ''}{group.max_select > 0 ? `mÃ¡x ${group.max_select}` : 'sin lÃ­mite'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 4 }}>
                   <button onClick={() => setSectionOptionModal({ group_id: group.id, name: '', price: '', stock: '', unlimited_stock: true, imageFile: null })} className="store-edit-cat-add-btn" style={{ fontSize: 12 }}>
-                    <FontAwesomeIcon icon={faPlus} /> Opción
+                    <FontAwesomeIcon icon={faPlus} /> OpciÃ³n
                   </button>
                   <button onClick={() => setSectionGroupModal({ id: group.id, name: group.name, min_select: String(group.min_select ?? 0), max_select: String(group.max_select ?? 0), required: !!group.required })} className="store-prod-edit-btn" style={{ width: 28, height: 28, fontSize: 12 }}>
                     <FontAwesomeIcon icon={faEdit} />
@@ -5385,7 +5387,7 @@ function Store() {
       )}
 
 
-      {(!editMode || previewMode) && !(restaurantMode && !activeTable) && activeCategory === 'all' && (store?.combos || []).filter(c => c.is_active && c.items?.length > 0).length > 0 && (
+      {(!editMode || previewMode) && !(restaurantView && !activeTable) && activeCategory === 'all' && (store?.combos || []).filter(c => c.is_active && c.items?.length > 0).length > 0 && (
         <div className="category-section">
           <div className="category-section-header">
             <div className="flex items-center gap-3">
@@ -5397,13 +5399,13 @@ function Store() {
           <div className="products-grid">
             {(store.combos || []).filter(c => c.is_active && c.items?.length > 0).map(combo => {
               const hasDiscount = combo.discount_type !== 'auto' && combo.auto_price > 0 && combo.auto_price !== combo.price;
-              const includedText = (combo.items || []).map(it => `${it.quantity}× ${it.product_name}`).join(' + ');
+              const includedText = (combo.items || []).map(it => `${it.quantity}Ã— ${it.product_name}`).join(' + ');
               return (
                 <div key={combo.id} className="store-product-wrapper" onClick={() => openComboModal(combo)}>
                   <div className={`store-product-card${hasDiscount ? ' combo-promo-card' : ''}`}>
                     {hasDiscount && (
                       <div className="combo-promo-badge">
-                        <span className="combo-promo-label">✦ Promoción ✦</span>
+                        <span className="combo-promo-label">âœ¦ PromociÃ³n âœ¦</span>
                         <span className="combo-promo-discount">
                           {combo.discount_type === 'percent' ? `-${combo.discount_value}%` : 'Precio especial'}
                         </span>
@@ -5439,7 +5441,7 @@ function Store() {
         </div>
       )}
 
-      {(!editMode || previewMode) && !(restaurantMode && !activeTable) && activeCategory === 'all' && hasProducts && (
+      {(!editMode || previewMode) && !(restaurantView && !activeTable) && activeCategory === 'all' && hasProducts && (
         <div className="category-sections" ref={productsAreaRef}>
           {(() => {
             const uncategorized = getSmartProducts().filter(p => !p.category_name);
@@ -5471,7 +5473,7 @@ function Store() {
         </div>
       )}
 
-      {(!editMode || previewMode) && !(restaurantMode && !activeTable) && activeCategory !== 'all' && hasProducts && (
+      {(!editMode || previewMode) && !(restaurantView && !activeTable) && activeCategory !== 'all' && hasProducts && (
         <div className="products-grid">
           {(store?.products || [])
             .filter(product => product.category_name === activeCategory)
@@ -5512,7 +5514,7 @@ function Store() {
                 fontSize: '13px', fontWeight: '600', cursor: 'pointer'
               }}
             >
-              {selectionMode ? 'Cancelar selección' : 'Seleccionar'}
+              {selectionMode ? 'Cancelar selecciÃ³n' : 'Seleccionar'}
             </button>
             {selectionMode && (store?.products || []).length > 0 && (
               <button
@@ -5617,7 +5619,7 @@ function Store() {
 
         const badge = (item) => {
           const isUnlimited = item.unlimited_stock === true || item.unlimited_stock === 1 || item.unlimited_stock === '1';
-          if (isUnlimited) return { label: '∞', color: '#D4AF37' };
+          if (isUnlimited) return { label: 'âˆž', color: '#D4AF37' };
           if (item.stock === 0) return { label: 'Agotado', color: '#ef4444' };
           if (item.stock <= 5) return { label: 'Bajo', color: '#f59e0b' };
           return { label: 'OK', color: '#22c55e' };
@@ -5676,7 +5678,7 @@ function Store() {
                     <input
                       value={rmSearch}
                       onChange={e => setRmSearch(e.target.value)}
-                      placeholder="Buscar materia prima…"
+                      placeholder="Buscar materia primaâ€¦"
                       style={{ flex: 1, padding: '6px 10px', border: '1px solid #ddd', borderRadius: '7px', fontSize: '12px', outline: 'none', minWidth: 0 }}
                     />
                     <button
@@ -5689,7 +5691,7 @@ function Store() {
 
                   {/* List */}
                   {rmLoading ? (
-                    <span style={{ color: '#999', fontSize: '13px', padding: '16px 8px', display: 'block', textAlign: 'center' }}>Cargando…</span>
+                    <span style={{ color: '#999', fontSize: '13px', padding: '16px 8px', display: 'block', textAlign: 'center' }}>Cargandoâ€¦</span>
                   ) : filteredRm.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '24px 8px', color: '#aaa' }}>
                       <FontAwesomeIcon icon={faFlask} style={{ fontSize: '22px', marginBottom: '8px', display: 'block' }} />
@@ -5714,7 +5716,7 @@ function Store() {
                                 )}
                               </div>
 
-                              {/* Quantity — click to edit */}
+                              {/* Quantity â€” click to edit */}
                               {isEditing ? (
                                 <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
                                   <input type="number" min="0" step="0.01" value={rmEditValue}
@@ -5727,9 +5729,9 @@ function Store() {
                                     style={{ width: '60px', padding: '3px 5px', border: '1px solid var(--store-primary)', borderRadius: '5px', fontSize: '12px', textAlign: 'center', outline: 'none' }}
                                   />
                                   <button onClick={async () => { await updateRmQty(rm, parseFloat(rmEditValue) || 0); setRmEditingId(null); }} disabled={rmSaving}
-                                    style={{ background: '#22c55e', border: 'none', borderRadius: '4px', padding: '3px 7px', cursor: 'pointer', color: '#fff', fontSize: '11px' }}>✓</button>
+                                    style={{ background: '#22c55e', border: 'none', borderRadius: '4px', padding: '3px 7px', cursor: 'pointer', color: '#fff', fontSize: '11px' }}>âœ“</button>
                                   <button onClick={() => setRmEditingId(null)}
-                                    style={{ background: '#eee', border: 'none', borderRadius: '4px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px' }}>✕</button>
+                                    style={{ background: '#eee', border: 'none', borderRadius: '4px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px' }}>âœ•</button>
                                 </div>
                               ) : (
                                 <button
@@ -5784,7 +5786,7 @@ function Store() {
                                   Agregar
                                 </button>
                                 <button onClick={() => setRmRestockId(null)}
-                                  style={{ background: '#eee', border: 'none', borderRadius: '6px', padding: '5px 8px', cursor: 'pointer', fontSize: '11px', flexShrink: 0 }}>✕</button>
+                                  style={{ background: '#eee', border: 'none', borderRadius: '6px', padding: '5px 8px', cursor: 'pointer', fontSize: '11px', flexShrink: 0 }}>âœ•</button>
                               </div>
                             )}
                           </div>
@@ -5795,7 +5797,7 @@ function Store() {
                 </div>
               );
             })() : invItems.length === 0 ? (
-              <span style={{ color: '#999', fontSize: '13px', padding: '16px 8px', display: 'block', textAlign: 'center' }}>Sin ítems</span>
+              <span style={{ color: '#999', fontSize: '13px', padding: '16px 8px', display: 'block', textAlign: 'center' }}>Sin Ã­tems</span>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 {invItems.map(item => {
@@ -5835,8 +5837,8 @@ function Store() {
                             }}
                             disabled={invSaving}
                             style={{ background: 'var(--store-primary)', border: 'none', borderRadius: '5px', padding: '4px 7px', cursor: 'pointer', color: 'var(--store-secondary)', fontSize: '12px', fontWeight: '700' }}
-                          >✓</button>
-                          <button onClick={() => setInvEditingId(null)} style={{ background: '#eee', border: 'none', borderRadius: '5px', padding: '4px 7px', cursor: 'pointer', fontSize: '12px' }}>✕</button>
+                          >âœ“</button>
+                          <button onClick={() => setInvEditingId(null)} style={{ background: '#eee', border: 'none', borderRadius: '5px', padding: '4px 7px', cursor: 'pointer', fontSize: '12px' }}>âœ•</button>
                         </div>
                       ) : (
                         <span
@@ -5873,7 +5875,7 @@ function Store() {
             <span>Pedidos en vivo ({liveOrders.length})</span>
           </div>
           {liveOrders.length === 0 ? (
-            <span style={{ color: '#999', fontSize: '13px', padding: '12px 8px', display: 'block', textAlign: 'center' }}>Sin pedidos aún</span>
+            <span style={{ color: '#999', fontSize: '13px', padding: '12px 8px', display: 'block', textAlign: 'center' }}>Sin pedidos aÃºn</span>
           ) : (
             liveOrders.map(order => (
               <div key={order.id} style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: '10px', padding: '12px', marginBottom: '8px' }}>
@@ -5891,15 +5893,15 @@ function Store() {
                   </span>
                 </div>
                 <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-                  {order.payment_method === 'cash' ? '💵 Efectivo' : order.payment_method === 'card' ? '💳 Tarjeta' : order.payment_method}
-                  {' · '}
-                  {order.order_type === 'takeout' ? '🛍 Para llevar' : '🍽 Servir'}
+                  {order.payment_method === 'cash' ? 'ðŸ’µ Efectivo' : order.payment_method === 'card' ? 'ðŸ’³ Tarjeta' : order.payment_method}
+                  {' Â· '}
+                  {order.order_type === 'takeout' ? 'ðŸ› Para llevar' : 'ðŸ½ Servir'}
                 </div>
                 {(order.items || []).length > 0 && (
                   <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     {(order.items || []).map((item, i) => (
                       <div key={i} style={{ fontSize: '12px', color: '#444', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>{item.quantity}× {item.product_name || item.name || `Producto ${item.product_id}`}</span>
+                        <span>{item.quantity}Ã— {item.product_name || item.name || `Producto ${item.product_id}`}</span>
                         <span>{colors.currency.symbol}{Number(item.unit_price * item.quantity).toFixed(2)}</span>
                       </div>
                     ))}
@@ -5940,7 +5942,7 @@ function Store() {
             {!editorCombosLoaded ? (
               <div style={{ textAlign: 'center', padding: '24px', color: '#999', fontSize: '13px' }}>Cargando...</div>
             ) : editorCombos.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '24px', color: '#999', fontSize: '13px' }}>No hay combos todavía.</div>
+              <div style={{ textAlign: 'center', padding: '24px', color: '#999', fontSize: '13px' }}>No hay combos todavÃ­a.</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '8px 0' }}>
                 {editorCombos.map(combo => (
@@ -5954,7 +5956,7 @@ function Store() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#111', lineHeight: 1.2 }}>{combo.name}</div>
                         <div style={{ fontSize: '0.72rem', color: '#888', marginTop: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {(combo.items || []).map(it => `${it.quantity}× ${it.product_name}`).join(' + ')}
+                          {(combo.items || []).map(it => `${it.quantity}Ã— ${it.product_name}`).join(' + ')}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '4px' }}>
                           <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--store-accent, #D4AF37)' }}>${formatPrice(combo.price)}</span>
@@ -5968,7 +5970,7 @@ function Store() {
                           <FontAwesomeIcon icon={faEdit} />
                         </button>
                         <button onClick={() => toggleEditorComboActive(combo)} style={{ width: 30, height: 30, borderRadius: 6, border: 'none', cursor: 'pointer', background: combo.is_active ? 'rgba(34,197,94,0.12)' : 'rgba(0,0,0,0.06)', color: combo.is_active ? '#16a34a' : '#999', fontSize: 14 }}>
-                          {combo.is_active ? '✓' : '○'}
+                          {combo.is_active ? 'âœ“' : 'â—‹'}
                         </button>
                         <button onClick={() => deleteEditorCombo(combo.id)} className="store-prod-edit-btn danger" style={{ width: 30, height: 30, fontSize: 12 }}>
                           <FontAwesomeIcon icon={faTrash} />
@@ -6011,7 +6013,7 @@ function Store() {
                       value={editorComboForm.name}
                       onChange={e => setEditorComboForm(prev => ({ ...prev, name: e.target.value }))} />
 
-                    <input className="store-prod-modal-input" placeholder="Descripción (opcional)"
+                    <input className="store-prod-modal-input" placeholder="DescripciÃ³n (opcional)"
                       value={editorComboForm.description}
                       onChange={e => setEditorComboForm(prev => ({ ...prev, description: e.target.value }))} />
 
@@ -6036,13 +6038,13 @@ function Store() {
                                 <span style={{ fontSize: '0.75rem', color: '#888' }}>${Number(p.price).toFixed(0)}</span>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                   <button type="button" onClick={() => setEditorComboForm(prev => ({ ...prev, items: prev.items.map(i => String(i.product_id) === String(it.product_id) ? { ...i, quantity: Math.max(1, i.quantity - 1) } : i).filter(i => i.quantity > 0) }))}
-                                    style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'rgba(0,0,0,0.08)', cursor: 'pointer', fontSize: 13 }}>−</button>
+                                    style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'rgba(0,0,0,0.08)', cursor: 'pointer', fontSize: 13 }}>âˆ’</button>
                                   <span style={{ minWidth: 18, textAlign: 'center', fontWeight: 700, fontSize: '0.85rem' }}>{it.quantity}</span>
                                   <button type="button" onClick={() => setEditorComboForm(prev => ({ ...prev, items: prev.items.map(i => String(i.product_id) === String(it.product_id) ? { ...i, quantity: i.quantity + 1 } : i) }))}
                                     style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'rgba(212,175,55,0.2)', cursor: 'pointer', color: '#D4AF37', fontSize: 13 }}>+</button>
                                 </div>
                                 <button type="button" onClick={() => setEditorComboForm(prev => ({ ...prev, items: prev.items.filter(i => String(i.product_id) !== String(it.product_id)) }))}
-                                  style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'rgba(239,68,68,0.12)', color: '#ef4444', cursor: 'pointer', fontSize: 11 }}>✕</button>
+                                  style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'rgba(239,68,68,0.12)', color: '#ef4444', cursor: 'pointer', fontSize: 11 }}>âœ•</button>
                               </div>
                             );
                           })}
@@ -6069,7 +6071,7 @@ function Store() {
                       <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: '10px' }}>
                         <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '8px' }}>Precio del combo</div>
                         <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-                          {[{ v: 'auto', l: 'Automático' }, { v: 'percent', l: '% Descuento' }, { v: 'fixed', l: 'Precio fijo' }].map(opt => (
+                          {[{ v: 'auto', l: 'AutomÃ¡tico' }, { v: 'percent', l: '% Descuento' }, { v: 'fixed', l: 'Precio fijo' }].map(opt => (
                             <button key={opt.v} type="button" onClick={() => setEditorComboForm(prev => ({ ...prev, discount_type: opt.v }))}
                               style={{ flex: 1, padding: '5px 2px', fontSize: '0.72rem', fontWeight: 600, borderRadius: '7px', cursor: 'pointer',
                                 border: `1px solid ${editorComboForm.discount_type === opt.v ? 'var(--store-primary)' : '#e5e7eb'}`,
@@ -6087,7 +6089,7 @@ function Store() {
                         )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'rgba(212,175,55,0.08)', borderRadius: '8px', marginTop: '8px' }}>
                           {editorComboForm.discount_type !== 'auto' && <span style={{ fontSize: '0.78rem', color: '#bbb', textDecoration: 'line-through' }}>${autoTotal.toFixed(0)}</span>}
-                          {editorComboForm.discount_type === 'auto' && <span style={{ fontSize: '0.78rem', color: '#888' }}>Total automático</span>}
+                          {editorComboForm.discount_type === 'auto' && <span style={{ fontSize: '0.78rem', color: '#888' }}>Total automÃ¡tico</span>}
                           <span style={{ fontWeight: 800, fontSize: '1.1rem', color: '#D4AF37', marginLeft: 'auto' }}>${Math.max(0, previewPrice()).toFixed(0)}</span>
                         </div>
                       </div>
@@ -6135,7 +6137,7 @@ function Store() {
       </div>
       )}
 
-      {/* Confirmación de promoción */}
+      {/* ConfirmaciÃ³n de promociÃ³n */}
       {promoConfirm && (
         <div
           onClick={() => setPromoConfirm(null)}
@@ -6156,7 +6158,7 @@ function Store() {
                 </div>
               )}
               <div style={{ fontSize: 14, color: '#5b564d', marginTop: 12, fontWeight: 600 }}>
-                ¿Quieres añadir esta promoción a tu pedido?
+                Â¿Quieres aÃ±adir esta promociÃ³n a tu pedido?
               </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                 <button
@@ -6169,7 +6171,7 @@ function Store() {
                   onClick={() => addPromoToCart(promoConfirm)}
                   style={{ flex: 1.4, padding: '13px', borderRadius: 999, border: 'none', background: '#FFC42E', color: '#232028', fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 14px rgba(255,196,46,0.4)' }}
                 >
-                  Sí, añadir
+                  SÃ­, aÃ±adir
                 </button>
               </div>
             </div>
@@ -6355,7 +6357,7 @@ function Store() {
                           marginTop: '2px',
                           fontWeight: ingredient.stock <= 5 ? '700' : '400',
                         }}>
-                          {ingredient.stock <= 5 ? '⚠ ' : ''}{ingredientStockLabel}
+                          {ingredient.stock <= 5 ? 'âš  ' : ''}{ingredientStockLabel}
                         </div>
                       )}
                     </div>
@@ -6594,7 +6596,7 @@ function Store() {
         </div>
       )}
 
-      {/* ── Modal de Secciones personalizadas (cliente) ── */}
+      {/* â”€â”€ Modal de Secciones personalizadas (cliente) â”€â”€ */}
       {complementGroupsModalOpen && selectedProduct && (
         <div className="store-modal-overlay" onClick={() => setComplementGroupsModalOpen(false)}>
           <div className="store-modal" onClick={(e) => e.stopPropagation()}>
@@ -6602,7 +6604,7 @@ function Store() {
               <button onClick={() => setComplementGroupsModalOpen(false)} className="store-modal-close">
                 <FontAwesomeIcon icon={faTimes} />
               </button>
-              <h2 style={{ margin: 0, padding: '10px 40px 0 40px' }}>Personalizá tu pedido</h2>
+              <h2 style={{ margin: 0, padding: '10px 40px 0 40px' }}>PersonalizÃ¡ tu pedido</h2>
             </div>
 
             <div className="store-modal-body">
@@ -6727,7 +6729,7 @@ function Store() {
 
                     {item._isCombo && (item._comboConfig || []).map(ci => (
                       <div key={ci.product_id} style={{ fontSize: '0.75rem', color: 'rgba(0,0,0,0.55)', lineHeight: 1.4 }}>
-                        {ci.quantity}× {ci.product_name}
+                        {ci.quantity}Ã— {ci.product_name}
                         {ci.selected_extras?.length > 0 && <span> +{ci.selected_extras.map(x => x?.name || x).join(', ')}</span>}
                         {ci.selected_complements?.length > 0 && <span> +{ci.selected_complements.map(x => x?.name || x).join(', ')}</span>}
                       </div>
@@ -6770,7 +6772,7 @@ function Store() {
                 )}
                 {loyaltyDiscount > 0 && loyaltyCustomer && (
                   <div className="store-cart-summary-row store-cart-discount" style={{ color: '#16a34a' }}>
-                    <span>⭐ Descuento cliente habitual ({loyaltyDiscount}%)</span>
+                    <span>â­ Descuento cliente habitual ({loyaltyDiscount}%)</span>
                     <span>-{colors.currency.symbol}{formatPrice(getLoyaltyDiscountAmount())}</span>
                   </div>
                 )}
@@ -6800,7 +6802,7 @@ function Store() {
                       fontSize: '11px',
                       color: '#92400e',
                     }}>
-                      <span style={{ flexShrink: 0 }}>⚠️</span>
+                      <span style={{ flexShrink: 0 }}>âš ï¸</span>
                       <span>{t('squareCommissionNote', lang)}</span>
                     </div>
                   </>
@@ -7018,7 +7020,7 @@ function Store() {
                         style={{ backgroundColor: '#1a1a1a', color: '#D4AF37', border: '3px solid #D4AF37', borderRadius: '15px' }}
                       >
                         <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '26px' }} />
-                        <span className="font-bold" style={{ fontSize: '18px' }}>DÉBITO TUU</span>
+                        <span className="font-bold" style={{ fontSize: '18px' }}>DÃ‰BITO TUU</span>
                       </button>
                       <button
                         onClick={() => handleAndroidTuuPayment(1)}
@@ -7027,7 +7029,7 @@ function Store() {
                         style={{ backgroundColor: '#1a1a1a', color: '#D4AF37', border: '3px solid #D4AF37', borderRadius: '15px' }}
                       >
                         <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '26px' }} />
-                        <span className="font-bold" style={{ fontSize: '18px' }}>CRÉDITO TUU</span>
+                        <span className="font-bold" style={{ fontSize: '18px' }}>CRÃ‰DITO TUU</span>
                       </button>
                     </>
                   )}
@@ -7144,7 +7146,7 @@ function Store() {
               background: 'var(--store-secondary)', borderRadius: '12px', padding: '8px 16px',
               border: '2px solid var(--store-primary)'
             }}>
-              {tableNumber || <span style={{ opacity: 0.25 }}>—</span>}
+              {tableNumber || <span style={{ opacity: 0.25 }}>â€”</span>}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '14px' }}>
@@ -7170,7 +7172,7 @@ function Store() {
                   background: '#fafafa', color: '#666', cursor: 'pointer'
                 }}
               >
-                ⌫
+                âŒ«
               </button>
               <button
                 onClick={() => setTableNumber(prev => prev.length < 3 ? prev + '0' : prev)}
@@ -7458,11 +7460,11 @@ function Store() {
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           overflow: 'hidden',
         }}>
-          {/* círculos decorativos */}
+          {/* cÃ­rculos decorativos */}
           <div style={{ position: 'absolute', width: 260, height: 260, borderRadius: '50%', background: colors.accent, opacity: 0.06, top: -60, left: -60, pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', width: 180, height: 180, borderRadius: '50%', background: colors.accent, opacity: 0.05, bottom: -40, right: -40, pointerEvents: 'none' }} />
 
-          {/* línea dorada superior */}
+          {/* lÃ­nea dorada superior */}
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 5, background: colors.accent }} />
 
           {/* contenido */}
@@ -7487,14 +7489,14 @@ function Store() {
                 fontSize: 24, fontWeight: 900, color: colors.primary,
                 boxShadow: `0 4px 24px ${colors.accent}66`,
               }}>
-                {(store?.store?.name || '★')[0]?.toUpperCase() || '★'}
+                {(store?.store?.name || 'â˜…')[0]?.toUpperCase() || 'â˜…'}
               </div>
             )}
 
             <h2 style={{ color: '#fff', fontSize: 24, fontWeight: 900, margin: 0, textAlign: 'center', lineHeight: 1.2 }}>
-              ¿Cómo fue tu experiencia?
+              Â¿CÃ³mo fue tu experiencia?
             </h2>
-            <p style={{ color: colors.accent, fontSize: 18, margin: 0, letterSpacing: 5 }}>★ ★ ★ ★ ★</p>
+            <p style={{ color: colors.accent, fontSize: 18, margin: 0, letterSpacing: 5 }}>â˜… â˜… â˜… â˜… â˜…</p>
 
             {/* tarjeta de emojis */}
             <div style={{
@@ -7506,11 +7508,11 @@ function Store() {
               width: '100%', boxSizing: 'border-box',
             }}>
               {[
-                { emoji: '😡', label: 'Muy malo',  value: 2  },
-                { emoji: '😕', label: 'Malo',      value: 4  },
-                { emoji: '😐', label: 'Regular',   value: 6  },
-                { emoji: '😊', label: 'Bueno',     value: 8  },
-                { emoji: '🤩', label: 'Excelente', value: 10 },
+                { emoji: 'ðŸ˜¡', label: 'Muy malo',  value: 2  },
+                { emoji: 'ðŸ˜•', label: 'Malo',      value: 4  },
+                { emoji: 'ðŸ˜', label: 'Regular',   value: 6  },
+                { emoji: 'ðŸ˜Š', label: 'Bueno',     value: 8  },
+                { emoji: 'ðŸ¤©', label: 'Excelente', value: 10 },
               ].map(({ emoji, label, value }) => (
                 <button
                   key={value}
@@ -7563,7 +7565,7 @@ function Store() {
             </p>
           </div>
 
-          {/* línea dorada inferior */}
+          {/* lÃ­nea dorada inferior */}
           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 5, background: colors.accent }} />
         </div>
       )}
@@ -7727,7 +7729,7 @@ function Store() {
                 <img src={getProductImageUrl(editingProd?.image)} alt="Actual" className="store-prod-modal-preview" />
               )}
 
-              {/* Botón Cambiar + O URL en la misma fila */}
+              {/* BotÃ³n Cambiar + O URL en la misma fila */}
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button
                   type="button"
@@ -7768,7 +7770,7 @@ function Store() {
                     onClick={() => { setShowImagePicker(false); setProdCameraOpen(true); }}
                     style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, border: '2px solid #e0e0e0', background: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 600, color: '#222' }}
                   >
-                    <span style={{ width: 40, height: 40, borderRadius: 10, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📷</span>
+                    <span style={{ width: 40, height: 40, borderRadius: 10, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>ðŸ“·</span>
                     Tomar foto
                   </button>
 
@@ -7776,7 +7778,7 @@ function Store() {
                   <label
                     style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, border: '2px solid #e0e0e0', background: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 600, color: '#222' }}
                   >
-                    <span style={{ width: 40, height: 40, borderRadius: 10, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🖼️</span>
+                    <span style={{ width: 40, height: 40, borderRadius: 10, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>ðŸ–¼ï¸</span>
                     Elegir archivo
                     <input
                       type="file"
@@ -7807,7 +7809,7 @@ function Store() {
                 className="store-prod-modal-input main"
               />
 
-              {/* 2. Precio + Categoría */}
+              {/* 2. Precio + CategorÃ­a */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <input
                   type="number"
@@ -7825,7 +7827,7 @@ function Store() {
                     className="store-prod-modal-input"
                     style={{ flex: 1, minWidth: 0 }}
                   >
-                    <option value="">Sin categoría</option>
+                    <option value="">Sin categorÃ­a</option>
                     {(store?.categories || []).map(cat => (
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
@@ -7833,7 +7835,7 @@ function Store() {
                   <button
                     type="button"
                     onClick={() => openCatModal(null, true)}
-                    title="Crear categoría"
+                    title="Crear categorÃ­a"
                     style={{
                       flexShrink: 0, width: 38, borderRadius: 8, border: '2px solid var(--store-primary)',
                       background: 'var(--store-secondary)', color: 'var(--store-primary)',
@@ -7846,21 +7848,21 @@ function Store() {
                 </div>
               </div>
 
-              {/* 3. Descripción */}
+              {/* 3. DescripciÃ³n */}
               <input
                 type="text"
                 value={prodForm.description}
                 onChange={(e) => setProdForm({ ...prodForm, description: e.target.value })}
-                placeholder="Descripción (opcional)"
+                placeholder="DescripciÃ³n (opcional)"
                 className="store-prod-modal-input"
               />
 
-              {/* 4. Código de barras */}
+              {/* 4. CÃ³digo de barras */}
               <input
                 type="text"
                 value={prodForm.barcode}
                 onChange={(e) => setProdForm({ ...prodForm, barcode: e.target.value })}
-                placeholder="Código de barras (escanear o escribir)"
+                placeholder="CÃ³digo de barras (escanear o escribir)"
                 className="store-prod-modal-input"
                 style={{ fontFamily: 'monospace', letterSpacing: '1px' }}
               />
@@ -7874,7 +7876,7 @@ function Store() {
                   <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: prodForm.unlimited_stock ? 20 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
                 </div>
                 <span onClick={() => setProdForm({ ...prodForm, unlimited_stock: !prodForm.unlimited_stock })} style={{ fontSize: 13, fontWeight: 600, color: prodForm.unlimited_stock ? '#15803d' : '#666', cursor: 'pointer', flex: 1 }}>
-                  {prodForm.unlimited_stock ? '∞ Stock ilimitado' : 'Stock limitado'}
+                  {prodForm.unlimited_stock ? 'âˆž Stock ilimitado' : 'Stock limitado'}
                 </span>
                 {!prodForm.unlimited_stock && (
                   <input
@@ -7913,7 +7915,7 @@ function Store() {
                   </div>
                   {prodForm.has_ingredients && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>Máx. a elegir:</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>MÃ¡x. a elegir:</span>
                       <input type="number" min="0" value={prodForm.max_ingredients} onChange={(e) => setProdForm({ ...prodForm, max_ingredients: e.target.value })} placeholder="0 = ilimitado" className="store-prod-modal-input" style={{ fontSize: 13, flex: 1 }} />
                     </div>
                   )}
@@ -7938,7 +7940,7 @@ function Store() {
                   </div>
                   {prodForm.has_extras && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>Máx. a elegir:</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>MÃ¡x. a elegir:</span>
                       <input type="number" min="0" value={prodForm.max_extras} onChange={(e) => setProdForm({ ...prodForm, max_extras: e.target.value })} placeholder="0 = ilimitado" className="store-prod-modal-input" style={{ fontSize: 13, flex: 1 }} />
                     </div>
                   )}
@@ -7971,13 +7973,13 @@ function Store() {
                                 type="button"
                                 onClick={() => setSectionGroupModal({ id: g.id, name: g.name, min_select: String(g.min_select ?? 0), max_select: String(g.max_select ?? 0), required: !!g.required })}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '2px 4px', fontSize: 13, flexShrink: 0 }}
-                                title="Editar nombre y configuración"
+                                title="Editar nombre y configuraciÃ³n"
                               ><FontAwesomeIcon icon={faEdit} /></button>
                               <button
                                 type="button"
                                 onClick={() => deleteSectionGroup(g.id)}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px 4px', fontSize: 13, flexShrink: 0 }}
-                                title="Eliminar sección"
+                                title="Eliminar secciÃ³n"
                               ><FontAwesomeIcon icon={faTrash} /></button>
                               <button
                                 type="button"
@@ -7990,12 +7992,12 @@ function Store() {
                         })}
                       </div>
                     )}
-                    {/* Lista única */}
+                    {/* Lista Ãºnica */}
                     {(prodForm.has_ingredients || prodForm.has_extras) && (
                       <div style={{ padding: '7px 10px', borderRadius: 8, border: `2px solid ${prodForm.complements_private ? '#D4AF37' : '#e0e0e0'}`, background: prodForm.complements_private ? '#fffbeb' : '#fafafa', marginTop: storeComplementGroups.length > 0 ? 8 : 0 }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, margin: 0 }}>
                           <input type="checkbox" checked={prodForm.complements_private} onChange={(e) => setProdForm({ ...prodForm, complements_private: e.target.checked })} style={{ width: 16, height: 16 }} />
-                          <FontAwesomeIcon icon={faStar} style={{ color: '#D4AF37' }} /> Lista única (solo de este producto)
+                          <FontAwesomeIcon icon={faStar} style={{ color: '#D4AF37' }} /> Lista Ãºnica (solo de este producto)
                         </label>
                       </div>
                     )}
@@ -8005,7 +8007,7 @@ function Store() {
                       type="button"
                       onClick={() => setSectionGroupModal({ name: '', min_select: 0, max_select: 0, required: false, _autoAssign: true })}
                       style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, background: 'none', border: '2px dashed #ccc', borderRadius: 8, padding: '7px 12px', fontSize: 13, fontWeight: 600, color: '#888', cursor: 'pointer', width: '100%', justifyContent: 'center' }}
-                    >+ Nueva sección</button>
+                    >+ Nueva secciÃ³n</button>
                   </div>
 
                 </div>
@@ -8076,8 +8078,8 @@ function Store() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 999998, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div style={{ background: '#fff', borderRadius: 18, padding: 28, maxWidth: 360, width: '100%', textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,0.25)' }}>
             <img src={URL.createObjectURL(pendingImageFile)} alt="Preview" style={{ width: '100%', maxHeight: 200, objectFit: 'contain', borderRadius: 10, marginBottom: 16 }} />
-            <p style={{ fontWeight: '700', fontSize: 17, margin: '0 0 6px' }}>¿Remover el fondo?</p>
-            <p style={{ fontSize: 13, color: '#666', margin: '0 0 20px' }}>Puedes eliminar el fondo de la imagen automáticamente con IA.</p>
+            <p style={{ fontWeight: '700', fontSize: 17, margin: '0 0 6px' }}>Â¿Remover el fondo?</p>
+            <p style={{ fontSize: 13, color: '#666', margin: '0 0 20px' }}>Puedes eliminar el fondo de la imagen automÃ¡ticamente con IA.</p>
             {bgRemoving ? (
               <p style={{ color: '#888', fontSize: 14 }}>Procesando...</p>
             ) : (
@@ -8102,7 +8104,7 @@ function Store() {
                       const file = new File([blob], 'sin_fondo.png', { type: 'image/png' });
                       setProdImageFile(file);
                     } catch {
-                      alert('No se pudo remover el fondo. Se usará la imagen original.');
+                      alert('No se pudo remover el fondo. Se usarÃ¡ la imagen original.');
                       setProdImageFile(pendingImageFile);
                     } finally {
                       setBgRemoving(false);
@@ -8112,7 +8114,7 @@ function Store() {
                   }}
                   style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--store-primary, #D4AF37)', color: '#fff', fontWeight: '700', fontSize: 14, cursor: 'pointer' }}
                 >
-                  Sí, remover fondo
+                  SÃ­, remover fondo
                 </button>
               </div>
             )}
@@ -8321,15 +8323,15 @@ function Store() {
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Tamaño general</label>
+                      <label style={{ fontSize: '11px', color: '#888' }}>TamaÃ±o general</label>
                       <input type="text" value={visualSettings.fontSize} onChange={(e) => { const v = { ...visualSettings, fontSize: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} placeholder="ej: 14px" className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Tamaño titulo</label>
+                      <label style={{ fontSize: '11px', color: '#888' }}>TamaÃ±o titulo</label>
                       <input type="text" value={visualSettings.titleSize} onChange={(e) => { const v = { ...visualSettings, titleSize: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} placeholder="ej: 16px" className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Tamaño precio</label>
+                      <label style={{ fontSize: '11px', color: '#888' }}>TamaÃ±o precio</label>
                       <input type="text" value={visualSettings.priceSize} onChange={(e) => { const v = { ...visualSettings, priceSize: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} placeholder="ej: 18px" className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
                     </div>
                   </div>
@@ -8472,7 +8474,7 @@ function Store() {
               <input type="text" value={complementForm.name} onChange={(e) => setComplementForm({ ...complementForm, name: e.target.value })} placeholder="Nombre" autoFocus className="store-prod-modal-input main" />
               <input type="number" step="0.01" value={complementForm.price} onChange={(e) => setComplementForm({ ...complementForm, price: e.target.value })} placeholder="Precio adicional" className="store-prod-modal-input" />
               <select value={complementForm.category_id} onChange={(e) => setComplementForm({ ...complementForm, category_id: e.target.value })} className="store-prod-modal-input">
-                <option value="">Sin categoría</option>
+                <option value="">Sin categorÃ­a</option>
                 {(store?.categories || []).map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
               </select>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -8511,14 +8513,14 @@ function Store() {
         <div className="store-modal-overlay" onClick={() => { setCatModalOpen(false); setCatModalFromProduct(false); }} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
           <div className="store-pin-modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ margin: '0 0 16px', color: 'var(--store-primary)', textAlign: 'center' }}>
-              {editingCat ? 'Editar Categoría' : 'Nueva Categoría'}
+              {editingCat ? 'Editar CategorÃ­a' : 'Nueva CategorÃ­a'}
             </h3>
             <input
               type="text"
               value={catName}
               onChange={(e) => setCatName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') saveCat(); }}
-              placeholder="Nombre de la categoría"
+              placeholder="Nombre de la categorÃ­a"
               autoFocus
               style={{
                 width: '100%',
@@ -8643,21 +8645,21 @@ function Store() {
               onKeyDown={(e) => { if (e.key === 'Enter') saveStoreLabels(); }}
               style={{ width: '100%', boxSizing: 'border-box' }}
             />
-            <p style={{ margin: '8px 0 0', fontSize: 12, color: '#aaa' }}>Déjalo vacío para usar el nombre por defecto.</p>
+            <p style={{ margin: '8px 0 0', fontSize: 12, color: '#aaa' }}>DÃ©jalo vacÃ­o para usar el nombre por defecto.</p>
             <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
               <button onClick={() => setLabelEditModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
-              <button onClick={saveStoreLabels} disabled={labelSaving} className="store-prod-modal-btn confirm">{labelSaving ? 'Guardando…' : 'Guardar'}</button>
+              <button onClick={saveStoreLabels} disabled={labelSaving} className="store-prod-modal-btn confirm">{labelSaving ? 'Guardandoâ€¦' : 'Guardar'}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal crear/editar sección (tótem) */}
+      {/* Modal crear/editar secciÃ³n (tÃ³tem) */}
       {sectionGroupModal && (
         <div className="store-modal-overlay" onClick={() => setSectionGroupModal(null)} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
           <div className="store-prod-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px' }}>
             <h3 style={{ margin: '0 0 12px', color: 'var(--store-primary)', textAlign: 'center' }}>
-              {sectionGroupModal.id ? 'Editar sección' : 'Nueva sección'}
+              {sectionGroupModal.id ? 'Editar secciÃ³n' : 'Nueva secciÃ³n'}
             </h3>
             <label style={{ fontSize: 13, fontWeight: 600, color: '#444' }}>Nombre</label>
             <input type="text" value={sectionGroupModal.name} autoFocus placeholder="Ej: Salsas"
@@ -8665,13 +8667,13 @@ function Store() {
               onChange={(e) => setSectionGroupModal({ ...sectionGroupModal, name: e.target.value })} />
             <div style={{ display: 'flex', gap: 8 }}>
               <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 13, fontWeight: 600, color: '#444' }}>Mínimo</label>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#444' }}>MÃ­nimo</label>
                 <input type="number" min="0" value={sectionGroupModal.min_select}
                   className="store-prod-modal-input" style={{ width: '100%', boxSizing: 'border-box' }}
                   onChange={(e) => setSectionGroupModal({ ...sectionGroupModal, min_select: e.target.value })} />
               </div>
               <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 13, fontWeight: 600, color: '#444' }}>Máximo (0=∞)</label>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#444' }}>MÃ¡ximo (0=âˆž)</label>
                 <input type="number" min="0" value={sectionGroupModal.max_select}
                   className="store-prod-modal-input" style={{ width: '100%', boxSizing: 'border-box' }}
                   onChange={(e) => setSectionGroupModal({ ...sectionGroupModal, max_select: e.target.value })} />
@@ -8685,19 +8687,19 @@ function Store() {
             <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
               <button onClick={() => setSectionGroupModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
               <button onClick={saveSectionGroup} disabled={sectionSaving || !sectionGroupModal.name.trim()} className="store-prod-modal-btn confirm">
-                {sectionSaving ? 'Guardando…' : 'Guardar'}
+                {sectionSaving ? 'Guardandoâ€¦' : 'Guardar'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal crear/editar opción de sección (tótem) */}
+      {/* Modal crear/editar opciÃ³n de secciÃ³n (tÃ³tem) */}
       {sectionOptionModal && (
         <div className="store-modal-overlay" onClick={() => setSectionOptionModal(null)} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
           <div className="store-prod-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px' }}>
             <h3 style={{ margin: '0 0 12px', color: 'var(--store-primary)', textAlign: 'center' }}>
-              {sectionOptionModal.id ? 'Editar opción' : 'Nueva opción'}
+              {sectionOptionModal.id ? 'Editar opciÃ³n' : 'Nueva opciÃ³n'}
             </h3>
             <label style={{ fontSize: 13, fontWeight: 600, color: '#444' }}>Nombre</label>
             <input type="text" value={sectionOptionModal.name} autoFocus placeholder="Ej: Ketchup"
@@ -8726,14 +8728,14 @@ function Store() {
             <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
               <button onClick={() => setSectionOptionModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
               <button onClick={saveSectionOption} disabled={sectionSaving || !sectionOptionModal.name.trim()} className="store-prod-modal-btn confirm">
-                {sectionSaving ? 'Guardando…' : 'Guardar'}
+                {sectionSaving ? 'Guardandoâ€¦' : 'Guardar'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal gestión de opciones de sección (se abre automáticamente al crear desde editor de producto) */}
+      {/* Modal gestiÃ³n de opciones de secciÃ³n (se abre automÃ¡ticamente al crear desde editor de producto) */}
       {sectionEditingGroup && !sectionOptionModal && (
         <div className="store-modal-overlay" onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
           <div className="store-prod-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
@@ -8741,13 +8743,13 @@ function Store() {
               {sectionEditingGroup.name}
             </h3>
             <p style={{ margin: '0 0 14px', fontSize: 12, color: '#888', textAlign: 'center' }}>
-              Agregá las opciones que verá el cliente
+              AgregÃ¡ las opciones que verÃ¡ el cliente
             </p>
 
             {/* Lista de opciones existentes */}
             {(sectionEditingGroup.options || []).length === 0 ? (
               <div style={{ textAlign: 'center', padding: '16px 0', color: '#bbb', fontSize: 13 }}>
-                Aún no hay opciones. Presioná <strong>+ Agregar opción</strong>.
+                AÃºn no hay opciones. PresionÃ¡ <strong>+ Agregar opciÃ³n</strong>.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
@@ -8759,24 +8761,24 @@ function Store() {
                     <button
                       onClick={() => setSectionOptionModal({ id: opt.id, group_id: sectionEditingGroup.id, name: opt.name, price: opt.price?.toString() || '', stock: String(opt.stock ?? 0), unlimited_stock: !!opt.unlimited_stock, imageFile: null })}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '2px 5px', fontSize: 13 }}
-                      title="Editar opción"
-                    >✏️</button>
+                      title="Editar opciÃ³n"
+                    >âœï¸</button>
                     <button
-                      onClick={async () => { if (confirm('¿Eliminar esta opción?')) { await deleteSectionOption(opt.id); } }}
+                      onClick={async () => { if (confirm('Â¿Eliminar esta opciÃ³n?')) { await deleteSectionOption(opt.id); } }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px 5px', fontSize: 13 }}
-                      title="Eliminar opción"
-                    >✕</button>
+                      title="Eliminar opciÃ³n"
+                    >âœ•</button>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Botón agregar opción */}
+            {/* BotÃ³n agregar opciÃ³n */}
             <button
               onClick={() => setSectionOptionModal({ group_id: sectionEditingGroup.id, name: '', price: '', stock: '', unlimited_stock: true, imageFile: null })}
               style={{ width: '100%', padding: '10px', borderRadius: 8, border: '2px dashed var(--store-primary)', background: 'transparent', color: 'var(--store-primary)', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginBottom: 12 }}
             >
-              + Agregar opción
+              + Agregar opciÃ³n
             </button>
 
             <button
@@ -8842,7 +8844,7 @@ function Store() {
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 12, color: '#555', display: 'block', marginBottom: 4 }}>Stock mínimo (alerta)</label>
+                  <label style={{ fontSize: 12, color: '#555', display: 'block', marginBottom: 4 }}>Stock mÃ­nimo (alerta)</label>
                   <input type="number" min="0" step="0.01" value={rmForm.min_quantity} onChange={e => setRmForm(f => ({ ...f, min_quantity: e.target.value }))} placeholder="0" style={{ width: '100%', padding: '8px 10px', border: '1px solid #ddd', borderRadius: 8, fontSize: 13, boxSizing: 'border-box', outline: 'none' }} />
                 </div>
                 <div style={{ flex: 1 }}>
@@ -8854,7 +8856,7 @@ function Store() {
             <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
               <button onClick={() => setRmModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
               <button onClick={saveRm} disabled={rmSaving || !rmForm.name.trim()} className={`store-prod-modal-btn confirm${(!rmForm.name.trim() || rmSaving) ? ' disabled' : ''}`}>
-                {rmSaving ? 'Guardando…' : 'Guardar'}
+                {rmSaving ? 'Guardandoâ€¦' : 'Guardar'}
               </button>
             </div>
           </div>
@@ -8864,13 +8866,13 @@ function Store() {
       {showDeleteAllModal && (
         <div className="store-modal-overlay" onClick={() => !deletingAll && setShowDeleteAllModal(false)}>
           <div className="store-pin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '360px', textAlign: 'center' }}>
-            <div style={{ fontSize: '44px', marginBottom: '10px' }}>⚠️</div>
+            <div style={{ fontSize: '44px', marginBottom: '10px' }}>âš ï¸</div>
             <h3 style={{ margin: '0 0 8px', color: '#e53e3e' }}>Eliminar todos los productos</h3>
             <p style={{ margin: '0 0 6px', fontSize: '14px', color: '#444' }}>
-              Esta acción eliminará <strong>todos los {(store?.products || []).length} productos</strong> de tu tienda.
+              Esta acciÃ³n eliminarÃ¡ <strong>todos los {(store?.products || []).length} productos</strong> de tu tienda.
             </p>
             <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#e53e3e', fontWeight: '600' }}>
-              Esta acción no se puede deshacer.
+              Esta acciÃ³n no se puede deshacer.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button
@@ -8884,7 +8886,7 @@ function Store() {
                   transition: 'background 0.3s'
                 }}
               >
-                {deletingAll ? 'Eliminando...' : deleteAllCountdown > 0 ? `Confirmar (${deleteAllCountdown}s)` : 'Sí, eliminar todo'}
+                {deletingAll ? 'Eliminando...' : deleteAllCountdown > 0 ? `Confirmar (${deleteAllCountdown}s)` : 'SÃ­, eliminar todo'}
               </button>
               <button
                 onClick={() => setShowDeleteAllModal(false)}
@@ -8901,13 +8903,13 @@ function Store() {
       {showDeleteSelectedModal && (
         <div className="store-modal-overlay" onClick={() => !deletingSelected && setShowDeleteSelectedModal(false)}>
           <div className="store-pin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '360px', textAlign: 'center' }}>
-            <div style={{ fontSize: '44px', marginBottom: '10px' }}>⚠️</div>
+            <div style={{ fontSize: '44px', marginBottom: '10px' }}>âš ï¸</div>
             <h3 style={{ margin: '0 0 8px', color: '#e53e3e' }}>Eliminar productos seleccionados</h3>
             <p style={{ margin: '0 0 6px', fontSize: '14px', color: '#444' }}>
               Vas a eliminar <strong>{selectedProductIds.size} producto{selectedProductIds.size !== 1 ? 's' : ''}</strong> seleccionado{selectedProductIds.size !== 1 ? 's' : ''}.
             </p>
             <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#e53e3e', fontWeight: '600' }}>
-              Esta acción no se puede deshacer.
+              Esta acciÃ³n no se puede deshacer.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button
@@ -8921,7 +8923,7 @@ function Store() {
                   transition: 'background 0.3s'
                 }}
               >
-                {deletingSelected ? 'Eliminando...' : deleteSelectedCountdown > 0 ? `Confirmar (${deleteSelectedCountdown}s)` : 'Sí, eliminar seleccionados'}
+                {deletingSelected ? 'Eliminando...' : deleteSelectedCountdown > 0 ? `Confirmar (${deleteSelectedCountdown}s)` : 'SÃ­, eliminar seleccionados'}
               </button>
               <button
                 onClick={() => setShowDeleteSelectedModal(false)}
@@ -8939,9 +8941,9 @@ function Store() {
         <div className="store-modal-overlay" onClick={() => {}}>
           <div className="store-pin-modal" style={{ maxWidth: '340px', textAlign: 'center' }}>
             <div style={{ fontSize: '48px', marginBottom: '12px' }}>&#x1F504;</div>
-            <h3 style={{ margin: '0 0 8px', color: 'var(--store-primary)' }}>Edición completada</h3>
+            <h3 style={{ margin: '0 0 8px', color: 'var(--store-primary)' }}>EdiciÃ³n completada</h3>
             <p style={{ margin: '0 0 20px', fontSize: '14px', color: '#666' }}>
-              ¿Deseas reiniciar todos los totems para que apliquen los cambios?
+              Â¿Deseas reiniciar todos los totems para que apliquen los cambios?
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <button
@@ -8979,7 +8981,7 @@ function Store() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FontAwesomeIcon icon={faInfoCircle} style={{ color: 'var(--store-accent)', fontSize: '18px' }} />
-                <span style={{ fontWeight: '700', fontSize: '15px', color: 'var(--store-primary)' }}>Info del Tótem</span>
+                <span style={{ fontWeight: '700', fontSize: '15px', color: 'var(--store-primary)' }}>Info del TÃ³tem</span>
               </div>
               <button onClick={() => setInfoModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999', fontSize: '18px' }}>&times;</button>
             </div>
@@ -8989,9 +8991,9 @@ function Store() {
               <div><strong>Store ID:</strong> {store?.store?.id || '-'}</div>
               <div><strong>Config:</strong> {selectedConfiguration?.name || 'Ninguna'}{selectedConfiguration?.id ? ` (#${selectedConfiguration.id})` : ''}</div>
               <div><strong>Terminal:</strong> {selectedTerminalId || 'Ninguna'}</div>
-              <div><strong>Socket:</strong> {socketRef.current?.connected ? '🟢 Conectado' : '🔴 Desconectado'}{socketRef.current?.id ? ` (${socketRef.current.id})` : ''}</div>
+              <div><strong>Socket:</strong> {socketRef.current?.connected ? 'ðŸŸ¢ Conectado' : 'ðŸ”´ Desconectado'}{socketRef.current?.id ? ` (${socketRef.current.id})` : ''}</div>
             </div>
-            <p style={{ fontSize: '11px', color: '#bbb', textAlign: 'center', marginTop: '12px', marginBottom: 0 }}>Mantén presionado 2 segundos en cualquier parte de la pantalla para acceder al PIN de edición</p>
+            <p style={{ fontSize: '11px', color: '#bbb', textAlign: 'center', marginTop: '12px', marginBottom: 0 }}>MantÃ©n presionado 2 segundos en cualquier parte de la pantalla para acceder al PIN de ediciÃ³n</p>
           </div>
         </div>
       )}
@@ -9095,7 +9097,7 @@ function Store() {
           <div className="store-pin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '320px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
               <FontAwesomeIcon icon={faLock} style={{ fontSize: '28px', color: 'var(--store-accent)', marginBottom: '8px' }} />
-              <h3 style={{ margin: 0, color: 'var(--store-primary)' }}>¿Qué deseas hacer?</h3>
+              <h3 style={{ margin: 0, color: 'var(--store-primary)' }}>Â¿QuÃ© deseas hacer?</h3>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {ticketMode && (
@@ -9106,7 +9108,7 @@ function Store() {
                   }}
                   style={{ padding: '14px', borderRadius: '10px', border: '2px solid #2563eb', background: '#eff6ff', color: '#1d4ed8', fontSize: '15px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
-                  <FontAwesomeIcon icon={faStore} /> Salir del modo Ticketería
+                  <FontAwesomeIcon icon={faStore} /> Salir del modo TicketerÃ­a
                 </button>
               )}
               <button
@@ -9132,7 +9134,7 @@ function Store() {
                 }}
                 style={{ padding: '14px', borderRadius: '10px', border: '2px solid #C8A415', background: '#fffbeb', color: '#92760a', fontSize: '15px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               >
-                <FontAwesomeIcon icon={faTicketAlt} /> Modo Ticketería
+                <FontAwesomeIcon icon={faTicketAlt} /> Modo TicketerÃ­a
               </button>
               <button
                 onClick={() => {
@@ -9155,11 +9157,11 @@ function Store() {
                 }}
                 style={{ padding: '14px', borderRadius: '10px', border: '2px solid var(--store-accent)', background: 'var(--store-primary)', color: 'var(--store-secondary)', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}
               >
-                Editar tótem
+                Editar tÃ³tem
               </button>
               <div style={{ marginTop: '8px', padding: '14px', borderRadius: '10px', border: '1px solid #e0e0e0', background: '#fafafa' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--store-primary)' }}>Zoom del tótem</span>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--store-primary)' }}>Zoom del tÃ³tem</span>
                   <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--store-accent)', minWidth: '42px', textAlign: 'right' }}>{Math.round(totemZoom * 100)}%</span>
                 </div>
                 <input
@@ -9180,7 +9182,7 @@ function Store() {
                 </div>
               </div>
               <div style={{ padding: '14px', borderRadius: '10px', border: '1px solid #e0e0e0', background: '#fafafa' }}>
-                <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--store-primary)', marginBottom: '10px' }}>Métodos de pago</div>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--store-primary)', marginBottom: '10px' }}>MÃ©todos de pago</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '13px', color: '#555' }}>Tarjeta</span>
@@ -9243,7 +9245,7 @@ function Store() {
           <div className="store-pin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '360px' }}>
             <div style={{ textAlign: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, color: 'var(--store-primary)' }}>Seleccionar POS</h3>
-              <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#888' }}>Elige el terminal de pago para este tótem</p>
+              <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#888' }}>Elige el terminal de pago para este tÃ³tem</p>
             </div>
             {posSelectLoading ? (
               <p style={{ textAlign: 'center', color: '#888', padding: '20px 0' }}>Buscando terminales...</p>
@@ -9389,7 +9391,7 @@ function Store() {
             {/* Dark overlay gradient */}
             <div style={{ position: 'absolute', inset: 0, background: screensaverCfg.media_url ? 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 100%)' : 'linear-gradient(160deg, #0a0a0a 0%, #111 100%)' }} />
 
-            {/* ══════════ Layout principal centrado ══════════ */}
+            {/* â•â•â•â•â•â•â•â•â•â• Layout principal centrado â•â•â•â•â•â•â•â•â•â• */}
             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, padding: '40px 48px 160px' }}>
 
               {/* Logo circular flotante */}
@@ -9407,10 +9409,10 @@ function Store() {
                 </div>
               )}
 
-              {/* Línea dorada */}
+              {/* LÃ­nea dorada */}
               <div style={{ width: 64, height: 2, background: 'linear-gradient(90deg,transparent,#D4AF37,transparent)', borderRadius: 2, marginBottom: 28 }} />
 
-              {/* Carrito FA + créditos */}
+              {/* Carrito FA + crÃ©ditos */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                 <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 'clamp(28px,4vw,40px)', color: '#D4AF37', animation: 'ss-cart 2s ease-in-out infinite', marginBottom: 4 }} />
                 <span style={{ fontSize: 'clamp(17px,2.8vw,26px)', fontWeight: '800', color: '#D4AF37', letterSpacing: '1px' }}>
@@ -9422,7 +9424,7 @@ function Store() {
               </div>
             </div>
 
-            {/* ══════════ Footer CTA centrado ══════════ */}
+            {/* â•â•â•â•â•â•â•â•â•â• Footer CTA centrado â•â•â•â•â•â•â•â•â•â• */}
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)' }}>
               <button
                 onClick={dismissSS}
@@ -9451,7 +9453,7 @@ function Store() {
 
                 {/* Texto subrayado dorado */}
                 <span style={{ fontSize: 'clamp(18px,3vw,28px)', fontWeight: '800', color: '#fff', letterSpacing: '0.4px', borderBottom: '2.5px solid #D4AF37', paddingBottom: 3, whiteSpace: 'nowrap' }}>
-                  Toca aquí para continuar
+                  Toca aquÃ­ para continuar
                 </span>
 
                 {/* Chevron animado */}
@@ -9469,7 +9471,7 @@ function Store() {
         );
       })()}
 
-      {/* APK update banner removed — updates handled in admin panel only */}
+      {/* APK update banner removed â€” updates handled in admin panel only */}
 
       {/* Inactivity modal - auto restart */}
       {inactivityModalOpen && (
@@ -9551,7 +9553,7 @@ function Store() {
                         : <FontAwesomeIcon icon={faBox} style={{ color: '#bbb' }} />}
                     </div>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#222' }}>{ic.quantity}× {ic.product_name}</div>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#222' }}>{ic.quantity}Ã— {ic.product_name}</div>
                       <div style={{ fontSize: '0.75rem', color: '#888' }}>{colors?.currency?.symbol || '$'}{formatPrice(ic.product_price)}</div>
                     </div>
                   </div>
@@ -9648,7 +9650,7 @@ function Store() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <button onClick={() => setComboQty(q => Math.max(1, q - 1))}
-                    style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid var(--store-primary)', background: '#fff', fontSize: '1.1rem', cursor: 'pointer', color: 'var(--store-primary)', fontWeight: 700 }}>−</button>
+                    style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid var(--store-primary)', background: '#fff', fontSize: '1.1rem', cursor: 'pointer', color: 'var(--store-primary)', fontWeight: 700 }}>âˆ’</button>
                   <span style={{ fontWeight: 700, fontSize: '1.2rem', color: 'var(--store-primary)' }}>{comboQty}</span>
                   <button onClick={() => setComboQty(q => q + 1)}
                     style={{ width: '36px', height: '36px', borderRadius: '50%', border: 'none', background: 'var(--store-primary)', color: 'var(--store-secondary)', fontSize: '1.1rem', cursor: 'pointer', fontWeight: 700 }}>+</button>
@@ -9712,7 +9714,7 @@ function Store() {
                       </tbody>
                     </table>
                   </div>
-                  <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#15803d' }}>* Columnas requeridas. La categoría debe coincidir con una existente en tu tienda.</p>
+                  <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#15803d' }}>* Columnas requeridas. La categorÃ­a debe coincidir con una existente en tu tienda.</p>
                 </div>
 
                 <button
@@ -9765,10 +9767,10 @@ function Store() {
                         <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
                           <td style={{ padding: '6px 10px', fontWeight: '600', color: '#111' }}>{row.name}</td>
                           <td style={{ padding: '6px 10px', color: '#16a34a', fontWeight: '700' }}>${Number(row.price).toFixed(2)}</td>
-                          <td style={{ padding: '6px 10px', color: '#6b7280' }}>{row.category || '—'}</td>
-                          <td style={{ padding: '6px 10px', color: '#6b7280', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.description || '—'}</td>
-                          <td style={{ padding: '6px 10px', color: '#6b7280' }}>{row.barcode || '—'}</td>
-                          <td style={{ padding: '6px 10px', color: '#6b7280', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.image_url || '—'}</td>
+                          <td style={{ padding: '6px 10px', color: '#6b7280' }}>{row.category || 'â€”'}</td>
+                          <td style={{ padding: '6px 10px', color: '#6b7280', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.description || 'â€”'}</td>
+                          <td style={{ padding: '6px 10px', color: '#6b7280' }}>{row.barcode || 'â€”'}</td>
+                          <td style={{ padding: '6px 10px', color: '#6b7280', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.image_url || 'â€”'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -9827,13 +9829,13 @@ function Store() {
           <div className="store-prod-modal" style={{ maxWidth: 460, padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, color: 'var(--store-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 20 }}>⚠️</span> Duplicados detectados
+                <span style={{ fontSize: 20 }}>âš ï¸</span> Duplicados detectados
               </h3>
               <button onClick={() => setShowStoreDuplicatesModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#6b7280' }}>&times;</button>
             </div>
             <div style={{ padding: '16px 20px' }}>
               <p style={{ marginBottom: 12, color: '#374151', fontSize: 14 }}>
-                Detectamos <strong>{storeDuplicateInfo.reduce((s, d) => s + d.count - 1, 0)}</strong> elemento(s) duplicado(s) en tu tienda. ¿Deseas eliminar los duplicados?
+                Detectamos <strong>{storeDuplicateInfo.reduce((s, d) => s + d.count - 1, 0)}</strong> elemento(s) duplicado(s) en tu tienda. Â¿Deseas eliminar los duplicados?
               </p>
               <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 6, marginBottom: 14 }}>
                 <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
@@ -9856,7 +9858,7 @@ function Store() {
                 </table>
               </div>
               <p style={{ fontSize: 12, color: '#6b7280', marginBottom: 16 }}>
-                Se conservará una copia de cada nombre y se eliminarán las demás.
+                Se conservarÃ¡ una copia de cada nombre y se eliminarÃ¡n las demÃ¡s.
               </p>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                 <button
@@ -9879,7 +9881,7 @@ function Store() {
         </div>
       )}
 
-      {/* ── Restaurant: Table config modal ── */}
+      {/* â”€â”€ Restaurant: Table config modal â”€â”€ */}
       {/* Table edit modal (name, capacity, shape) */}
       {tableConfigOpen && typeof tableConfigOpen === 'object' && (
         <div className="store-modal-overlay" style={{ zIndex: 99991 }} onClick={() => setTableConfigOpen(false)}>
@@ -9920,7 +9922,7 @@ function Store() {
               ))}
             </div>
             <input type="hidden" id="table-edit-shape-val" defaultValue={tableConfigOpen.shape || 'rect'} />
-            <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 4, display: 'block' }}>Sección</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 4, display: 'block' }}>SecciÃ³n</label>
             <select id="table-edit-section" defaultValue={tableConfigOpen.section || activeSection || 'Primer Piso'} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 15, fontWeight: 600, boxSizing: 'border-box', marginBottom: 16 }}>
               {sections.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -9985,7 +9987,7 @@ function Store() {
         </div>
       )}
 
-      {/* ── Restaurant: Table bill modal ── */}
+      {/* â”€â”€ Restaurant: Table bill modal â”€â”€ */}
       {tableBillOpen !== null && (() => {
         const order = tableOrders[tableBillOpen];
         const items = order?.items || [];
@@ -9998,13 +10000,13 @@ function Store() {
                 <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1a1a2e' }}>
                   <FontAwesomeIcon icon={faMoneyBillWave} style={{ marginRight: 6 }} /> {billLabel}
                 </h3>
-                <button onClick={() => setTableBillOpen(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: 32, height: 32, fontSize: 16, cursor: 'pointer', color: '#64748b' }}>×</button>
+                <button onClick={() => setTableBillOpen(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: 32, height: 32, fontSize: 16, cursor: 'pointer', color: '#64748b' }}>Ã—</button>
               </div>
               {order?.order_number && (
                 <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>Pedido #{order.order_number} {order.persons ? `- ${order.persons} personas` : ''}</div>
               )}
               {items.length === 0 ? (
-                <p style={{ color: '#94a3b8', textAlign: 'center', padding: '20px 0' }}>Mesa vacía</p>
+                <p style={{ color: '#94a3b8', textAlign: 'center', padding: '20px 0' }}>Mesa vacÃ­a</p>
               ) : (
                 <>
                   {items.map((item, idx) => (
