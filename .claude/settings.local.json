@@ -162,7 +162,8 @@
       "Bash(grep \"?$\\\\|? \\($\")",
       "Bash(grep -n \": null$\\\\|: null }\" \"D:/Trabajo/SRServi/client/src/pages/superadmin/SuperadminDashboard.jsx\")",
       "Bash(grep -n \"null$\" \"D:/Trabajo/SRServi/client/src/pages/superadmin/SuperadminDashboard.jsx\")",
-      "PowerShell(\\(Get-Content D:\\\\Trabajo\\\\SRServi\\\\client\\\\src\\\\pages\\\\Store.jsx | Measure-Object -Line\\).Lines)"
+      "PowerShell(\\(Get-Content D:\\\\Trabajo\\\\SRServi\\\\client\\\\src\\\\pages\\\\Store.jsx | Measure-Object -Line\\).Lines)",
+      "PowerShell(\\(Get-Content D:\\\\Trabajo\\\\SRServi\\\\client\\\\src\\\\pages\\\\admin\\\\Combos.jsx | Measure-Object -Line\\).Lines; \\(Get-Content D:\\\\Trabajo\\\\SRServi\\\\client\\\\src\\\\pages\\\\admin\\\\Screensaver.jsx | Measure-Object -Line\\).Lines)"
     ]
   }
 }

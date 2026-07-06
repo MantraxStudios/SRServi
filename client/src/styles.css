@@ -2434,6 +2434,102 @@ h1, h2, h3, h4, h5, h6 {
   opacity: 1;
 }
 
+/* ── Promociones (banners bajo las categorías, estilo kiosko) ── */
+.store-promos {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.store-promos::-webkit-scrollbar {
+  display: none;
+}
+
+.store-promo-card {
+  flex-shrink: 0;
+  width: 240px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #FDF3DE;
+  border: 1px solid #F5E5C4;
+  border-radius: 16px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+@media (hover: hover) {
+  .store-promo-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(60, 45, 20, 0.12);
+  }
+}
+
+.store-promo-card:active {
+  transform: scale(0.98);
+}
+
+.store-promo-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.store-promo-title {
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--kiosk-dark, #232028);
+  letter-spacing: -0.2px;
+  line-height: 1.25;
+}
+
+.store-promo-desc {
+  font-size: 11px;
+  color: #a2937a;
+  margin-top: 3px;
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.store-promo-price {
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--kiosk-orange, #F0810F);
+  margin-top: 5px;
+}
+
+.store-promo-img {
+  width: 62px;
+  height: 62px;
+  object-fit: contain;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+/* Sidebar (desktop): promos apiladas al fondo, ancho completo */
+@media (min-width: 900px) {
+  .store-promos {
+    flex-direction: column;
+    overflow: visible;
+    margin-top: 16px;
+  }
+
+  .store-promo-card {
+    width: 100%;
+    padding: 14px 16px;
+  }
+
+  .store-promo-img {
+    width: 74px;
+    height: 74px;
+  }
+}
+
 /* Desktop / tablet: category sidebar fija a la izquierda */
 @media (min-width: 900px) {
   .store-body {

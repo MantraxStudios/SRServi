@@ -1,4 +1,4 @@
-import 'dotenv/config';
+﻿import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
@@ -43,6 +43,11 @@ import {
   getStoreById,
   getStoreByCode,
   verifyStoreOwnership,
+  getStorePromos,
+  getPublicStorePromos,
+  createStorePromo,
+  updateStorePromo,
+  deleteStorePromo,
   getCategories,
   createCategory,
   updateCategory,
@@ -334,8 +339,8 @@ app.use(express.json({ limit: '5mb' }));
 
 const userSockets = new Map();
 
-// ── Presence tracking ──────────────────────────────────────────────────────
-// socketId → { store_code, panel, connected_at, store_name? }
+// â”€â”€ Presence tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// socketId â†’ { store_code, panel, connected_at, store_name? }
 const presenceMap = new Map();
 
 function buildPresenceSessions() {
@@ -412,7 +417,7 @@ const upload = multer({
     if (mimetype && extname) {
       return cb(null, true);
     }
-    cb(new Error('Solo se permiten imágenes (jpeg, jpg, png, webp, gif)'));
+    cb(new Error('Solo se permiten imÃ¡genes (jpeg, jpg, png, webp, gif)'));
   }
 });
 
@@ -439,7 +444,7 @@ const excelUpload = multer({
   }
 });
 
-// Archivos públicos (verificación de dominio, etc.)
+// Archivos pÃºblicos (verificaciÃ³n de dominio, etc.)
 app.use(express.static(path.join(__serverDir, 'public')));
 
 // Descargas de las apps AforoBridge (Windows .zip / Android .apk)
@@ -496,11 +501,11 @@ async function sendCashRegisterReport(storeId, closedBy = 'manual', register = n
 
     const orders = await getTodayOrdersForStore(storeId);
     const currSym = store.currency_symbol || '$';
-    const fmt = d => d ? new Date(d).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '—';
-    const tl = t => ({ serve: 'Aquí', takeout: 'Para llevar', delivery: 'Delivery', pedidosya: 'PedidosYa', rappi: 'Rappi', mostrador: 'Mostrador' })[t] || t || 'Aquí';
-    const sl = s => ({ pending: 'Pendiente', preparing: 'En preparación', ready: 'Listo', completed: 'Completado' })[s] || s || '';
+    const fmt = d => d ? new Date(d).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'â€”';
+    const tl = t => ({ serve: 'AquÃ­', takeout: 'Para llevar', delivery: 'Delivery', pedidosya: 'PedidosYa', rappi: 'Rappi', mostrador: 'Mostrador' })[t] || t || 'AquÃ­';
+    const sl = s => ({ pending: 'Pendiente', preparing: 'En preparaciÃ³n', ready: 'Listo', completed: 'Completado' })[s] || s || '';
     const ds = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const closedByLabel = { manual: 'Manual (trabajador)', admin: 'Administrador', auto: 'Automático (medianoche)' }[closedBy] || closedBy;
+    const closedByLabel = { manual: 'Manual (trabajador)', admin: 'Administrador', auto: 'AutomÃ¡tico (medianoche)' }[closedBy] || closedBy;
 
     const totalVendido = orders.reduce((s, o) => s + Number(o.total || 0), 0);
     const openingAmount = register ? Number(register.opening_amount || 0) : 0;
@@ -524,8 +529,8 @@ async function sendCashRegisterReport(storeId, closedBy = 'manual', register = n
       [ds],
       [],
       ['APERTURA'],
-      ['Trabajador', register ? (register.worker_name || '—') : '—'],
-      ['Hora de apertura', register ? fmt(register.opened_at) : '—'],
+      ['Trabajador', register ? (register.worker_name || 'â€”') : 'â€”'],
+      ['Hora de apertura', register ? fmt(register.opened_at) : 'â€”'],
       ['Monto inicial', `${currSym}${openingAmount.toFixed(2)}`],
       [],
       ['CIERRE'],
@@ -543,22 +548,22 @@ async function sendCashRegisterReport(storeId, closedBy = 'manual', register = n
       ['Resultado neto (ventas - egresos)', f$(resultadoNeto)],
       ['Efectivo esperado en caja', f$(efectivoEsperado)],
       [],
-      ['Total pedidos del día', orders.length],
+      ['Total pedidos del dÃ­a', orders.length],
       ['Pedidos completados', orders.filter(o => o.status === 'completed').length],
     ];
     const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
     wsResumen['!cols'] = [{ wch: 35 }, { wch: 22 }];
 
-    // Hoja de egresos (se adjunta más abajo, tras crear el workbook)
+    // Hoja de egresos (se adjunta mÃ¡s abajo, tras crear el workbook)
     let wsEgresos = null;
     if (movements.length) {
-      const egresosData = [['Hora', 'Categoría', 'Descripción', 'Registrado por', 'Monto']];
+      const egresosData = [['Hora', 'CategorÃ­a', 'DescripciÃ³n', 'Registrado por', 'Monto']];
       for (const m of movements) {
         egresosData.push([
           fmt(m.created_at),
           m.category || 'gasto',
-          m.description || '—',
-          m.worker_name || '—',
+          m.description || 'â€”',
+          m.worker_name || 'â€”',
           f$(m.amount)
         ]);
       }
@@ -579,8 +584,8 @@ async function sendCashRegisterReport(storeId, closedBy = 'manual', register = n
         fmt(o.created_at),
         fmt(o.completed_at),
         sl(o.status),
-        o.completed_by_name || '—',
-        o.items_text || '—',
+        o.completed_by_name || 'â€”',
+        o.items_text || 'â€”',
         `${currSym}${Number(o.total || 0).toFixed(2)}`
       ]);
     }
@@ -600,8 +605,8 @@ async function sendCashRegisterReport(storeId, closedBy = 'manual', register = n
     const xlsxBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
     const subject = closedBy === 'auto'
-      ? `[SRServi] Cierre automático de caja — ${store.name} — ${ds}`
-      : `[SRServi] Cierre de caja — ${store.name} — ${ds}`;
+      ? `[SRServi] Cierre automÃ¡tico de caja â€” ${store.name} â€” ${ds}`
+      : `[SRServi] Cierre de caja â€” ${store.name} â€” ${ds}`;
 
     await mailer.sendMail({
       from: `"SRServi" <${process.env.EMAIL_USER}>`,
@@ -613,13 +618,13 @@ async function sendCashRegisterReport(storeId, closedBy = 'manual', register = n
             <h1 style="color:#D4AF37;margin:0;font-size:24px">SRServi</h1>
           </div>
           <div style="padding:24px;background:#f9f9f9">
-            <h2 style="color:#111;margin-top:0">Informe de Caja — ${store.name}</h2>
+            <h2 style="color:#111;margin-top:0">Informe de Caja â€” ${store.name}</h2>
             <p style="color:#444">${ds}</p>
-            ${closedBy === 'auto' ? '<p style="color:#e55;font-weight:bold">La caja fue cerrada automáticamente a medianoche.</p>' : ''}
+            ${closedBy === 'auto' ? '<p style="color:#e55;font-weight:bold">La caja fue cerrada automÃ¡ticamente a medianoche.</p>' : ''}
             <table style="width:100%;border-collapse:collapse;margin:16px 0">
               <tr style="background:#222;color:#D4AF37"><td colspan="2" style="padding:8px;font-weight:700;font-size:13px">APERTURA</td></tr>
-              <tr style="background:#f9f9f9"><td style="padding:8px">Trabajador</td><td style="padding:8px;text-align:right">${register ? (register.worker_name || '—') : '—'}</td></tr>
-              <tr style="background:#f0f0f0"><td style="padding:8px">Hora de apertura</td><td style="padding:8px;text-align:right">${register ? fmt(register.opened_at) : '—'}</td></tr>
+              <tr style="background:#f9f9f9"><td style="padding:8px">Trabajador</td><td style="padding:8px;text-align:right">${register ? (register.worker_name || 'â€”') : 'â€”'}</td></tr>
+              <tr style="background:#f0f0f0"><td style="padding:8px">Hora de apertura</td><td style="padding:8px;text-align:right">${register ? fmt(register.opened_at) : 'â€”'}</td></tr>
               <tr style="background:#f9f9f9"><td style="padding:8px">Monto inicial</td><td style="padding:8px;text-align:right">${currSym}${openingAmount.toFixed(2)}</td></tr>
               <tr style="background:#222;color:#D4AF37"><td colspan="2" style="padding:8px;font-weight:700;font-size:13px;margin-top:8px">CIERRE</td></tr>
               <tr style="background:#f0f0f0"><td style="padding:8px">Hora de cierre</td><td style="padding:8px;text-align:right">${register ? fmt(register.closed_at) : fmt(new Date())}</td></tr>
@@ -639,7 +644,7 @@ async function sendCashRegisterReport(storeId, closedBy = 'manual', register = n
               <tr style="background:#fff"><td style="padding:8px;font-weight:700">Resultado neto</td><td style="padding:8px;text-align:right;font-weight:700;color:${resultadoNeto >= 0 ? '#16a34a' : '#dc2626'}">${f$(resultadoNeto)}</td></tr>
               <tr style="background:#D4AF37"><td style="padding:8px;font-weight:700">Efectivo esperado en caja</td><td style="padding:8px;text-align:right;font-weight:700">${f$(efectivoEsperado)}</td></tr>
             </table>
-            <p style="color:#666;font-size:13px">Encontrarás el detalle completo en el archivo Excel adjunto.</p>
+            <p style="color:#666;font-size:13px">EncontrarÃ¡s el detalle completo en el archivo Excel adjunto.</p>
           </div>
           <div style="background:#111;padding:12px;text-align:center;font-size:11px;color:#666">SRServi &mdash; ${store.name}</div>
         </div>
@@ -666,7 +671,7 @@ const authenticateToken = (req, res, next) => {
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      return res.status(403).json({ error: 'Token inválido' });
+      return res.status(403).json({ error: 'Token invÃ¡lido' });
     }
     req.user = user;
     next();
@@ -684,17 +689,17 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     if (password.length < 6) {
-      return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+      return res.status(400).json({ error: 'La contraseÃ±a debe tener al menos 6 caracteres' });
     }
 
     const [existingEmail] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
     if (existingEmail.length > 0) {
-      return res.status(400).json({ error: 'Ya existe una cuenta con ese correo electrónico' });
+      return res.status(400).json({ error: 'Ya existe una cuenta con ese correo electrÃ³nico' });
     }
 
     const [existingUsername] = await pool.execute('SELECT id FROM users WHERE username = ?', [username]);
     if (existingUsername.length > 0) {
-      return res.status(400).json({ error: 'Ese nombre de usuario ya está en uso' });
+      return res.status(400).json({ error: 'Ese nombre de usuario ya estÃ¡ en uso' });
     }
 
     const user = await createUser(username, email, password, business_name, country, phone);
@@ -708,7 +713,7 @@ app.post('/api/auth/register', async (req, res) => {
       header_color: '#000000',
       currency_code: 'USD',
       currency_symbol: '$',
-      currency_name: 'Dólar Estadounidense'
+      currency_name: 'DÃ³lar Estadounidense'
     });
     await createStoreConfiguration(newStore.id, {
       name: 'Default Config',
@@ -730,7 +735,7 @@ app.post('/api/auth/register', async (req, res) => {
       subject: 'Activa tu cuenta SRServi',
       html: `<div style="font-family:sans-serif;max-width:480px;margin:auto">
         <h2 style="color:#D4AF37">Bienvenido a SRServi</h2>
-        <p>Tu código de activación es:</p>
+        <p>Tu cÃ³digo de activaciÃ³n es:</p>
         <div style="font-size:36px;font-weight:900;letter-spacing:10px;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px">${code}</div>
         <p style="color:#888;font-size:12px">Expira en 15 minutos. Si no creaste esta cuenta, ignora este correo.</p>
       </div>`
@@ -748,7 +753,7 @@ app.post('/api/auth/login', async (req, res) => {
     const email = (req.body.email || '').toLowerCase().trim();
 
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email y contraseña son requeridos' });
+      return res.status(400).json({ error: 'Email y contraseÃ±a son requeridos' });
     }
 
     // Check sub-account first
@@ -784,12 +789,12 @@ app.post('/api/auth/login', async (req, res) => {
     const user = await authenticateUser(email, password);
 
     if (!user) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
+      return res.status(401).json({ error: 'Credenciales invÃ¡lidas' });
     }
 
     if (user.is_banned) {
       return res.status(403).json({
-        error: 'Tu cuenta ha sido suspendida. Contacta a soporte@srautomatic.com para la apelación. La revisión puede demorar entre 1 semana y 1 mes.'
+        error: 'Tu cuenta ha sido suspendida. Contacta a soporte@srautomatic.com para la apelaciÃ³n. La revisiÃ³n puede demorar entre 1 semana y 1 mes.'
       });
     }
 
@@ -804,13 +809,13 @@ app.post('/api/auth/login', async (req, res) => {
           subject: 'Activa tu cuenta SRServi',
           html: `<div style="font-family:sans-serif;max-width:480px;margin:auto">
             <h2 style="color:#D4AF37">Activa tu cuenta</h2>
-            <p>Tu código de activación es:</p>
+            <p>Tu cÃ³digo de activaciÃ³n es:</p>
             <div style="font-size:36px;font-weight:900;letter-spacing:10px;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px">${code}</div>
             <p style="color:#888;font-size:12px">Expira en 15 minutos.</p>
           </div>`
         });
       } catch (mailErr) {
-        console.error('Error enviando correo de verificación:', mailErr.message);
+        console.error('Error enviando correo de verificaciÃ³n:', mailErr.message);
       }
       return res.json({ requiresVerification: true, email });
     }
@@ -836,13 +841,13 @@ app.post('/api/auth/verify-email', async (req, res) => {
 
     const user = await getUserByEmail(email);
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
-    if (user.email_verified) return res.status(400).json({ error: 'La cuenta ya está verificada' });
+    if (user.email_verified) return res.status(400).json({ error: 'La cuenta ya estÃ¡ verificada' });
 
     if (!user.verification_code || user.verification_code !== String(code).trim()) {
-      return res.status(401).json({ error: 'Código incorrecto' });
+      return res.status(401).json({ error: 'CÃ³digo incorrecto' });
     }
     if (!user.verification_expires || new Date() > new Date(user.verification_expires)) {
-      return res.status(401).json({ error: 'El código expiró. Solicita uno nuevo.' });
+      return res.status(401).json({ error: 'El cÃ³digo expirÃ³. Solicita uno nuevo.' });
     }
 
     await markEmailVerified(user.id);
@@ -863,7 +868,7 @@ app.post('/api/auth/resend-verification', async (req, res) => {
 
     const user = await getUserByEmail(email);
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
-    if (user.email_verified) return res.status(400).json({ error: 'La cuenta ya está verificada' });
+    if (user.email_verified) return res.status(400).json({ error: 'La cuenta ya estÃ¡ verificada' });
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = new Date(Date.now() + 15 * 60 * 1000);
@@ -875,7 +880,7 @@ app.post('/api/auth/resend-verification', async (req, res) => {
       subject: 'Activa tu cuenta SRServi',
       html: `<div style="font-family:sans-serif;max-width:480px;margin:auto">
         <h2 style="color:#D4AF37">Activa tu cuenta</h2>
-        <p>Tu nuevo código de activación es:</p>
+        <p>Tu nuevo cÃ³digo de activaciÃ³n es:</p>
         <div style="font-size:36px;font-weight:900;letter-spacing:10px;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px">${code}</div>
         <p style="color:#888;font-size:12px">Expira en 15 minutos.</p>
       </div>`
@@ -896,9 +901,9 @@ app.post('/api/auth/2fa/verify', async (req, res) => {
     try {
       payload = jwt.verify(tempToken, JWT_SECRET);
     } catch {
-      return res.status(401).json({ error: 'Token expirado o inválido' });
+      return res.status(401).json({ error: 'Token expirado o invÃ¡lido' });
     }
-    if (payload.type !== '2fa_pending') return res.status(401).json({ error: 'Token inválido' });
+    if (payload.type !== '2fa_pending') return res.status(401).json({ error: 'Token invÃ¡lido' });
 
     const user = await getUserById(payload.id);
     if (!user || !user.totp_secret) return res.status(401).json({ error: 'Usuario no encontrado' });
@@ -910,7 +915,7 @@ app.post('/api/auth/2fa/verify', async (req, res) => {
       window: 1
     });
 
-    if (!valid) return res.status(401).json({ error: 'Código incorrecto' });
+    if (!valid) return res.status(401).json({ error: 'CÃ³digo incorrecto' });
 
     const token = jwt.sign({ id: user.id, email: user.email, type: 'user' }, JWT_SECRET, { expiresIn: '7d' });
     const { totp_secret, totp_enabled, password, ...safeUser } = user;
@@ -954,10 +959,10 @@ app.get('/api/auth/2fa/setup', authenticateToken, async (req, res) => {
 app.post('/api/auth/2fa/enable', authenticateToken, async (req, res) => {
   try {
     const { code } = req.body;
-    if (!code) return res.status(400).json({ error: 'Código requerido' });
+    if (!code) return res.status(400).json({ error: 'CÃ³digo requerido' });
 
     const user = await getUserById(req.user.id);
-    if (!user || !user.totp_secret) return res.status(400).json({ error: 'Primero genera el QR de configuración' });
+    if (!user || !user.totp_secret) return res.status(400).json({ error: 'Primero genera el QR de configuraciÃ³n' });
 
     const valid = speakeasy.totp.verify({
       secret: user.totp_secret,
@@ -966,7 +971,7 @@ app.post('/api/auth/2fa/enable', authenticateToken, async (req, res) => {
       window: 1
     });
 
-    if (!valid) return res.status(401).json({ error: 'Código incorrecto. Asegúrate de haber escaneado el QR.' });
+    if (!valid) return res.status(401).json({ error: 'CÃ³digo incorrecto. AsegÃºrate de haber escaneado el QR.' });
 
     await enableTotp(req.user.id);
     res.json({ success: true });
@@ -978,10 +983,10 @@ app.post('/api/auth/2fa/enable', authenticateToken, async (req, res) => {
 app.post('/api/auth/2fa/disable', authenticateToken, async (req, res) => {
   try {
     const { code } = req.body;
-    if (!code) return res.status(400).json({ error: 'Código requerido' });
+    if (!code) return res.status(400).json({ error: 'CÃ³digo requerido' });
 
     const user = await getUserById(req.user.id);
-    if (!user || !user.totp_secret) return res.status(400).json({ error: '2FA no está configurado' });
+    if (!user || !user.totp_secret) return res.status(400).json({ error: '2FA no estÃ¡ configurado' });
 
     const valid = speakeasy.totp.verify({
       secret: user.totp_secret,
@@ -990,7 +995,7 @@ app.post('/api/auth/2fa/disable', authenticateToken, async (req, res) => {
       window: 1
     });
 
-    if (!valid) return res.status(401).json({ error: 'Código incorrecto' });
+    if (!valid) return res.status(401).json({ error: 'CÃ³digo incorrecto' });
 
     await disableTotp(req.user.id);
     res.json({ success: true });
@@ -1002,12 +1007,12 @@ app.post('/api/auth/2fa/disable', authenticateToken, async (req, res) => {
 app.post('/api/auth/2fa/recover', async (req, res) => {
   try {
     const { email, code } = req.body;
-    if (!email || !code) return res.status(400).json({ error: 'Email y código son requeridos' });
+    if (!email || !code) return res.status(400).json({ error: 'Email y cÃ³digo son requeridos' });
 
     const user = await getUserByEmail(email);
     if (!user) return res.status(404).json({ error: 'No existe una cuenta con ese email' });
     if (!user.totp_enabled || !user.totp_secret) {
-      return res.status(400).json({ error: 'Esta cuenta no tiene verificación en 2 pasos activada' });
+      return res.status(400).json({ error: 'Esta cuenta no tiene verificaciÃ³n en 2 pasos activada' });
     }
 
     const valid = speakeasy.totp.verify({
@@ -1017,7 +1022,7 @@ app.post('/api/auth/2fa/recover', async (req, res) => {
       window: 1
     });
 
-    if (!valid) return res.status(401).json({ error: 'Código incorrecto' });
+    if (!valid) return res.status(401).json({ error: 'CÃ³digo incorrecto' });
 
     const recoveryToken = jwt.sign({ id: user.id, type: 'password_recovery' }, JWT_SECRET, { expiresIn: '10m' });
     res.json({ recoveryToken });
@@ -1030,7 +1035,7 @@ app.post('/api/auth/2fa/reset-password', async (req, res) => {
   try {
     const { recoveryToken, newPassword } = req.body;
     if (!recoveryToken || !newPassword) return res.status(400).json({ error: 'Datos incompletos' });
-    if (newPassword.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    if (newPassword.length < 6) return res.status(400).json({ error: 'La contraseÃ±a debe tener al menos 6 caracteres' });
 
     let payload;
     try {
@@ -1038,7 +1043,7 @@ app.post('/api/auth/2fa/reset-password', async (req, res) => {
     } catch {
       return res.status(401).json({ error: 'Token expirado. Vuelve a verificar con tu app.' });
     }
-    if (payload.type !== 'password_recovery') return res.status(401).json({ error: 'Token inválido' });
+    if (payload.type !== 'password_recovery') return res.status(401).json({ error: 'Token invÃ¡lido' });
 
     const hashed = await bcrypt.hash(newPassword, 10);
     await updateUserPassword(payload.id, hashed);
@@ -1063,26 +1068,26 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     await mailer.sendMail({
       from: `"SRServi" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: 'Restablecer contraseña — SRServi',
+      subject: 'Restablecer contraseÃ±a â€” SRServi',
       html: `
         <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#fff;border-radius:12px;border:1px solid #e0e0e0">
           <div style="text-align:center;margin-bottom:24px">
             <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:#000;margin-bottom:12px">
               <span style="color:#D4AF37;font-weight:900;font-size:20px">SR</span>
             </div>
-            <h2 style="margin:0;font-size:22px;color:#111">Restablecer contraseña</h2>
+            <h2 style="margin:0;font-size:22px;color:#111">Restablecer contraseÃ±a</h2>
           </div>
           <p style="color:#444;font-size:15px;line-height:1.6">
-            Recibimos una solicitud para restablecer la contraseña de tu cuenta <strong>${email}</strong>.
+            Recibimos una solicitud para restablecer la contraseÃ±a de tu cuenta <strong>${email}</strong>.
           </p>
           <div style="text-align:center;margin:28px 0">
             <a href="${resetUrl}" style="display:inline-block;background:#D4AF37;color:#000;font-weight:800;font-size:16px;padding:14px 32px;border-radius:10px;text-decoration:none">
-              Restablecer contraseña
+              Restablecer contraseÃ±a
             </a>
           </div>
           <p style="color:#888;font-size:13px">Este enlace expira en <strong>15 minutos</strong>. Si no solicitaste esto, ignora este correo.</p>
           <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
-          <p style="color:#bbb;font-size:12px;text-align:center">SRServi · support@srautomatic.com</p>
+          <p style="color:#bbb;font-size:12px;text-align:center">SRServi Â· support@srautomatic.com</p>
         </div>
       `
     });
@@ -1098,15 +1103,15 @@ app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { token, newPassword } = req.body;
     if (!token || !newPassword) return res.status(400).json({ error: 'Datos incompletos' });
-    if (newPassword.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    if (newPassword.length < 6) return res.status(400).json({ error: 'La contraseÃ±a debe tener al menos 6 caracteres' });
 
     let payload;
     try {
       payload = jwt.verify(token, JWT_SECRET);
     } catch {
-      return res.status(401).json({ error: 'El enlace expiró o es inválido. Solicita uno nuevo.' });
+      return res.status(401).json({ error: 'El enlace expirÃ³ o es invÃ¡lido. Solicita uno nuevo.' });
     }
-    if (payload.type !== 'email_reset') return res.status(401).json({ error: 'Token inválido' });
+    if (payload.type !== 'email_reset') return res.status(401).json({ error: 'Token invÃ¡lido' });
 
     const hashed = await bcrypt.hash(newPassword, 10);
     await updateUserPassword(payload.id, hashed);
@@ -1122,14 +1127,14 @@ app.post('/api/auth/reset-password', async (req, res) => {
 app.get('/api/public/lookup/:code', async (req, res) => {
   try {
     const code = (req.params.code || '').toUpperCase();
-    if (!code) return res.status(400).json({ error: 'Código requerido' });
+    if (!code) return res.status(400).json({ error: 'CÃ³digo requerido' });
 
     // First, try to match it against a store code (most common case)
     const store = await getStoreByCode(code);
     if (store) {
       if (store.is_banned) {
         return res.status(403).json({
-          error: 'Esta tienda ha sido suspendida. Contacta a soporte@srautomatic.com para la apelación.'
+          error: 'Esta tienda ha sido suspendida. Contacta a soporte@srautomatic.com para la apelaciÃ³n.'
         });
       }
       return res.json({ type: 'store', id: store.id, code: store.code, name: store.name });
@@ -1141,12 +1146,12 @@ app.get('/api/public/lookup/:code', async (req, res) => {
       [code]
     );
     if (userRows.length === 0) {
-      return res.status(404).json({ error: 'Código no encontrado' });
+      return res.status(404).json({ error: 'CÃ³digo no encontrado' });
     }
     const user = userRows[0];
     if (user.is_banned) {
       return res.status(403).json({
-        error: 'Esta cuenta ha sido suspendida. Contacta a soporte@srautomatic.com para la apelación.'
+        error: 'Esta cuenta ha sido suspendida. Contacta a soporte@srautomatic.com para la apelaciÃ³n.'
       });
     }
 
@@ -1166,7 +1171,7 @@ app.get('/api/public/lookup/:code', async (req, res) => {
       }));
 
     if (visibleStores.length === 0) {
-      return res.status(404).json({ error: 'Este cliente aún no tiene tiendas disponibles' });
+      return res.status(404).json({ error: 'Este cliente aÃºn no tiene tiendas disponibles' });
     }
 
     return res.json({
@@ -1177,7 +1182,7 @@ app.get('/api/public/lookup/:code', async (req, res) => {
       stores: visibleStores
     });
   } catch (error) {
-    console.error('❌ Error en /api/public/lookup:', error);
+    console.error('âŒ Error en /api/public/lookup:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1224,12 +1229,12 @@ app.get('/api/public/:code', async (req, res) => {
     const store = await getStoreByCode(code.toUpperCase());
 
     if (!store) {
-      return res.status(404).json({ error: 'Código no encontrado' });
+      return res.status(404).json({ error: 'CÃ³digo no encontrado' });
     }
     
     if (store.is_banned) {
       return res.status(403).json({ 
-        error: 'Esta tienda ha sido suspendida. Contacta a soporte@srautomatic.com para la apelación. La revisión puede demorar entre 1 semana y 1 mes.' 
+        error: 'Esta tienda ha sido suspendida. Contacta a soporte@srautomatic.com para la apelaciÃ³n. La revisiÃ³n puede demorar entre 1 semana y 1 mes.' 
       });
     }
     
@@ -1238,8 +1243,10 @@ app.get('/api/public/:code', async (req, res) => {
     const openRegister = await getOpenCashRegister(store.id);
     let combos = [];
     try { combos = await getPublicCombos(store.id); } catch (e) { console.warn('getPublicCombos:', e.message); }
+    let promos = [];
+    try { promos = await getPublicStorePromos(store.id); } catch (e) { console.warn('getPublicStorePromos:', e.message); }
 
-    // Premium check — logo and custom styles only for active paid plans
+    // Premium check â€” logo and custom styles only for active paid plans
     const userPlan = await getUserPlan(store.user_id);
     const isPremium = !!(userPlan && userPlan.plan_name && userPlan.plan_name !== 'Gratis');
 
@@ -1271,7 +1278,7 @@ app.get('/api/public/:code', async (req, res) => {
         logo_url: isPremium ? (store.logo_url || null) : null,
         currency_code: store.currency_code || 'USD',
         currency_symbol: store.currency_symbol || '$',
-        currency_name: store.currency_name || 'Dólar Estadounidense',
+        currency_name: store.currency_name || 'DÃ³lar Estadounidense',
         smart_mode: store.smart_mode ?? true,
         inactivity_timeout: store.inactivity_timeout ?? 120,
         hide_decimals: store.hide_decimals ?? false,
@@ -1282,11 +1289,12 @@ app.get('/api/public/:code', async (req, res) => {
       products,
       categories,
       combos,
+      promos,
       cash_register_open: !!openRegister,
       top_selling: (store.smart_mode !== false && store.smart_mode !== 0) && (store.show_top_selling !== false && store.show_top_selling !== 0) ? topSellingIds : []
     });
   } catch (error) {
-    console.error('❌ Error en /api/public:', error);
+    console.error('âŒ Error en /api/public:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1294,7 +1302,7 @@ app.get('/api/public/:code', async (req, res) => {
 app.get('/api/public/:code/mercado-pago-terminals', async (req, res) => {
   try {
     const store = await getStoreByCode(req.params.code.toUpperCase());
-    if (!store) return res.status(404).json({ error: 'Código no encontrado' });
+    if (!store) return res.status(404).json({ error: 'CÃ³digo no encontrado' });
     const all = await getPosTerminalsByStore(store.id);
     res.json(all.filter(t => t.provider === 'mercadopago'));
   } catch (error) {
@@ -1352,7 +1360,7 @@ app.post('/api/public/:code/coupons/validate', async (req, res) => {
     const store = await getStoreByCode(code.toUpperCase());
 
     if (!store) {
-      return res.status(404).json({ error: 'Código no encontrado' });
+      return res.status(404).json({ error: 'CÃ³digo no encontrado' });
     }
 
     const result = await validateCouponForStore(store.id, coupon_code, Number(subtotal) || 0);
@@ -1418,7 +1426,7 @@ app.put('/api/user/phone', authenticateToken, async (req, res) => {
   try {
     const phone = (req.body.phone || '').trim();
     if (!phone || phone.replace(/\D/g, '').length < 6) {
-      return res.status(400).json({ error: 'Número de teléfono inválido' });
+      return res.status(400).json({ error: 'NÃºmero de telÃ©fono invÃ¡lido' });
     }
     await pool.execute('UPDATE users SET phone = ? WHERE id = ?', [phone, req.user.id]);
     res.json({ success: true, phone });
@@ -1471,10 +1479,10 @@ app.get('/api/stores/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Generic image upload — used by Procedures and other modules
+// Generic image upload â€” used by Procedures and other modules
 app.post('/api/upload', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'No se recibió imagen' });
+    if (!req.file) return res.status(400).json({ error: 'No se recibiÃ³ imagen' });
     const url = `/uploads/${req.file.filename}`;
     res.json({ url });
   } catch (e) {
@@ -1725,7 +1733,7 @@ app.put('/api/store-devices/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete device (tótem)
+// Delete device (tÃ³tem)
 app.delete('/api/store-devices/:id', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.execute('SELECT store_id FROM store_devices WHERE id = ?', [parseInt(req.params.id)]);
@@ -1822,7 +1830,7 @@ app.get('/api/public/:code/ingredients', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Complementos PRIVADOS de un producto (lista única) — incluye su included_by_default
+// Complementos PRIVADOS de un producto (lista Ãºnica) â€” incluye su included_by_default
 app.get('/api/public/:code/products/:id/own-complements', async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
@@ -1848,7 +1856,7 @@ app.post('/api/public/:code/extras', upload.single('image'), async (req, res) =>
     const image = req.file ? `/uploads/${req.file.filename}` : null;
     const catId = req.body.category_id && req.body.category_id !== '' && req.body.category_id !== 'null' ? parseInt(req.body.category_id) : null;
     const ownerProductId = req.body.owner_product_id ? parseInt(req.body.owner_product_id) : null;
-    // is_active explícito si viene; si no, privados activos y compartidos nuevos desactivados.
+    // is_active explÃ­cito si viene; si no, privados activos y compartidos nuevos desactivados.
     const isActive = req.body.is_active !== undefined
       ? (req.body.is_active === 'true' || req.body.is_active === true ? 1 : 0)
       : (ownerProductId ? 1 : 0);
@@ -1874,7 +1882,7 @@ app.post('/api/public/:code/ingredients', upload.single('image'), async (req, re
     const image = req.file ? `/uploads/${req.file.filename}` : null;
     const catId = req.body.category_id && req.body.category_id !== '' && req.body.category_id !== 'null' ? parseInt(req.body.category_id) : null;
     const ownerProductId = req.body.owner_product_id ? parseInt(req.body.owner_product_id) : null;
-    // is_active explícito si viene; si no, privados activos y compartidos nuevos desactivados.
+    // is_active explÃ­cito si viene; si no, privados activos y compartidos nuevos desactivados.
     const isActive = req.body.is_active !== undefined
       ? (req.body.is_active === 'true' || req.body.is_active === true ? 1 : 0)
       : (ownerProductId ? 1 : 0);
@@ -2053,7 +2061,7 @@ app.put('/api/public/:code/labels', async (req, res) => {
   } catch (error) { console.error('Error saving labels:', error); res.status(500).json({ error: error.message }); }
 });
 
-// ── Secciones dinámicas (grupos de complementos) — endpoints públicos (editor del tótem) ──
+// â”€â”€ Secciones dinÃ¡micas (grupos de complementos) â€” endpoints pÃºblicos (editor del tÃ³tem) â”€â”€
 app.get('/api/public/:code/complement-groups', async (req, res) => {
   try {
     const store = await getStoreByCode(req.params.code.toUpperCase());
@@ -2142,7 +2150,7 @@ app.delete('/api/public/:code/complement-options/:id', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Asignar secciones dinámicas a un producto (desde el tótem)
+// Asignar secciones dinÃ¡micas a un producto (desde el tÃ³tem)
 app.put('/api/public/:code/products/:id/complement-groups', async (req, res) => {
   try {
     const auth = await verifyStoreAccess(req.params.code, req.body);
@@ -2153,7 +2161,7 @@ app.put('/api/public/:code/products/:id/complement-groups', async (req, res) => 
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ── Clasificación QR settings ──
+// â”€â”€ ClasificaciÃ³n QR settings â”€â”€
 app.get('/api/store-clasificacion', authenticateToken, async (req, res) => {
   try {
     const { store_id } = req.query;
@@ -2394,7 +2402,7 @@ app.put('/api/public/:code/products/:id/complements', async (req, res) => {
   } catch (error) { console.error('Error syncing complements:', error); res.status(500).json({ error: error.message }); }
 });
 
-// Activar / desactivar "lista única" (complementos privados de este producto)
+// Activar / desactivar "lista Ãºnica" (complementos privados de este producto)
 app.put('/api/public/:code/products/:id/complements-private', async (req, res) => {
   try {
     const auth = await verifyStoreAccess(req.params.code, req.body);
@@ -2402,7 +2410,7 @@ app.put('/api/public/:code/products/:id/complements-private', async (req, res) =
     const result = await setProductComplementsPrivate(parseInt(req.params.id), auth.store.id, !!req.body.private);
     emitProductUpdate(auth.store.id, 'product_updated', { id: parseInt(req.params.id) });
     res.json(result);
-  } catch (error) { console.error('Error lista única:', error); res.status(500).json({ error: error.message }); }
+  } catch (error) { console.error('Error lista Ãºnica:', error); res.status(500).json({ error: error.message }); }
 });
 
 // Get product complement associations
@@ -2425,7 +2433,7 @@ app.get('/api/public/:code/products/:id/complements', async (req, res) => {
       });
     }
 
-    // Not yet configured — return only shared (non-private) ingredients/extras so editor shows all selected
+    // Not yet configured â€” return only shared (non-private) ingredients/extras so editor shows all selected
     const [ings] = await pool.execute('SELECT id FROM ingredients WHERE store_id = ? AND (owner_product_id IS NULL)', [store_id]);
     const [exts] = await pool.execute('SELECT id FROM extras WHERE store_id = ? AND (owner_product_id IS NULL)', [store_id]);
     res.json({ ingredient_ids: ings.map(r => r.id), extra_ids: exts.map(r => r.id) });
@@ -2523,7 +2531,7 @@ app.post('/api/create-subscription-preference', authenticateToken, async (req, r
       items: [
         {
           id: `plan-${plan.id}-${billingCycle}`,
-          title: `Suscripción ${plan.name} - ${billingCycle === 'yearly' ? 'Anual' : 'Mensual'}`,
+          title: `SuscripciÃ³n ${plan.name} - ${billingCycle === 'yearly' ? 'Anual' : 'Mensual'}`,
           description: `Acceso al plan ${plan.name} - ${plan.description}`,
           quantity: 1,
           currency_id: 'USD',
@@ -2555,11 +2563,11 @@ app.post('/api/create-subscription-preference', authenticateToken, async (req, r
     const initPoint = response.init_point;
     
     if (!initPoint) {
-      console.error('No se получил init_point en la respuesta:', response);
+      console.error('No se Ð¿Ð¾Ð»ÑƒÑ‡Ð¸Ð» init_point en la respuesta:', response);
       return res.status(500).json({ 
         error: 'Error al crear el enlace de pago. La respuesta de MercadoPago no contiene init_point.',
         details: response,
-        hint: 'Verifica que tu cuenta de MercadoPago esté activa y tengas permisos para cobrar.'
+        hint: 'Verifica que tu cuenta de MercadoPago estÃ© activa y tengas permisos para cobrar.'
       });
     }
     
@@ -2580,11 +2588,11 @@ app.post('/api/create-subscription-preference', authenticateToken, async (req, r
     let errorHint = '';
     
     if (error.message?.includes('401') || error.message?.includes('invalid_token')) {
-      errorMessage = 'Token de MercadoPago inválido o expirado.';
+      errorMessage = 'Token de MercadoPago invÃ¡lido o expirado.';
       errorHint = 'Ve a https://dashboard.mercadopago.com/apps y regenera tus tokens.';
     } else if (error.message?.includes('forbidden') || error.message?.includes('403')) {
-      errorMessage = 'Tu cuenta de MercadoPago no tiene permisos para esta operación.';
-      errorHint = 'Verifica que tu cuenta esté verificada y activa.';
+      errorMessage = 'Tu cuenta de MercadoPago no tiene permisos para esta operaciÃ³n.';
+      errorHint = 'Verifica que tu cuenta estÃ© verificada y activa.';
     } else if (error.response?.data?.message) {
       errorMessage = error.response.data.message;
       if (error.response.data.cause) {
@@ -2634,7 +2642,7 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
           if (rentalId) {
             await updateTotemRentalPayment(rentalId, String(payment.id));
             await logTotemPayment(rentalId, payment.transaction_amount, 'installation', String(payment.id), 'approved');
-            console.log(`[TotemRental] Pago instalación aprobado para rental #${rentalId}`);
+            console.log(`[TotemRental] Pago instalaciÃ³n aprobado para rental #${rentalId}`);
           }
         } else if (externalRef && externalRef.startsWith('subscription-')) {
           const parts = externalRef.split('-');
@@ -2643,7 +2651,7 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
           const billingCycle = parts[3];
 
           await assignPlanToUser(userId, planId, billingCycle);
-          console.log(`Suscripción activada para usuario ${userId} - Plan ${planId}`);
+          console.log(`SuscripciÃ³n activada para usuario ${userId} - Plan ${planId}`);
 
           // Notificar a todos los superadmins por email
           try {
@@ -2658,7 +2666,7 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
               ? stores.map(s => s.name).join(', ')
               : '(sin tienda registrada)';
 
-            const subject = `🎉 Nueva suscripción Premium — ${user?.username || `Usuario #${userId}`}`;
+            const subject = `ðŸŽ‰ Nueva suscripciÃ³n Premium â€” ${user?.username || `Usuario #${userId}`}`;
             const html = `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -2678,8 +2686,8 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
 
         <tr>
           <td style="padding:32px 32px 24px">
-            <div style="font-size:32px;margin-bottom:8px">🎉</div>
-            <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#111">Nueva suscripción activada</h1>
+            <div style="font-size:32px;margin-bottom:8px">ðŸŽ‰</div>
+            <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#111">Nueva suscripciÃ³n activada</h1>
             <p style="margin:0;font-size:14px;color:#888">${new Date().toLocaleString('es-AR')}</p>
           </td>
         </tr>
@@ -2693,7 +2701,7 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
               </tr>
               <tr>
                 <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Email</td>
-                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:14px;color:#444">${user?.email || '—'}</td>
+                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:14px;color:#444">${user?.email || 'â€”'}</td>
               </tr>
               <tr style="background:#fafafa">
                 <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Tienda(s)</td>
@@ -2707,7 +2715,7 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
               </tr>
               <tr style="background:#fafafa">
                 <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Ciclo</td>
-                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:14px;color:#444">${billingCycle === 'yearly' ? '🔄 Anual' : '🔄 Mensual'}</td>
+                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:14px;color:#444">${billingCycle === 'yearly' ? 'ðŸ”„ Anual' : 'ðŸ”„ Mensual'}</td>
               </tr>
               <tr>
                 <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Monto</td>
@@ -2723,7 +2731,7 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
 
         <tr>
           <td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:16px 32px;text-align:center">
-            <p style="margin:0;font-size:12px;color:#bbb">SRServi · Panel de administración</p>
+            <p style="margin:0;font-size:12px;color:#bbb">SRServi Â· Panel de administraciÃ³n</p>
           </td>
         </tr>
 
@@ -2738,7 +2746,7 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
               mailer.sendMail({ from: `"SRServi" <${process.env.EMAIL_USER}>`, to, subject, html })
                 .catch(e => console.error(`[Subscription] Error enviando email a ${to}:`, e.message))
             ));
-            console.log(`[Subscription] Notificación enviada a superadmins:`, emails);
+            console.log(`[Subscription] NotificaciÃ³n enviada a superadmins:`, emails);
           } catch (notifyErr) {
             console.error('[Subscription] Error al notificar superadmins:', notifyErr.message);
           }
@@ -2834,7 +2842,7 @@ app.get('/api/verify-mp-credentials', authenticateToken, async (req, res) => {
       const errorData = await response.json();
       return res.json({
         valid: false,
-        error: errorData.message || 'Token inválido',
+        error: errorData.message || 'Token invÃ¡lido',
         status: response.status,
         environment
       });
@@ -2870,11 +2878,11 @@ app.put('/api/stores/:id/mp-config', authenticateToken, async (req, res) => {
     const { mp_access_token } = req.body;
 
     if (mp_access_token) {
-      // Verificar que el token sea válido
+      // Verificar que el token sea vÃ¡lido
       const verifyRes = await fetch('https://api.mercadopago.com/users/me', {
         headers: { 'Authorization': `Bearer ${mp_access_token}` }
       });
-      if (!verifyRes.ok) return res.status(400).json({ error: 'Token de MercadoPago inválido' });
+      if (!verifyRes.ok) return res.status(400).json({ error: 'Token de MercadoPago invÃ¡lido' });
     }
 
     await pool.execute('UPDATE stores SET mp_access_token = ? WHERE id = ?', [mp_access_token || null, req.params.id]);
@@ -3021,9 +3029,9 @@ app.get('/api/analytics/sales-by-dow', authenticateToken, async (req, res) => {
     if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
 
     const rows = await leonGetSalesByDayOfWeek(parseInt(storeId), dateRange);
-    // MySQL DAYOFWEEK: 1=Sun,2=Mon,...,7=Sat → display Mon(2)..Sun(1)
+    // MySQL DAYOFWEEK: 1=Sun,2=Mon,...,7=Sat â†’ display Mon(2)..Sun(1)
     const DOW_ORDER = [2, 3, 4, 5, 6, 7, 1];
-    const DOW_NAMES = ['', 'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const DOW_NAMES = ['', 'Domingo', 'Lunes', 'Martes', 'MiÃ©rcoles', 'Jueves', 'Viernes', 'SÃ¡bado'];
     const map = {};
     rows.forEach(r => { map[r.day_num] = r; });
     const result = DOW_ORDER.map(dn => ({
@@ -3130,12 +3138,12 @@ app.get('/api/analytics/ventas-dia', authenticateToken, async (req, res) => {
   }
 });
 
-// ==================== LEÓN IA ====================
+// ==================== LEÃ“N IA ====================
 
 const LEON_GREETINGS = [
-  '¡Hola! Soy **León IA** 🦁, tu asistente de negocios.\n\nHablame de forma natural y te ayudo. Por ejemplo:\n\n• "¿Qué días vendo más?" 📅\n• "¿Qué productos se venden más?" 📈\n• "¿Qué hago con lo que no se mueve?" 📉\n• "¿Cuánto hice este mes?" 💰\n• "¿A qué hora tengo más clientes?" ⏰\n• "¿Tengo algo agotado?" 📦\n• "Dame recomendaciones" 🎯',
-  '¡Buenas! Soy **León IA** 🦁. Listo para analizar tu negocio.\n\nPregúntame lo que necesites — entiendo lenguaje natural. Por ejemplo: "¿qué días vendo más?", "¿cómo van las ventas?", "¿qué no se está vendiendo?"',
-  'Hola de nuevo 👋. Soy **León IA**, tu asesor de ventas inteligente.\n\nDime qué quieres saber y te respondo al instante. Puedo analizar días, horarios, productos, ingresos, stock y más.',
+  'Â¡Hola! Soy **LeÃ³n IA** ðŸ¦, tu asistente de negocios.\n\nHablame de forma natural y te ayudo. Por ejemplo:\n\nâ€¢ "Â¿QuÃ© dÃ­as vendo mÃ¡s?" ðŸ“…\nâ€¢ "Â¿QuÃ© productos se venden mÃ¡s?" ðŸ“ˆ\nâ€¢ "Â¿QuÃ© hago con lo que no se mueve?" ðŸ“‰\nâ€¢ "Â¿CuÃ¡nto hice este mes?" ðŸ’°\nâ€¢ "Â¿A quÃ© hora tengo mÃ¡s clientes?" â°\nâ€¢ "Â¿Tengo algo agotado?" ðŸ“¦\nâ€¢ "Dame recomendaciones" ðŸŽ¯',
+  'Â¡Buenas! Soy **LeÃ³n IA** ðŸ¦. Listo para analizar tu negocio.\n\nPregÃºntame lo que necesites â€” entiendo lenguaje natural. Por ejemplo: "Â¿quÃ© dÃ­as vendo mÃ¡s?", "Â¿cÃ³mo van las ventas?", "Â¿quÃ© no se estÃ¡ vendiendo?"',
+  'Hola de nuevo ðŸ‘‹. Soy **LeÃ³n IA**, tu asesor de ventas inteligente.\n\nDime quÃ© quieres saber y te respondo al instante. Puedo analizar dÃ­as, horarios, productos, ingresos, stock y mÃ¡s.',
 ];
 
 function leonDetectIntent(text, history = []) {
@@ -3149,14 +3157,14 @@ function leonDetectIntent(text, history = []) {
   const words = t.trim().split(/\s+/);
   const isShort = words.length <= 6;
 
-  // Plan de acción: detectar afirmativa después de worst_products, o solicitud explícita
+  // Plan de acciÃ³n: detectar afirmativa despuÃ©s de worst_products, o solicitud explÃ­cita
   const isAffirmative = isShort && has('si', 'dale', 'claro', 'adelante', 'bueno', 'ok dale', 'va', 'hazlo', 'hacelo');
   if (has('plan de accion', 'plan detallado', 'plan de mejora', 'estrategia detallada', 'como lo mejoro paso a paso', 'que pasos sigo'))
     return 'action_plan';
   if (isAffirmative && (lastIntent === 'worst_products' || lastIntent === 'action_plan'))
     return 'action_plan';
 
-  // Follow-up de contexto: frases explícitas o muy cortas con marcadores
+  // Follow-up de contexto: frases explÃ­citas o muy cortas con marcadores
   const hasFollowUpMarker = has('y ese mes', 'y este mes', 'y ayer', 'dime mas', 'mas detalles', 'ampliame', 'profundiza');
   const isVagueShort = isShort && has('y eso', 'y esos', 'que mas', 'algo mas');
   if ((hasFollowUpMarker || isVagueShort) && lastIntent && lastIntent !== 'greeting' && lastIntent !== 'unknown' && lastIntent !== 'action_plan')
@@ -3165,7 +3173,7 @@ function leonDetectIntent(text, history = []) {
   if (has('hola', 'buenos dias', 'buenas tardes', 'buenas noches', 'como estas', 'quien eres', 'que eres', 'que puedes hacer', 'que sabes hacer', 'ayuda', 'para que sirves', 'que haces', 'presentate'))
     return 'greeting';
 
-  // Extras e ingredientes — van ANTES que top_products para evitar colisión con "más vendidos"
+  // Extras e ingredientes â€” van ANTES que top_products para evitar colisiÃ³n con "mÃ¡s vendidos"
   if (has('extra') && has('mas vendido', 'mas pedido', 'mas solicitado', 'popular', 'top', 'mas elegido', 'mas piden', 'eligen', 'solicitado', 'mas elegido', 'mas comprado'))
     return 'extras_analysis';
   if (has('extras mas pedidos', 'extras mas solicitados', 'que extras piden', 'extras populares', 'extra mas elegido', 'que extra eligen', 'extras top', 'extras mas vendidos', 'extras favoritos', 'que extra piden'))
@@ -3186,7 +3194,7 @@ function leonDetectIntent(text, history = []) {
   if (has('ingreso', 'ganancia', 'cuanto vendi', 'cuanto gane', 'dinero', 'venta total', 'facturacion', 'revenue', 'recaude', 'cuanto saque', 'cuanto hice', 'cuanto llevo', 'plata', 'cuanto genere', 'total de ventas', 'que tal las ventas', 'numeros de venta', 'cuanta plata', 'cuanto cobre'))
     return 'revenue';
 
-  // Días de la semana — va ANTES que peak_hours para no confundir "día" con "hora"
+  // DÃ­as de la semana â€” va ANTES que peak_hours para no confundir "dÃ­a" con "hora"
   if (has('que dia vendo mas', 'que dias vendo mas', 'mejor dia de la semana', 'mejores dias', 'dias mas activos', 'dia mas activo', 'dias con mas ventas', 'dias de mayor venta', 'que dia es el mejor', 'cuales son los mejores dias', 'en que dia vendo', 'dia de la semana', 'dias de la semana', 'por dia de la semana', 'rendimiento por dia', 'ventas por dia de semana', 'que dia hay mas gente', 'dia mas concurrido', 'dias top', 'cuando vendo mas los dias'))
     return 'best_days';
   if (has('dia', 'dias') && has('mejor', 'mas venta', 'mas activo', 'mas pedido', 'mas movimiento', 'mayor', 'top'))
@@ -3197,7 +3205,7 @@ function leonDetectIntent(text, history = []) {
 
   if (has('hora', 'pico', 'momento del dia', 'horario', 'mejor hora', 'hora punta', 'a que hora', 'horario pico', 'rush', 'cuando vendo mas en el dia', 'horas de mayor'))
     return 'peak_hours';
-  // "cuando vendo" sin contexto de día → peak_hours
+  // "cuando vendo" sin contexto de dÃ­a â†’ peak_hours
   if (has('cuando vendo') && !has('dia', 'dias', 'semana', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'))
     return 'peak_hours';
 
@@ -3211,14 +3219,14 @@ function leonDetectIntent(text, history = []) {
     return 'recommendations';
   if (has('pedido', 'orden', 'compra', 'cuantos pedidos', 'cuantas ordenes', 'ordenes del dia', 'pedidos de hoy', 'cuantas ventas', 'cuantos pedidos hubo'))
     return 'orders_summary';
-  // Análisis de producto específico — debe ir antes del fallback
+  // AnÃ¡lisis de producto especÃ­fico â€” debe ir antes del fallback
   if (has('analiza ', 'analiza el ', 'analiza la ', 'analiza los ', 'analiza las ',
           'como va ', 'como esta ', 'como va el ', 'como esta el ', 'como va la ', 'como esta la ',
           'dime sobre ', 'info de ', 'informacion de ', 'rendimiento de ',
           'cuanto vende ', 'cuanto se vende ', 'ventas de ', 'datos de ',
           'que tal el ', 'que tal la ', 'que tal los ', 'que pasa con ', 'profundiza en '))
     return 'product_analysis';
-  // Si el contexto anterior pedía analizar un producto específico
+  // Si el contexto anterior pedÃ­a analizar un producto especÃ­fico
   if (lastIntent === 'action_plan' && words.length >= 2 && !has('no', 'nada', 'no gracias'))
     return 'product_analysis';
 
@@ -3247,7 +3255,7 @@ function leonExtractProductName(text) {
   for (const p of prefixes) {
     if (t.startsWith(p)) return t.slice(p.length).trim();
   }
-  // Quitar artículos sueltos al inicio
+  // Quitar artÃ­culos sueltos al inicio
   return t.replace(/^(el|la|los|las|un|una)\s+/, '').trim();
 }
 
@@ -3255,16 +3263,16 @@ function leonDetectRange(text) {
   const t = text.toLowerCase();
   if (t.includes('hoy') || t.includes('dia') || t.includes('today')) return 'today';
   if (t.includes('mes') || t.includes('month') || t.includes('30 dias')) return 'month';
-  if (t.includes('año') || t.includes('year') || t.includes('365')) return 'year';
+  if (t.includes('aÃ±o') || t.includes('year') || t.includes('365')) return 'year';
   return 'week';
 }
 
 function leonRangeLabel(range) {
-  return { today: 'hoy', week: 'esta semana', month: 'este mes', year: 'este año' }[range] || 'esta semana';
+  return { today: 'hoy', week: 'esta semana', month: 'este mes', year: 'este aÃ±o' }[range] || 'esta semana';
 }
 
 async function leonGetAllProducts(storeId) {
-  // inventory no tiene store_id — se une sólo por product_id
+  // inventory no tiene store_id â€” se une sÃ³lo por product_id
   const [rows] = await pool.execute(
     `SELECT p.id, p.name, p.price,
             COALESCE(i.stock, 0) AS stock,
@@ -3284,7 +3292,7 @@ async function leonGetWorstProducts(storeId, range) {
   else if (range === 'month') interval = '30 DAY';
   else if (range === 'year') interval = '365 DAY';
 
-  // Subconsulta para ventas del periodo — evita ambigüedad de columnas
+  // Subconsulta para ventas del periodo â€” evita ambigÃ¼edad de columnas
   const [sold] = await pool.execute(
     `SELECT p.id, p.name, p.price,
             COALESCE(SUM(oi.quantity), 0) AS total_sold
@@ -3334,7 +3342,7 @@ async function leonGetCategoryRevenue(storeId, range) {
   else if (range === 'year') interval = '365 DAY';
 
   const [rows] = await pool.execute(
-    `SELECT COALESCE(c.name,'Sin categoría') as category,
+    `SELECT COALESCE(c.name,'Sin categorÃ­a') as category,
             COUNT(DISTINCT o.id) as orders,
             SUM(oi.quantity) as total_sold,
             SUM(oi.quantity*oi.unit_price) as revenue
@@ -3405,7 +3413,7 @@ async function leonGetSalesByDayOfWeek(storeId, range) {
   else if (range === 'month') interval = '30 DAY';
   else if (range === 'year') interval = '365 DAY';
 
-  const DAY_NAMES = ['', 'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const DAY_NAMES = ['', 'Domingo', 'Lunes', 'Martes', 'MiÃ©rcoles', 'Jueves', 'Viernes', 'SÃ¡bado'];
   const [rows] = await pool.execute(
     `SELECT DAYOFWEEK(o.created_at) AS day_num,
             COUNT(*) AS orders,
@@ -3471,7 +3479,7 @@ async function leonGetProductAnalysis(storeId, productName) {
 
   const prod = prods[0];
 
-  // Ventas por período
+  // Ventas por perÃ­odo
   const periods = { week: '7 DAY', month: '30 DAY', year: '365 DAY' };
   const salesData = {};
   for (const [key, interval] of Object.entries(periods)) {
@@ -3505,7 +3513,7 @@ async function leonGetProductAnalysis(storeId, productName) {
   const rank = ranking.findIndex(r => r.id === prod.id) + 1;
   const total = ranking.length;
 
-  // Ventas por día últimos 7 días
+  // Ventas por dÃ­a Ãºltimos 7 dÃ­as
   const [byDay] = await pool.execute(
     `SELECT DATE(o.created_at) AS date, SUM(oi.quantity) AS qty
      FROM order_items oi
@@ -3533,53 +3541,53 @@ function leonBuildResponse(intent, range, data, storeName) {
       return r(LEON_GREETINGS[Math.floor(Math.random() * LEON_GREETINGS.length)]);
 
     case 'thanks':
-      return r('¡De nada! 😊 Si necesitas analizar algo más, aquí estoy. Puedes preguntarme sobre ventas, stock, ingresos o cualquier cosa de tu negocio.');
+      return r('Â¡De nada! ðŸ˜Š Si necesitas analizar algo mÃ¡s, aquÃ­ estoy. Puedes preguntarme sobre ventas, stock, ingresos o cualquier cosa de tu negocio.');
 
     case 'top_products': {
       const { products } = data;
       if (!products || !products.length)
-        return r(`No encontré ventas registradas ${rl}. ¿Tienes pedidos completados en ese período? Intenta con un rango mayor, por ejemplo "¿cuáles son los más vendidos este mes?".`);
-      const medals = ['🥇', '🥈', '🥉', '4.', '5.'];
+        return r(`No encontrÃ© ventas registradas ${rl}. Â¿Tienes pedidos completados en ese perÃ­odo? Intenta con un rango mayor, por ejemplo "Â¿cuÃ¡les son los mÃ¡s vendidos este mes?".`);
+      const medals = ['ðŸ¥‡', 'ðŸ¥ˆ', 'ðŸ¥‰', '4.', '5.'];
       const list = products.map((p, i) =>
-        `${medals[i] || `${i+1}.`} **${p.name}** — ${p.total_sold} unidades · $${fmt(p.revenue)}`
+        `${medals[i] || `${i+1}.`} **${p.name}** â€” ${p.total_sold} unidades Â· $${fmt(p.revenue)}`
       ).join('\n');
       const leader = products[0];
       const chart = {
         type: 'bar',
         title: `Top productos ${rl}`,
-        labels: products.map(p => p.name.length > 14 ? p.name.slice(0, 13) + '…' : p.name),
+        labels: products.map(p => p.name.length > 14 ? p.name.slice(0, 13) + 'â€¦' : p.name),
         values: products.map(p => Number(p.total_sold)),
         unit: 'uds',
         color: '#D4AF37',
       };
-      return r(`Ranking de productos ${rl}${store}:\n\n${list}\n\n📈 **${leader.name}** lidera con **${leader.total_sold} unidades** vendidas. ¿Quieres saber cuáles son los que peor van?`, chart);
+      return r(`Ranking de productos ${rl}${store}:\n\n${list}\n\nðŸ“ˆ **${leader.name}** lidera con **${leader.total_sold} unidades** vendidas. Â¿Quieres saber cuÃ¡les son los que peor van?`, chart);
     }
 
     case 'worst_products': {
       const { worst } = data;
       if (!worst || !worst.length)
-        return r(`No hay productos registrados todavía. Agrega productos desde el **Editor Tótem** para empezar a analizar.`);
+        return r(`No hay productos registrados todavÃ­a. Agrega productos desde el **Editor TÃ³tem** para empezar a analizar.`);
       const zeroes = worst.filter(p => Number(p.total_sold) === 0);
       const low = worst.filter(p => Number(p.total_sold) > 0 && Number(p.total_sold) <= 3);
       const rest = worst.filter(p => Number(p.total_sold) > 3);
       if (!zeroes.length && !low.length && rest.length)
-        return r(`Buenas noticias 🎉 — todos tus productos se están vendiendo ${rl}. El de menor rotación es **${rest[0].name}** con ${rest[0].total_sold} unidades, pero sigue activo.\n\nSi quieres mejorar aún más, dime "dame recomendaciones".`);
+        return r(`Buenas noticias ðŸŽ‰ â€” todos tus productos se estÃ¡n vendiendo ${rl}. El de menor rotaciÃ³n es **${rest[0].name}** con ${rest[0].total_sold} unidades, pero sigue activo.\n\nSi quieres mejorar aÃºn mÃ¡s, dime "dame recomendaciones".`);
       let resp = `Productos con bajo rendimiento ${rl}:\n\n`;
       if (zeroes.length) {
-        resp += `🔴 **Sin ninguna venta (${zeroes.length}):**\n`;
-        resp += zeroes.map(p => `• ${p.name} — $${fmt(p.price)}`).join('\n');
+        resp += `ðŸ”´ **Sin ninguna venta (${zeroes.length}):**\n`;
+        resp += zeroes.map(p => `â€¢ ${p.name} â€” $${fmt(p.price)}`).join('\n');
         resp += `\n\n`;
       }
       if (low.length) {
-        resp += `🟡 **Ventas muy bajas — 1 a 3 unidades (${low.length}):**\n`;
-        resp += low.map(p => `• ${p.name} — ${p.total_sold} unid.`).join('\n');
+        resp += `ðŸŸ¡ **Ventas muy bajas â€” 1 a 3 unidades (${low.length}):**\n`;
+        resp += low.map(p => `â€¢ ${p.name} â€” ${p.total_sold} unid.`).join('\n');
         resp += `\n\n`;
       }
-      resp += `¿Quieres que te dé un plan de acción detallado para mejorarlos?`;
+      resp += `Â¿Quieres que te dÃ© un plan de acciÃ³n detallado para mejorarlos?`;
       const chart = {
         type: 'bar',
         title: `Ventas ${rl} (menores)`,
-        labels: worst.map(p => p.name.length > 14 ? p.name.slice(0, 13) + '…' : p.name),
+        labels: worst.map(p => p.name.length > 14 ? p.name.slice(0, 13) + 'â€¦' : p.name),
         values: worst.map(p => Number(p.total_sold)),
         unit: 'uds',
         color: '#ef4444',
@@ -3591,32 +3599,32 @@ function leonBuildResponse(intent, range, data, storeName) {
       const { worst } = data;
       const zeroes = (worst || []).filter(p => Number(p.total_sold) === 0);
       const low = (worst || []).filter(p => Number(p.total_sold) > 0 && Number(p.total_sold) <= 3);
-      let resp = `Plan de acción para tus productos con bajo rendimiento:\n\n`;
+      let resp = `Plan de acciÃ³n para tus productos con bajo rendimiento:\n\n`;
 
       if (zeroes.length) {
         resp += `**Para los productos sin ninguna venta:**\n\n`;
-        resp += `**Semana 1 — Visibilidad:**\n`;
-        resp += `• Mueve estos productos al inicio del tótem\n`;
-        resp += `• Agrega una foto atractiva si no tienen imagen\n`;
-        resp += `• Aplica un descuento del 25% con etiqueta "Oferta"\n\n`;
-        resp += `**Semana 2 — Promoción activa:**\n`;
-        resp += `• Crea un combo con tu producto estrella (ej: "Lleva X + Y con descuento")\n`;
-        resp += `• Si tienes vendedores, pídeles que lo sugieran al cliente\n\n`;
-        resp += `**Semana 3 — Evaluación:**\n`;
-        resp += `• Si sigue sin venderse, bájale el precio definitivamente\n`;
-        resp += `• Si después de 30 días no se mueve, considera eliminarlo del menú\n\n`;
+        resp += `**Semana 1 â€” Visibilidad:**\n`;
+        resp += `â€¢ Mueve estos productos al inicio del tÃ³tem\n`;
+        resp += `â€¢ Agrega una foto atractiva si no tienen imagen\n`;
+        resp += `â€¢ Aplica un descuento del 25% con etiqueta "Oferta"\n\n`;
+        resp += `**Semana 2 â€” PromociÃ³n activa:**\n`;
+        resp += `â€¢ Crea un combo con tu producto estrella (ej: "Lleva X + Y con descuento")\n`;
+        resp += `â€¢ Si tienes vendedores, pÃ­deles que lo sugieran al cliente\n\n`;
+        resp += `**Semana 3 â€” EvaluaciÃ³n:**\n`;
+        resp += `â€¢ Si sigue sin venderse, bÃ¡jale el precio definitivamente\n`;
+        resp += `â€¢ Si despuÃ©s de 30 dÃ­as no se mueve, considera eliminarlo del menÃº\n\n`;
       }
       if (low.length) {
         resp += `**Para los de ventas muy bajas:**\n\n`;
-        resp += `• Prueba la promoción "2 x 1" o "segunda unidad al 50%"\n`;
-        resp += `• Agrégalos como "sugerido" en el tótem junto a los más vendidos\n`;
-        resp += `• Revisa si el precio es competitivo comparado con productos similares\n`;
-        resp += `• Cambia el nombre o la descripción para hacerlos más atractivos\n\n`;
+        resp += `â€¢ Prueba la promociÃ³n "2 x 1" o "segunda unidad al 50%"\n`;
+        resp += `â€¢ AgrÃ©galos como "sugerido" en el tÃ³tem junto a los mÃ¡s vendidos\n`;
+        resp += `â€¢ Revisa si el precio es competitivo comparado con productos similares\n`;
+        resp += `â€¢ Cambia el nombre o la descripciÃ³n para hacerlos mÃ¡s atractivos\n\n`;
       }
       if (!zeroes.length && !low.length)
-        resp += `No tengo datos recientes de productos con bajo rendimiento. Pregúntame primero "¿qué productos se venden menos?" para obtener el análisis.`;
+        resp += `No tengo datos recientes de productos con bajo rendimiento. PregÃºntame primero "Â¿quÃ© productos se venden menos?" para obtener el anÃ¡lisis.`;
 
-      resp += `\n¿Quieres que analice algún producto específico en profundidad?`;
+      resp += `\nÂ¿Quieres que analice algÃºn producto especÃ­fico en profundidad?`;
       return r(resp);
     }
 
@@ -3627,21 +3635,21 @@ function leonBuildResponse(intent, range, data, storeName) {
         ? salesByDay.reduce((a, b) => Number(a.revenue) > Number(b.revenue) ? a : b)
         : null;
       const trend = salesByDay && salesByDay.length >= 2
-        ? Number(salesByDay[salesByDay.length-1].revenue) > Number(salesByDay[0].revenue) ? '📈 tendencia al alza' : '📉 tendencia a la baja'
+        ? Number(salesByDay[salesByDay.length-1].revenue) > Number(salesByDay[0].revenue) ? 'ðŸ“ˆ tendencia al alza' : 'ðŸ“‰ tendencia a la baja'
         : null;
       let resp = `Ingresos ${rl}${store}:\n\n`;
-      resp += `💰 **Total facturado:** $${fmt(summary.revenue)}\n`;
-      resp += `📦 **Pedidos completados:** ${summary.completedOrders}\n`;
-      resp += `🎯 **Ticket promedio:** $${fmt(summary.avgOrder)}\n`;
-      if (bestDay) resp += `📅 **Mejor día:** ${bestDay.date} — $${fmt(bestDay.revenue)}\n`;
+      resp += `ðŸ’° **Total facturado:** $${fmt(summary.revenue)}\n`;
+      resp += `ðŸ“¦ **Pedidos completados:** ${summary.completedOrders}\n`;
+      resp += `ðŸŽ¯ **Ticket promedio:** $${fmt(summary.avgOrder)}\n`;
+      if (bestDay) resp += `ðŸ“… **Mejor dÃ­a:** ${bestDay.date} â€” $${fmt(bestDay.revenue)}\n`;
       if (trend) resp += `${trend}\n`;
       resp += summary.pendingOrders > 0
-        ? `\n⚠️ Tienes **${summary.pendingOrders} pedidos pendientes** sin procesar.`
-        : `\n✅ Sin pedidos pendientes. ¡Todo al día!`;
-      resp += `\n\n¿Quieres ver qué productos generaron más ingresos o comparar con otro período?`;
+        ? `\nâš ï¸ Tienes **${summary.pendingOrders} pedidos pendientes** sin procesar.`
+        : `\nâœ… Sin pedidos pendientes. Â¡Todo al dÃ­a!`;
+      resp += `\n\nÂ¿Quieres ver quÃ© productos generaron mÃ¡s ingresos o comparar con otro perÃ­odo?`;
       const chart = salesByDay && salesByDay.length ? {
         type: 'bar',
-        title: `Ingresos por día ${rl}`,
+        title: `Ingresos por dÃ­a ${rl}`,
         labels: salesByDay.map(d => {
           const dt = new Date(d.date);
           return `${dt.getDate()}/${dt.getMonth()+1}`;
@@ -3657,7 +3665,7 @@ function leonBuildResponse(intent, range, data, storeName) {
     case 'peak_hours': {
       const { byHour } = data;
       if (!byHour || !byHour.length)
-        return r(`No hay datos de horarios ${rl}. Necesitas tener pedidos completados para ver este análisis.`);
+        return r(`No hay datos de horarios ${rl}. Necesitas tener pedidos completados para ver este anÃ¡lisis.`);
       // Completar horas faltantes con 0
       const hourMap = {};
       byHour.forEach(h => { hourMap[Number(h.hour)] = Number(h.orders); });
@@ -3665,8 +3673,8 @@ function leonBuildResponse(intent, range, data, storeName) {
       const sorted = [...byHour].sort((a, b) => Number(b.orders) - Number(a.orders));
       const peak = sorted[0];
       const quiet = sorted[sorted.length - 1];
-      const top3 = sorted.slice(0, 3).map(h => `• **${h.hour}:00 hs** — ${h.orders} pedidos`).join('\n');
-      const resp = `Distribución de ventas por hora ${rl}:\n\n⏰ **Horas pico:**\n${top3}\n\n🎯 Tu **hora pico es las ${peak.hour}:00 hs** con ${peak.orders} pedidos. Ten stock completo, personal disponible y sistema listo antes de esa hora.\n\n💤 La hora más tranquila: **${quiet.hour}:00 hs** — ideal para hacer inventario.`;
+      const top3 = sorted.slice(0, 3).map(h => `â€¢ **${h.hour}:00 hs** â€” ${h.orders} pedidos`).join('\n');
+      const resp = `DistribuciÃ³n de ventas por hora ${rl}:\n\nâ° **Horas pico:**\n${top3}\n\nðŸŽ¯ Tu **hora pico es las ${peak.hour}:00 hs** con ${peak.orders} pedidos. Ten stock completo, personal disponible y sistema listo antes de esa hora.\n\nðŸ’¤ La hora mÃ¡s tranquila: **${quiet.hour}:00 hs** â€” ideal para hacer inventario.`;
       const activoHours = allHours.filter(h => h.orders > 0);
       const chart = activoHours.length ? {
         type: 'bar',
@@ -3683,48 +3691,48 @@ function leonBuildResponse(intent, range, data, storeName) {
     case 'stock_alert': {
       const { allProducts } = data;
       if (!allProducts || !allProducts.length)
-        return r(`No encontré productos en tu tienda. Agrega productos desde el **Editor Tótem** para ver el inventario.`);
+        return r(`No encontrÃ© productos en tu tienda. Agrega productos desde el **Editor TÃ³tem** para ver el inventario.`);
       const outOfStock = allProducts.filter(p => !Number(p.unlimited_stock) && Number(p.stock) === 0);
       const lowStock = allProducts.filter(p => !Number(p.unlimited_stock) && Number(p.stock) > 0 && Number(p.stock) <= 3);
       const unlimited = allProducts.filter(p => Number(p.unlimited_stock));
       const ok = allProducts.filter(p => !Number(p.unlimited_stock) && Number(p.stock) > 3);
       let resp = `Estado del inventario${store}:\n\n`;
       if (!outOfStock.length && !lowStock.length) {
-        resp += `✅ Todo en orden. Sin agotados ni stock crítico.\n`;
-        if (unlimited.length) resp += `♾️ **${unlimited.length}** con stock ilimitado · `;
-        if (ok.length) resp += `📦 **${ok.length}** con stock normal.`;
-        resp += `\n\n¿Quieres analizar ventas para anticipar cuándo reponer?`;
+        resp += `âœ… Todo en orden. Sin agotados ni stock crÃ­tico.\n`;
+        if (unlimited.length) resp += `â™¾ï¸ **${unlimited.length}** con stock ilimitado Â· `;
+        if (ok.length) resp += `ðŸ“¦ **${ok.length}** con stock normal.`;
+        resp += `\n\nÂ¿Quieres analizar ventas para anticipar cuÃ¡ndo reponer?`;
         return r(resp);
       }
       if (outOfStock.length) {
-        resp += `🔴 **Agotados (${outOfStock.length}):**\n` + outOfStock.map(p => `• ${p.name}`).join('\n') + `\n\n`;
+        resp += `ðŸ”´ **Agotados (${outOfStock.length}):**\n` + outOfStock.map(p => `â€¢ ${p.name}`).join('\n') + `\n\n`;
       }
       if (lowStock.length) {
-        resp += `🟡 **Stock crítico ≤ 3 uds (${lowStock.length}):**\n` + lowStock.map(p => `• ${p.name} — **${p.stock}** uds`).join('\n') + `\n\n`;
+        resp += `ðŸŸ¡ **Stock crÃ­tico â‰¤ 3 uds (${lowStock.length}):**\n` + lowStock.map(p => `â€¢ ${p.name} â€” **${p.stock}** uds`).join('\n') + `\n\n`;
       }
-      resp += `💡 Actualiza el stock desde **Productos** en el panel antes de que afecte tus ventas.`;
+      resp += `ðŸ’¡ Actualiza el stock desde **Productos** en el panel antes de que afecte tus ventas.`;
       return r(resp);
     }
 
     case 'category_analysis': {
       const { catRevenue } = data;
       if (!catRevenue || !catRevenue.length)
-        return r(`No hay ventas por categoría ${rl}. Necesitas pedidos completados para ver este análisis.`);
+        return r(`No hay ventas por categorÃ­a ${rl}. Necesitas pedidos completados para ver este anÃ¡lisis.`);
       const total = catRevenue.reduce((s, c) => s + Number(c.revenue), 0);
       const list = catRevenue.map((c, i) => {
         const pct = total > 0 ? ((Number(c.revenue) / total) * 100).toFixed(0) : 0;
-        return `${i+1}. **${c.category}** — $${fmt(c.revenue)} · ${pct}% · ${c.total_sold} uds`;
+        return `${i+1}. **${c.category}** â€” $${fmt(c.revenue)} Â· ${pct}% Â· ${c.total_sold} uds`;
       }).join('\n');
       const top = catRevenue[0];
       const bottom = catRevenue[catRevenue.length - 1];
-      let resp = `Análisis por categoría ${rl}:\n\n${list}\n\n`;
-      resp += `🏆 **${top.category}** lidera con $${fmt(top.revenue)}.`;
+      let resp = `AnÃ¡lisis por categorÃ­a ${rl}:\n\n${list}\n\n`;
+      resp += `ðŸ† **${top.category}** lidera con $${fmt(top.revenue)}.`;
       if (catRevenue.length > 1)
-        resp += `\n💤 **${bottom.category}** tiene el menor rendimiento — refuérzala con nuevos productos o promociones.`;
+        resp += `\nðŸ’¤ **${bottom.category}** tiene el menor rendimiento â€” refuÃ©rzala con nuevos productos o promociones.`;
       const chart = {
         type: 'bar',
-        title: `Ingresos por categoría ${rl}`,
-        labels: catRevenue.map(c => c.category.length > 12 ? c.category.slice(0, 11) + '…' : c.category),
+        title: `Ingresos por categorÃ­a ${rl}`,
+        labels: catRevenue.map(c => c.category.length > 12 ? c.category.slice(0, 11) + 'â€¦' : c.category),
         values: catRevenue.map(c => Number(c.revenue)),
         unit: '$',
         color: '#D4AF37',
@@ -3741,16 +3749,16 @@ function leonBuildResponse(intent, range, data, storeName) {
         ? salesByDay.reduce((a, b) => Number(a.revenue) > Number(b.revenue) ? a : b)
         : null;
       let resp = `Resumen${store} ${rl}:\n\n`;
-      resp += `📦 **${summary.completedOrders}** pedidos completados · **${convRate}%** conversión\n`;
-      resp += `💰 **$${fmt(summary.revenue)}** ingresos · **$${fmt(summary.avgOrder)}** ticket promedio\n`;
-      if (bestDay) resp += `📅 Mejor día: **${bestDay.date}** — $${fmt(bestDay.revenue)}\n`;
+      resp += `ðŸ“¦ **${summary.completedOrders}** pedidos completados Â· **${convRate}%** conversiÃ³n\n`;
+      resp += `ðŸ’° **$${fmt(summary.revenue)}** ingresos Â· **$${fmt(summary.avgOrder)}** ticket promedio\n`;
+      if (bestDay) resp += `ðŸ“… Mejor dÃ­a: **${bestDay.date}** â€” $${fmt(bestDay.revenue)}\n`;
       resp += summary.pendingOrders > 0
-        ? `\n⚠️ **${summary.pendingOrders} pedidos pendientes** sin procesar.`
-        : `\n✅ Sin pedidos pendientes.`;
-      resp += `\n\n¿Quieres profundizar en ventas, stock, horarios o recomendaciones?`;
+        ? `\nâš ï¸ **${summary.pendingOrders} pedidos pendientes** sin procesar.`
+        : `\nâœ… Sin pedidos pendientes.`;
+      resp += `\n\nÂ¿Quieres profundizar en ventas, stock, horarios o recomendaciones?`;
       const chart = salesByDay && salesByDay.length ? {
         type: 'bar',
-        title: `Ventas por día ${rl}`,
+        title: `Ventas por dÃ­a ${rl}`,
         labels: salesByDay.map(d => {
           const dt = new Date(d.date);
           return `${dt.getDate()}/${dt.getMonth()+1}`;
@@ -3768,18 +3776,18 @@ function leonBuildResponse(intent, range, data, storeName) {
       if (!summary) return r(`No pude obtener los pedidos. Intenta de nuevo.`);
       const statusMap = { paid:'pagado', processed:'procesado', completed:'completado', approved:'aprobado', pending:'pendiente', cancelled:'cancelado', waiting:'esperando' };
       let resp = `Pedidos ${rl}:\n\n`;
-      resp += `✅ **Completados:** ${summary.completedOrders}\n`;
-      resp += `⏳ **Pendientes:** ${summary.pendingOrders}\n`;
-      resp += `❌ **Cancelados:** ${summary.cancelledOrders}\n`;
-      resp += `📊 **Total:** ${summary.totalOrders}\n`;
+      resp += `âœ… **Completados:** ${summary.completedOrders}\n`;
+      resp += `â³ **Pendientes:** ${summary.pendingOrders}\n`;
+      resp += `âŒ **Cancelados:** ${summary.cancelledOrders}\n`;
+      resp += `ðŸ“Š **Total:** ${summary.totalOrders}\n`;
       if (recentOrders && recentOrders.length) {
-        resp += `\n**Últimos pedidos:**\n`;
+        resp += `\n**Ãšltimos pedidos:**\n`;
         resp += recentOrders.slice(0, 5).map(o =>
-          `• #${o.id} — $${fmt(o.total)} — ${statusMap[o.status] || o.status}`
+          `â€¢ #${o.id} â€” $${fmt(o.total)} â€” ${statusMap[o.status] || o.status}`
         ).join('\n');
       }
       if (summary.pendingOrders > 0)
-        resp += `\n\n⚠️ Tienes ${summary.pendingOrders} pedidos sin procesar. Ve a **Pedidos** para gestionarlos.`;
+        resp += `\n\nâš ï¸ Tienes ${summary.pendingOrders} pedidos sin procesar. Ve a **Pedidos** para gestionarlos.`;
       return r(resp);
     }
 
@@ -3791,128 +3799,128 @@ function leonBuildResponse(intent, range, data, storeName) {
       const convRate = summary.totalOrders > 0 ? (summary.completedOrders / summary.totalOrders) * 100 : 100;
       let tips = [];
       if (outOfStock.length > 0)
-        tips.push(`🔴 **Urgente — ${outOfStock.length} productos agotados.** Estás perdiendo ventas ahora mismo. Recarga el inventario.`);
+        tips.push(`ðŸ”´ **Urgente â€” ${outOfStock.length} productos agotados.** EstÃ¡s perdiendo ventas ahora mismo. Recarga el inventario.`);
       if (zeroSales.length > 0)
-        tips.push(`💤 **${zeroSales.length} productos sin ventas esta semana** (${zeroSales.slice(0, 2).map(p => p.name).join(', ')}${zeroSales.length > 2 ? '...' : ''}). Crea promociones o quítalos del tótem.`);
+        tips.push(`ðŸ’¤ **${zeroSales.length} productos sin ventas esta semana** (${zeroSales.slice(0, 2).map(p => p.name).join(', ')}${zeroSales.length > 2 ? '...' : ''}). Crea promociones o quÃ­talos del tÃ³tem.`);
       if (topProds && topProds.length)
-        tips.push(`⭐ **${topProds[0].name}** es tu producto estrella. Mantenlo visible y con stock siempre.`);
+        tips.push(`â­ **${topProds[0].name}** es tu producto estrella. Mantenlo visible y con stock siempre.`);
       if (convRate < 70)
-        tips.push(`📉 Tu tasa de conversión es ${convRate.toFixed(0)}%. Revisa el proceso de pago o los precios.`);
+        tips.push(`ðŸ“‰ Tu tasa de conversiÃ³n es ${convRate.toFixed(0)}%. Revisa el proceso de pago o los precios.`);
       if (Number(summary.avgOrder) < 8)
-        tips.push(`💡 Ticket promedio bajo ($${fmt(summary.avgOrder)}). Prueba combos o sugeridos en el tótem.`);
+        tips.push(`ðŸ’¡ Ticket promedio bajo ($${fmt(summary.avgOrder)}). Prueba combos o sugeridos en el tÃ³tem.`);
       if (!tips.length)
-        tips.push(`✅ Tu negocio está funcionando bien esta semana. Considera expandir tu catálogo si la demanda lo permite.`);
-      return r(`Recomendaciones para tu negocio esta semana:\n\n${tips.join('\n\n')}\n\n¿Quieres un plan de acción detallado para algún punto?`);
+        tips.push(`âœ… Tu negocio estÃ¡ funcionando bien esta semana. Considera expandir tu catÃ¡logo si la demanda lo permite.`);
+      return r(`Recomendaciones para tu negocio esta semana:\n\n${tips.join('\n\n')}\n\nÂ¿Quieres un plan de acciÃ³n detallado para algÃºn punto?`);
     }
 
     case 'product_analysis': {
       const { productAnalysis, productName } = data;
       if (!productAnalysis)
-        return r(`No encontré ningún producto con el nombre "**${productName}**" en tu tienda. Verifica que el nombre esté bien escrito o usa parte del nombre, por ejemplo "coca" en lugar de "coca cola".`);
+        return r(`No encontrÃ© ningÃºn producto con el nombre "**${productName}**" en tu tienda. Verifica que el nombre estÃ© bien escrito o usa parte del nombre, por ejemplo "coca" en lugar de "coca cola".`);
       const { prod, salesData, rank, total, byDay } = productAnalysis;
       const fmtP = (n) => Number(n||0).toFixed(2);
-      let resp = `Análisis de **${prod.name}**:\n\n`;
-      resp += `💰 **Precio:** $${fmtP(prod.price)}`;
-      if (prod.category_name) resp += ` · 📂 **Categoría:** ${prod.category_name}`;
+      let resp = `AnÃ¡lisis de **${prod.name}**:\n\n`;
+      resp += `ðŸ’° **Precio:** $${fmtP(prod.price)}`;
+      if (prod.category_name) resp += ` Â· ðŸ“‚ **CategorÃ­a:** ${prod.category_name}`;
       resp += `\n`;
-      resp += Number(prod.unlimited_stock) ? `♾️ Stock ilimitado\n` : `📦 **Stock actual:** ${prod.stock} unidades\n`;
+      resp += Number(prod.unlimited_stock) ? `â™¾ï¸ Stock ilimitado\n` : `ðŸ“¦ **Stock actual:** ${prod.stock} unidades\n`;
       resp += `\n**Ventas:**\n`;
-      resp += `• Esta semana: **${salesData.week.total_sold} uds** · $${fmtP(salesData.week.revenue)}\n`;
-      resp += `• Este mes: **${salesData.month.total_sold} uds** · $${fmtP(salesData.month.revenue)}\n`;
-      resp += `• Este año: **${salesData.year.total_sold} uds** · $${fmtP(salesData.year.revenue)}\n`;
-      resp += `\n📊 **Ranking esta semana:** #${rank} de ${total} productos`;
-      if (rank === 1) resp += ` 🥇 ¡Es tu producto estrella!`;
-      else if (rank <= 3) resp += ` 🏆 Está en el top 3.`;
-      else if (rank > total * 0.8) resp += ` ⚠️ Está en el grupo de menor rendimiento.`;
+      resp += `â€¢ Esta semana: **${salesData.week.total_sold} uds** Â· $${fmtP(salesData.week.revenue)}\n`;
+      resp += `â€¢ Este mes: **${salesData.month.total_sold} uds** Â· $${fmtP(salesData.month.revenue)}\n`;
+      resp += `â€¢ Este aÃ±o: **${salesData.year.total_sold} uds** Â· $${fmtP(salesData.year.revenue)}\n`;
+      resp += `\nðŸ“Š **Ranking esta semana:** #${rank} de ${total} productos`;
+      if (rank === 1) resp += ` ðŸ¥‡ Â¡Es tu producto estrella!`;
+      else if (rank <= 3) resp += ` ðŸ† EstÃ¡ en el top 3.`;
+      else if (rank > total * 0.8) resp += ` âš ï¸ EstÃ¡ en el grupo de menor rendimiento.`;
       const chartPA = byDay && byDay.length ? {
-        type: 'bar', title: `${prod.name} — ventas por día`,
+        type: 'bar', title: `${prod.name} â€” ventas por dÃ­a`,
         labels: byDay.map(d => { const dt = new Date(d.date); return `${dt.getDate()}/${dt.getMonth()+1}`; }),
         values: byDay.map(d => Number(d.qty)),
         unit: 'uds', color: '#D4AF37',
         highlight: byDay.reduce((mi, d, i, a) => Number(d.qty) > Number(a[mi].qty) ? i : mi, 0),
       } : null;
-      resp += `\n\n¿Quieres recomendaciones específicas para este producto?`;
+      resp += `\n\nÂ¿Quieres recomendaciones especÃ­ficas para este producto?`;
       return r(resp, chartPA);
     }
 
     case 'extras_analysis': {
       const { topExtras } = data;
       if (!topExtras || !topExtras.length)
-        return r(`No encontré extras solicitados ${rl}. Asegúrate de tener pedidos completados en ese período donde los clientes hayan elegido extras.`);
-      const medals = ['🥇', '🥈', '🥉', '4.', '5.', '6.', '7.', '8.', '9.', '10.'];
-      const list = topExtras.map((e, i) => `${medals[i] || `${i+1}.`} **${e.name}** — pedido ${e.total} ${e.total === 1 ? 'vez' : 'veces'}`).join('\n');
+        return r(`No encontrÃ© extras solicitados ${rl}. AsegÃºrate de tener pedidos completados en ese perÃ­odo donde los clientes hayan elegido extras.`);
+      const medals = ['ðŸ¥‡', 'ðŸ¥ˆ', 'ðŸ¥‰', '4.', '5.', '6.', '7.', '8.', '9.', '10.'];
+      const list = topExtras.map((e, i) => `${medals[i] || `${i+1}.`} **${e.name}** â€” pedido ${e.total} ${e.total === 1 ? 'vez' : 'veces'}`).join('\n');
       const chart = {
         type: 'bar',
-        title: `Extras más pedidos ${rl}`,
-        labels: topExtras.map(e => e.name.length > 14 ? e.name.slice(0, 13) + '…' : e.name),
+        title: `Extras mÃ¡s pedidos ${rl}`,
+        labels: topExtras.map(e => e.name.length > 14 ? e.name.slice(0, 13) + 'â€¦' : e.name),
         values: topExtras.map(e => e.total),
         unit: 'veces',
         color: '#D4AF37',
       };
-      return r(`Extras más solicitados por tus clientes ${rl}:\n\n${list}\n\n💡 Asegúrate de tener siempre disponibles los más pedidos. ¿Quieres ver los complementos también?`, chart);
+      return r(`Extras mÃ¡s solicitados por tus clientes ${rl}:\n\n${list}\n\nðŸ’¡ AsegÃºrate de tener siempre disponibles los mÃ¡s pedidos. Â¿Quieres ver los complementos tambiÃ©n?`, chart);
     }
 
     case 'ingredients_analysis': {
       const { topIngredients } = data;
       if (!topIngredients || !topIngredients.length)
-        return r(`No encontré complementos solicitados ${rl}. Asegúrate de tener pedidos completados donde los clientes hayan elegido complementos.`);
-      const medals = ['🥇', '🥈', '🥉', '4.', '5.', '6.', '7.', '8.', '9.', '10.'];
-      const list = topIngredients.map((i, idx) => `${medals[idx] || `${idx+1}.`} **${i.name}** — pedido ${i.total} ${i.total === 1 ? 'vez' : 'veces'}`).join('\n');
+        return r(`No encontrÃ© complementos solicitados ${rl}. AsegÃºrate de tener pedidos completados donde los clientes hayan elegido complementos.`);
+      const medals = ['ðŸ¥‡', 'ðŸ¥ˆ', 'ðŸ¥‰', '4.', '5.', '6.', '7.', '8.', '9.', '10.'];
+      const list = topIngredients.map((i, idx) => `${medals[idx] || `${idx+1}.`} **${i.name}** â€” pedido ${i.total} ${i.total === 1 ? 'vez' : 'veces'}`).join('\n');
       const chart = {
         type: 'bar',
-        title: `Complementos más pedidos ${rl}`,
-        labels: topIngredients.map(i => i.name.length > 14 ? i.name.slice(0, 13) + '…' : i.name),
+        title: `Complementos mÃ¡s pedidos ${rl}`,
+        labels: topIngredients.map(i => i.name.length > 14 ? i.name.slice(0, 13) + 'â€¦' : i.name),
         values: topIngredients.map(i => i.total),
         unit: 'veces',
         color: '#a78bfa',
       };
-      return r(`Complementos más solicitados por tus clientes ${rl}:\n\n${list}\n\n💡 Los más elegidos son los que no deben faltar. ¿Quieres ver los extras también?`, chart);
+      return r(`Complementos mÃ¡s solicitados por tus clientes ${rl}:\n\n${list}\n\nðŸ’¡ Los mÃ¡s elegidos son los que no deben faltar. Â¿Quieres ver los extras tambiÃ©n?`, chart);
     }
 
     case 'extras_catalog': {
       const { allExtras } = data;
       if (!allExtras || !allExtras.length)
-        return r(`Tu tienda no tiene extras configurados todavía. Puedes agregarlos desde el **Editor Tótem** en la sección de Extras.`);
+        return r(`Tu tienda no tiene extras configurados todavÃ­a. Puedes agregarlos desde el **Editor TÃ³tem** en la secciÃ³n de Extras.`);
       const list = allExtras.map(e => {
-        const price = Number(e.price) > 0 ? ` — $${Number(e.price).toFixed(2)}` : ' — sin costo adicional';
-        return `• **${e.name}**${price}`;
+        const price = Number(e.price) > 0 ? ` â€” $${Number(e.price).toFixed(2)}` : ' â€” sin costo adicional';
+        return `â€¢ **${e.name}**${price}`;
       }).join('\n');
-      return r(`Extras disponibles en tu tienda (${allExtras.length}):\n\n${list}\n\n¿Quieres saber cuáles son los más pedidos por tus clientes?`);
+      return r(`Extras disponibles en tu tienda (${allExtras.length}):\n\n${list}\n\nÂ¿Quieres saber cuÃ¡les son los mÃ¡s pedidos por tus clientes?`);
     }
 
     case 'ingredients_catalog': {
       const { allIngredients } = data;
       if (!allIngredients || !allIngredients.length)
-        return r(`Tu tienda no tiene complementos configurados todavía. Puedes agregarlos desde el **Editor Tótem** en la sección de Complementos.`);
+        return r(`Tu tienda no tiene complementos configurados todavÃ­a. Puedes agregarlos desde el **Editor TÃ³tem** en la secciÃ³n de Complementos.`);
       const list = allIngredients.map(i => {
-        const price = Number(i.price) > 0 ? ` — $${Number(i.price).toFixed(2)}` : ' — sin costo adicional';
-        return `• **${i.name}**${price}`;
+        const price = Number(i.price) > 0 ? ` â€” $${Number(i.price).toFixed(2)}` : ' â€” sin costo adicional';
+        return `â€¢ **${i.name}**${price}`;
       }).join('\n');
-      return r(`Complementos disponibles en tu tienda (${allIngredients.length}):\n\n${list}\n\n¿Quieres saber cuáles son los más pedidos por tus clientes?`);
+      return r(`Complementos disponibles en tu tienda (${allIngredients.length}):\n\n${list}\n\nÂ¿Quieres saber cuÃ¡les son los mÃ¡s pedidos por tus clientes?`);
     }
 
     case 'best_days': {
       const { byDayOfWeek } = data;
       if (!byDayOfWeek || !byDayOfWeek.length)
-        return r(`No hay suficientes datos de ventas para analizar los días de la semana. Necesitas pedidos completados en el período seleccionado.`);
+        return r(`No hay suficientes datos de ventas para analizar los dÃ­as de la semana. Necesitas pedidos completados en el perÃ­odo seleccionado.`);
       const sorted = [...byDayOfWeek].sort((a, b) => Number(b.orders) - Number(a.orders));
       const best = sorted[0];
       const worst = sorted[sorted.length - 1];
-      const medals = ['🥇','🥈','🥉','4.','5.','6.','7.'];
+      const medals = ['ðŸ¥‡','ðŸ¥ˆ','ðŸ¥‰','4.','5.','6.','7.'];
       const list = sorted.map((d, i) =>
-        `${medals[i] || `${i+1}.`} **${d.day_name}** — ${d.orders} pedidos · $${Number(d.revenue || 0).toFixed(2)}`
+        `${medals[i] || `${i+1}.`} **${d.day_name}** â€” ${d.orders} pedidos Â· $${Number(d.revenue || 0).toFixed(2)}`
       ).join('\n');
-      const allDays = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+      const allDays = ['Lunes','Martes','MiÃ©rcoles','Jueves','Viernes','SÃ¡bado','Domingo'];
       const presentDays = new Set(sorted.map(d => d.day_name));
       const missingDays = allDays.filter(d => !presentDays.has(d));
-      let resp = `Rendimiento por día de la semana ${rl}${store}:\n\n${list}\n\n`;
-      resp += `🏆 **${best.day_name}** es tu mejor día con **${best.orders} pedidos**.`;
+      let resp = `Rendimiento por dÃ­a de la semana ${rl}${store}:\n\n${list}\n\n`;
+      resp += `ðŸ† **${best.day_name}** es tu mejor dÃ­a con **${best.orders} pedidos**.`;
       if (missingDays.length)
-        resp += `\n💤 Sin ventas registradas: ${missingDays.join(', ')}.`;
-      resp += `\n\n💡 Asegúrate de tener stock completo y personal suficiente los **${sorted.slice(0,2).map(d => d.day_name).join(' y ')}**.`;
+        resp += `\nðŸ’¤ Sin ventas registradas: ${missingDays.join(', ')}.`;
+      resp += `\n\nðŸ’¡ AsegÃºrate de tener stock completo y personal suficiente los **${sorted.slice(0,2).map(d => d.day_name).join(' y ')}**.`;
       const chartDays = {
         type: 'bar',
-        title: `Pedidos por día de la semana ${rl}`,
+        title: `Pedidos por dÃ­a de la semana ${rl}`,
         labels: sorted.map(d => d.day_name.slice(0, 3)),
         values: sorted.map(d => Number(d.orders)),
         unit: 'pedidos',
@@ -3923,7 +3931,7 @@ function leonBuildResponse(intent, range, data, storeName) {
     }
 
     default:
-      return r(`No entendí bien esa pregunta 🤔. Puedes preguntarme de forma natural, por ejemplo:\n\n• "¿Qué días vendo más?"\n• "¿Cuáles son los más vendidos esta semana?"\n• "¿Cuánto gané este mes?"\n• "¿A qué hora vendo más?"\n• "¿Tengo productos sin stock?"\n• "¿Qué extras piden más mis clientes?"\n• "Dame un resumen"\n• "¿Qué me recomiendas?"\n\nPrueba reformulando tu pregunta.`);
+      return r(`No entendÃ­ bien esa pregunta ðŸ¤”. Puedes preguntarme de forma natural, por ejemplo:\n\nâ€¢ "Â¿QuÃ© dÃ­as vendo mÃ¡s?"\nâ€¢ "Â¿CuÃ¡les son los mÃ¡s vendidos esta semana?"\nâ€¢ "Â¿CuÃ¡nto ganÃ© este mes?"\nâ€¢ "Â¿A quÃ© hora vendo mÃ¡s?"\nâ€¢ "Â¿Tengo productos sin stock?"\nâ€¢ "Â¿QuÃ© extras piden mÃ¡s mis clientes?"\nâ€¢ "Dame un resumen"\nâ€¢ "Â¿QuÃ© me recomiendas?"\n\nPrueba reformulando tu pregunta.`);
   }
 }
 
@@ -3944,13 +3952,13 @@ async function checkLeonPython() {
     return false;
   }
 }
-// Comprobar periódicamente (más frecuente al inicio para detectar cuando Ollama termina de bajar el modelo)
+// Comprobar periÃ³dicamente (mÃ¡s frecuente al inicio para detectar cuando Ollama termina de bajar el modelo)
 checkLeonPython();
 let _leonCheckCount = 0;
 const _leonCheckInterval = setInterval(() => {
   _leonCheckCount++;
   checkLeonPython();
-  // Después de 20 chequeos (10 min) pasar a cada 2 min
+  // DespuÃ©s de 20 chequeos (10 min) pasar a cada 2 min
   if (_leonCheckCount >= 20) {
     clearInterval(_leonCheckInterval);
     setInterval(checkLeonPython, 120000);
@@ -3960,9 +3968,9 @@ const _leonCheckInterval = setInterval(() => {
 app.post('/api/leon-ia/chat', authenticateToken, async (req, res) => {
   try {
     const { question, store_id, history = [] } = req.body;
-    if (!question || !store_id) return res.status(400).json({ error: 'Faltan parámetros' });
+    if (!question || !store_id) return res.status(400).json({ error: 'Faltan parÃ¡metros' });
 
-    // ── Intentar servicio Python con Ollama ──────────────────────────────────
+    // â”€â”€ Intentar servicio Python con Ollama â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (leonPythonAvailable) {
       try {
         const ctrl = new AbortController();
@@ -3985,8 +3993,8 @@ app.post('/api/leon-ia/chat', authenticateToken, async (req, res) => {
           });
         }
       } catch (pyErr) {
-        leonPythonAvailable = false; // marcar como caído
-        console.warn('León Python no disponible, usando sistema clásico:', pyErr.message);
+        leonPythonAvailable = false; // marcar como caÃ­do
+        console.warn('LeÃ³n Python no disponible, usando sistema clÃ¡sico:', pyErr.message);
       }
     }
 
@@ -4000,7 +4008,7 @@ app.post('/api/leon-ia/chat', authenticateToken, async (req, res) => {
     const intent = leonDetectIntent(question, history);
     const detectedRange = leonDetectRange(question);
     const lastRange = history.slice().reverse().find(m => m.range && m.role === 'leon')?.range;
-    const isExplicitRange = /\b(hoy|semana|mes|año|ayer)\b/i.test(question);
+    const isExplicitRange = /\b(hoy|semana|mes|aÃ±o|ayer)\b/i.test(question);
     const range = isExplicitRange ? detectedRange : (detectedRange !== 'week' ? detectedRange : 'week');
 
     let data = {};
@@ -4056,23 +4064,23 @@ app.post('/api/leon-ia/chat', authenticateToken, async (req, res) => {
     const chatgptKey = await getChatGptKey(req.user.id);
     if (chatgptKey) {
       try {
-        const systemPrompt = `Eres León IA 🦁, el asistente de negocios inteligente de SRServi para la tienda "${storeName}".
+        const systemPrompt = `Eres LeÃ³n IA ðŸ¦, el asistente de negocios inteligente de SRServi para la tienda "${storeName}".
 
-PERSONALIDAD: Eres directo, amigable y útil. Hablas como un asesor de negocios experto pero accesible. Entiendes lenguaje natural coloquial en español latinoamericano (por ejemplo "plata" = dinero, "se mueve" = se vende, "no sale" = no se vende, "qué tal va" = cómo está el rendimiento).
+PERSONALIDAD: Eres directo, amigable y Ãºtil. Hablas como un asesor de negocios experto pero accesible. Entiendes lenguaje natural coloquial en espaÃ±ol latinoamericano (por ejemplo "plata" = dinero, "se mueve" = se vende, "no sale" = no se vende, "quÃ© tal va" = cÃ³mo estÃ¡ el rendimiento).
 
 REGLAS:
-- Responde siempre en español
-- Sé concreto y accionable (no filosófico)
-- Usa los datos que tienes, no inventes números
-- Si el usuario pregunta algo que no está en los datos, dilo honestamente y sugiere qué preguntar
-- Usa emojis con moderación
-- Máximo 5 oraciones salvo que el usuario pida detalle
-- Si el usuario dice algo vago como "y eso?", "qué más?", "cuéntame más", expande sobre lo último que se habló
+- Responde siempre en espaÃ±ol
+- SÃ© concreto y accionable (no filosÃ³fico)
+- Usa los datos que tienes, no inventes nÃºmeros
+- Si el usuario pregunta algo que no estÃ¡ en los datos, dilo honestamente y sugiere quÃ© preguntar
+- Usa emojis con moderaciÃ³n
+- MÃ¡ximo 5 oraciones salvo que el usuario pida detalle
+- Si el usuario dice algo vago como "y eso?", "quÃ© mÃ¡s?", "cuÃ©ntame mÃ¡s", expande sobre lo Ãºltimo que se hablÃ³
 
-DATOS ACTUALES DE LA TIENDA (período: ${leonRangeLabel(range)}):
+DATOS ACTUALES DE LA TIENDA (perÃ­odo: ${leonRangeLabel(range)}):
 ${JSON.stringify(data, null, 2)}
 
-ANÁLISIS PREVIO DE LEÓN: ${leonAnswer.text}`;
+ANÃLISIS PREVIO DE LEÃ“N: ${leonAnswer.text}`;
 
         const messages = [
           { role: 'system', content: systemPrompt },
@@ -4092,27 +4100,27 @@ ANÁLISIS PREVIO DE LEÓN: ${leonAnswer.text}`;
             return res.json({ answer: aiAnswer, chart: leonAnswer.chart || null, intent, range, ai_powered: true });
           }
         }
-      } catch (_) { /* fall through to León */ }
+      } catch (_) { /* fall through to LeÃ³n */ }
     }
 
     res.json({ answer: leonAnswer.text, chart: leonAnswer.chart || null, intent, range });
   } catch (error) {
-    console.error('León IA error:', error);
+    console.error('LeÃ³n IA error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// ==================== FIN LEÓN IA ====================
+// ==================== FIN LEÃ“N IA ====================
 
 app.post('/api/superadmin/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email y contraseña son requeridos' });
+      return res.status(400).json({ error: 'Email y contraseÃ±a son requeridos' });
     }
     const superadmin = await authenticateSuperadmin(email, password);
     if (!superadmin) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
+      return res.status(401).json({ error: 'Credenciales invÃ¡lidas' });
     }
     // Ensure columns exist
     try {
@@ -4139,7 +4147,7 @@ app.post('/api/superadmin/setup', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email y contraseña son requeridos' });
+      return res.status(400).json({ error: 'Email y contraseÃ±a son requeridos' });
     }
     await createSuperadmin(email, password);
     res.json({ success: true, message: 'Superadmin creado' });
@@ -4158,7 +4166,7 @@ const authenticateSuperadminToken = (req, res, next) => {
   
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
-      return res.status(403).json({ error: 'Token inválido' });
+      return res.status(403).json({ error: 'Token invÃ¡lido' });
     }
     if (!decoded.isSuperadmin) {
       return res.status(403).json({ error: 'Acceso denegado' });
@@ -4208,7 +4216,7 @@ app.get('/api/superadmin/profile', authenticateSuperadminToken, async (req, res)
 app.post('/api/superadmin/create', authenticateSuperadminToken, async (req, res) => {
   try {
     const { email, password, username } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email y contraseña requeridos' });
+    if (!email || !password) return res.status(400).json({ error: 'Email y contraseÃ±a requeridos' });
     try {
       const [cols] = await pool.execute('SHOW COLUMNS FROM superadmin LIKE ?', ['username']);
       if (cols.length === 0) await pool.execute('ALTER TABLE superadmin ADD COLUMN username VARCHAR(255) DEFAULT NULL');
@@ -4312,12 +4320,12 @@ app.post('/api/superadmin/notify-existing-premiums', authenticateSuperadminToken
       storesByUser[s.user_id].push(s.name);
     });
 
-    // Armar cards del email (una por usuario, más legible que tabla en email)
+    // Armar cards del email (una por usuario, mÃ¡s legible que tabla en email)
     const cards = premiumRows.map((u, i) => {
-      const tiendas = (storesByUser[u.user_id] || []).join(', ') || '—';
-      const ciclo = u.billing_cycle === 'yearly' ? '🔄 Anual' : u.billing_cycle === 'forever' ? '♾️ Para siempre' : '🔄 Mensual';
-      const hasta = u.ends_at ? new Date(u.ends_at).toLocaleDateString('es-AR') : '—';
-      const desde = u.subscribed_at ? new Date(u.subscribed_at).toLocaleDateString('es-AR') : '—';
+      const tiendas = (storesByUser[u.user_id] || []).join(', ') || 'â€”';
+      const ciclo = u.billing_cycle === 'yearly' ? 'ðŸ”„ Anual' : u.billing_cycle === 'forever' ? 'â™¾ï¸ Para siempre' : 'ðŸ”„ Mensual';
+      const hasta = u.ends_at ? new Date(u.ends_at).toLocaleDateString('es-AR') : 'â€”';
+      const desde = u.subscribed_at ? new Date(u.subscribed_at).toLocaleDateString('es-AR') : 'â€”';
       const isEven = i % 2 === 0;
       return `
         <tr style="background:${isEven ? '#ffffff' : '#fafafa'}">
@@ -4413,7 +4421,7 @@ app.post('/api/superadmin/notify-existing-premiums', authenticateSuperadminToken
         <!-- Footer -->
         <tr>
           <td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:16px 32px;text-align:center">
-            <p style="margin:0;font-size:12px;color:#bbb">SRServi · Panel de administración · ${new Date().toLocaleString('es-AR')}</p>
+            <p style="margin:0;font-size:12px;color:#bbb">SRServi Â· Panel de administraciÃ³n Â· ${new Date().toLocaleString('es-AR')}</p>
           </td>
         </tr>
 
@@ -4430,7 +4438,7 @@ app.post('/api/superadmin/notify-existing-premiums', authenticateSuperadminToken
       mailer.sendMail({
         from: `"SRServi" <${process.env.EMAIL_USER}>`,
         to,
-        subject: `📋 Usuarios Premium activos — ${premiumRows.length} suscripciones`,
+        subject: `ðŸ“‹ Usuarios Premium activos â€” ${premiumRows.length} suscripciones`,
         html
       })
     ));
@@ -4442,56 +4450,56 @@ app.post('/api/superadmin/notify-existing-premiums', authenticateSuperadminToken
   }
 });
 
-// Información completa del sistema SRServi, usada como contenido base
+// InformaciÃ³n completa del sistema SRServi, usada como contenido base
 // del email cuando el superadmin no escribe asunto/mensaje propio.
-const SRSERVI_DEFAULT_SUBJECT = 'SRServi — El sistema todo-en-uno para tu negocio';
+const SRSERVI_DEFAULT_SUBJECT = 'SRServi â€” El sistema todo-en-uno para tu negocio';
 
 const SRSERVI_FEATURE_GROUPS = [
   {
-    title: '🛒 Ventas y Pedidos',
+    title: 'ðŸ›’ Ventas y Pedidos',
     items: [
-      'Punto de venta completo con gestión de mesas, pedidos para llevar y delivery',
+      'Punto de venta completo con gestiÃ³n de mesas, pedidos para llevar y delivery',
       'Mapa de mesas interactivo y comandas en tiempo real',
-      'Pantalla de cocina (KDS) para coordinar la preparación de pedidos',
+      'Pantalla de cocina (KDS) para coordinar la preparaciÃ³n de pedidos',
       'Carrito, combos, extras, ingredientes y complementos configurables por producto',
-      'Cupones de descuento y programa de fidelización de clientes',
+      'Cupones de descuento y programa de fidelizaciÃ³n de clientes',
     ],
   },
   {
-    title: '🚚 Delivery e Integraciones',
+    title: 'ðŸšš Delivery e Integraciones',
     items: [
-      'Integración directa con PedidosYa, Rappi y Uber Eats',
+      'IntegraciÃ³n directa con PedidosYa, Rappi y Uber Eats',
       'Seguimiento de pedidos de delivery en tiempo real',
-      'Pedidos automáticos por WhatsApp e Instagram',
-      'Automatización de TikTok Live para negocios con venta en vivo',
+      'Pedidos automÃ¡ticos por WhatsApp e Instagram',
+      'AutomatizaciÃ³n de TikTok Live para negocios con venta en vivo',
     ],
   },
   {
-    title: '📊 Administración y Reportes',
+    title: 'ðŸ“Š AdministraciÃ³n y Reportes',
     items: [
-      'Dashboard con ventas del día, del mes y estado de cuenta completo',
-      'Reportes de ingresos, productos más y menos vendidos',
+      'Dashboard con ventas del dÃ­a, del mes y estado de cuenta completo',
+      'Reportes de ingresos, productos mÃ¡s y menos vendidos',
       'Control de inventario e ingredientes con alertas de stock',
-      'Múltiples cajas registradoras y arqueos de caja',
-      'Gestión de roles, sub-cuentas y permisos por trabajador',
+      'MÃºltiples cajas registradoras y arqueos de caja',
+      'GestiÃ³n de roles, sub-cuentas y permisos por trabajador',
     ],
   },
   {
-    title: '👥 Personal y Seguridad',
+    title: 'ðŸ‘¥ Personal y Seguridad',
     items: [
       'Control de asistencia y turnos de trabajadores',
       'PIN de tienda y accesos diferenciados por rol',
-      'Conteo de personas en tiempo real con cámara (RTSP o webcam)',
-      'Monitoreo de cámaras CCTV integrado al panel',
+      'Conteo de personas en tiempo real con cÃ¡mara (RTSP o webcam)',
+      'Monitoreo de cÃ¡maras CCTV integrado al panel',
     ],
   },
   {
-    title: '🤖 Tecnología e Innovación',
+    title: 'ðŸ¤– TecnologÃ­a e InnovaciÃ³n',
     items: [
       'LeonIA: asistente con inteligencia artificial integrado al sistema',
-      'Workshop de plugins para extender el sistema sin tocar el código base',
-      'Encuestas de satisfacción y sistema de calificaciones de clientes',
-      'Pantallas (tótems, TV display, screensaver) listas para tu local',
+      'Workshop de plugins para extender el sistema sin tocar el cÃ³digo base',
+      'Encuestas de satisfacciÃ³n y sistema de calificaciones de clientes',
+      'Pantallas (tÃ³tems, TV display, screensaver) listas para tu local',
       'Tickets de soporte y centro de novedades dentro del panel',
     ],
   },
@@ -4526,10 +4534,10 @@ app.post('/api/superadmin/send-custom-email', authenticateSuperadminToken, async
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const invalid = recipients.filter(e => !emailRegex.test(e));
     if (recipients.length === 0 || invalid.length > 0) {
-      return res.status(400).json({ error: `Email inválido: ${invalid.join(', ') || to}` });
+      return res.status(400).json({ error: `Email invÃ¡lido: ${invalid.join(', ') || to}` });
     }
 
-    // Si el superadmin no escribe asunto, usamos el genérico de presentación del sistema
+    // Si el superadmin no escribe asunto, usamos el genÃ©rico de presentaciÃ³n del sistema
     const subject = customSubject || SRSERVI_DEFAULT_SUBJECT;
 
     // El mensaje del superadmin (si lo hay) se agrega como bloque EXTRA,
@@ -4560,7 +4568,7 @@ app.post('/api/superadmin/send-custom-email', authenticateSuperadminToken, async
         <tr>
           <td style="padding:32px 32px 0">
             <h1 style="margin:0 0 8px;font-size:21px;font-weight:800;color:#111">${subject}</h1>
-            <p style="margin:0 0 20px;font-size:13px;color:#888">El sistema todo-en-uno para gestionar tu negocio: ventas, pedidos, delivery, inventario, personal y mucho más en un solo lugar.</p>
+            <p style="margin:0 0 20px;font-size:13px;color:#888">El sistema todo-en-uno para gestionar tu negocio: ventas, pedidos, delivery, inventario, personal y mucho mÃ¡s en un solo lugar.</p>
           </td>
         </tr>
 
@@ -4593,7 +4601,7 @@ app.post('/api/superadmin/send-custom-email', authenticateSuperadminToken, async
         <!-- Footer -->
         <tr>
           <td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:16px 32px;text-align:center">
-            <p style="margin:0;font-size:12px;color:#bbb">SRServi · ${new Date().toLocaleString('es-AR')}</p>
+            <p style="margin:0;font-size:12px;color:#bbb">SRServi Â· ${new Date().toLocaleString('es-AR')}</p>
           </td>
         </tr>
 
@@ -4627,7 +4635,7 @@ function buildProductStatsHtml(storeName, top, bottom, unsold, currencyCode, per
     <tr style="background:${i % 2 === 0 ? '#ffffff' : '#fafafa'}">
       <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:700;color:${color}">#${i + 1}</td>
       <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#222;font-weight:600">${p.name}</td>
-      <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:12px;color:#888">${p.category_name || '—'}</td>
+      <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:12px;color:#888">${p.category_name || 'â€”'}</td>
       <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:700;text-align:center">${p.total_sold}</td>
       <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:600;text-align:right;color:#16a34a">${fmt(p.revenue)}</td>
     </tr>`;
@@ -4636,14 +4644,14 @@ function buildProductStatsHtml(storeName, top, bottom, unsold, currencyCode, per
     <thead><tr style="background:#f5f5f5">
       <th style="padding:8px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">#</th>
       <th style="padding:8px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Producto</th>
-      <th style="padding:8px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Categoría</th>
+      <th style="padding:8px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">CategorÃ­a</th>
       <th style="padding:8px 16px;text-align:center;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Vendidos</th>
       <th style="padding:8px 16px;text-align:right;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Ingresos</th>
     </tr></thead>`;
 
   const topSection = top.length > 0 ? `
     <tr><td style="padding:24px 32px 8px">
-      <h2 style="margin:0;font-size:18px;font-weight:800;color:#111">🏆 Más Vendidos</h2>
+      <h2 style="margin:0;font-size:18px;font-weight:800;color:#111">ðŸ† MÃ¡s Vendidos</h2>
       <p style="margin:4px 0 0;font-size:12px;color:#888">Los productos con mayor demanda (${periodLabel})</p>
     </td></tr>
     <tr><td style="padding:0 32px 16px">
@@ -4655,7 +4663,7 @@ function buildProductStatsHtml(storeName, top, bottom, unsold, currencyCode, per
 
   const bottomSection = bottom.length > 0 ? `
     <tr><td style="padding:24px 32px 8px">
-      <h2 style="margin:0;font-size:18px;font-weight:800;color:#111">📉 Menos Vendidos</h2>
+      <h2 style="margin:0;font-size:18px;font-weight:800;color:#111">ðŸ“‰ Menos Vendidos</h2>
       <p style="margin:4px 0 0;font-size:12px;color:#888">Productos con menor demanda (${periodLabel})</p>
     </td></tr>
     <tr><td style="padding:0 32px 16px">
@@ -4667,7 +4675,7 @@ function buildProductStatsHtml(storeName, top, bottom, unsold, currencyCode, per
 
   const unsoldSection = unsold.length > 0 ? `
     <tr><td style="padding:24px 32px 8px">
-      <h2 style="margin:0;font-size:18px;font-weight:800;color:#111">⚠️ Sin Ventas Ayer</h2>
+      <h2 style="margin:0;font-size:18px;font-weight:800;color:#111">âš ï¸ Sin Ventas Ayer</h2>
       <p style="margin:4px 0 0;font-size:12px;color:#888">Productos que no tuvieron ventas (${periodLabel})</p>
     </td></tr>
     <tr><td style="padding:0 32px 24px">
@@ -4698,7 +4706,7 @@ function buildProductStatsHtml(storeName, top, bottom, unsold, currencyCode, per
         </tr>
         <tr>
           <td style="padding:28px 32px 0">
-            <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111">Estadísticas de Productos — ${storeName}</h1>
+            <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111">EstadÃ­sticas de Productos â€” ${storeName}</h1>
             <p style="margin:0;font-size:14px;color:#888">${dateStr}</p>
           </td>
         </tr>
@@ -4729,7 +4737,7 @@ function buildProductStatsHtml(storeName, top, bottom, unsold, currencyCode, per
         ${unsoldSection}
         <tr>
           <td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:16px 32px;text-align:center">
-            <p style="margin:0;font-size:12px;color:#bbb">SRServi · Reporte automático de productos · ${new Date().toLocaleString('es-AR')}</p>
+            <p style="margin:0;font-size:12px;color:#bbb">SRServi Â· Reporte automÃ¡tico de productos Â· ${new Date().toLocaleString('es-AR')}</p>
           </td>
         </tr>
       </table>
@@ -4756,12 +4764,12 @@ function buildInventoryAlertHtml(storeName, outOfStock, lowStock) {
       <th style="padding:8px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Item</th>
       <th style="padding:8px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Tipo</th>
       <th style="padding:8px 16px;text-align:center;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Stock actual</th>
-      <th style="padding:8px 16px;text-align:center;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Mínimo</th>
+      <th style="padding:8px 16px;text-align:center;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">MÃ­nimo</th>
     </tr></thead>`;
 
   const urgentSection = outOfStock.length > 0 ? `
     <tr><td style="padding:24px 32px 8px">
-      <h2 style="margin:0;font-size:18px;font-weight:800;color:#ef4444">🚨 Agotados — Urgente</h2>
+      <h2 style="margin:0;font-size:18px;font-weight:800;color:#ef4444">ðŸš¨ Agotados â€” Urgente</h2>
       <p style="margin:4px 0 0;font-size:12px;color:#888">${outOfStock.length} item(s) sin stock</p>
     </td></tr>
     <tr><td style="padding:0 32px 16px">
@@ -4773,8 +4781,8 @@ function buildInventoryAlertHtml(storeName, outOfStock, lowStock) {
 
   const lowSection = lowStock.length > 0 ? `
     <tr><td style="padding:24px 32px 8px">
-      <h2 style="margin:0;font-size:18px;font-weight:800;color:#f59e0b">⚠️ Stock Bajo</h2>
-      <p style="margin:4px 0 0;font-size:12px;color:#888">${lowStock.length} item(s) por debajo del mínimo</p>
+      <h2 style="margin:0;font-size:18px;font-weight:800;color:#f59e0b">âš ï¸ Stock Bajo</h2>
+      <p style="margin:4px 0 0;font-size:12px;color:#888">${lowStock.length} item(s) por debajo del mÃ­nimo</p>
     </td></tr>
     <tr><td style="padding:0 32px 16px">
       <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:10px;overflow:hidden;border:1px solid #fde68a">
@@ -4802,7 +4810,7 @@ function buildInventoryAlertHtml(storeName, outOfStock, lowStock) {
         </tr>
         <tr>
           <td style="padding:28px 32px 0">
-            <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111">Estado de Inventario — ${storeName}</h1>
+            <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111">Estado de Inventario â€” ${storeName}</h1>
             <p style="margin:0;font-size:14px;color:#888">${dateStr}</p>
           </td>
         </tr>
@@ -4832,7 +4840,7 @@ function buildInventoryAlertHtml(storeName, outOfStock, lowStock) {
         ${lowSection}
         <tr>
           <td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:16px 32px;text-align:center">
-            <p style="margin:0;font-size:12px;color:#bbb">SRServi · Alerta de inventario diaria · ${new Date().toLocaleString('es-AR')}</p>
+            <p style="margin:0;font-size:12px;color:#bbb">SRServi Â· Alerta de inventario diaria Â· ${new Date().toLocaleString('es-AR')}</p>
           </td>
         </tr>
       </table>
@@ -4844,7 +4852,7 @@ function buildInventoryAlertHtml(storeName, outOfStock, lowStock) {
 
 app.post('/api/superadmin/send-product-stats', authenticateSuperadminToken, async (req, res) => {
   try {
-    console.log('[ProductStats] Superadmin solicitó envío manual de estadísticas...');
+    console.log('[ProductStats] Superadmin solicitÃ³ envÃ­o manual de estadÃ­sticas...');
     const allStores = await getAllStoresWithOwnerEmail();
     console.log(`[ProductStats] ${allStores.length} tiendas encontradas`);
     let sent = 0;
@@ -4859,19 +4867,19 @@ app.post('/api/superadmin/send-product-stats', authenticateSuperadminToken, asyn
           skipped++;
           continue;
         }
-        console.log(`[ProductStats] Enviando a ${store.owner_email} (${store.name}) — ${report.top.length} top, ${report.bottom.length} bottom`);
-        const html = buildProductStatsHtml(store.name, report.top, report.bottom, report.unsold, store.currency_code, 'últimos 7 días');
+        console.log(`[ProductStats] Enviando a ${store.owner_email} (${store.name}) â€” ${report.top.length} top, ${report.bottom.length} bottom`);
+        const html = buildProductStatsHtml(store.name, report.top, report.bottom, report.unsold, store.currency_code, 'Ãºltimos 7 dÃ­as');
         await mailer.sendMail({
           from: `"SRServi" <${process.env.EMAIL_USER}>`,
           to: store.owner_email,
-          subject: `📊 Estadísticas de productos — ${store.name}`,
+          subject: `ðŸ“Š EstadÃ­sticas de productos â€” ${store.name}`,
           html
         });
         sent++;
-        console.log(`[ProductStats] ✅ Email enviado a ${store.owner_email}`);
+        console.log(`[ProductStats] âœ… Email enviado a ${store.owner_email}`);
       } catch (e) {
         errors++;
-        console.error(`[ProductStats] ❌ Error tienda ${store.name} (${store.owner_email}):`, e.message);
+        console.error(`[ProductStats] âŒ Error tienda ${store.name} (${store.owner_email}):`, e.message);
       }
     }
 
@@ -4928,10 +4936,10 @@ app.delete('/api/superadmin/stores/:id', authenticateSuperadminToken, async (req
 app.get('/api/superadmin/subscriptions', authenticateSuperadminToken, async (req, res) => {
   try {
     const subscriptions = await getSubscriptionHistory();
-    console.log('📋 Suscripciones encontradas:', subscriptions.length);
+    console.log('ðŸ“‹ Suscripciones encontradas:', subscriptions.length);
     res.json(subscriptions || []);
   } catch (error) {
-    console.error('❌ Error en subscriptions:', error);
+    console.error('âŒ Error en subscriptions:', error);
     res.json([]);
   }
 });
@@ -5877,7 +5885,7 @@ app.put('/api/inventory/:productId/unlimited', authenticateToken, async (req, re
   }
 });
 
-// ─── RAW MATERIALS (Materias Primas) ─────────────────────────────────────────
+// â”€â”€â”€ RAW MATERIALS (Materias Primas) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.get('/api/raw-materials/store/:storeId', authenticateToken, async (req, res) => {
   try {
@@ -5954,7 +5962,7 @@ app.delete('/api/raw-materials/:id', authenticateToken, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── RECIPES (Recetas) ────────────────────────────────────────────────────────
+// â”€â”€â”€ RECIPES (Recetas) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.get('/api/recipes/:itemType/:itemId', authenticateToken, async (req, res) => {
   try {
@@ -5988,7 +5996,7 @@ app.put('/api/recipes/:itemType/:itemId', authenticateToken, async (req, res) =>
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── END RAW MATERIALS & RECIPES ─────────────────────────────────────────────
+// â”€â”€â”€ END RAW MATERIALS & RECIPES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.post('/api/market/create-payment', authenticateToken, async (req, res) => {
   try {
@@ -6132,10 +6140,10 @@ app.get('/api/market/payment-status/:mpOrderId', authenticateToken, async (req, 
 
 app.put('/api/products/order', authenticateToken, async (req, res) => {
   try {
-    console.log('📦 Request body:', req.body);
-    console.log('📦 Content-Type:', req.headers['content-type']);
+    console.log('ðŸ“¦ Request body:', req.body);
+    console.log('ðŸ“¦ Content-Type:', req.headers['content-type']);
     const { store_id, products } = req.body;
-    console.log('📦 Received order update:', { store_id, products });
+    console.log('ðŸ“¦ Received order update:', { store_id, products });
     if (!store_id || !products) {
       return res.status(400).json({ error: 'store_id y products son requeridos' });
     }
@@ -6144,11 +6152,11 @@ app.put('/api/products/order', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     await updateProductsOrder(parseInt(store_id), products);
-    console.log('✅ Order saved to database');
+    console.log('âœ… Order saved to database');
     emitProductUpdate(parseInt(store_id), 'products_reordered', { products });
     res.json({ success: true });
   } catch (error) {
-    console.error('❌ Error saving order:', error);
+    console.error('âŒ Error saving order:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -6177,21 +6185,21 @@ app.post('/api/products/excel-preview', authenticateToken, excelUpload.single('f
     if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
     const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
     if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
-    if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo' });
+    if (!req.file) return res.status(400).json({ error: 'No se recibiÃ³ ningÃºn archivo' });
 
     const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
-    if (raw.length < 2) return res.status(400).json({ error: 'El archivo está vacío o solo tiene encabezados' });
+    if (raw.length < 2) return res.status(400).json({ error: 'El archivo estÃ¡ vacÃ­o o solo tiene encabezados' });
 
     const header = raw[0].map(h => String(h).trim().toLowerCase());
     const colIdx = {
       nombre: header.findIndex(h => h === 'nombre'),
-      descripcion: header.findIndex(h => h === 'descripcion' || h === 'descripción'),
+      descripcion: header.findIndex(h => h === 'descripcion' || h === 'descripciÃ³n'),
       precio: header.findIndex(h => h === 'precio'),
-      categoria: header.findIndex(h => h === 'categoria' || h === 'categoría'),
-      barcode: header.findIndex(h => h === 'codigo_barras' || h === 'código_barras' || h === 'barcode' || h === 'codigo barras'),
+      categoria: header.findIndex(h => h === 'categoria' || h === 'categorÃ­a'),
+      barcode: header.findIndex(h => h === 'codigo_barras' || h === 'cÃ³digo_barras' || h === 'barcode' || h === 'codigo barras'),
       image_url: header.findIndex(h => h === 'imagen_url' || h === 'image_url' || h === 'imagen' || h === 'url_imagen')
     };
 
@@ -6296,7 +6304,7 @@ app.post('/api/products', authenticateToken, upload.single('image'), async (req,
       max_ingredients: parseInt(max_ingredients) || 0
     });
 
-    // Secciones dinámicas asignadas
+    // Secciones dinÃ¡micas asignadas
     if (req.body.complement_group_ids !== undefined) {
       let gids = req.body.complement_group_ids;
       if (typeof gids === 'string') { try { gids = JSON.parse(gids); } catch { gids = []; } }
@@ -6350,7 +6358,7 @@ app.put('/api/products/:id', authenticateToken, upload.single('image'), async (r
       max_ingredients: parseInt(max_ingredients) || 0
     });
 
-    // Secciones dinámicas asignadas
+    // Secciones dinÃ¡micas asignadas
     if (req.body.complement_group_ids !== undefined) {
       let gids = req.body.complement_group_ids;
       if (typeof gids === 'string') { try { gids = JSON.parse(gids); } catch { gids = []; } }
@@ -6421,7 +6429,7 @@ app.delete('/api/expenses/:id', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ============ SECCIONES DINÁMICAS (admin) ============
+// ============ SECCIONES DINÃMICAS (admin) ============
 async function requireStoreOwner(req, res, storeId) {
   if (!storeId) { res.status(400).json({ error: 'store_id es requerido' }); return false; }
   const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
@@ -6618,6 +6626,80 @@ app.delete('/api/combos/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// â”€â”€ Promociones de tienda (banners en el store) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+app.get('/api/promos', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.query;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    res.json(await getStorePromos(parseInt(store_id)));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/promos', authenticateToken, upload.single('image'), async (req, res) => {
+  try {
+    const { store_id, title, description, price, is_active } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    if (!title) return res.status(400).json({ error: 'El tÃ­tulo es requerido' });
+
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : (req.body.image_url || null);
+    const promo = await createStorePromo(parseInt(store_id), {
+      title,
+      description,
+      image: imageUrl,
+      price,
+      is_active: is_active === undefined ? true : (is_active === 'true' || is_active === true)
+    });
+    res.json(promo);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/promos/:id', authenticateToken, upload.single('image'), async (req, res) => {
+  try {
+    const { store_id, title, description, price, is_active } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    if (!title) return res.status(400).json({ error: 'El tÃ­tulo es requerido' });
+
+    let imageUrl;
+    if (req.file) imageUrl = `/uploads/${req.file.filename}`;
+    else if (req.body.image_url) imageUrl = req.body.image_url;
+    else imageUrl = req.body.existing_image || null;
+
+    const promo = await updateStorePromo(parseInt(req.params.id), parseInt(store_id), {
+      title,
+      description,
+      image: imageUrl,
+      price,
+      is_active: is_active === undefined ? true : (is_active === 'true' || is_active === true)
+    });
+    res.json(promo);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/promos/:id', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.query;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    await deleteStorePromo(parseInt(req.params.id), parseInt(store_id));
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/orders', async (req, res) => {
   try {
     const { store_id, items, order_type, payment_method, coupon_code, from_worker, delivery, table_number, persons, custom_total, total, terminal_id,
@@ -6712,7 +6794,7 @@ app.post('/api/orders', async (req, res) => {
 
     res.json(order);
   } catch (error) {
-    console.error('❌ Error creando orden:', error);
+    console.error('âŒ Error creando orden:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -6791,13 +6873,13 @@ app.post('/api/orders/process-payment', async (req, res) => {
       return res.status(400).json({ error: 'Metodo de pago no soportado para este endpoint' });
     }
   } catch (error) {
-    console.error('❌ Error procesando pago:', error);
+    console.error('âŒ Error procesando pago:', error);
     const isValidationError = [
       'Configuracion de Mercado Pago',
-      'Configuración de SumUp',
-      'La máquina seleccionada',
-      'La máquina SumUp',
-      'Cupón'
+      'ConfiguraciÃ³n de SumUp',
+      'La mÃ¡quina seleccionada',
+      'La mÃ¡quina SumUp',
+      'CupÃ³n'
     ].some(text => String(error.message || '').includes(text));
     res.status(isValidationError ? 400 : 500).json({ error: error.message });
   }
@@ -6879,7 +6961,7 @@ app.get('/api/orders/:orderId/payment-status', async (req, res) => {
       return res.json({ mp_status: status, payment_status: status, order_status: order.status, order, mp_full: null });
     }
 
-    // ── SumUp: rama separada antes de cualquier lógica de MP ──
+    // â”€â”€ SumUp: rama separada antes de cualquier lÃ³gica de MP â”€â”€
     if (order.terminal_id) {
       const terminal = await getPosTerminalForStore(parseInt(storeId), order.terminal_id);
       if (terminal?.provider === 'sumup') {
@@ -6890,7 +6972,7 @@ app.get('/api/orders/:orderId/payment-status', async (req, res) => {
           const sumupData = await getSumUpCheckoutStatus(order.mp_order_id, terminal.api_key);
           console.log('SumUp checkout status:', sumupData.id, sumupData.status);
 
-          // SumUp statuses: PENDING → PAID / FAILED / EXPIRED
+          // SumUp statuses: PENDING â†’ PAID / FAILED / EXPIRED
           const rawStatus = (sumupData.status || '').toUpperCase();
 
           if (rawStatus === 'FAILED' || rawStatus === 'EXPIRED') {
@@ -6936,7 +7018,7 @@ app.get('/api/orders/:orderId/payment-status', async (req, res) => {
       }
     }
 
-    console.log('  mpStatus después de consulta:', mpStatus ? mpStatus.status : 'null');
+    console.log('  mpStatus despuÃ©s de consulta:', mpStatus ? mpStatus.status : 'null');
     console.log('  Intentando busqueda por external_reference:', order.external_reference);
     if (!mpStatus && order.external_reference) {
       try {
@@ -6974,7 +7056,7 @@ app.get('/api/orders/:orderId/payment-status', async (req, res) => {
     }
 
     // La nueva API de MP Point usa "processed" para pagos exitosos (no "approved").
-    // "action_required" = pago procesado en terminal pero requiere confirmación manual → tratar como aprobado.
+    // "action_required" = pago procesado en terminal pero requiere confirmaciÃ³n manual â†’ tratar como aprobado.
     const MP_APPROVED = ['processed', 'action_required'];
     const rawStatus = mpStatus.transactions?.payments?.[0]?.status || mpStatus.status;
     const paymentStatus = (MP_APPROVED.includes(rawStatus) || MP_APPROVED.includes(mpStatus.status)) ? 'approved' : rawStatus;
@@ -7236,7 +7318,7 @@ app.get('/api/store/:code/orders', async (req, res) => {
     const orders = [];
     for (const order of rows) {
       const [items] = await pool.execute(
-        `SELECT oi.*, COALESCE(p.name, 'Producto eliminado') as product_name
+        `SELECT oi.*, COALESCE(oi.promo_title, p.name, 'Producto eliminado') as product_name
          FROM order_items oi
          LEFT JOIN products p ON oi.product_id = p.id
          WHERE oi.order_id = ?`,
@@ -7343,7 +7425,7 @@ app.get('/api/orders/store/:storeId/find', async (req, res) => {
     if (rows.length === 0) return res.json(null);
     const order = rows[0];
     const [items] = await pool.execute(
-      `SELECT oi.*, COALESCE(p.name, 'Producto eliminado') as product_name
+      `SELECT oi.*, COALESCE(oi.promo_title, p.name, 'Producto eliminado') as product_name
        FROM order_items oi LEFT JOIN products p ON oi.product_id = p.id
        WHERE oi.order_id = ?`,
       [order.id]
@@ -7400,7 +7482,7 @@ app.delete('/api/orders/bulk', authenticateToken, async (req, res) => {
     const hasAccess = await verifyStoreOwnership(parseInt(store_id), req.user.id);
     if (!hasAccess) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     const safeIds = ids.map(Number).filter(n => n > 0);
-    if (!safeIds.length) return res.status(400).json({ error: 'ids inválidos' });
+    if (!safeIds.length) return res.status(400).json({ error: 'ids invÃ¡lidos' });
     const placeholders = safeIds.map(() => '?').join(',');
     await pool.execute(`DELETE FROM order_items WHERE order_id IN (${placeholders})`, safeIds);
     await pool.execute(`DELETE FROM orders WHERE id IN (${placeholders}) AND store_id = ?`, [...safeIds, parseInt(store_id)]);
@@ -7522,13 +7604,13 @@ app.post('/api/workers/login', async (req, res) => {
     const { username, password } = req.body;
     
     if (!username || !password) {
-      return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+      return res.status(400).json({ error: 'Usuario y contraseÃ±a son requeridos' });
     }
     
     const worker = await authenticateWorker(username, password);
     
     if (!worker) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
+      return res.status(401).json({ error: 'Credenciales invÃ¡lidas' });
     }
     
     const token = jwt.sign(
@@ -7553,11 +7635,11 @@ app.post('/api/workers/login', async (req, res) => {
   }
 });
 
-// Endpoint para que el admin pueda acceder como un worker específico
+// Endpoint para que el admin pueda acceder como un worker especÃ­fico
 app.post('/api/admin/login-as-worker/:workerId', authenticateToken, async (req, res) => {
   try {
     if (req.user.type !== 'user') {
-      return res.status(403).json({ error: 'Solo admins pueden usar esta función' });
+      return res.status(403).json({ error: 'Solo admins pueden usar esta funciÃ³n' });
     }
 
     const workerId = parseInt(req.params.workerId);
@@ -7569,7 +7651,7 @@ app.post('/api/admin/login-as-worker/:workerId', authenticateToken, async (req, 
 
     const worker = workerRows[0];
 
-    // Verificar que el admin es dueño de la tienda del worker
+    // Verificar que el admin es dueÃ±o de la tienda del worker
     const isOwner = await verifyStoreOwnership(worker.store_id, req.user.id);
     if (!isOwner) {
       return res.status(403).json({ error: 'No tienes acceso a este trabajador' });
@@ -7643,8 +7725,8 @@ app.post('/api/workers', authenticateToken, async (req, res) => {
     const worker = await createWorker(parseInt(store_id), { username, password, name });
     res.json(worker);
   } catch (error) {
-    if (error.message.includes('Duplicate') || error.message.includes('ya está en uso')) {
-      return res.status(400).json({ error: 'El nombre de usuario ya está en uso. Elige otro.' });
+    if (error.message.includes('Duplicate') || error.message.includes('ya estÃ¡ en uso')) {
+      return res.status(400).json({ error: 'El nombre de usuario ya estÃ¡ en uso. Elige otro.' });
     }
     res.status(500).json({ error: error.message });
   }
@@ -7845,7 +7927,7 @@ app.get('/api/tasks/worker-history', authenticateToken, async (req, res) => {
   try {
     if (req.user.type !== 'user') return res.status(403).json({ error: 'Acceso denegado' });
     const { store_id, worker_id } = req.query;
-    if (!store_id || !worker_id) return res.status(400).json({ error: 'Faltan parámetros' });
+    if (!store_id || !worker_id) return res.status(400).json({ error: 'Faltan parÃ¡metros' });
     const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
     if (!isOwner) return res.status(403).json({ error: 'Acceso denegado' });
 
@@ -7888,7 +7970,7 @@ app.get('/api/tasks/worker-history', authenticateToken, async (req, res) => {
     const weeks = Object.values(weekMap).sort((a, b) => b.week_start.localeCompare(a.week_start));
     res.json({ tasks, weeks });
   } catch (err) {
-    console.error('❌ worker-history error:', err.message);
+    console.error('âŒ worker-history error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -7922,13 +8004,13 @@ app.post('/api/worker-tasks/:taskId/complete', authenticateToken, async (req, re
     const now = new Date();
     const todayDow = now.getDay();
     if (todayDow !== task.day_of_week) {
-      return res.status(400).json({ error: 'Esta tarea no corresponde al día de hoy' });
+      return res.status(400).json({ error: 'Esta tarea no corresponde al dÃ­a de hoy' });
     }
     const [dueH, dueM] = task.due_time.split(':').map(Number);
     const dueDate = new Date();
     dueDate.setHours(dueH, dueM, 0, 0);
     const expireDate = new Date(dueDate.getTime() + 60 * 60 * 1000);
-    if (now < dueDate) return res.status(400).json({ error: 'La tarea aún no está disponible' });
+    if (now < dueDate) return res.status(400).json({ error: 'La tarea aÃºn no estÃ¡ disponible' });
     if (now > expireDate) return res.status(400).json({ error: 'El plazo de 1 hora para marcar esta tarea ha expirado' });
     const weekStart = getWeekStart();
     await pool.execute(
@@ -7960,7 +8042,7 @@ app.get('/api/getCashOrders', async (req, res) => {
       storeId = terminal.store_id;
     } else {
       const legacyTerminal = await getMercadoPagoTerminalByPin(String(pin).trim());
-      if (!legacyTerminal) return res.status(401).json({ error: 'PIN inválido' });
+      if (!legacyTerminal) return res.status(401).json({ error: 'PIN invÃ¡lido' });
       terminal = legacyTerminal;
       const [storeRows] = await pool.execute(
         'SELECT id FROM stores WHERE user_id = ? LIMIT 1', [terminal.user_id]
@@ -7985,7 +8067,7 @@ app.get('/api/getCashOrders', async (req, res) => {
       const [items] = await pool.execute(
         `SELECT oi.id, oi.quantity, oi.unit_price,
                 oi.selected_extras, oi.selected_ingredients,
-                COALESCE(p.name, 'Producto eliminado') AS product_name
+                COALESCE(oi.promo_title, p.name, 'Producto eliminado') AS product_name
          FROM order_items oi
          LEFT JOIN products p ON oi.product_id = p.id
          WHERE oi.order_id = ?`,
@@ -8374,12 +8456,12 @@ async function ensureTicketTables() {
   } catch (e) { console.error('Ticket tables error:', e.message); }
 }
 
-// Helper: genera el HTML del email de notificación de tickets
+// Helper: genera el HTML del email de notificaciÃ³n de tickets
 function ticketEmailHtml({ badge, badgeColor = '#D4AF37', title, ticketId, user, extra = '', body }) {
   return `<div style="font-family:sans-serif;max-width:540px;margin:auto;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
     <div style="background:#000;padding:20px 28px">
       <span style="font-size:20px;font-weight:900;color:#D4AF37;letter-spacing:1px">SRServi</span>
-      <span style="color:#666;font-size:13px;margin-left:8px">· Soporte</span>
+      <span style="color:#666;font-size:13px;margin-left:8px">Â· Soporte</span>
     </div>
     <div style="padding:28px">
       <p style="margin:0 0 6px;font-size:11px;color:${badgeColor};text-transform:uppercase;letter-spacing:1px;font-weight:800">${badge}</p>
@@ -8397,11 +8479,11 @@ function ticketEmailHtml({ badge, badgeColor = '#D4AF37', title, ticketId, user,
       </table>
       ${body ? `<div style="background:#f5f5f5;border-radius:8px;padding:16px;margin-bottom:24px;font-size:14px;color:#333;line-height:1.6;border-left:4px solid #D4AF37;word-break:break-word">${String(body).replace(/\n/g, '<br>')}</div>` : ''}
       <a href="${BASE_URL}/superadmin" style="display:inline-block;background:#D4AF37;color:#000;font-weight:900;font-size:13px;padding:11px 22px;border-radius:8px;text-decoration:none">
-        Ver en el panel →
+        Ver en el panel â†’
       </a>
     </div>
     <div style="padding:14px 28px;background:#fafafa;border-top:1px solid #e0e0e0;font-size:11px;color:#aaa">
-      Enviado automáticamente · SRServi Soporte
+      Enviado automÃ¡ticamente Â· SRServi Soporte
     </div>
   </div>`;
 }
@@ -8516,7 +8598,7 @@ app.post('/api/tickets/:id/messages', authenticateToken, upload.single('image'),
 
     const senderName = req.user.business_name || req.user.username || req.user.email;
     notifySuperadmins(
-      `[Ticket #${req.params.id}] Nuevo mensaje — ${ticket[0].subject}`,
+      `[Ticket #${req.params.id}] Nuevo mensaje â€” ${ticket[0].subject}`,
       ticketEmailHtml({
         badge: 'Nuevo mensaje de usuario',
         badgeColor: '#3498db',
@@ -8659,7 +8741,7 @@ app.get('/api/admin/plugins', authenticateToken, async (req, res) => {
     const plugins = await pluginManager.getAllPlugins();
     res.json(plugins);
   } catch (error) {
-    console.error('❌ Error in GET /api/admin/plugins:', error);
+    console.error('âŒ Error in GET /api/admin/plugins:', error);
     // If table doesn't exist yet, return empty
     if (error.message && error.message.includes("doesn't exist")) {
       return res.json([]);
@@ -8670,7 +8752,7 @@ app.get('/api/admin/plugins', authenticateToken, async (req, res) => {
 
 app.post('/api/admin/plugins/upload', authenticateToken, pluginUpload.single('plugin'), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'No se envió archivo' });
+    if (!req.file) return res.status(400).json({ error: 'No se enviÃ³ archivo' });
     if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
     const result = await pluginManager.install(req.file.buffer);
     res.json(result);
@@ -8737,7 +8819,7 @@ app.get('/api/plugins/client-manifest', async (req, res) => {
     const manifest = await pluginManager.getClientManifest();
     res.json(manifest);
   } catch (error) {
-    console.error('❌ Error in GET /api/plugins/client-manifest:', error);
+    console.error('âŒ Error in GET /api/plugins/client-manifest:', error);
     res.json([]);
   }
 });
@@ -8792,7 +8874,7 @@ app.post('/api/workshop/publish', authenticateToken, workshopUpload.fields([
     try { pluginJson = JSON.parse(pluginJsonEntry.getData().toString('utf8')); } catch {
       fs.unlinkSync(zipFile.path);
       if (logoFile) fs.unlinkSync(logoFile.path);
-      return res.status(400).json({ error: 'plugin.json inválido' });
+      return res.status(400).json({ error: 'plugin.json invÃ¡lido' });
     }
 
     if (!pluginJson.id || !pluginJson.name || !pluginJson.version) {
@@ -8802,7 +8884,7 @@ app.post('/api/workshop/publish', authenticateToken, workshopUpload.fields([
     }
 
     const user = await getUserById(req.user.id);
-    const author = user?.business_name || user?.username || 'Anónimo';
+    const author = user?.business_name || user?.username || 'AnÃ³nimo';
     const logoPath = logoFile ? `/api/workshop/files/${logoFile.filename}` : null;
     const zipPath = `/api/workshop/files/${zipFile.filename}`;
 
@@ -8822,7 +8904,7 @@ app.post('/api/workshop/publish', authenticateToken, workshopUpload.fields([
       if (dupVer.length > 0) {
         fs.unlinkSync(zipFile.path);
         if (logoFile) fs.unlinkSync(logoFile.path);
-        return res.status(400).json({ error: `La versión ${pluginJson.version} ya existe. Cambia la versión en plugin.json` });
+        return res.status(400).json({ error: `La versiÃ³n ${pluginJson.version} ya existe. Cambia la versiÃ³n en plugin.json` });
       }
       // Update main entry
       let updateQuery = `UPDATE plugin_workshop SET name = ?, latest_version = ?, description = ?, author = ?, contact_email = ?,
@@ -8857,7 +8939,7 @@ app.post('/api/workshop/publish', authenticateToken, workshopUpload.fields([
 
     res.json({ success: true, plugin_id: pluginJson.id, name: pluginJson.name, version: pluginJson.version });
   } catch (error) {
-    console.error('❌ Error publishing plugin:', error);
+    console.error('âŒ Error publishing plugin:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -8921,7 +9003,7 @@ app.post('/api/workshop/install/:pluginId', authenticateToken, async (req, res) 
         'SELECT zip_path FROM plugin_workshop_versions WHERE plugin_id = ? AND version = ? AND status = ?',
         [pluginId, version, 'approved']
       );
-      if (vRows.length === 0) return res.status(404).json({ error: 'Versión no encontrada o no aprobada' });
+      if (vRows.length === 0) return res.status(404).json({ error: 'VersiÃ³n no encontrada o no aprobada' });
       zipPath = vRows[0].zip_path;
     } else {
       const [vRows] = await pool.execute(
@@ -8942,7 +9024,7 @@ app.post('/api/workshop/install/:pluginId', authenticateToken, async (req, res) 
 
     res.json({ success: true, plugin: result });
   } catch (error) {
-    console.error('❌ Error installing from workshop:', error);
+    console.error('âŒ Error installing from workshop:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -9066,7 +9148,7 @@ app.put('/api/superadmin/workshop/:pluginId/version/:version/status', authentica
   try {
     const { status } = req.body;
     if (!['approved', 'rejected', 'pending'].includes(status)) {
-      return res.status(400).json({ error: 'Estado inválido' });
+      return res.status(400).json({ error: 'Estado invÃ¡lido' });
     }
     await pool.execute(
       'UPDATE plugin_workshop_versions SET status = ? WHERE plugin_id = ? AND version = ?',
@@ -9215,7 +9297,7 @@ app.post('/api/superadmin/apks', authenticateSuperadminToken, apkUpload.fields([
 ]), async (req, res) => {
   try {
     const { name, description, version } = req.body;
-    if (!name || !version) return res.status(400).json({ error: 'Nombre y versión son requeridos' });
+    if (!name || !version) return res.status(400).json({ error: 'Nombre y versiÃ³n son requeridos' });
     if (!req.files?.apk?.[0]) return res.status(400).json({ error: 'Archivo APK es requerido' });
 
     const apkUrl = `/uploads/apks/${req.files.apk[0].filename}`;
@@ -9245,7 +9327,7 @@ app.delete('/api/superadmin/apks/:id', authenticateSuperadminToken, async (req, 
   }
 });
 
-// ─── SUPERADMIN: PEDIDOS ────────────────────────────────────────────────────
+// â”€â”€â”€ SUPERADMIN: PEDIDOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.get('/api/superadmin/orders', authenticateSuperadminToken, async (req, res) => {
   try {
@@ -9298,7 +9380,7 @@ app.put('/api/superadmin/orders/:id/mark-paid', authenticateSuperadminToken, asy
 app.get('/api/superadmin/orders/:id/items', authenticateSuperadminToken, async (req, res) => {
   try {
     const [items] = await pool.execute(
-      `SELECT oi.*, COALESCE(p.name, 'Producto eliminado') as product_name
+      `SELECT oi.*, COALESCE(oi.promo_title, p.name, 'Producto eliminado') as product_name
        FROM order_items oi LEFT JOIN products p ON oi.product_id = p.id
        WHERE oi.order_id = ?`,
       [parseInt(req.params.id)]
@@ -9344,12 +9426,12 @@ app.get('/api/superadmin/revenue', authenticateSuperadminToken, async (req, res)
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Endpoint público para obtener la última versión (soporta ?app=launcher|tvordenes|cctv)
+// Endpoint pÃºblico para obtener la Ãºltima versiÃ³n (soporta ?app=launcher|tvordenes|cctv)
 app.get('/api/apk/latest', async (req, res) => {
   try {
     const appName = req.query.app || 'launcher';
     const validApps = ['launcher', 'tvordenes', 'cctv'];
-    if (!validApps.includes(appName)) return res.status(400).json({ error: 'App inválida' });
+    if (!validApps.includes(appName)) return res.status(400).json({ error: 'App invÃ¡lida' });
 
     const [rows] = await pool.execute(
       'SELECT * FROM apk_releases WHERE app_name = ? ORDER BY version_code DESC LIMIT 1',
@@ -9378,7 +9460,7 @@ app.get('/api/apk/latest', async (req, res) => {
   }
 });
 
-// Endpoint público para obtener todas las versiones
+// Endpoint pÃºblico para obtener todas las versiones
 app.get('/api/apk/releases', async (req, res) => {
   try {
     const [rows] = await pool.execute('SELECT * FROM apk_releases ORDER BY version_code DESC');
@@ -9392,10 +9474,10 @@ let pluginManager = null;
 
 // Prevent plugin errors from crashing the server
 process.on('uncaughtException', (err) => {
-  console.error('🔌 Uncaught exception (server kept running):', err.message);
+  console.error('ðŸ”Œ Uncaught exception (server kept running):', err.message);
 });
 process.on('unhandledRejection', (reason) => {
-  console.error('🔌 Unhandled rejection (server kept running):', reason?.message || reason);
+  console.error('ðŸ”Œ Unhandled rejection (server kept running):', reason?.message || reason);
 });
 
 async function startServer() {
@@ -9411,7 +9493,7 @@ async function startServer() {
     try {
       await pluginManager.loadAllActive();
     } catch (pluginError) {
-      console.error('🔌 Error loading plugins (server continues):', pluginError.message);
+      console.error('ðŸ”Œ Error loading plugins (server continues):', pluginError.message);
     }
 
     // ==================== TUU POS NATIVO ====================
@@ -9639,7 +9721,7 @@ async function startServer() {
       } catch (e) { res.json({ available: false }); }
     });
 
-    // ── NATIVE TUU ENDPOINTS (no plugin system) ──────────────────────────
+    // â”€â”€ NATIVE TUU ENDPOINTS (no plugin system) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     app.get('/api/tuu/provider', async (req, res) => {
       try {
@@ -9678,7 +9760,7 @@ async function startServer() {
           if (posTerm && posTerm.provider === 'tuu') {
             apiKey = posTerm.api_key || null;
             device = { serial: posTerm.device_id, name: posTerm.name };
-            console.log(`[tuu/charge] pos_terminals → serial="${device.serial}" apiKey="${apiKey ? apiKey.slice(0,8) + '…' : 'VACÍO'}"`);
+            console.log(`[tuu/charge] pos_terminals â†’ serial="${device.serial}" apiKey="${apiKey ? apiKey.slice(0,8) + 'â€¦' : 'VACÃO'}"`);
           } else {
             // fallback legacy: tuu_devices
             const [rows] = await pool.execute('SELECT * FROM tuu_devices WHERE id = ? AND user_id = ?', [parseInt(terminal_id), userId]);
@@ -9686,7 +9768,7 @@ async function startServer() {
           }
         }
 
-        // 2. Si no hay device aún, buscar por device_uid o cualquiera de la tienda
+        // 2. Si no hay device aÃºn, buscar por device_uid o cualquiera de la tienda
         if (!device && device_uid) device = await tuuGetDeviceForUid(device_uid, parseInt(store_id));
         if (!device) device = await tuuGetAnyDeviceForStore(parseInt(store_id));
         if (!device) return res.status(400).json({ error: 'No hay POS TUU configurado. Ve al admin > Vincular POS.' });
@@ -9696,14 +9778,14 @@ async function startServer() {
           const config = await tuuGetConfig(userId);
           apiKey = config?.api_key || null;
           dteType = config?.dte_type || 0;
-          console.log(`[tuu/charge] tuu_config fallback → apiKey="${apiKey ? apiKey.slice(0,8) + '…' : 'VACÍO'}"`);
+          console.log(`[tuu/charge] tuu_config fallback â†’ apiKey="${apiKey ? apiKey.slice(0,8) + 'â€¦' : 'VACÃO'}"`);
         } else {
           const config = await tuuGetConfig(userId);
           dteType = config?.dte_type || 0;
         }
 
         if (!apiKey) return res.status(400).json({ error: 'API Key de TUU no configurada. Ve al admin > Vincular POS > TUU.' });
-        console.log(`[tuu/charge] enviando → serial="${device.serial}" amount=${amount}`);
+        console.log(`[tuu/charge] enviando â†’ serial="${device.serial}" amount=${amount}`);
         let orderNumber = null;
         let tableNumber = null;
         if (order_id) {
@@ -9762,7 +9844,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // ── END NATIVE TUU ENDPOINTS ──────────────────────────────────────────
+    // â”€â”€ END NATIVE TUU ENDPOINTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     app.get('/api/plugins/payments/provider', async (req, res) => {
       try {
@@ -9783,8 +9865,8 @@ async function startServer() {
           console.log('[provider] config:', config ? JSON.stringify(config) : 'null');
           console.log('[provider] config.api_key exists:', !!config?.api_key);
         } catch (e) { console.log('[provider] tuuGetConfig error:', e.message); return res.json({ available: false, reason: 'config error: ' + e.message }); }
-        if (!config?.api_key) { console.log('[provider] FAIL: no api_key'); return res.json({ available: false, reason: 'No hay API Key de Tuu configurada para esta cuenta. Ve al admin > Tuu POS > Configuración.' }); }
-        // FIX: Si el usuario eligió explícitamente un terminal que NO es Tuu (ej: MercadoPago),
+        if (!config?.api_key) { console.log('[provider] FAIL: no api_key'); return res.json({ available: false, reason: 'No hay API Key de Tuu configurada para esta cuenta. Ve al admin > Tuu POS > ConfiguraciÃ³n.' }); }
+        // FIX: Si el usuario eligiÃ³ explÃ­citamente un terminal que NO es Tuu (ej: MercadoPago),
         // no debemos activar el proveedor Tuu aunque existan dispositivos Tuu en la tienda.
         if (terminalProvider && terminalProvider !== 'tuu') {
           console.log('[provider] SKIP: terminal_provider is', terminalProvider, '- not Tuu, deferring to MercadoPago handler');
@@ -9819,7 +9901,7 @@ async function startServer() {
       } catch (e) { console.error('[provider] error:', e.message); res.json({ available: false, reason: 'error: ' + e.message }); }
     });
 
-    // Square provider — native handler (called when PluginManager passes via next())
+    // Square provider â€” native handler (called when PluginManager passes via next())
     app.get('/api/plugins/payments/provider', async (req, res) => {
       try {
         const storeId = parseInt(req.query.store_id);
@@ -9866,7 +9948,7 @@ async function startServer() {
         } catch (e) { console.error('[charge] config error:', e.message); return res.status(500).json({ error: 'Error al obtener config Tuu' }); }
         // Si el terminal es Square, lo maneja el bloque Square de abajo.
         if (terminal_provider && terminal_provider === 'square') {
-          // ── SQUARE TERMINAL CHARGE ──────────────────────────────────────
+          // â”€â”€ SQUARE TERMINAL CHARGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           console.log('[charge-square] starting - store_id:', store_id, 'terminal_id:', terminal_id, 'amount:', amount);
           try {
             // Ensure sq_checkouts table exists
@@ -10013,7 +10095,7 @@ async function startServer() {
             console.error('[charge-square] error:', sqErr.message);
             return res.status(500).json({ error: sqErr.message });
           }
-          // ── END SQUARE TERMINAL CHARGE ──────────────────────────────────
+          // â”€â”€ END SQUARE TERMINAL CHARGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         }
 
         if (terminal_provider && terminal_provider !== 'tuu') {
@@ -10022,7 +10104,7 @@ async function startServer() {
         }
         if (!config?.api_key) {
           console.log('[charge] FAIL: no api_key for userId:', userId);
-          return res.status(400).json({ error: 'API Key de Tuu no configurada. Ve al admin > Tuu POS > Configuración y guarda tu API Key.' });
+          return res.status(400).json({ error: 'API Key de Tuu no configurada. Ve al admin > Tuu POS > ConfiguraciÃ³n y guarda tu API Key.' });
         }
         let device = null;
         if (terminal_id && terminal_provider === 'tuu') {
@@ -10080,7 +10162,7 @@ async function startServer() {
                   const pollData = await pollRes.json();
                   const freshStatus = pollData?.checkout?.status || 'UNKNOWN';
                   if (freshStatus !== 'PENDING' && freshStatus !== 'IN_PROGRESS') {
-                    // Normalize Square status → Store.jsx expected values
+                    // Normalize Square status â†’ Store.jsx expected values
                     const normalized = freshStatus === 'COMPLETED' ? 'Completed' : freshStatus === 'CANCELED' || freshStatus === 'CANCEL_REQUESTED' ? 'Canceled' : freshStatus;
                     await pool.execute('UPDATE sq_checkouts SET status = ? WHERE checkout_id = ?', [normalized, key]);
                     sq.status = normalized;
@@ -10196,7 +10278,7 @@ async function startServer() {
 
 
     // =====================================================================
-    // SQUARE TERMINAL — device code pairing + payments
+    // SQUARE TERMINAL â€” device code pairing + payments
     // =====================================================================
     (async () => {
       // Ensure tables exist
@@ -10213,7 +10295,7 @@ async function startServer() {
         // Migration: add store_id if missing
         try {
           await pool.execute('ALTER TABLE square_config ADD COLUMN store_id INT DEFAULT NULL');
-          console.log('✅ Columna store_id agregada a square_config');
+          console.log('âœ… Columna store_id agregada a square_config');
         } catch (e) { if (!e.message.includes('Duplicate column')) console.error('[Square] migration:', e.message); }
         await pool.execute(`CREATE TABLE IF NOT EXISTS square_devices (
           id INT AUTO_INCREMENT PRIMARY KEY,
@@ -10257,7 +10339,7 @@ async function startServer() {
       } catch (e) { res.status(401).json({ error: e.message }); }
     });
 
-    // POST /api/square/config — save access_token + location_id
+    // POST /api/square/config â€” save access_token + location_id
     app.post('/api/square/config', async (req, res) => {
       try {
         const userId = await squareGetUserId(req);
@@ -10279,7 +10361,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // GET /api/square/locations — fetch locations from Square API
+    // GET /api/square/locations â€” fetch locations from Square API
     app.get('/api/square/locations', async (req, res) => {
       try {
         const userId = await squareGetUserId(req);
@@ -10295,7 +10377,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // POST /api/square/device-code — generate login code
+    // POST /api/square/device-code â€” generate login code
     app.post('/api/square/device-code', async (req, res) => {
       try {
         const userId = await squareGetUserId(req);
@@ -10317,7 +10399,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // GET /api/square/device-code/:id — poll pairing status
+    // GET /api/square/device-code/:id â€” poll pairing status
     app.get('/api/square/device-code/:id', async (req, res) => {
       try {
         const userId = await squareGetUserId(req);
@@ -10333,7 +10415,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // POST /api/square/devices — save paired device
+    // POST /api/square/devices â€” save paired device
     app.post('/api/square/devices', async (req, res) => {
       try {
         const userId = await squareGetUserId(req);
@@ -10347,7 +10429,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // GET /api/square/devices — list devices for store
+    // GET /api/square/devices â€” list devices for store
     app.get('/api/square/devices', async (req, res) => {
       try {
         const userId = await squareGetUserId(req);
@@ -10366,8 +10448,8 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // GET /api/plugins/payments/provider — Square native (fallthrough from PluginManager)
-    // Already handled above for Tuu — Square check is added here as an additional fallthrough
+    // GET /api/plugins/payments/provider â€” Square native (fallthrough from PluginManager)
+    // Already handled above for Tuu â€” Square check is added here as an additional fallthrough
     app.get('/api/square/provider', async (req, res) => {
       try {
         const userId = await squareGetUserId(req);
@@ -10392,7 +10474,7 @@ async function startServer() {
     });
 
     // =====================================================================
-    // HAULMER QR — integración nativa (sin plugin)
+    // HAULMER QR â€” integraciÃ³n nativa (sin plugin)
     // =====================================================================
     const HAULMER_NATIVE_API = 'https://core.payment.haulmer.com/api/v1/payment';
 
@@ -10410,7 +10492,7 @@ async function startServer() {
         // Migration: add store_id if missing
         try {
           await pool.execute('ALTER TABLE haulmer_native_config ADD COLUMN store_id INT DEFAULT NULL');
-          console.log('✅ Columna store_id agregada a haulmer_native_config');
+          console.log('âœ… Columna store_id agregada a haulmer_native_config');
         } catch (e) { if (!e.message.includes('Duplicate column')) console.error('[Haulmer] migration:', e.message); }
         await pool.execute(`CREATE TABLE IF NOT EXISTS haulmer_native_transactions (
           id INT AUTO_INCREMENT PRIMARY KEY,
@@ -10480,7 +10562,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // POST /api/haulmer/payment — crea pago y devuelve URL
+    // POST /api/haulmer/payment â€” crea pago y devuelve URL
     app.post('/api/haulmer/payment', async (req, res) => {
       try {
         const { store_id, order_id, amount, description, return_url,
@@ -10546,7 +10628,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // GET /api/haulmer/payment/:reference/status — poll desde frontend
+    // GET /api/haulmer/payment/:reference/status â€” poll desde frontend
     app.get('/api/haulmer/payment/:reference/status', async (req, res) => {
       try {
         const [rows] = await pool.execute(
@@ -10591,7 +10673,7 @@ async function startServer() {
       return finalOrderNumber;
     }
 
-    // POST /api/haulmer/webhook — Haulmer llama aquí al completar el pago
+    // POST /api/haulmer/webhook â€” Haulmer llama aquÃ­ al completar el pago
     app.post('/api/haulmer/webhook', async (req, res) => {
       try {
         const params = { ...req.query, ...req.body };
@@ -10600,7 +10682,7 @@ async function startServer() {
         if (!reference) return res.status(400).json({ error: 'Missing reference' });
 
         const [txs] = await pool.execute('SELECT * FROM haulmer_native_transactions WHERE reference = ?', [reference]);
-        if (!txs[0]) return res.status(404).json({ error: 'Transacción no encontrada' });
+        if (!txs[0]) return res.status(404).json({ error: 'TransacciÃ³n no encontrada' });
         const tx = txs[0];
 
         // Verificar firma
@@ -10612,7 +10694,7 @@ async function startServer() {
         if (config && params.x_signature) {
           const checkData = { ...params }; delete checkData.x_signature;
           if (haulmerSign(checkData, config.secret_key) !== params.x_signature) {
-            return res.status(400).json({ error: 'Firma inválida' });
+            return res.status(400).json({ error: 'Firma invÃ¡lida' });
           }
         }
 
@@ -10623,7 +10705,7 @@ async function startServer() {
             const [tktPurchases] = await pool.execute("SELECT * FROM ticket_purchases WHERE haulmer_reference = ? AND status = 'pending'", [reference]);
             if (tktPurchases[0]) {
               await pool.execute("UPDATE ticket_purchases SET status = 'paid', paid_at = NOW() WHERE haulmer_reference = ?", [reference]);
-              issueAndEmailTickets(tktPurchases[0].id).catch(e => console.error('[Ticketería]', e.message));
+              issueAndEmailTickets(tktPurchases[0].id).catch(e => console.error('[TicketerÃ­a]', e.message));
             }
           }
           if (tx.order_id) {
@@ -10645,19 +10727,19 @@ async function startServer() {
       } catch (e) { console.error('[Haulmer webhook]', e); res.status(500).json({ error: e.message }); }
     });
 
-    // POST /api/haulmer/confirm — frontend llama esto al volver de pago con x_result=completed
+    // POST /api/haulmer/confirm â€” frontend llama esto al volver de pago con x_result=completed
     app.post('/api/haulmer/confirm', async (req, res) => {
       try {
         const params = req.body;
         const reference = params.x_reference;
-        if (!reference || !reference.startsWith('SRSN-')) return res.status(400).json({ error: 'Referencia inválida' });
+        if (!reference || !reference.startsWith('SRSN-')) return res.status(400).json({ error: 'Referencia invÃ¡lida' });
 
         const [txs] = await pool.execute('SELECT * FROM haulmer_native_transactions WHERE reference = ?', [reference]);
-        if (!txs[0]) return res.status(404).json({ error: 'Transacción no encontrada' });
+        if (!txs[0]) return res.status(404).json({ error: 'TransacciÃ³n no encontrada' });
         const tx = txs[0];
 
         if (tx.status === 'completed') {
-          // Already confirmed — just return the order_number
+          // Already confirmed â€” just return the order_number
           const [orRows] = await pool.execute('SELECT order_number FROM orders WHERE id = ?', [tx.order_id]);
           return res.json({ success: true, order_number: orRows[0]?.order_number || null, already_confirmed: true });
         }
@@ -10675,7 +10757,7 @@ async function startServer() {
       } catch (e) { console.error('[Haulmer confirm]', e); res.status(500).json({ error: e.message }); }
     });
 
-    // POST /api/delivery/mp-payment — create MP preference for delivery order
+    // POST /api/delivery/mp-payment â€” create MP preference for delivery order
     app.post('/api/delivery/mp-payment', async (req, res) => {
       try {
         const { store_id, order_id, amount, customer_email, customer_name } = req.body;
@@ -10717,7 +10799,7 @@ async function startServer() {
       }
     });
 
-    // ── Ratings ─────────────────────────────────────────────────────────────
+    // â”€â”€ Ratings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Public: submit a rating for a store
     app.post('/api/public/:code/ratings', async (req, res) => {
       try {
@@ -10725,7 +10807,7 @@ async function startServer() {
         if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
         const { rating, comment, order_id, source } = req.body;
         const r = parseInt(rating);
-        if (isNaN(r) || r < 0 || r > 10) return res.status(400).json({ error: 'La calificación debe ser entre 0 y 10' });
+        if (isNaN(r) || r < 0 || r > 10) return res.status(400).json({ error: 'La calificaciÃ³n debe ser entre 0 y 10' });
         await pool.execute(
           'INSERT INTO store_ratings (store_id, order_id, rating, comment, source) VALUES (?, ?, ?, ?, ?)',
           [store.id, order_id || null, r, comment?.trim() || null, source || 'qr']
@@ -10754,7 +10836,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // ── Rappi Integration ────────────────────────────────────────────────────
+    // â”€â”€ Rappi Integration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     // Admin: get Rappi config
     app.get('/api/rappi/config', authenticateToken, async (req, res) => {
@@ -10809,7 +10891,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // Public: Rappi webhook — receives orders from Rappi platform
+    // Public: Rappi webhook â€” receives orders from Rappi platform
     app.post('/api/rappi/webhook/:store_code', async (req, res) => {
       try {
         const store = await getStoreByCode(req.params.store_code);
@@ -10818,19 +10900,19 @@ async function startServer() {
         // Check config
         const [cfgRows] = await pool.execute('SELECT * FROM rappi_config WHERE store_id = ?', [store.id]);
         const cfg = cfgRows[0];
-        if (!cfg || !cfg.is_enabled) return res.status(403).json({ error: 'Integración Rappi no habilitada' });
+        if (!cfg || !cfg.is_enabled) return res.status(403).json({ error: 'IntegraciÃ³n Rappi no habilitada' });
 
         // Verify webhook secret if configured
         if (cfg.webhook_secret) {
           const sig = req.headers['x-rappi-signature'] || req.headers['x-webhook-token'] || req.headers['authorization'];
           if (!sig || !sig.includes(cfg.webhook_secret)) {
-            return res.status(401).json({ error: 'Firma inválida' });
+            return res.status(401).json({ error: 'Firma invÃ¡lida' });
           }
         }
 
         const payload = req.body;
 
-        // Flexible Rappi payload parsing — handles multiple format versions
+        // Flexible Rappi payload parsing â€” handles multiple format versions
         const rappiId = payload.id || payload.order_id || payload.orderId || String(Date.now());
         const rappiState = (payload.state || payload.status || '').toUpperCase();
 
@@ -10843,7 +10925,7 @@ async function startServer() {
         const [existing] = await pool.execute('SELECT id FROM orders WHERE rappi_order_id = ? AND store_id = ?', [rappiId, store.id]);
         if (existing.length) return res.json({ success: true, duplicate: true });
 
-        // Parse items — Rappi sends items in various structures
+        // Parse items â€” Rappi sends items in various structures
         let rawItems = [];
         const orderBody = payload.order || payload;
         if (Array.isArray(orderBody.items_with_price)) rawItems = orderBody.items_with_price;
@@ -10925,7 +11007,7 @@ async function startServer() {
       }
     });
 
-    // ── System Updates / Changelog ───────────────────────────────────────────
+    // â”€â”€ System Updates / Changelog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const { CHANGELOGS } = await import('./changelogs.js');
 
     // Get updates + unread count for current user
@@ -10947,7 +11029,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // ── UberEats Integration ─────────────────────────────────────────────────
+    // â”€â”€ UberEats Integration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     app.get('/api/ubereats/config', authenticateToken, async (req, res) => {
       try {
@@ -11003,11 +11085,11 @@ async function startServer() {
 
         const [cfgRows] = await pool.execute('SELECT * FROM ubereats_config WHERE store_id = ?', [store.id]);
         const cfg = cfgRows[0];
-        if (!cfg || !cfg.is_enabled) return res.status(403).json({ error: 'Integración UberEats no habilitada' });
+        if (!cfg || !cfg.is_enabled) return res.status(403).json({ error: 'IntegraciÃ³n UberEats no habilitada' });
 
         if (cfg.webhook_secret) {
           const sig = req.headers['x-uber-signature'] || req.headers['x-webhook-token'] || req.headers['authorization'] || '';
-          if (!sig.includes(cfg.webhook_secret)) return res.status(401).json({ error: 'Firma inválida' });
+          if (!sig.includes(cfg.webhook_secret)) return res.status(401).json({ error: 'Firma invÃ¡lida' });
         }
 
         const payload = req.body;
@@ -11026,7 +11108,7 @@ async function startServer() {
         const [existing] = await pool.execute('SELECT id FROM orders WHERE ubereats_order_id = ? AND store_id = ?', [ueId, store.id]);
         if (existing.length) return res.json({ success: true, duplicate: true });
 
-        // Parse items — UberEats uses cart.items[] with nested price objects
+        // Parse items â€” UberEats uses cart.items[] with nested price objects
         const externalItems = [];
         const cartItems = payload.cart?.items || payload.items || payload.orderItems || [];
         for (const item of cartItems) {
@@ -11044,23 +11126,23 @@ async function startServer() {
             name: item.title || item.name || item.productName || 'Producto',
             quantity: Number(item.quantity || item.qty || 1),
             unit_price: unitPrice,
-            notes: [item.special_instructions, mods].filter(Boolean).join(' · '),
+            notes: [item.special_instructions, mods].filter(Boolean).join(' Â· '),
           });
         }
 
-        // Total — UberEats uses total.price or total_price.amount
+        // Total â€” UberEats uses total.price or total_price.amount
         const total = Number(
           payload.total?.price || payload.total?.amount ||
           payload.total_price?.amount || payload.totalAmount || payload.total ||
           externalItems.reduce((s, i) => s + i.unit_price * i.quantity, 0) || 0
         );
 
-        // Customer — UberEats uses eater object
+        // Customer â€” UberEats uses eater object
         const eater = payload.eater || payload.customer || payload.user || {};
         const customerName = [eater.first_name, eater.last_name, eater.name].filter(Boolean).join(' ') || 'Cliente UberEats';
         const customerPhone = eater.phone || eater.phone_number || '';
 
-        // Payment — UberEats orders are almost always prepaid online
+        // Payment â€” UberEats orders are almost always prepaid online
         const rawPay = (payload.payment_info?.status || payload.payment_method || 'online').toLowerCase();
         const isCash = rawPay.includes('cash') || rawPay.includes('efectivo');
 
@@ -11100,7 +11182,7 @@ async function startServer() {
       }
     });
 
-    // ── PedidosYa Integration ────────────────────────────────────────────────
+    // â”€â”€ PedidosYa Integration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     app.get('/api/pedidosya/config', authenticateToken, async (req, res) => {
       try {
@@ -11160,11 +11242,11 @@ async function startServer() {
 
         const [cfgRows] = await pool.execute('SELECT * FROM pedidosya_config WHERE store_id = ?', [store.id]);
         const cfg = cfgRows[0];
-        if (!cfg || !cfg.is_enabled) return res.status(403).json({ error: 'Integración PedidosYa no habilitada' });
+        if (!cfg || !cfg.is_enabled) return res.status(403).json({ error: 'IntegraciÃ³n PedidosYa no habilitada' });
 
         if (cfg.webhook_secret) {
           const sig = req.headers['x-pedidosya-signature'] || req.headers['x-webhook-token'] || req.headers['authorization'] || '';
-          if (!sig.includes(cfg.webhook_secret)) return res.status(401).json({ error: 'Firma inválida' });
+          if (!sig.includes(cfg.webhook_secret)) return res.status(401).json({ error: 'Firma invÃ¡lida' });
         }
 
         const payload = req.body;
@@ -11182,7 +11264,7 @@ async function startServer() {
         const [existing] = await pool.execute('SELECT id FROM orders WHERE pedidosya_order_id = ? AND store_id = ?', [pyId, store.id]);
         if (existing.length) return res.json({ success: true, duplicate: true });
 
-        // Parse items — PedidosYa groups items in sections[]
+        // Parse items â€” PedidosYa groups items in sections[]
         const externalItems = [];
         const sections = payload.sections || payload.products || payload.items || [];
         if (Array.isArray(sections) && sections.length) {
@@ -11198,7 +11280,7 @@ async function startServer() {
                 name: item.name || item.productName || item.integrationCode || 'Producto',
                 quantity: Number(item.amount || item.quantity || item.qty || 1),
                 unit_price: Number(item.price || item.unitPrice || item.unit_price || 0),
-                notes: [item.comment, options].filter(Boolean).join(' · '),
+                notes: [item.comment, options].filter(Boolean).join(' Â· '),
               });
             }
           }
@@ -11214,7 +11296,7 @@ async function startServer() {
           }
         }
 
-        // Parse total — PedidosYa uses totalAmount or totalValue
+        // Parse total â€” PedidosYa uses totalAmount or totalValue
         const total = Number(
           payload.totalAmount || payload.totalValue || payload.total || payload.subTotal ||
           externalItems.reduce((s, i) => s + i.unit_price * i.quantity, 0) || 0
@@ -11277,16 +11359,16 @@ async function startServer() {
     });
 
     const DEFAULT_SURVEY_QUESTIONS = [
-      { key: 'frequency',       text: '¿Con qué frecuencia nos visitas?',          options: ['Primera vez', 'A veces', 'Seguido', 'Siempre'] },
-      { key: 'how_found',       text: '¿Cómo nos conociste?',                       options: ['Redes sociales', 'Recomendación', 'Google', 'Pasando por aquí'] },
-      { key: 'age_range',       text: '¿Cuál es tu rango de edad?',                 options: ['Menos de 25', '25–35', '36–50', 'Más de 50'] },
-      { key: 'product_quality', text: '¿Cómo calificarías la calidad del producto?', options: ['Excelente', 'Buena', 'Regular', 'Mala'] },
-      { key: 'disliked',        text: '¿Qué no te gustó de tu visita?',             options: ['El producto', 'La atención', 'El tiempo de espera', 'El precio'] },
-      { key: 'wait_time',       text: '¿Cómo fue el tiempo de espera?',             options: ['Muy rápido', 'Aceptable', 'Un poco largo', 'Demasiado largo'] },
-      { key: 'staff',           text: '¿Cómo fue la atención del personal?',        options: ['Excelente', 'Buena', 'Regular', 'Mala'] },
-      { key: 'price_fair',      text: '¿El precio te parece justo?',                options: ['Muy justo', 'Justo', 'Un poco caro', 'Caro'] },
-      { key: 'return',          text: '¿Volverías a visitarnos?',                   options: ['Sí, seguro', 'Probablemente', 'Tal vez', 'No'] },
-      { key: 'recommend',       text: '¿Recomendarías este lugar a alguien?',       options: ['Sí, definitivamente', 'Probablemente', 'Tal vez', 'No'] },
+      { key: 'frequency',       text: 'Â¿Con quÃ© frecuencia nos visitas?',          options: ['Primera vez', 'A veces', 'Seguido', 'Siempre'] },
+      { key: 'how_found',       text: 'Â¿CÃ³mo nos conociste?',                       options: ['Redes sociales', 'RecomendaciÃ³n', 'Google', 'Pasando por aquÃ­'] },
+      { key: 'age_range',       text: 'Â¿CuÃ¡l es tu rango de edad?',                 options: ['Menos de 25', '25â€“35', '36â€“50', 'MÃ¡s de 50'] },
+      { key: 'product_quality', text: 'Â¿CÃ³mo calificarÃ­as la calidad del producto?', options: ['Excelente', 'Buena', 'Regular', 'Mala'] },
+      { key: 'disliked',        text: 'Â¿QuÃ© no te gustÃ³ de tu visita?',             options: ['El producto', 'La atenciÃ³n', 'El tiempo de espera', 'El precio'] },
+      { key: 'wait_time',       text: 'Â¿CÃ³mo fue el tiempo de espera?',             options: ['Muy rÃ¡pido', 'Aceptable', 'Un poco largo', 'Demasiado largo'] },
+      { key: 'staff',           text: 'Â¿CÃ³mo fue la atenciÃ³n del personal?',        options: ['Excelente', 'Buena', 'Regular', 'Mala'] },
+      { key: 'price_fair',      text: 'Â¿El precio te parece justo?',                options: ['Muy justo', 'Justo', 'Un poco caro', 'Caro'] },
+      { key: 'return',          text: 'Â¿VolverÃ­as a visitarnos?',                   options: ['SÃ­, seguro', 'Probablemente', 'Tal vez', 'No'] },
+      { key: 'recommend',       text: 'Â¿RecomendarÃ­as este lugar a alguien?',       options: ['SÃ­, definitivamente', 'Probablemente', 'Tal vez', 'No'] },
     ];
 
     // Public: get survey questions (custom or defaults)
@@ -11334,7 +11416,7 @@ async function startServer() {
         const store = await getStoreByCode(req.params.code);
         if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
         const { answers } = req.body;
-        if (!answers || typeof answers !== 'object') return res.status(400).json({ error: 'Respuestas inválidas' });
+        if (!answers || typeof answers !== 'object') return res.status(400).json({ error: 'Respuestas invÃ¡lidas' });
         await pool.execute(
           'INSERT INTO client_surveys (store_id, answers) VALUES (?, ?)',
           [store.id, JSON.stringify(answers)]
@@ -11358,7 +11440,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // ── Background Removal ───────────────────────────────────────────────────
+    // â”€â”€ Background Removal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const VENV_DIR  = path.join(__serverDir, 'BGRemover', 'venv');
     const VENV_PY   = path.join(VENV_DIR, 'bin', 'python3');
     const VENV_PIP  = path.join(VENV_DIR, 'bin', 'pip');
@@ -11382,7 +11464,7 @@ async function startServer() {
     async function ensureBgEnv() {
       if (_bgReady) return true;
       try {
-        // 1 — If venv already exists and rembg importable, we're done
+        // 1 â€” If venv already exists and rembg importable, we're done
         if (fs.existsSync(VENV_PY)) {
           try {
             await runCmd(VENV_PY, ['-c', 'import rembg']);
@@ -11392,7 +11474,7 @@ async function startServer() {
           } catch {}
         }
 
-        // 2 — Create venv if needed
+        // 2 â€” Create venv if needed
         if (!fs.existsSync(VENV_DIR)) {
           const sysPy = await findSystemPython();
           if (!sysPy) throw new Error('Python3 no encontrado en el sistema');
@@ -11401,14 +11483,14 @@ async function startServer() {
           console.log('[bg_remover] Venv creado');
         }
 
-        // 3 — Install rembg[cpu] inside the venv
+        // 3 â€” Install rembg[cpu] inside the venv
         console.log('[bg_remover] Instalando rembg[cpu] en el venv...');
         await runCmd(VENV_PIP, [
           'install', 'rembg[cpu]', 'pillow', 'onnxruntime',
           '--quiet', '--no-warn-script-location'
         ], { timeout: 600000 }); // 10 min max
 
-        // 4 — Verify
+        // 4 â€” Verify
         await runCmd(VENV_PY, ['-c', 'import rembg']);
         _bgReady = true;
         console.log('[bg_remover] rembg[cpu] instalado correctamente en venv');
@@ -11424,10 +11506,10 @@ async function startServer() {
 
     app.post('/api/remove-background', upload.single('image'), async (req, res) => {
       try {
-        if (!req.file) return res.status(400).json({ error: 'No se recibió imagen' });
+        if (!req.file) return res.status(400).json({ error: 'No se recibiÃ³ imagen' });
 
         const ready = await ensureBgEnv();
-        if (!ready) return res.status(500).json({ error: 'El entorno de remoción de fondo no está disponible' });
+        if (!ready) return res.status(500).json({ error: 'El entorno de remociÃ³n de fondo no estÃ¡ disponible' });
 
         const inputPath  = path.resolve(req.file.path);
         const outputFilename = req.file.filename.replace(/\.[^.]+$/, '') + '_sin_fondo.png';
@@ -11453,14 +11535,14 @@ async function startServer() {
       }
     });
 
-    // ─── Instagram Auto-Post ────────────────────────────────────────────────
+    // â”€â”€â”€ Instagram Auto-Post â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     app.get('/api/instagram/:storeId', authenticateToken, async (req, res) => {
       try {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const cfg = await getInstagramConfig(req.params.storeId);
-        const safe = cfg ? { ...cfg, ig_password: cfg.ig_password ? '••••••' : '' } : { ig_username: '', ig_password: '', caption_template: '', enabled: false, last_posted_at: null, last_error: null, template_counter: 0, post_time: '10:00', post_days: '0' };
+        const safe = cfg ? { ...cfg, ig_password: cfg.ig_password ? 'â€¢â€¢â€¢â€¢â€¢â€¢' : '' } : { ig_username: '', ig_password: '', caption_template: '', enabled: false, last_posted_at: null, last_error: null, template_counter: 0, post_time: '10:00', post_days: '0' };
         res.json(safe);
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
@@ -11471,7 +11553,7 @@ async function startServer() {
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const { ig_username, ig_password, caption_template, enabled, post_time, post_days } = req.body;
         const existing = await getInstagramConfig(req.params.storeId);
-        const finalPass = ig_password === '••••••' ? (existing?.ig_password || '') : ig_password;
+        const finalPass = ig_password === 'â€¢â€¢â€¢â€¢â€¢â€¢' ? (existing?.ig_password || '') : ig_password;
         await saveInstagramConfig(req.params.storeId, { ig_username, ig_password: finalPass, caption_template, enabled, post_time, post_days });
         res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
@@ -11505,7 +11587,7 @@ async function startServer() {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const cfg = await getInstagramConfig(req.params.storeId);
-        if (!cfg?.ig_username || !cfg?.ig_password) return res.status(400).json({ error: 'Configura usuario y contraseña primero' });
+        if (!cfg?.ig_username || !cfg?.ig_password) return res.status(400).json({ error: 'Configura usuario y contraseÃ±a primero' });
         if (!cfg.ig_connected) return res.status(400).json({ error: 'Debes conectar tu cuenta de Instagram primero' });
         const [topProds] = await pool.execute(
           `SELECT p.id,p.name,p.description,p.price,p.image,COUNT(oi.id) AS sales
@@ -11518,7 +11600,7 @@ async function startServer() {
           [req.params.storeId]
         );
         const buf = await generatePromoImage({ store, topProducts: topProds, coupons, templateCounter: cfg.template_counter || 0, currencySymbol: store.currency_symbol || '$' });
-        const caption = cfg.caption_template || `✨ ${store.name} ✨\n\n🔥 Mirá nuestras ofertas y los más pedidos de la semana.\n\n📲 Pedí en: ${BASE_URL}/store/${store.code}\n\n#${store.name.replace(/\s+/g,'')} #SRServi`;
+        const caption = cfg.caption_template || `âœ¨ ${store.name} âœ¨\n\nðŸ”¥ MirÃ¡ nuestras ofertas y los mÃ¡s pedidos de la semana.\n\nðŸ“² PedÃ­ en: ${BASE_URL}/store/${store.code}\n\n#${store.name.replace(/\s+/g,'')} #SRServi`;
         await postToInstagram({ storeId: req.params.storeId, imageBuffer: buf, caption });
         await updateInstagramPosted(req.params.storeId, null);
         res.json({ ok: true });
@@ -11534,7 +11616,7 @@ async function startServer() {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const cfg = await getInstagramConfig(req.params.storeId);
-        if (!cfg?.ig_username || !cfg?.ig_password) return res.status(400).json({ error: 'Guarda usuario y contraseña primero' });
+        if (!cfg?.ig_username || !cfg?.ig_password) return res.status(400).json({ error: 'Guarda usuario y contraseÃ±a primero' });
         const result = await startInstagramLogin(req.params.storeId, cfg.ig_username, cfg.ig_password);
         if (result.status === 'ok') {
           await saveInstagramSession(req.params.storeId, null);
@@ -11555,13 +11637,13 @@ async function startServer() {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const { code, type } = req.body;
-        if (!code) return res.status(400).json({ error: 'Código requerido' });
+        if (!code) return res.status(400).json({ error: 'CÃ³digo requerido' });
         const result = await completeInstagramVerify(req.params.storeId, code, type || 'challenge');
         if (result.status === 'ok') {
           await saveInstagramSession(req.params.storeId, null);
           return res.json({ ok: true });
         }
-        res.status(400).json({ error: 'Verificación fallida' });
+        res.status(400).json({ error: 'VerificaciÃ³n fallida' });
       } catch (e) { res.status(400).json({ error: e.message }); }
     });
 
@@ -11576,7 +11658,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // ─── TikTok Auto-Post ────────────────────────────────────────────────────
+    // â”€â”€â”€ TikTok Auto-Post â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const { postToTikTok, startQrLogin, checkQrStatus, loginWithEmail } = await import('./tiktok-service.js');
 
@@ -11643,13 +11725,13 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // Login con email y contraseña
+    // Login con email y contraseÃ±a
     app.post('/api/tiktok/:storeId/login', authenticateToken, async (req, res) => {
       try {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const { email, password } = req.body;
-        if (!email?.trim() || !password?.trim()) return res.status(400).json({ error: 'Email y contraseña requeridos' });
+        if (!email?.trim() || !password?.trim()) return res.status(400).json({ error: 'Email y contraseÃ±a requeridos' });
         const result = await loginWithEmail({ email: email.trim(), password: password.trim() });
         if (result.success) {
           await saveTikTokSession(req.params.storeId, result.cookieString);
@@ -11688,7 +11770,7 @@ async function startServer() {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const cfg = await getTikTokConfig(req.params.storeId);
-        if (!cfg?.tk_connected || !cfg?.session_cookie) return res.status(400).json({ error: 'Conectá tu cuenta de TikTok primero' });
+        if (!cfg?.tk_connected || !cfg?.session_cookie) return res.status(400).json({ error: 'ConectÃ¡ tu cuenta de TikTok primero' });
         const [topProds] = await pool.execute(
           `SELECT p.id,p.name,p.description,p.price,p.image,COUNT(oi.id) AS sales
            FROM products p LEFT JOIN order_items oi ON oi.product_id=p.id
@@ -11700,7 +11782,7 @@ async function startServer() {
           [req.params.storeId]
         );
         const buf     = await generatePromoImage({ store, topProducts: topProds, coupons, templateCounter: cfg.template_counter || 0, currencySymbol: store.currency_symbol || '$' });
-        const caption = cfg.caption_template || `✨ ${store.name} ✨\n\n🔥 Mirá nuestras ofertas y los más pedidos de la semana.\n\n📲 Pedí en: ${BASE_URL}/store/${store.code}\n\n#${store.name.replace(/\s+/g,'')} #SRServi #TikTok`;
+        const caption = cfg.caption_template || `âœ¨ ${store.name} âœ¨\n\nðŸ”¥ MirÃ¡ nuestras ofertas y los mÃ¡s pedidos de la semana.\n\nðŸ“² PedÃ­ en: ${BASE_URL}/store/${store.code}\n\n#${store.name.replace(/\s+/g,'')} #SRServi #TikTok`;
         await postToTikTok({ cookieString: cfg.session_cookie, imageBuffer: buf, caption });
         await updateTikTokPosted(req.params.storeId, null);
         res.json({ ok: true });
@@ -11849,9 +11931,9 @@ async function startServer() {
       }
     });
 
-    // Cron cada día a medianoche — cerrar cajas abiertas y enviar email
+    // Cron cada dÃ­a a medianoche â€” cerrar cajas abiertas y enviar email
     cron.schedule('0 0 * * *', async () => {
-      console.log('[Caja] Cierre automático de cajas...');
+      console.log('[Caja] Cierre automÃ¡tico de cajas...');
       try {
         const openRegisters = await getAllOpenCashRegisters();
         for (const reg of openRegisters) {
@@ -11859,15 +11941,15 @@ async function startServer() {
             await closeCashRegister(reg.store_id, 'auto');
             io.to(`store_${reg.store_id}`).emit('cash_register_changed', { open: false });
             await sendCashRegisterReport(reg.store_id, 'auto', reg);
-            console.log(`[Caja] ✅ Cerrada caja tienda ${reg.store_name}`);
+            console.log(`[Caja] âœ… Cerrada caja tienda ${reg.store_name}`);
           } catch (e) {
-            console.error(`[Caja] ❌ Error tienda ${reg.store_name}:`, e.message);
+            console.error(`[Caja] âŒ Error tienda ${reg.store_name}:`, e.message);
           }
         }
       } catch (e) { console.error('[Caja] Cron error:', e.message); }
     });
 
-    // Cron diario 8 AM — enviar estadísticas de productos del día anterior
+    // Cron diario 8 AM â€” enviar estadÃ­sticas de productos del dÃ­a anterior
     cron.schedule('0 8 * * *', async () => {
       console.log('[ProductStats] Enviando reportes diarios de productos...');
       try {
@@ -11881,7 +11963,7 @@ async function startServer() {
             await mailer.sendMail({
               from: `"SRServi" <${process.env.EMAIL_USER}>`,
               to: store.owner_email,
-              subject: `📊 Estadísticas de productos — ${store.name} — ${new Date().toLocaleDateString('es-AR')}`,
+              subject: `ðŸ“Š EstadÃ­sticas de productos â€” ${store.name} â€” ${new Date().toLocaleDateString('es-AR')}`,
               html
             });
             sent++;
@@ -11889,11 +11971,11 @@ async function startServer() {
             console.error(`[ProductStats] Error tienda ${store.name}:`, e.message);
           }
         }
-        console.log(`[ProductStats] ✅ ${sent} reportes enviados de ${allStores.length} tiendas`);
+        console.log(`[ProductStats] âœ… ${sent} reportes enviados de ${allStores.length} tiendas`);
       } catch (e) { console.error('[ProductStats] Cron error:', e.message); }
     });
 
-    // Cron diario 7 AM — email de estado de inventario
+    // Cron diario 7 AM â€” email de estado de inventario
     cron.schedule('0 7 * * *', async () => {
       console.log('[InventoryAlert] Enviando reportes de inventario...');
       try {
@@ -11907,7 +11989,7 @@ async function startServer() {
             await mailer.sendMail({
               from: `"SRServi" <${process.env.EMAIL_USER}>`,
               to: store.owner_email,
-              subject: `⚠️ Alerta de inventario — ${store.name} — ${report.outOfStock.length} agotados, ${report.lowStock.length} bajos`,
+              subject: `âš ï¸ Alerta de inventario â€” ${store.name} â€” ${report.outOfStock.length} agotados, ${report.lowStock.length} bajos`,
               html
             });
             sent++;
@@ -11915,11 +11997,11 @@ async function startServer() {
             console.error(`[InventoryAlert] Error tienda ${store.name}:`, e.message);
           }
         }
-        console.log(`[InventoryAlert] ✅ ${sent} reportes enviados de ${allStores.length} tiendas`);
+        console.log(`[InventoryAlert] âœ… ${sent} reportes enviados de ${allStores.length} tiendas`);
       } catch (e) { console.error('[InventoryAlert] Cron error:', e.message); }
     });
 
-    // ─── CCTV Cartelería Digital ──────────────────────────────────────────────
+    // â”€â”€â”€ CCTV CartelerÃ­a Digital â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const cctvDir = path.join(__serverDir, 'uploads', 'cctv');
     if (!fs.existsSync(cctvDir)) fs.mkdirSync(cctvDir, { recursive: true });
@@ -11957,7 +12039,7 @@ async function startServer() {
       fileFilter: (req, file, cb) => {
         const allowedExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
         if (allowedExts.includes(path.extname(file.originalname).toLowerCase())) return cb(null, true);
-        cb(new Error('Solo se permiten imágenes (jpg, jpeg, png, gif, webp)'));
+        cb(new Error('Solo se permiten imÃ¡genes (jpg, jpeg, png, gif, webp)'));
       }
     });
 
@@ -12079,7 +12161,7 @@ async function startServer() {
     app.post('/api/cctv/videos', authenticateToken, cctvUpload.single('video'), async (req, res) => {
       try {
         await ensureCctvTables();
-        if (!req.file) return res.status(400).json({ error: 'No se recibió video' });
+        if (!req.file) return res.status(400).json({ error: 'No se recibiÃ³ video' });
         const url = `/uploads/cctv/${req.file.filename}`;
         const [result] = await pool.execute(
           'INSERT INTO cctv_videos (user_id, filename, original_name, file_size, url) VALUES (?, ?, ?, ?, ?)',
@@ -12179,10 +12261,10 @@ async function startServer() {
       try {
         await ensureCctvTables();
         const { pairing_code, device_name } = req.body;
-        if (!pairing_code) return res.status(400).json({ error: 'Código requerido' });
-        const dname = device_name || 'TV Cartelería';
+        if (!pairing_code) return res.status(400).json({ error: 'CÃ³digo requerido' });
+        const dname = device_name || 'TV CartelerÃ­a';
 
-        // Try as store code first (permanent — the recommended method)
+        // Try as store code first (permanent â€” the recommended method)
         const [storeRows] = await pool.execute(
           'SELECT id, user_id FROM stores WHERE code = ?',
           [pairing_code.toLowerCase().trim()]
@@ -12215,7 +12297,7 @@ async function startServer() {
           if (existing.length && existing[0].device_token) {
             return res.json({ device_token: existing[0].device_token, paired: true });
           }
-          return res.status(404).json({ error: 'Código inválido o expirado' });
+          return res.status(404).json({ error: 'CÃ³digo invÃ¡lido o expirado' });
         }
         const deviceToken = crypto.randomBytes(32).toString('hex');
         await pool.execute(
@@ -12275,7 +12357,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // TV Device: report power event (public) — called by TV app on boot/shutdown
+    // TV Device: report power event (public) â€” called by TV app on boot/shutdown
     app.post('/api/cctv/power-event', async (req, res) => {
       try {
         await ensureCctvTables();
@@ -12316,7 +12398,7 @@ async function startServer() {
     app.post('/api/cctv/music', authenticateToken, cctvMusicUpload.single('music'), async (req, res) => {
       try {
         await ensureCctvTables();
-        if (!req.file) return res.status(400).json({ error: 'No se recibió archivo de música' });
+        if (!req.file) return res.status(400).json({ error: 'No se recibiÃ³ archivo de mÃºsica' });
         const url = `/uploads/cctv/${req.file.filename}`;
         const [result] = await pool.execute(
           'INSERT INTO cctv_music (user_id, filename, original_name, file_size, url) VALUES (?, ?, ?, ?, ?)',
@@ -12332,7 +12414,7 @@ async function startServer() {
       try {
         await ensureCctvTables();
         const [rows] = await pool.execute('SELECT * FROM cctv_music WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
-        if (!rows.length) return res.status(404).json({ error: 'Música no encontrada' });
+        if (!rows.length) return res.status(404).json({ error: 'MÃºsica no encontrada' });
         const filePath = path.join(cctvDir, rows[0].filename);
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         await pool.execute('DELETE FROM cctv_music WHERE id = ?', [req.params.id]);
@@ -12386,8 +12468,8 @@ async function startServer() {
         if (!screen.length) return res.status(404).json({ error: 'Pantalla no encontrada' });
         const { video_id, name, start_time, end_time, days } = req.body;
         if (!video_id || !start_time) return res.status(400).json({ error: 'video_id y start_time requeridos' });
-        if (!/^\d{2}:\d{2}$/.test(start_time)) return res.status(400).json({ error: 'Formato de hora inválido (HH:MM)' });
-        if (end_time && !/^\d{2}:\d{2}$/.test(end_time)) return res.status(400).json({ error: 'Formato de hora_fin inválido (HH:MM)' });
+        if (!/^\d{2}:\d{2}$/.test(start_time)) return res.status(400).json({ error: 'Formato de hora invÃ¡lido (HH:MM)' });
+        if (end_time && !/^\d{2}:\d{2}$/.test(end_time)) return res.status(400).json({ error: 'Formato de hora_fin invÃ¡lido (HH:MM)' });
         const [vCheck] = await pool.execute('SELECT id FROM cctv_videos WHERE id = ? AND user_id = ?', [video_id, req.user.id]);
         if (!vCheck.length) return res.status(404).json({ error: 'Video no encontrado' });
         const daysJson = JSON.stringify(Array.isArray(days) ? days : []);
@@ -12494,7 +12576,7 @@ async function startServer() {
     app.post('/api/cctv/images', authenticateToken, cctvImageUpload.array('images', 30), async (req, res) => {
       try {
         await ensureCctvTables();
-        if (!req.files?.length) return res.status(400).json({ error: 'No se recibieron imágenes' });
+        if (!req.files?.length) return res.status(400).json({ error: 'No se recibieron imÃ¡genes' });
         const [[maxRow]] = await pool.execute('SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM cctv_images WHERE user_id = ?', [req.user.id]);
         let nextOrder = (maxRow.max_order ?? -1) + 1;
         for (const file of req.files) {
@@ -12548,7 +12630,7 @@ async function startServer() {
       try {
         await ensureCctvTables();
         const { mode } = req.body;
-        if (!['video', 'images'].includes(mode)) return res.status(400).json({ error: 'Modo inválido' });
+        if (!['video', 'images'].includes(mode)) return res.status(400).json({ error: 'Modo invÃ¡lido' });
         await pool.execute('UPDATE cctv_screens SET display_mode = ? WHERE id = ? AND user_id = ?', [mode, req.params.id, req.user.id]);
         res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
@@ -12561,7 +12643,7 @@ async function startServer() {
         const { music_id } = req.body;
         if (music_id) {
           const [mRows] = await pool.execute('SELECT id FROM cctv_music WHERE id = ? AND user_id = ?', [music_id, req.user.id]);
-          if (!mRows.length) return res.status(404).json({ error: 'Música no encontrada' });
+          if (!mRows.length) return res.status(404).json({ error: 'MÃºsica no encontrada' });
         }
         await pool.execute('UPDATE cctv_screens SET current_music_id = ? WHERE id = ? AND user_id = ?', [music_id || null, req.params.id, req.user.id]);
         res.json({ ok: true });
@@ -12572,9 +12654,9 @@ async function startServer() {
     cron.schedule('0 * * * *', async () => {
       const now = new Date();
       const currentHour = now.getHours();
-      const currentDay  = now.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
+      const currentDay  = now.getDay(); // 0=Dom, 1=Lun, ..., 6=SÃ¡b
       const todayStr    = now.toISOString().slice(0, 10); // YYYY-MM-DD
-      console.log(`[Instagram] Revisando publicaciones automáticas — ${now.toLocaleString('es-CL')}...`);
+      console.log(`[Instagram] Revisando publicaciones automÃ¡ticas â€” ${now.toLocaleString('es-CL')}...`);
       try {
         const configs = await getActiveInstagramConfigs();
         for (const cfg of configs) {
@@ -12583,7 +12665,7 @@ async function startServer() {
             const [postHour] = (cfg.post_time || '10:00').split(':').map(Number);
             if (postHour !== currentHour) continue;
 
-            // Verificar día
+            // Verificar dÃ­a
             const days = (cfg.post_days || '0').split(',').map(Number);
             if (!days.includes(currentDay)) continue;
 
@@ -12607,13 +12689,13 @@ async function startServer() {
               [cfg.store_id]
             );
             const buf = await generatePromoImage({ store: cfg, topProducts: topProds, coupons, templateCounter: cfg.template_counter || 0, currencySymbol: cfg.currency_symbol || '$' });
-            const caption = cfg.caption_template || `✨ ${cfg.store_name} ✨\n\n🔥 Lo mejor de la semana!\n\n📲 ${BASE_URL}/store/${cfg.store_code}\n\n#${(cfg.store_name||'').replace(/\s+/g,'')} #SRServi`;
+            const caption = cfg.caption_template || `âœ¨ ${cfg.store_name} âœ¨\n\nðŸ”¥ Lo mejor de la semana!\n\nðŸ“² ${BASE_URL}/store/${cfg.store_code}\n\n#${(cfg.store_name||'').replace(/\s+/g,'')} #SRServi`;
             await postToInstagram({ storeId: cfg.store_id, imageBuffer: buf, caption });
             await updateInstagramPosted(cfg.store_id, null);
-            console.log(`[Instagram] ✅ ${cfg.store_name}`);
+            console.log(`[Instagram] âœ… ${cfg.store_name}`);
           } catch (e) {
             await updateInstagramPosted(cfg.store_id, e.message).catch(() => {});
-            console.error(`[Instagram] ❌ ${cfg.store_name}:`, e.message);
+            console.error(`[Instagram] âŒ ${cfg.store_name}:`, e.message);
           }
         }
       } catch (e) { console.error('[Instagram] Cron error:', e.message); }
@@ -12648,19 +12730,19 @@ async function startServer() {
               [cfg.store_id]
             );
             const buf     = await generatePromoImage({ store: cfg, topProducts: topProds, coupons, templateCounter: cfg.template_counter || 0, currencySymbol: cfg.currency_symbol || '$' });
-            const caption = cfg.caption_template || `✨ ${cfg.store_name} ✨\n\n🔥 Lo mejor de la semana!\n\n📲 ${BASE_URL}/store/${cfg.store_code}\n\n#${(cfg.store_name||'').replace(/\s+/g,'')} #SRServi #TikTok`;
+            const caption = cfg.caption_template || `âœ¨ ${cfg.store_name} âœ¨\n\nðŸ”¥ Lo mejor de la semana!\n\nðŸ“² ${BASE_URL}/store/${cfg.store_code}\n\n#${(cfg.store_name||'').replace(/\s+/g,'')} #SRServi #TikTok`;
             await postToTikTok({ cookieString: cfg.session_cookie, imageBuffer: buf, caption });
             await updateTikTokPosted(cfg.store_id, null);
-            console.log(`[TikTok] ✅ ${cfg.store_name}`);
+            console.log(`[TikTok] âœ… ${cfg.store_name}`);
           } catch (e) {
             await updateTikTokPosted(cfg.store_id, e.message).catch(() => {});
-            console.error(`[TikTok] ❌ ${cfg.store_name}:`, e.message);
+            console.error(`[TikTok] âŒ ${cfg.store_name}:`, e.message);
           }
         }
       } catch (e) { console.error('[TikTok] Cron error:', e.message); }
     });
 
-    // ─── SRBrain Routes ──────────────────────────────────────────────────────
+    // â”€â”€â”€ SRBrain Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     app.get('/api/brain/config', authenticateToken, async (req, res) => {
       try {
@@ -12701,7 +12783,7 @@ async function startServer() {
         if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
         const store = await getStoreById(storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
-        res.json({ message: 'SRBrain ejecutándose en background...' });
+        res.json({ message: 'SRBrain ejecutÃ¡ndose en background...' });
         runSrBrainForStore(storeId).catch(e => console.error('[Brain manual]', e.message));
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
@@ -12767,7 +12849,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // Prep Tables (tablas de preparación de productos — múltiples por tienda)
+    // Prep Tables (tablas de preparaciÃ³n de productos â€” mÃºltiples por tienda)
     app.get('/api/prep-tables', authenticateToken, async (req, res) => {
       try {
         const storeId = parseInt(req.query.store_id);
@@ -12818,12 +12900,12 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // Custom Creations (canvas 1920×1080)
+    // Custom Creations (canvas 1920Ã—1080)
     const ensureCustomCreations = async () => {
       await pool.execute(`CREATE TABLE IF NOT EXISTS custom_creations (
         id INT AUTO_INCREMENT PRIMARY KEY,
         store_id INT NOT NULL,
-        title VARCHAR(255) NOT NULL DEFAULT 'Sin título',
+        title VARCHAR(255) NOT NULL DEFAULT 'Sin tÃ­tulo',
         background_image TEXT,
         elements JSON,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -12852,7 +12934,7 @@ async function startServer() {
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
         const [result] = await pool.execute(
           'INSERT INTO custom_creations (store_id, title, background_image, elements) VALUES (?, ?, ?, ?)',
-          [parseInt(store_id), title || 'Sin título', background_image || '', JSON.stringify(elements || [])]
+          [parseInt(store_id), title || 'Sin tÃ­tulo', background_image || '', JSON.stringify(elements || [])]
         );
         res.json({ id: result.insertId });
       } catch (e) { res.status(500).json({ error: e.message }); }
@@ -12867,7 +12949,7 @@ async function startServer() {
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
         await pool.execute(
           'UPDATE custom_creations SET title = ?, background_image = ?, elements = ?, updated_at = NOW() WHERE id = ? AND store_id = ?',
-          [title || 'Sin título', background_image || '', JSON.stringify(elements || []), parseInt(req.params.id), parseInt(store_id)]
+          [title || 'Sin tÃ­tulo', background_image || '', JSON.stringify(elements || []), parseInt(req.params.id), parseInt(store_id)]
         );
         res.json({ success: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
@@ -12894,7 +12976,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // León IA procedure generation
+    // LeÃ³n IA procedure generation
     app.post('/api/brain/generate-procedure', authenticateToken, async (req, res) => {
       try {
         const { store_id, product_name, extra_context } = req.body;
@@ -12902,19 +12984,19 @@ async function startServer() {
         const store = await getStoreById(parseInt(store_id));
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
 
-        const prompt = `Genera un procedimiento de preparación paso a paso para: "${product_name}".
+        const prompt = `Genera un procedimiento de preparaciÃ³n paso a paso para: "${product_name}".
 ${extra_context ? 'Contexto adicional: ' + extra_context : ''}
 
-Responde SOLO con JSON válido, sin texto extra:
+Responde SOLO con JSON vÃ¡lido, sin texto extra:
 {
   "title": "Procedimiento: ${product_name}",
   "steps": [
-    { "step": 1, "title": "Título del paso", "instruction": "Instrucción detallada del paso. Sé específico y claro.", "tip": "Consejo opcional" },
+    { "step": 1, "title": "TÃ­tulo del paso", "instruction": "InstrucciÃ³n detallada del paso. SÃ© especÃ­fico y claro.", "tip": "Consejo opcional" },
     { "step": 2, "title": "...", "instruction": "...", "tip": "..." }
   ]
 }
 
-Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador nuevo.`;
+Incluye entre 4 y 8 pasos. Cada instrucciÃ³n debe ser clara para un trabajador nuevo.`;
 
         const leonRes = await fetch('http://localhost:7777/chat', {
           method: 'POST',
@@ -12923,17 +13005,17 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
           signal: AbortSignal.timeout(90000)
         });
 
-        if (!leonRes.ok) return res.status(503).json({ error: 'León IA no disponible' });
+        if (!leonRes.ok) return res.status(503).json({ error: 'LeÃ³n IA no disponible' });
         const leonData = await leonRes.json();
         const raw = leonData.answer || '';
         const match = raw.match(/\{[\s\S]*\}/);
-        if (!match) return res.status(422).json({ error: 'León IA no devolvió JSON válido', raw });
+        if (!match) return res.status(422).json({ error: 'LeÃ³n IA no devolviÃ³ JSON vÃ¡lido', raw });
         const parsed = JSON.parse(match[0]);
         res.json(parsed);
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // Cron SRBrain — cada hora evalúa qué tiendas deben ejecutarse según su schedule
+    // Cron SRBrain â€” cada hora evalÃºa quÃ© tiendas deben ejecutarse segÃºn su schedule
     cron.schedule('0 * * * *', async () => {
       try {
         const now = new Date();
@@ -12950,7 +13032,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       } catch (e) { console.error('[SRBrain] Cron error:', e.message); }
     });
 
-    // WhatsApp routes — todas requieren store_id que pertenece al usuario autenticado
+    // WhatsApp routes â€” todas requieren store_id que pertenece al usuario autenticado
     async function verifyStoreOwner(req, res) {
       const storeId = parseInt(req.query.store_id || req.body?.store_id);
       if (!storeId) { res.status(400).json({ error: 'store_id requerido' }); return null; }
@@ -12969,7 +13051,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       const storeId = await verifyStoreOwner(req, res);
       if (!storeId) return;
       const status = getWhatsAppStatus(storeId);
-      if (!status.hasQR) return res.status(404).json({ error: 'Sin QR disponible. Inicia la conexión primero.' });
+      if (!status.hasQR) return res.status(404).json({ error: 'Sin QR disponible. Inicia la conexiÃ³n primero.' });
       res.json({ qr: status.qr });
     });
 
@@ -12977,7 +13059,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       const storeId = await verifyStoreOwner(req, res);
       if (!storeId) return;
       initWhatsApp(storeId).catch(e => console.error(`[WhatsApp:${storeId}]`, e.message));
-      res.json({ message: 'Iniciando conexión WhatsApp...' });
+      res.json({ message: 'Iniciando conexiÃ³n WhatsApp...' });
     });
 
     app.post('/api/whatsapp/disconnect', authenticateToken, async (req, res) => {
@@ -12998,7 +13080,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // Diagnóstico: ver mensajes pendientes y estado de conexión por tienda
+    // DiagnÃ³stico: ver mensajes pendientes y estado de conexiÃ³n por tienda
     app.get('/api/whatsapp/debug', authenticateToken, async (req, res) => {
       try {
         const pending = await getPendingScheduledMessages();
@@ -13033,7 +13115,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // Scheduled WhatsApp messages — CRUD
+    // Scheduled WhatsApp messages â€” CRUD
     app.get('/api/whatsapp/scheduled', authenticateToken, async (req, res) => {
       try {
         const messages = await getScheduledMessages(req.user.id);
@@ -13109,7 +13191,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       res.json({ ok: true });
     });
 
-    // Windows app download — generates a self-extracting .exe via NSIS (Linux) or zip fallback (dev)
+    // Windows app download â€” generates a self-extracting .exe via NSIS (Linux) or zip fallback (dev)
     app.get('/api/apps/windows', async (req, res) => {
       try {
         const { storeCode } = req.query;
@@ -13124,7 +13206,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
 
         const publishDir = path.join(__serverDir, 'web', 'windows', 'bin', 'Release', 'net10.0-windows', 'win-x64', 'publish');
         if (!fs.existsSync(publishDir)) {
-          return res.status(503).json({ error: 'La app aún no está compilada. Contacta soporte.' });
+          return res.status(503).json({ error: 'La app aÃºn no estÃ¡ compilada. Contacta soporte.' });
         }
 
         const storeUrl = `https://srservi2.srautomatic.com/store/${store.code}`;
@@ -13197,12 +13279,12 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       res.json({ version: ver });
     });
 
-    // Android app build — starts background compile job and returns jobId
+    // Android app build â€” starts background compile job and returns jobId
     app.post('/api/apps/android/build', async (req, res) => {
       try {
         const { appName, storeCode, force } = req.body;
         const validApps = ['launcher', 'tvordenes', 'cctv'];
-        if (!validApps.includes(appName)) return res.status(400).json({ error: 'App inválida' });
+        if (!validApps.includes(appName)) return res.status(400).json({ error: 'App invÃ¡lida' });
 
         if (appName !== 'cctv' && storeCode) {
           const [stores] = await pool.execute(
@@ -13225,14 +13307,14 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       }
     });
 
-    // Android app build — poll job status
+    // Android app build â€” poll job status
     app.get('/api/apps/android/status/:jobId', (req, res) => {
       const job = getBuildJob(req.params.jobId);
       if (!job) return res.status(404).json({ error: 'Job no encontrado' });
       res.json({ status: job.status, progress: job.progress, error: job.error });
     });
 
-    // Android app download — streams the compiled APK
+    // Android app download â€” streams the compiled APK
     app.get('/api/apps/android/download', async (req, res) => {
       try {
         const { appName, storeCode, jobId } = req.query;
@@ -13273,10 +13355,10 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
           try {
             const recipients = typeof msg.recipients === 'string' ? JSON.parse(msg.recipients) : msg.recipients;
 
-            // 1. Verificar conexión WhatsApp PRIMERO — si no hay conexión, reintentar el próximo minuto
+            // 1. Verificar conexiÃ³n WhatsApp PRIMERO â€” si no hay conexiÃ³n, reintentar el prÃ³ximo minuto
             const wa = getWhatsAppStatus(msg.store_id);
             if (!wa.connected) {
-              console.warn(`[WhatsApp Sched] Tienda ${msg.store_id} sin WhatsApp conectado — mensaje ${msg.id} reintentará`);
+              console.warn(`[WhatsApp Sched] Tienda ${msg.store_id} sin WhatsApp conectado â€” mensaje ${msg.id} reintentarÃ¡`);
               continue;
             }
 
@@ -13294,12 +13376,12 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
             }
 
             if (targets.length === 0) {
-              console.warn(`[WhatsApp Sched] Mensaje ${msg.id} sin destinatarios válidos — marcando fallido`);
+              console.warn(`[WhatsApp Sched] Mensaje ${msg.id} sin destinatarios vÃ¡lidos â€” marcando fallido`);
               await markScheduledMessageFailed(msg.id);
               continue;
             }
 
-            // 3. Reclamar atómicamente (evita doble envío si hubiera overlap)
+            // 3. Reclamar atÃ³micamente (evita doble envÃ­o si hubiera overlap)
             const claimed = await markScheduledMessageSent(msg.id);
             if (!claimed) continue; // ya fue tomado por otra instancia
 
@@ -13334,7 +13416,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
                 scheduledAt: nextSql,
                 recurrence: 'daily'
               });
-              console.log(`[WhatsApp Sched] Próxima ocurrencia diaria para mensaje ${msg.id}: ${nextSql}`);
+              console.log(`[WhatsApp Sched] PrÃ³xima ocurrencia diaria para mensaje ${msg.id}: ${nextSql}`);
             }
           } catch (e) {
             console.error(`[WhatsApp Sched] Error procesando mensaje ${msg.id}:`, e.message);
@@ -13353,7 +13435,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       initWhatsApp(storeId).catch(e => console.warn(`[WhatsApp:${storeId}] Auto-start failed:`, e.message));
     }
 
-    // RTSP people counter — reanudar streams activos al arrancar
+    // RTSP people counter â€” reanudar streams activos al arrancar
     try {
       const { rtspCounterService } = await import('./rtsp-counter.js');
       await rtspCounterService.initAll();
@@ -13366,12 +13448,12 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       console.log(`Servidor corriendo en http://${HOST}:${PORT}`);
     });
 
-    // Instagram Python service — se inicia automáticamente con el servidor
+    // Instagram Python service â€” se inicia automÃ¡ticamente con el servidor
     initInstagramService().catch(e => console.warn('[IG-Service] Error autostart:', e.message));
 
-    // León IA — configuración automática en background (no bloquea el servidor)
+    // LeÃ³n IA â€” configuraciÃ³n automÃ¡tica en background (no bloquea el servidor)
     if (process.platform === 'linux') {
-      initLeonIA().catch(e => console.warn('[León IA] Error autostart:', e.message));
+      initLeonIA().catch(e => console.warn('[LeÃ³n IA] Error autostart:', e.message));
     }
   } catch (error) {
     console.error('Error al iniciar el servidor:', error);
@@ -13379,7 +13461,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
   }
 }
 
-// ─── Attendance API ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Attendance API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.get('/api/attendance/:storeCode/persons', async (req, res) => {
   try {
@@ -13398,7 +13480,7 @@ app.post('/api/attendance/:storeCode/persons', async (req, res) => {
     if (!rut || !name || !surname || !face_descriptor)
       return res.status(400).json({ error: 'Faltan campos requeridos' });
     const existing = await getAttendancePersonByRut(store.id, rut);
-    if (existing) return res.status(409).json({ error: 'Este RUT ya está registrado con otro rostro' });
+    if (existing) return res.status(409).json({ error: 'Este RUT ya estÃ¡ registrado con otro rostro' });
     const id = await createAttendancePerson(store.id, rut, name, surname, face_descriptor, face_photo);
     res.json({ id, rut, name, surname });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -13419,7 +13501,7 @@ app.post('/api/attendance/:storeCode/record', async (req, res) => {
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
     const { person_id, type } = req.body;
     const valid = ['ENTRADA','SALIDA','INICIO_ALMUERZO','FIN_ALMUERZO','INICIO_PAUSA','FIN_PAUSA'];
-    if (!valid.includes(type)) return res.status(400).json({ error: 'Tipo de registro inválido' });
+    if (!valid.includes(type)) return res.status(400).json({ error: 'Tipo de registro invÃ¡lido' });
     const id = await createAttendanceRecord(store.id, person_id, type);
     const last = await getLastAttendanceRecord(store.id, person_id);
     res.json({ id, type, recorded_at: last?.recorded_at });
@@ -13463,7 +13545,7 @@ app.delete('/api/attendance/:storeCode/persons/:personId', authenticateToken, as
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── Sales & Commissions API ──────────────────────────────────────────────────
+// â”€â”€â”€ Sales & Commissions API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.get('/api/attendance/:storeCode/sales/config', authenticateToken, async (req, res) => {
   try {
@@ -13521,7 +13603,7 @@ app.post('/api/attendance/:storeCode/sales', authenticateToken, async (req, res)
     if (!await verifyStoreOwnership(store.id, req.user.id)) return res.status(403).json({ error: 'Sin permiso' });
     const { date, shift, gross_sales, net_sales, transactions, notes } = req.body;
     if (!date || !['AM','PM','PART_TIME'].includes(shift))
-      return res.status(400).json({ error: 'Datos inválidos' });
+      return res.status(400).json({ error: 'Datos invÃ¡lidos' });
     await upsertSaleRecord(store.id, date, shift, parseFloat(gross_sales)||0, parseFloat(net_sales)||0, parseInt(transactions)||0, notes);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -13534,13 +13616,13 @@ app.delete('/api/attendance/:storeCode/sales', authenticateToken, async (req, re
     if (!await verifyStoreOwnership(store.id, req.user.id)) return res.status(403).json({ error: 'Sin permiso' });
     const { date, shift } = req.query;
     if (!date || !['AM','PM','PART_TIME'].includes(shift))
-      return res.status(400).json({ error: 'Datos inválidos' });
+      return res.status(400).json({ error: 'Datos invÃ¡lidos' });
     await deleteSaleRecord(store.id, date, shift);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Restaurant Tables — admin CRUD
+// Restaurant Tables â€” admin CRUD
 app.get('/api/restaurant-tables', authenticateToken, async (req, res) => {
   try {
     const storeId = parseInt(req.query.store_id);
@@ -13609,9 +13691,9 @@ app.get('/api/public/table-order/:storeCode/:tableId', async (req, res) => {
     const order = rows[0];
     const [itemRows] = await pool.execute(`
       SELECT oi.id, oi.product_id, oi.quantity, oi.unit_price,
-             oi.selected_ingredients, oi.selected_extras, p.name as product_name
+             oi.selected_ingredients, oi.selected_extras, COALESCE(oi.promo_title, p.name) as product_name
       FROM order_items oi
-      JOIN products p ON p.id = oi.product_id
+      LEFT JOIN products p ON p.id = oi.product_id
       WHERE oi.order_id = ?
     `, [order.id]);
     order.items = itemRows.map(r => ({
@@ -13667,7 +13749,7 @@ app.post('/api/orders/:id/add-items', async (req, res) => {
       "SELECT * FROM orders WHERE id = ? AND store_id = ? AND status = 'pending'",
       [orderId, store_id]
     );
-    if (orderRows.length === 0) return res.status(404).json({ error: 'Pedido no encontrado o no está pendiente' });
+    if (orderRows.length === 0) return res.status(404).json({ error: 'Pedido no encontrado o no estÃ¡ pendiente' });
     let additionalTotal = 0;
     for (const item of items) {
       await pool.execute(
@@ -13681,8 +13763,8 @@ app.post('/api/orders/:id/add-items', async (req, res) => {
     const [updated] = await pool.execute('SELECT * FROM orders WHERE id = ?', [orderId]);
     const [itemRows] = await pool.execute(`
       SELECT oi.id, oi.product_id, oi.quantity, oi.unit_price,
-             oi.selected_ingredients, oi.selected_extras, p.name as product_name
-      FROM order_items oi JOIN products p ON p.id = oi.product_id
+             oi.selected_ingredients, oi.selected_extras, COALESCE(oi.promo_title, p.name) as product_name
+      FROM order_items oi LEFT JOIN products p ON p.id = oi.product_id
       WHERE oi.order_id = ?
     `, [orderId]);
     const order = { ...updated[0], items: itemRows.map(r => ({
@@ -13696,7 +13778,7 @@ app.post('/api/orders/:id/add-items', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── Delivery System ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Delivery System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Admin: get/update delivery settings
 app.get('/api/delivery-settings', authenticateToken, async (req, res) => {
@@ -13751,8 +13833,8 @@ app.get('/api/delivery/restaurants', async (req, res) => {
 app.post('/api/delivery/auth/register', async (req, res) => {
   try {
     const { email, password, name, phone } = req.body;
-    if (!email || !email.includes('@')) return res.status(400).json({ error: 'Email inválido' });
-    if (!password || password.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    if (!email || !email.includes('@')) return res.status(400).json({ error: 'Email invÃ¡lido' });
+    if (!password || password.length < 6) return res.status(400).json({ error: 'La contraseÃ±a debe tener al menos 6 caracteres' });
     if (!name?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
     const { customer, code } = await registerDeliveryCustomer(email.toLowerCase().trim(), password, name.trim(), phone?.trim());
     try {
@@ -13763,13 +13845,13 @@ app.post('/api/delivery/auth/register', async (req, res) => {
         html: `<div style="font-family:sans-serif;max-width:420px;margin:0 auto;padding:28px;background:#0a0a0a;color:#fff;border-radius:12px">
           <div style="text-align:center;margin-bottom:20px"><img src="https://srservi2.srautomatic.com/iconweb.png" width="48" style="border-radius:10px" /></div>
           <h2 style="text-align:center;color:#D4AF37;margin:0 0 10px">Verifica tu email</h2>
-          <p style="text-align:center;color:#aaa;margin:0 0 24px">Hola ${name}! Ingresa este código para activar tu cuenta:</p>
+          <p style="text-align:center;color:#aaa;margin:0 0 24px">Hola ${name}! Ingresa este cÃ³digo para activar tu cuenta:</p>
           <div style="text-align:center;font-size:40px;font-weight:900;letter-spacing:10px;color:#D4AF37;padding:20px;background:#111;border-radius:10px">${code}</div>
           <p style="text-align:center;color:#666;font-size:12px;margin-top:16px">Expira en 15 minutos</p>
         </div>`
       });
     } catch (mailErr) { console.warn('[Delivery Register] Email error:', mailErr.message); }
-    res.json({ message: 'Código enviado', customerId: customer.id });
+    res.json({ message: 'CÃ³digo enviado', customerId: customer.id });
   } catch (e) { res.status(e.message.includes('ya tiene') ? 409 : 500).json({ error: e.message }); }
 });
 
@@ -13777,9 +13859,9 @@ app.post('/api/delivery/auth/register', async (req, res) => {
 app.post('/api/delivery/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email y contraseña requeridos' });
+    if (!email || !password) return res.status(400).json({ error: 'Email y contraseÃ±a requeridos' });
     const customer = await loginDeliveryCustomer(email.toLowerCase().trim(), password);
-    if (!customer) return res.status(401).json({ error: 'Email o contraseña incorrectos' });
+    if (!customer) return res.status(401).json({ error: 'Email o contraseÃ±a incorrectos' });
     const token = await createDeliverySession(customer.id);
     const { password_hash: _, verification_code: __, ...safe } = customer;
     res.json({ token, customer: safe });
@@ -13821,11 +13903,11 @@ app.put('/api/delivery/my-profile', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Customer auth: start (send code) — kept for legacy / email-only accounts
+// Customer auth: start (send code) â€” kept for legacy / email-only accounts
 app.post('/api/delivery/auth/start', async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email || !email.includes('@')) return res.status(400).json({ error: 'Email inválido' });
+    if (!email || !email.includes('@')) return res.status(400).json({ error: 'Email invÃ¡lido' });
     const { customer, isNew } = await findOrCreateDeliveryCustomer(email.toLowerCase().trim());
     let code;
     if (!isNew) {
@@ -13838,13 +13920,13 @@ app.post('/api/delivery/auth/start', async (req, res) => {
       await mailer.sendMail({
         from: `"SRServi Delivery" <${process.env.EMAIL_USER}>`,
         to: email,
-        subject: 'Código de verificación SRServi',
+        subject: 'CÃ³digo de verificaciÃ³n SRServi',
         html: `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:24px;background:#0a0a0a;color:#fff;border-radius:12px">
           <div style="text-align:center;margin-bottom:20px">
             <div style="background:#D4AF37;color:#000;font-weight:900;font-size:22px;padding:10px 20px;border-radius:8px;display:inline-block">SR</div>
           </div>
-          <h2 style="text-align:center;color:#D4AF37">Código de verificación</h2>
-          <p style="text-align:center;color:#aaa">Ingresa este código en la app de delivery:</p>
+          <h2 style="text-align:center;color:#D4AF37">CÃ³digo de verificaciÃ³n</h2>
+          <p style="text-align:center;color:#aaa">Ingresa este cÃ³digo en la app de delivery:</p>
           <div style="text-align:center;font-size:36px;font-weight:900;letter-spacing:8px;color:#D4AF37;padding:20px">${code}</div>
           <p style="text-align:center;color:#666;font-size:12px">Expira en 10 minutos</p>
         </div>`
@@ -13852,7 +13934,7 @@ app.post('/api/delivery/auth/start', async (req, res) => {
     } catch (mailErr) {
       console.warn('[Delivery] Email send error:', mailErr.message);
     }
-    res.json({ message: 'Código enviado', isNew, needsProfile: isNew || !customer.name });
+    res.json({ message: 'CÃ³digo enviado', isNew, needsProfile: isNew || !customer.name });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -13860,9 +13942,9 @@ app.post('/api/delivery/auth/start', async (req, res) => {
 app.post('/api/delivery/auth/verify', async (req, res) => {
   try {
     const { email, code, name, phone } = req.body;
-    if (!email || !code) return res.status(400).json({ error: 'Email y código requeridos' });
+    if (!email || !code) return res.status(400).json({ error: 'Email y cÃ³digo requeridos' });
     const customer = await verifyDeliveryCustomerCode(email.toLowerCase().trim(), code.trim());
-    if (!customer) return res.status(400).json({ error: 'Código inválido o expirado' });
+    if (!customer) return res.status(400).json({ error: 'CÃ³digo invÃ¡lido o expirado' });
     let finalCustomer = customer;
     if (name || phone) {
       finalCustomer = await completeDeliveryCustomerProfile(customer.id, name || customer.name, phone || customer.phone);
@@ -13877,7 +13959,7 @@ app.post('/api/delivery/auth/verify', async (req, res) => {
 app.get('/api/worker/delivery', async (req, res) => {
   try {
     const token = (req.headers.authorization || '').replace('Bearer ', '');
-    if (!token) return res.status(401).json({ error: 'Sin autorización' });
+    if (!token) return res.status(401).json({ error: 'Sin autorizaciÃ³n' });
     const storeId = parseInt(req.query.store_id);
     if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
     res.json(await getPendingDeliveryOrders(storeId));
@@ -13888,15 +13970,15 @@ app.get('/api/worker/delivery', async (req, res) => {
 app.put('/api/worker/delivery/:id/status', async (req, res) => {
   try {
     const token = (req.headers.authorization || '').replace('Bearer ', '');
-    if (!token) return res.status(401).json({ error: 'Sin autorización' });
+    if (!token) return res.status(401).json({ error: 'Sin autorizaciÃ³n' });
     const { store_id, status } = req.body;
     const validStatuses = ['accepted', 'rejected', 'preparing', 'on_the_way', 'delivered'];
-    if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Estado inválido' });
+    if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Estado invÃ¡lido' });
     const order = await updateDeliveryOrderStatus(parseInt(req.params.id), parseInt(store_id), status);
     // Send status notification email
     if (order?.dc_email && status !== 'rejected') {
-      const statusLabels = { accepted: '✅ Pedido recibido', preparing: '🍳 En preparación', on_the_way: '🛵 En camino', delivered: '📦 Entregado' };
-      const statusMsg = { accepted: 'Tu pedido fue recibido y está siendo revisado por el restaurante.', preparing: 'Manos a la obra — ya están preparando tu pedido.', on_the_way: '¡Tu pedido está en camino! Prepárate para recibirlo.', delivered: '¡Tu pedido fue entregado! Esperamos que lo disfrutes.' };
+      const statusLabels = { accepted: 'âœ… Pedido recibido', preparing: 'ðŸ³ En preparaciÃ³n', on_the_way: 'ðŸ›µ En camino', delivered: 'ðŸ“¦ Entregado' };
+      const statusMsg = { accepted: 'Tu pedido fue recibido y estÃ¡ siendo revisado por el restaurante.', preparing: 'Manos a la obra â€” ya estÃ¡n preparando tu pedido.', on_the_way: 'Â¡Tu pedido estÃ¡ en camino! PrepÃ¡rate para recibirlo.', delivered: 'Â¡Tu pedido fue entregado! Esperamos que lo disfrutes.' };
       const statusColor = { accepted: '#0369a1', preparing: '#92400e', on_the_way: '#065f46', delivered: '#15803d' };
       const statusBg = { accepted: '#e0f2fe', preparing: '#fef3c7', on_the_way: '#d1fae5', delivered: '#f0fdf4' };
       try {
@@ -13909,7 +13991,7 @@ app.put('/api/worker/delivery/:id/status', async (req, res) => {
           const extras = Array.isArray(i.selected_extras) ? i.selected_extras : (JSON.parse(i.selected_extras || '[]'));
           const extrasStr = extras.length ? `<span style="color:#D4AF37;font-size:12px"> + ${extras.map(e => e.name).join(', ')}</span>` : '';
           return `<tr>
-            <td style="padding:8px 0;border-bottom:1px solid #1e1e1e;color:#ccc;font-size:14px">${i.quantity}× ${i.product_name}${extrasStr}</td>
+            <td style="padding:8px 0;border-bottom:1px solid #1e1e1e;color:#ccc;font-size:14px">${i.quantity}Ã— ${i.product_name}${extrasStr}</td>
             <td style="padding:8px 0;border-bottom:1px solid #1e1e1e;color:#fff;font-weight:600;text-align:right;font-size:14px;white-space:nowrap">$${(i.unit_price * i.quantity).toFixed(0)}</td>
           </tr>`;
         }).join('');
@@ -13917,7 +13999,7 @@ app.put('/api/worker/delivery/:id/status', async (req, res) => {
         await mailer.sendMail({
           from: `"SRServi Delivery" <${process.env.EMAIL_USER}>`,
           to: order.dc_email,
-          subject: `${statusLabels[status]} — Pedido #${order.id}`,
+          subject: `${statusLabels[status]} â€” Pedido #${order.id}`,
           html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f3f4f6;font-family:'Helvetica Neue',Arial,sans-serif">
 <div style="max-width:480px;margin:32px auto;background:#0a0a0a;border-radius:16px;overflow:hidden">
 
@@ -13940,7 +14022,7 @@ app.put('/api/worker/delivery/:id/status', async (req, res) => {
   <!-- Store -->
   <div style="padding:0 24px 16px">
     <div style="background:#111;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px">
-      <span style="font-size:20px">🏪</span>
+      <span style="font-size:20px">ðŸª</span>
       <span style="color:#D4AF37;font-weight:700;font-size:15px">${order.store_name || 'Restaurante'}</span>
     </div>
   </div>
@@ -13957,7 +14039,7 @@ app.put('/api/worker/delivery/:id/status', async (req, res) => {
         <td style="color:#999;font-size:13px;text-align:right;padding:4px 0">$${subtotal.toFixed(0)}</td>
       </tr>
       <tr>
-        <td style="color:#666;font-size:13px;padding:4px 0">Envío</td>
+        <td style="color:#666;font-size:13px;padding:4px 0">EnvÃ­o</td>
         <td style="color:#999;font-size:13px;text-align:right;padding:4px 0">${fee > 0 ? '$' + fee.toFixed(0) : 'Gratis'}</td>
       </tr>
       <tr>
@@ -13970,14 +14052,14 @@ app.put('/api/worker/delivery/:id/status', async (req, res) => {
   <!-- Address -->
   ${order.delivery_address ? `<div style="padding:0 24px 20px">
     <div style="background:#111;border-radius:10px;padding:12px 16px">
-      <div style="color:#555;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Dirección de entrega</div>
-      <div style="color:#ccc;font-size:14px">📍 ${order.delivery_address}</div>
+      <div style="color:#555;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">DirecciÃ³n de entrega</div>
+      <div style="color:#ccc;font-size:14px">ðŸ“ ${order.delivery_address}</div>
     </div>
   </div>` : ''}
 
   <!-- Footer -->
   <div style="padding:16px 24px 28px;text-align:center;border-top:1px solid #1e1e1e">
-    <p style="color:#444;font-size:12px;margin:0">SRServi · Sistema de gestión para restaurantes</p>
+    <p style="color:#444;font-size:12px;margin:0">SRServi Â· Sistema de gestiÃ³n para restaurantes</p>
   </div>
 
 </div>
@@ -13998,7 +14080,7 @@ app.get('/api/public/delivery-settings/:storeCode', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── Admin Roles ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Admin Roles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.get('/api/admin/roles', authenticateToken, async (req, res) => {
   try {
@@ -14036,7 +14118,7 @@ app.delete('/api/admin/roles/:id', authenticateToken, async (req, res) => {
   } catch (e) { res.status(e.message.includes('eliminar') ? 409 : 500).json({ error: e.message }); }
 });
 
-// ─── Admin Sub-accounts ───────────────────────────────────────────────────────
+// â”€â”€â”€ Admin Sub-accounts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.get('/api/admin/sub-accounts', authenticateToken, async (req, res) => {
   try {
@@ -14050,8 +14132,8 @@ app.post('/api/admin/sub-accounts', authenticateToken, async (req, res) => {
   try {
     if (req.user.is_sub_account) return res.status(403).json({ error: 'Sin permiso' });
     const { name, email, password, role_id } = req.body;
-    if (!name?.trim() || !email?.trim() || !password) return res.status(400).json({ error: 'Nombre, email y contraseña son requeridos' });
-    if (password.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    if (!name?.trim() || !email?.trim() || !password) return res.status(400).json({ error: 'Nombre, email y contraseÃ±a son requeridos' });
+    if (password.length < 6) return res.status(400).json({ error: 'La contraseÃ±a debe tener al menos 6 caracteres' });
     res.json(await createSubAccount(req.user.id, { name, email, password, role_id }));
   } catch (e) { res.status(e.message.includes('uso') || e.message.includes('registrado') ? 409 : 500).json({ error: e.message }); }
 });
@@ -14061,7 +14143,7 @@ app.put('/api/admin/sub-accounts/:id', authenticateToken, async (req, res) => {
     if (req.user.is_sub_account) return res.status(403).json({ error: 'Sin permiso' });
     const { name, email, role_id, is_active, password } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'Nombre requerido' });
-    if (password && password.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    if (password && password.length < 6) return res.status(400).json({ error: 'La contraseÃ±a debe tener al menos 6 caracteres' });
     const updated = await updateSubAccount(parseInt(req.params.id), req.user.id, { name, email, role_id, is_active, password });
     res.json(updated);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -14075,13 +14157,13 @@ app.delete('/api/admin/sub-accounts/:id', authenticateToken, async (req, res) =>
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── Store Subdomains ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Store Subdomains â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// Public: resolve subdomain → store
+// Public: resolve subdomain â†’ store
 app.get('/api/stores/by-subdomain/:subdomain', async (req, res) => {
   try {
     const subdomain = req.params.subdomain.toLowerCase().replace(/[^a-z0-9-]/g, '');
-    if (!subdomain) return res.status(400).json({ error: 'Subdominio inválido' });
+    if (!subdomain) return res.status(400).json({ error: 'Subdominio invÃ¡lido' });
     const store = await getStoreBySubdomain(subdomain);
     if (!store) return res.status(404).json({ error: 'Subdominio no encontrado' });
     res.json({ code: store.code, name: store.name, logo: store.logo_url });
@@ -14109,8 +14191,8 @@ app.post('/api/stores/:id/subdomain', authenticateToken, async (req, res) => {
 
     const raw = (req.body.subdomain || '').toLowerCase().replace(/[^a-z0-9-]/g, '').trim();
     if (!raw) return res.status(400).json({ error: 'Subdominio requerido' });
-    if (raw.length < 3) return res.status(400).json({ error: 'Mínimo 3 caracteres' });
-    if (raw.length > 40) return res.status(400).json({ error: 'Máximo 40 caracteres' });
+    if (raw.length < 3) return res.status(400).json({ error: 'MÃ­nimo 3 caracteres' });
+    if (raw.length > 40) return res.status(400).json({ error: 'MÃ¡ximo 40 caracteres' });
     const reserved = ['www', 'api', 'mail', 'smtp', 'ftp', 'admin', 'srservi2', 'app', 'static', 'cdn'];
     if (reserved.includes(raw)) return res.status(400).json({ error: 'Subdominio reservado' });
 
@@ -14130,12 +14212,12 @@ app.post('/api/stores/:id/subdomain', authenticateToken, async (req, res) => {
       warning: nginxResult.dev ? 'Modo desarrollo: nginx no fue modificado' : (!nginxResult.ok ? `nginx: ${nginxResult.error}` : null)
     });
   } catch (e) {
-    if (e.message.includes('ya está en uso')) return res.status(409).json({ error: e.message });
+    if (e.message.includes('ya estÃ¡ en uso')) return res.status(409).json({ error: e.message });
     res.status(500).json({ error: e.message });
   }
 });
 
-// ─── People Counter ───────────────────────────────────────────────────────────
+// â”€â”€â”€ People Counter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.get('/api/stores/:id/people-counter/config', authenticateToken, async (req, res) => {
   try {
@@ -14195,7 +14277,7 @@ app.delete('/api/stores/:id/subdomain', authenticateToken, async (req, res) => {
 });
 
 // =====================================================================
-// TICKETERÍA — Venta de entradas con Haulmer + envío por correo
+// TICKETERÃA â€” Venta de entradas con Haulmer + envÃ­o por correo
 // =====================================================================
 
 async function initTicketeriaTables() {
@@ -14287,8 +14369,8 @@ async function initTicketeriaTables() {
     ]) {
       try { await pool.execute(col); } catch(e) { if (!e.message.includes('Duplicate column')) {} }
     }
-    console.log('✅ Tablas de Ticketería listas');
-  } catch (e) { console.error('[Ticketería] Table init error:', e.message); }
+    console.log('âœ… Tablas de TicketerÃ­a listas');
+  } catch (e) { console.error('[TicketerÃ­a] Table init error:', e.message); }
 }
 
 function generateTicketCode() {
@@ -14310,7 +14392,7 @@ async function issueAndEmailTickets(purchaseId) {
     // No re-emitir si ya tiene viewer_code
     if (purchase.viewer_code) return;
 
-    // Generar viewer_code único para la compra
+    // Generar viewer_code Ãºnico para la compra
     let viewerCode;
     let unique = false;
     while (!unique) {
@@ -14344,10 +14426,10 @@ async function issueAndEmailTickets(purchaseId) {
       await pool.execute('UPDATE ticket_events SET sold_count = sold_count + ? WHERE id = ?', [totalTickets, purchase.event_id]);
     }
 
-    // ── Construir email ──────────────────────────────────────────────
+    // â”€â”€ Construir email â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const ticketUrl = `${BASE_URL}/ticket/${viewerCode}`;
 
-    // QR como buffer PNG (adjunto CID — visible en todos los clientes de correo)
+    // QR como buffer PNG (adjunto CID â€” visible en todos los clientes de correo)
     const qrBuffer = await QRCode.toBuffer(ticketUrl, {
       width: 260, margin: 2,
       color: { dark: '#111111', light: '#ffffff' }
@@ -14358,11 +14440,11 @@ async function issueAndEmailTickets(purchaseId) {
     const dateObj = rawDate instanceof Date ? rawDate : new Date(String(rawDate).slice(0,10) + 'T12:00:00');
     const eventDate = dateObj.toLocaleDateString('es-CL', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
     const timeStr = purchase.time_start
-      ? String(purchase.time_start).slice(0, 5) + (purchase.time_end ? ' – ' + String(purchase.time_end).slice(0, 5) : '')
+      ? String(purchase.time_start).slice(0, 5) + (purchase.time_end ? ' â€“ ' + String(purchase.time_end).slice(0, 5) : '')
       : '';
     const totalStr = purchase.total_amount === 0 ? 'Gratis' : `$${Number(purchase.total_amount).toLocaleString('es-CL')}`;
 
-    // Filas de categorías
+    // Filas de categorÃ­as
     const catRows = items.map(item =>
       `<tr>
         <td style="padding:7px 12px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#374151;">${item.category_name}</td>
@@ -14379,7 +14461,7 @@ async function issueAndEmailTickets(purchaseId) {
 
     <!-- Header dorado -->
     <tr><td style="background:#C8A415;padding:24px 30px;text-align:center;">
-      <div style="font-size:28px;margin-bottom:6px;">🎟️</div>
+      <div style="font-size:28px;margin-bottom:6px;">ðŸŽŸï¸</div>
       <h1 style="margin:0;color:#fff;font-size:22px;font-weight:900;letter-spacing:0.5px;">Tus Entradas</h1>
       <p style="margin:4px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">${purchase.event_name}</p>
     </td></tr>
@@ -14387,10 +14469,10 @@ async function issueAndEmailTickets(purchaseId) {
     <!-- Info evento -->
     <tr><td style="background:#fff;padding:24px 30px 0;">
       <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:20px;">
-        <tr><td style="padding:4px 0;font-size:14px;color:#374151;">📅 <strong>${eventDate}</strong></td></tr>
-        ${timeStr ? `<tr><td style="padding:4px 0;font-size:14px;color:#374151;">⏰ ${timeStr}</td></tr>` : ''}
-        ${purchase.location ? `<tr><td style="padding:4px 0;font-size:14px;color:#374151;">📍 ${purchase.location}</td></tr>` : ''}
-        <tr><td style="padding:4px 0;font-size:14px;color:#374151;">👤 ${purchase.buyer_name} &lt;${purchase.buyer_email}&gt;</td></tr>
+        <tr><td style="padding:4px 0;font-size:14px;color:#374151;">ðŸ“… <strong>${eventDate}</strong></td></tr>
+        ${timeStr ? `<tr><td style="padding:4px 0;font-size:14px;color:#374151;">â° ${timeStr}</td></tr>` : ''}
+        ${purchase.location ? `<tr><td style="padding:4px 0;font-size:14px;color:#374151;">ðŸ“ ${purchase.location}</td></tr>` : ''}
+        <tr><td style="padding:4px 0;font-size:14px;color:#374151;">ðŸ‘¤ ${purchase.buyer_name} &lt;${purchase.buyer_email}&gt;</td></tr>
       </table>
     </td></tr>
 
@@ -14398,37 +14480,37 @@ async function issueAndEmailTickets(purchaseId) {
     <tr><td style="background:#fff;padding:0 30px 20px;">
       <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
         <thead><tr style="background:#f9fafb;">
-          <th style="padding:9px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;">Categoría</th>
+          <th style="padding:9px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;">CategorÃ­a</th>
           <th style="padding:9px 12px;text-align:center;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;">Cant.</th>
           <th style="padding:9px 12px;text-align:right;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;">Precio</th>
         </tr></thead>
         <tbody>${catRows}</tbody>
         <tfoot><tr style="background:#f9fafb;">
-          <td colspan="2" style="padding:9px 12px;font-size:14px;font-weight:700;color:#111;">Total · ${totalTickets} persona${totalTickets !== 1 ? 's' : ''}</td>
+          <td colspan="2" style="padding:9px 12px;font-size:14px;font-weight:700;color:#111;">Total Â· ${totalTickets} persona${totalTickets !== 1 ? 's' : ''}</td>
           <td style="padding:9px 12px;font-size:16px;font-weight:900;color:#C8A415;text-align:right;">${totalStr}</td>
         </tr></tfoot>
       </table>
     </td></tr>
 
-    <!-- QR central — adjunto CID -->
+    <!-- QR central â€” adjunto CID -->
     <tr><td style="background:#fffbeb;padding:28px 30px;text-align:center;border-top:2px solid #C8A41540;border-bottom:2px solid #C8A41540;">
-      <p style="margin:0 0 16px;font-size:14px;color:#374151;font-weight:600;">Presenta este código QR en la entrada del evento</p>
+      <p style="margin:0 0 16px;font-size:14px;color:#374151;font-weight:600;">Presenta este cÃ³digo QR en la entrada del evento</p>
       <img src="cid:ticket-qr" width="220" height="220" alt="QR Entrada" style="display:block;margin:0 auto;border-radius:10px;border:4px solid #C8A415;"/>
       <div style="margin-top:14px;font-family:monospace;font-size:24px;font-weight:900;letter-spacing:5px;color:#111;">${viewerCode}</div>
-      <p style="margin:8px 0 0;font-size:12px;color:#9ca3af;">Código único de tu compra</p>
+      <p style="margin:8px 0 0;font-size:12px;color:#9ca3af;">CÃ³digo Ãºnico de tu compra</p>
     </td></tr>
 
-    <!-- Botón ver online -->
+    <!-- BotÃ³n ver online -->
     <tr><td style="background:#fff;padding:20px 30px;text-align:center;">
       <a href="${ticketUrl}" style="display:inline-block;background:#C8A415;color:#fff;font-weight:800;font-size:15px;padding:13px 32px;border-radius:10px;text-decoration:none;">
-        Ver entrada en línea
+        Ver entrada en lÃ­nea
       </a>
-      <p style="margin:10px 0 0;font-size:12px;color:#9ca3af;">También puedes ver el estado de tu entrada en cualquier momento desde el enlace</p>
+      <p style="margin:10px 0 0;font-size:12px;color:#9ca3af;">TambiÃ©n puedes ver el estado de tu entrada en cualquier momento desde el enlace</p>
     </td></tr>
 
     <!-- Footer -->
     <tr><td style="background:#f9fafb;padding:14px 30px;text-align:center;border-top:1px solid #e5e7eb;">
-      <p style="margin:0;font-size:11px;color:#9ca3af;">Powered by SRServi · Ref: ${purchase.haulmer_reference || viewerCode}</p>
+      <p style="margin:0;font-size:11px;color:#9ca3af;">Powered by SRServi Â· Ref: ${purchase.haulmer_reference || viewerCode}</p>
     </td></tr>
 
   </table>
@@ -14439,7 +14521,7 @@ async function issueAndEmailTickets(purchaseId) {
     await mailer.sendMail({
       from: `"SRServi Tickets" <${process.env.EMAIL_USER}>`,
       to: purchase.buyer_email,
-      subject: `🎟️ Tus entradas — ${purchase.event_name}`,
+      subject: `ðŸŽŸï¸ Tus entradas â€” ${purchase.event_name}`,
       html,
       attachments: [{
         filename: 'entrada-qr.png',
@@ -14447,10 +14529,10 @@ async function issueAndEmailTickets(purchaseId) {
         cid: 'ticket-qr'   // referenciado en el HTML como src="cid:ticket-qr"
       }]
     });
-  } catch (e) { console.error('[Ticketería] issueAndEmailTickets error:', e.message); }
+  } catch (e) { console.error('[TicketerÃ­a] issueAndEmailTickets error:', e.message); }
 }
 
-// ── Admin: Eventos ──────────────────────────────────────────────────
+// â”€â”€ Admin: Eventos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/ticketeria/events', authenticateToken, async (req, res) => {
   try {
     const storeId = parseInt(req.query.store_id);
@@ -14503,7 +14585,7 @@ app.delete('/api/ticketeria/events/:id', authenticateToken, async (req, res) => 
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Admin: Categorías ───────────────────────────────────────────────
+// â”€â”€ Admin: CategorÃ­as â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/ticketeria/events/:id/categories', async (req, res) => {
   try {
     const [rows] = await pool.execute('SELECT * FROM ticket_categories WHERE event_id = ? ORDER BY sort_order, id', [parseInt(req.params.id)]);
@@ -14558,7 +14640,7 @@ app.delete('/api/ticketeria/categories/:id', authenticateToken, async (req, res)
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Admin: Compras y tickets emitidos ───────────────────────────────
+// â”€â”€ Admin: Compras y tickets emitidos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/ticketeria/purchases', authenticateToken, async (req, res) => {
   try {
     const storeId = parseInt(req.query.store_id);
@@ -14586,7 +14668,7 @@ app.get('/api/ticketeria/tickets', authenticateToken, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Admin: Validar/escanear ticket ──────────────────────────────────
+// â”€â”€ Admin: Validar/escanear ticket â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/ticketeria/tickets/:code/scan', authenticateToken, async (req, res) => {
   try {
     const code = req.params.code.toUpperCase();
@@ -14606,7 +14688,7 @@ app.post('/api/ticketeria/tickets/:code/scan', authenticateToken, async (req, re
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Público: info básica de tienda por código ────────────────────────
+// â”€â”€ PÃºblico: info bÃ¡sica de tienda por cÃ³digo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/stores/by-code/:code', async (req, res) => {
   try {
     const [rows] = await pool.execute('SELECT id, name, code FROM stores WHERE code = ?', [req.params.code.toUpperCase()]);
@@ -14615,7 +14697,7 @@ app.get('/api/stores/by-code/:code', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Público: config de filtros ───────────────────────────────────────
+// â”€â”€ PÃºblico: config de filtros â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/ticketeria/filter-config', async (req, res) => {
   try {
     const storeId = parseInt(req.query.store_id);
@@ -14627,7 +14709,7 @@ app.get('/api/ticketeria/filter-config', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Admin: guardar config de filtros ────────────────────────────────
+// â”€â”€ Admin: guardar config de filtros â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/ticketeria/filter-config', authenticateToken, async (req, res) => {
   try {
     const { store_id, show_search, show_genre, show_country, show_price, show_date, genres, countries } = req.body;
@@ -14644,7 +14726,7 @@ app.post('/api/ticketeria/filter-config', authenticateToken, async (req, res) =>
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Público: eventos disponibles (con filtros) ───────────────────────
+// â”€â”€ PÃºblico: eventos disponibles (con filtros) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/ticketeria/public/events', async (req, res) => {
   try {
     const storeId = parseInt(req.query.store_id);
@@ -14673,8 +14755,8 @@ app.get('/api/ticketeria/public/events/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Público: crear compra sin pasarela (para terminal POS físico) ────
-// Endpoint para el launcher Android — entrega compras de ticketería confirmadas del día
+// â”€â”€ PÃºblico: crear compra sin pasarela (para terminal POS fÃ­sico) â”€â”€â”€â”€
+// Endpoint para el launcher Android â€” entrega compras de ticketerÃ­a confirmadas del dÃ­a
 app.get('/api/store/:code/ticket-purchases', async (req, res) => {
   try {
     const store = await getStoreByCode(req.params.code);
@@ -14736,13 +14818,13 @@ app.post('/api/ticketeria/purchase/init', async (req, res) => {
     for (const item of items) {
       if (!item.category_id || !item.quantity || item.quantity < 1) continue;
       const [cats] = await pool.execute('SELECT * FROM ticket_categories WHERE id = ? AND event_id = ?', [parseInt(item.category_id), parseInt(event_id)]);
-      if (!cats[0]) return res.status(400).json({ error: `Categoría ${item.category_id} no válida` });
+      if (!cats[0]) return res.status(400).json({ error: `CategorÃ­a ${item.category_id} no vÃ¡lida` });
       const cat = cats[0];
       const qty = parseInt(item.quantity);
       resolvedItems.push({ category_id: cat.id, category_name: cat.name, quantity: qty, unit_price: cat.price, subtotal: cat.price * qty });
       totalAmount += cat.price * qty;
     }
-    if (!resolvedItems.length) return res.status(400).json({ error: 'Ningún ítem válido' });
+    if (!resolvedItems.length) return res.status(400).json({ error: 'NingÃºn Ã­tem vÃ¡lido' });
 
     const [storeRows] = await pool.execute('SELECT user_id, code FROM stores WHERE id = ?', [parseInt(store_id)]);
     if (!storeRows[0]) return res.status(404).json({ error: 'Tienda no encontrada' });
@@ -14763,7 +14845,7 @@ app.post('/api/ticketeria/purchase/init', async (req, res) => {
 
     if (totalAmount === 0) {
       await pool.execute("UPDATE ticket_purchases SET status = 'paid', paid_at = NOW() WHERE id = ?", [purchaseId]);
-      issueAndEmailTickets(purchaseId).catch(e => console.error('[Ticketería gratis]', e.message));
+      issueAndEmailTickets(purchaseId).catch(e => console.error('[TicketerÃ­a gratis]', e.message));
       return res.json({ success: true, free: true, reference, purchaseId, totalAmount, storeId: parseInt(store_id) });
     }
 
@@ -14771,7 +14853,7 @@ app.post('/api/ticketeria/purchase/init', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Público: iniciar compra con Haulmer ─────────────────────────────
+// â”€â”€ PÃºblico: iniciar compra con Haulmer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/ticketeria/purchase', async (req, res) => {
   try {
     const { store_id, event_id, buyer_name, buyer_email, buyer_phone, items } = req.body;
@@ -14788,13 +14870,13 @@ app.post('/api/ticketeria/purchase', async (req, res) => {
     for (const item of items) {
       if (!item.category_id || !item.quantity || item.quantity < 1) continue;
       const [cats] = await pool.execute('SELECT * FROM ticket_categories WHERE id = ? AND event_id = ?', [parseInt(item.category_id), parseInt(event_id)]);
-      if (!cats[0]) return res.status(400).json({ error: `Categoría ${item.category_id} no válida` });
+      if (!cats[0]) return res.status(400).json({ error: `CategorÃ­a ${item.category_id} no vÃ¡lida` });
       const cat = cats[0];
       const qty = parseInt(item.quantity);
       resolvedItems.push({ category_id: cat.id, category_name: cat.name, quantity: qty, unit_price: cat.price, subtotal: cat.price * qty });
       totalAmount += cat.price * qty;
     }
-    if (!resolvedItems.length) return res.status(400).json({ error: 'Ningún ítem válido' });
+    if (!resolvedItems.length) return res.status(400).json({ error: 'NingÃºn Ã­tem vÃ¡lido' });
 
     const [storeRows] = await pool.execute('SELECT user_id, code FROM stores WHERE id = ?', [parseInt(store_id)]);
     if (!storeRows[0]) return res.status(404).json({ error: 'Tienda no encontrada' });
@@ -14818,7 +14900,7 @@ app.post('/api/ticketeria/purchase', async (req, res) => {
     // Entradas gratis: sin pasarela de pago
     if (totalAmount === 0) {
       await pool.execute("UPDATE ticket_purchases SET status = 'paid', paid_at = NOW() WHERE id = ?", [purchaseId]);
-      issueAndEmailTickets(purchaseId).catch(e => console.error('[Ticketería gratis]', e.message));
+      issueAndEmailTickets(purchaseId).catch(e => console.error('[TicketerÃ­a gratis]', e.message));
       const storeCode = storeRows[0].code;
       return res.json({ success: true, free: true, reference, purchaseId, redirectUrl: `/tickets/${storeCode}?ref=${reference}` });
     }
@@ -14871,7 +14953,7 @@ app.post('/api/ticketeria/purchase', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Público: estado de compra ────────────────────────────────────────
+// â”€â”€ PÃºblico: estado de compra â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/ticketeria/purchase/:reference/status', async (req, res) => {
   try {
     const [rows] = await pool.execute(
@@ -14883,7 +14965,7 @@ app.get('/api/ticketeria/purchase/:reference/status', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Público: ver compra por viewer_code ─────────────────────────────
+// â”€â”€ PÃºblico: ver compra por viewer_code â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.get('/api/ticketeria/public/ticket/:code', async (req, res) => {
   try {
     const code = req.params.code.toUpperCase();
@@ -14899,7 +14981,7 @@ app.get('/api/ticketeria/public/ticket/:code', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Admin: admitir compra completa por viewer_code ──────────────────
+// â”€â”€ Admin: admitir compra completa por viewer_code â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/ticketeria/admit/:code', authenticateToken, async (req, res) => {
   try {
     const code = req.params.code.toUpperCase();
@@ -14917,15 +14999,15 @@ app.post('/api/ticketeria/admit/:code', authenticateToken, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Confirmar ticket desde redirect de Haulmer ───────────────────────
+// â”€â”€ Confirmar ticket desde redirect de Haulmer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/ticketeria/purchase/:reference/confirm', async (req, res) => {
   try {
     const reference = req.params.reference;
-    if (!reference.startsWith('TKT-')) return res.status(400).json({ error: 'Referencia inválida' });
+    if (!reference.startsWith('TKT-')) return res.status(400).json({ error: 'Referencia invÃ¡lida' });
     const [purchases] = await pool.execute("SELECT * FROM ticket_purchases WHERE haulmer_reference = ? AND status = 'pending'", [reference]);
     if (purchases[0]) {
       await pool.execute("UPDATE ticket_purchases SET status = 'paid', paid_at = NOW() WHERE haulmer_reference = ?", [reference]);
-      issueAndEmailTickets(purchases[0].id).catch(e => console.error('[Ticketería]', e.message));
+      issueAndEmailTickets(purchases[0].id).catch(e => console.error('[TicketerÃ­a]', e.message));
     }
     const [rows] = await pool.execute('SELECT tp.*, te.name AS event_name FROM ticket_purchases tp JOIN ticket_events te ON te.id = tp.event_id WHERE tp.haulmer_reference = ?', [reference]);
     if (!rows[0]) return res.status(404).json({ error: 'No encontrado' });
@@ -14933,7 +15015,7 @@ app.post('/api/ticketeria/purchase/:reference/confirm', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── Loyalty System ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Loyalty System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Public: get loyalty config + customers for checkout (by store code)
 app.get('/api/public/:code/loyalty', async (req, res) => {
@@ -15010,7 +15092,7 @@ app.delete('/api/loyalty/customers/:id', authenticateToken, async (req, res) => 
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── RTSP People Counter ─────────────────────────────────────────────────────
+// â”€â”€â”€ RTSP People Counter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getRTSP() { return app._rtspCounterService || null; }
 
@@ -15039,7 +15121,7 @@ app.post('/api/stores/:id/people-counter/rtsp', authenticateToken, async (req, r
     const svc = getRTSP();
     if (svc) {
       if (rtsp_enabled && rtsp_url) {
-        // Obtener línea actual de config
+        // Obtener lÃ­nea actual de config
         const counterConfig = await import('./database.js').then(m => m.getPeopleCounterConfig(storeId));
         await svc.startStore(storeId, rtsp_url, counterConfig?.line || null, counterConfig?.flip || false, rtsp_sensitivity || 30);
       } else {
@@ -15061,10 +15143,10 @@ app.get('/api/stores/:id/people-counter/rtsp/status', authenticateToken, async (
 });
 
 // Snapshots en memoria subidos por el agente local
-const localSnapshots = new Map(); // storeId → Buffer JPEG
-const localAgentPing = new Map(); // storeId → timestamp último ping
-const localMjpegClients = new Map(); // storeId → Set(sendFn) — clientes viendo la vista previa
-const snapOwnerCache = new Map(); // 'userId:storeId' → expiración (evita 1 query SQL por frame)
+const localSnapshots = new Map(); // storeId â†’ Buffer JPEG
+const localAgentPing = new Map(); // storeId â†’ timestamp Ãºltimo ping
+const localMjpegClients = new Map(); // storeId â†’ Set(sendFn) â€” clientes viendo la vista previa
+const snapOwnerCache = new Map(); // 'userId:storeId' â†’ expiraciÃ³n (evita 1 query SQL por frame)
 
 async function checkSnapOwner(userId, storeId) {
   const key = `${userId}:${storeId}`;
@@ -15103,14 +15185,14 @@ app.get('/api/stores/:id/people-counter/agent-status', authenticateToken, async 
   res.json({ active: !!active, hasSnapshot: localSnapshots.has(storeId), lastPing: lastPing || null });
 });
 
-// GET stream MJPEG — pipe:3 directo de FFmpeg sin pasar por disco
+// GET stream MJPEG â€” pipe:3 directo de FFmpeg sin pasar por disco
 app.get('/api/stores/:id/people-counter/mjpeg', async (req, res) => {
   try {
     const storeId = parseInt(req.params.id);
     const rawToken = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
     if (!rawToken) return res.status(401).send('Sin token');
     let userId;
-    try { userId = jwt.verify(rawToken, process.env.JWT_SECRET || 'srservi_secret_key_2024').id; } catch { return res.status(401).send('Token inválido'); }
+    try { userId = jwt.verify(rawToken, process.env.JWT_SECRET || 'srservi_secret_key_2024').id; } catch { return res.status(401).send('Token invÃ¡lido'); }
     const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, userId]);
     if (!owned[0]) return res.status(403).send('Sin permiso');
 
@@ -15120,7 +15202,7 @@ app.get('/api/stores/:id/people-counter/mjpeg', async (req, res) => {
     res.setHeader('Connection', 'close');
     res.flushHeaders();
 
-    // Enviar el último snapshot inmediatamente si ya hay uno
+    // Enviar el Ãºltimo snapshot inmediatamente si ya hay uno
     const firstSnap = getRTSP()?.getSnapshot(storeId) || localSnapshots.get(storeId);
     if (firstSnap) {
       res.write('--mjpegframe\r\nContent-Type: image/jpeg\r\n\r\n');
@@ -15130,7 +15212,7 @@ app.get('/api/stores/:id/people-counter/mjpeg', async (req, res) => {
 
     // Recibir frames directamente desde pipe:3 de FFmpeg.
     // Backpressure: si el viewer no consume a tiempo (>512KB en cola) se salta
-    // el frame en vez de acumular retraso — el video se mantiene en tiempo real.
+    // el frame en vez de acumular retraso â€” el video se mantiene en tiempo real.
     const sendFrame = (jpeg) => {
       if (res.destroyed || res.writableLength > 512 * 1024) return;
       res.write('--mjpegframe\r\nContent-Type: image/jpeg\r\n\r\n');
@@ -15140,7 +15222,7 @@ app.get('/api/stores/:id/people-counter/mjpeg', async (req, res) => {
 
     getRTSP()?.addMjpegClient(storeId, sendFrame);
 
-    // También recibir frames del agente local (AforoBridge) en vivo
+    // TambiÃ©n recibir frames del agente local (AforoBridge) en vivo
     let lset = localMjpegClients.get(storeId);
     if (!lset) { lset = new Set(); localMjpegClients.set(storeId, lset); }
     lset.add(sendFrame);
@@ -15152,14 +15234,14 @@ app.get('/api/stores/:id/people-counter/mjpeg', async (req, res) => {
   } catch (e) { res.status(500).send(e.message); }
 });
 
-// GET snapshot JPEG — acepta token en header o query param
+// GET snapshot JPEG â€” acepta token en header o query param
 app.get('/api/stores/:id/people-counter/snapshot', async (req, res) => {
   try {
     const storeId = parseInt(req.params.id);
     const rawToken = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
     if (!rawToken) return res.status(401).send('Sin token');
     let userId;
-    try { userId = jwt.verify(rawToken, process.env.JWT_SECRET || 'srservi_secret_key_2024').id; } catch { return res.status(401).send('Token inválido'); }
+    try { userId = jwt.verify(rawToken, process.env.JWT_SECRET || 'srservi_secret_key_2024').id; } catch { return res.status(401).send('Token invÃ¡lido'); }
     const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, userId]);
     if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
 
@@ -15188,7 +15270,7 @@ app.get('/api/people-counter/download-agent', authenticateToken, (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Agente no encontrado' }); }
 });
 
-// ─── INVENTORY MOVEMENTS, ALERTS & REPORTS ────────────────────────────────────
+// â”€â”€â”€ INVENTORY MOVEMENTS, ALERTS & REPORTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.get('/api/inventory/movements/:storeId', authenticateToken, async (req, res) => {
   try {
@@ -15243,7 +15325,7 @@ app.get('/api/inventory/reports/consumption/:storeId', authenticateToken, async 
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── Inventory Sections ──────────────────────────────────────────────────────
+// â”€â”€ Inventory Sections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.get('/api/inventory/sections/:storeId', authenticateToken, async (req, res) => {
   try {
@@ -15317,12 +15399,12 @@ app.delete('/api/inventory/sections/:sectionId/items/:itemType/:itemId', authent
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── Inventory Movements (Purchase/Entry/Exit) ───────────────────────────────
+// â”€â”€ Inventory Movements (Purchase/Entry/Exit) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.post('/api/inventory/movement', authenticateToken, async (req, res) => {
   try {
     const { store_id, reason, items, user_name } = req.body;
-    if (!['purchase', 'entry', 'exit'].includes(reason)) return res.status(400).json({ error: 'Tipo de movimiento inválido' });
+    if (!['purchase', 'entry', 'exit'].includes(reason)) return res.status(400).json({ error: 'Tipo de movimiento invÃ¡lido' });
     const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
     if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
 
@@ -15364,7 +15446,7 @@ app.post('/api/inventory/movement', authenticateToken, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── Inventory Transfers ─────────────────────────────────────────────────────
+// â”€â”€ Inventory Transfers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.post('/api/inventory/transfers', authenticateToken, async (req, res) => {
   try {
@@ -15415,9 +15497,9 @@ app.put('/api/inventory/transfers/:id/cancel', authenticateToken, async (req, re
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ═══════════════════════════════════════════════════════════════════════
-// FEEDBACK / ENCUESTAS DE SATISFACCIÓN
-// ═══════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// FEEDBACK / ENCUESTAS DE SATISFACCIÃ“N
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 async function sendFeedbackToUsers(users, campaignId) {
   const BASE = process.env.BASE_URL || process.env.CLIENT_URL || 'https://srservi2.srautomatic.com';
@@ -15436,16 +15518,16 @@ async function sendFeedbackToUsers(users, campaignId) {
 <tr><td align="center">
 <table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
   <tr><td style="background:#C8A415;padding:24px 30px;text-align:center;">
-    <h1 style="margin:0;color:#fff;font-size:22px;font-weight:900;">⭐ Tu opinión nos importa</h1>
-    <p style="margin:6px 0 0;color:rgba(255,255,255,0.9);font-size:14px;">Hola ${user.business_name || user.username}, ¿cómo te ha ido con SRServi?</p>
+    <h1 style="margin:0;color:#fff;font-size:22px;font-weight:900;">â­ Tu opiniÃ³n nos importa</h1>
+    <p style="margin:6px 0 0;color:rgba(255,255,255,0.9);font-size:14px;">Hola ${user.business_name || user.username}, Â¿cÃ³mo te ha ido con SRServi?</p>
   </td></tr>
   <tr><td style="background:#fff;padding:28px 30px;text-align:center;">
-    <p style="font-size:15px;color:#374151;margin:0 0 20px;">Tómate 2 minutos para contarnos tu experiencia. Tu feedback nos ayuda a mejorar el sistema para ti.</p>
+    <p style="font-size:15px;color:#374151;margin:0 0 20px;">TÃ³mate 2 minutos para contarnos tu experiencia. Tu feedback nos ayuda a mejorar el sistema para ti.</p>
     <a href="${link}" style="display:inline-block;background:#C8A415;color:#fff;font-weight:800;font-size:16px;padding:14px 36px;border-radius:10px;text-decoration:none;">Responder encuesta</a>
     <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">O copia este enlace: ${link}</p>
   </td></tr>
   <tr><td style="background:#f9fafb;padding:14px 30px;text-align:center;border-top:1px solid #e5e7eb;">
-    <p style="margin:0;font-size:11px;color:#9ca3af;">SRServi — Sistema de gestión para restaurantes</p>
+    <p style="margin:0;font-size:11px;color:#9ca3af;">SRServi â€” Sistema de gestiÃ³n para restaurantes</p>
   </td></tr>
 </table>
 </td></tr>
@@ -15454,7 +15536,7 @@ async function sendFeedbackToUsers(users, campaignId) {
       await mailer.sendMail({
         from: `"SRServi" <${process.env.EMAIL_USER}>`,
         to: user.email,
-        subject: '⭐ ¿Cómo ha sido tu experiencia con SRServi?',
+        subject: 'â­ Â¿CÃ³mo ha sido tu experiencia con SRServi?',
         html
       });
     } catch (e) { console.error(`[Feedback] Email failed for ${user.email}:`, e.message); }
@@ -15465,7 +15547,7 @@ async function sendFeedbackToUsers(users, campaignId) {
       try {
         const phone = user.phone.replace(/\D/g, '');
         await sendWhatsAppMessage(0, `${phone}@s.whatsapp.net`,
-          `⭐ *Hola ${user.business_name || user.username}!*\nTu opinión sobre SRServi nos ayuda a mejorar.\nTómate 2 min para responder nuestra encuesta:\n${link}`
+          `â­ *Hola ${user.business_name || user.username}!*\nTu opiniÃ³n sobre SRServi nos ayuda a mejorar.\nTÃ³mate 2 min para responder nuestra encuesta:\n${link}`
         );
         sentVia = 'both';
         await pool.execute('UPDATE feedback_tokens SET sent_via = ? WHERE token = ?', [sentVia, token]);
@@ -15489,7 +15571,7 @@ app.post('/api/superadmin/feedback/send', authenticateSuperadminToken, async (re
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Superadmin: listar campañas
+// Superadmin: listar campaÃ±as
 app.get('/api/superadmin/feedback/campaigns', authenticateSuperadminToken, async (req, res) => {
   try {
     const campaigns = await getFeedbackCampaigns();
@@ -15506,32 +15588,32 @@ app.get('/api/superadmin/feedback/responses', authenticateSuperadminToken, async
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Público: obtener info del token (para mostrar el formulario)
+// PÃºblico: obtener info del token (para mostrar el formulario)
 app.get('/api/feedback/:token', async (req, res) => {
   try {
     const ft = await getFeedbackToken(req.params.token);
-    if (!ft) return res.status(404).json({ error: 'Enlace no válido' });
+    if (!ft) return res.status(404).json({ error: 'Enlace no vÃ¡lido' });
     if (ft.status === 'responded') return res.json({ already_responded: true, business_name: ft.business_name });
     res.json({ valid: true, business_name: ft.business_name || ft.username });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Público: enviar respuesta
+// PÃºblico: enviar respuesta
 app.post('/api/feedback/:token', async (req, res) => {
   try {
     const ft = await getFeedbackToken(req.params.token);
-    if (!ft) return res.status(404).json({ error: 'Enlace no válido' });
+    if (!ft) return res.status(404).json({ error: 'Enlace no vÃ¡lido' });
     if (ft.status === 'responded') return res.status(409).json({ error: 'Ya respondiste esta encuesta' });
     const { overall_rating, ease_of_use, support_quality, would_recommend, comment, improvement_suggestions } = req.body;
-    if (!overall_rating || overall_rating < 1 || overall_rating > 5) return res.status(400).json({ error: 'Calificación inválida (1-5)' });
+    if (!overall_rating || overall_rating < 1 || overall_rating > 5) return res.status(400).json({ error: 'CalificaciÃ³n invÃ¡lida (1-5)' });
     await submitFeedbackResponse(ft.id, ft.user_id, req.body);
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Cron mensual: primer día de cada mes a las 9am
+// Cron mensual: primer dÃ­a de cada mes a las 9am
 cron.schedule('0 9 1 * *', async () => {
-  console.log('[Feedback Cron] Iniciando encuesta mensual automática...');
+  console.log('[Feedback Cron] Iniciando encuesta mensual automÃ¡tica...');
   try {
     const campaignId = await createFeedbackCampaign('monthly');
     const users = await getAllActiveUsersForFeedback();
@@ -15540,9 +15622,9 @@ cron.schedule('0 9 1 * *', async () => {
   } catch (e) { console.error('[Feedback Cron]', e.message); }
 });
 
-// ═══════════════════════════════════════════════════════════════════════
-// ARRIENDO DE TÓTEM
-// ═══════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ARRIENDO DE TÃ“TEM
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 const TOTEM_INSTALLATION_FEE = parseFloat(process.env.TOTEM_INSTALL_FEE || '150000'); // CLP
 const TOTEM_MONTHLY_FEE = parseFloat(process.env.TOTEM_MONTHLY_FEE || '50000');       // CLP
@@ -15551,10 +15633,10 @@ const TOTEM_MONTHLY_FEE = parseFloat(process.env.TOTEM_MONTHLY_FEE || '50000'); 
 app.post('/api/admin/totem-rental/request', authenticateToken, async (req, res) => {
   try {
     const { contact_name, contact_phone, address, notes } = req.body;
-    if (!contact_name || !contact_phone || !address) return res.status(400).json({ error: 'Nombre, teléfono y dirección son requeridos' });
+    if (!contact_name || !contact_phone || !address) return res.status(400).json({ error: 'Nombre, telÃ©fono y direcciÃ³n son requeridos' });
     const existing = await getTotemRentalByUser(req.user.id);
     if (existing && ['pending_payment','pending_install','active'].includes(existing.status)) {
-      return res.status(409).json({ error: 'Ya tienes una solicitud de tótem activa', rental: existing });
+      return res.status(409).json({ error: 'Ya tienes una solicitud de tÃ³tem activa', rental: existing });
     }
     const rentalId = await createTotemRental(req.user.id, {
       contact_name, contact_phone, address, notes,
@@ -15574,11 +15656,11 @@ app.get('/api/admin/totem-rental', authenticateToken, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Admin: crear preferencia de pago de instalación con MP
+// Admin: crear preferencia de pago de instalaciÃ³n con MP
 app.post('/api/admin/totem-rental/checkout', authenticateToken, async (req, res) => {
   try {
     const rental = await getTotemRentalByUser(req.user.id);
-    if (!rental) return res.status(404).json({ error: 'Sin solicitud de tótem' });
+    if (!rental) return res.status(404).json({ error: 'Sin solicitud de tÃ³tem' });
     if (rental.status !== 'pending_payment') return res.status(400).json({ error: `Estado actual: ${rental.status}` });
 
     const [userRows] = await pool.execute('SELECT * FROM users WHERE id = ?', [req.user.id]);
@@ -15590,8 +15672,8 @@ app.post('/api/admin/totem-rental/checkout', authenticateToken, async (req, res)
       body: {
         items: [{
           id: `totem-install-${rental.id}`,
-          title: 'Cuota de instalación — Tótem SRServi',
-          description: `Instalación del tótem en ${rental.address}`,
+          title: 'Cuota de instalaciÃ³n â€” TÃ³tem SRServi',
+          description: `InstalaciÃ³n del tÃ³tem en ${rental.address}`,
           quantity: 1,
           currency_id: 'CLP',
           unit_price: Number(rental.installation_fee)
@@ -15623,7 +15705,7 @@ app.get('/api/superadmin/totem-rentals', authenticateSuperadminToken, async (req
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Superadmin: marcar como instalado + crear suscripción MP
+// Superadmin: marcar como instalado + crear suscripciÃ³n MP
 app.put('/api/superadmin/totem-rentals/:id/install', authenticateSuperadminToken, async (req, res) => {
   try {
     const rentalId = parseInt(req.params.id);
@@ -15638,7 +15720,7 @@ app.put('/api/superadmin/totem-rentals/:id/install', authenticateSuperadminToken
         method: 'POST',
         headers: { 'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          reason: 'Arriendo mensual Tótem SRServi',
+          reason: 'Arriendo mensual TÃ³tem SRServi',
           auto_recurring: {
             frequency: 1,
             frequency_type: 'months',
@@ -15666,7 +15748,7 @@ app.put('/api/superadmin/totem-rentals/:id/status', authenticateSuperadminToken,
   try {
     const { status } = req.body;
     const allowed = ['pending_payment','pending_install','active','suspended','cancelled'];
-    if (!allowed.includes(status)) return res.status(400).json({ error: 'Estado inválido' });
+    if (!allowed.includes(status)) return res.status(400).json({ error: 'Estado invÃ¡lido' });
     await updateTotemRentalStatus(parseInt(req.params.id), status);
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }

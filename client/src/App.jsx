@@ -18,6 +18,7 @@ import Stores from './pages/admin/Stores';
 import Categories from './pages/admin/Categories';
 import Products from './pages/admin/Products';
 import Combos from './pages/admin/Combos';
+import Promos from './pages/admin/Promos';
 import Ingredients from './pages/admin/Ingredients';
 import Extras from './pages/admin/Extras';
 import Complements from './pages/admin/Complements';
@@ -281,6 +282,7 @@ function App() {
             <Route path="categories" element={<PermissionGate section="categories"><Categories /></PermissionGate>} />
             <Route path="products" element={<PermissionGate section="products"><Products /></PermissionGate>} />
             <Route path="combos" element={<PermissionGate section="products"><Combos /></PermissionGate>} />
+            <Route path="promos" element={<PermissionGate section="products"><Promos /></PermissionGate>} />
             <Route path="ingredients" element={<PermissionGate section="categories"><Complements /></PermissionGate>} />
             <Route path="extras" element={<PermissionGate section="categories"><Complements /></PermissionGate>} />
             <Route path="complements" element={<PermissionGate section="categories"><Complements /></PermissionGate>} />

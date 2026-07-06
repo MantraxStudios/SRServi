@@ -10,6 +10,7 @@ import {
   faList,
   faBox,
   faLayerGroup,
+  faBullhorn,
   faFlask,
   faPlus,
   faShoppingBag,
@@ -743,6 +744,7 @@ function Layout() {
                 {!isSubAccount && <NavLink to="/admin/subdomain" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faGlobe} /> Subdominio</NavLink>}
                 {can('products', 'view') && <NavLink to="/admin/products" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faBox} /> Productos</NavLink>}
                 {can('products', 'view') && <NavLink to="/admin/sections" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faLayerGroup} /> Secciones</NavLink>}
+                {can('products', 'view') && <NavLink to="/admin/promos" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faBullhorn} /> Promociones</NavLink>}
                 {can('ventas_mes', 'view') && <NavLink to="/admin/ventas-mes" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faMoneyBill} /> Ventas del Mes</NavLink>}
                 {can('analytics', 'view') && <NavLink to="/admin/ventas-dia" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faCalendarDay} /> Ventas del Día</NavLink>}
                 {can('analytics', 'view') && <NavLink to="/admin/analytics" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faChartLine} /> Análisis</NavLink>}

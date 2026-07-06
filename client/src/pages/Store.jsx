@@ -1009,6 +1009,7 @@ function Store() {
   const [comboModal, setComboModal] = useState(null);
   const [comboQty, setComboQty] = useState(1);
   const [activeCategory, setActiveCategory] = useState('all');
+  const [promoConfirm, setPromoConfirm] = useState(null);
   const [configurations, setConfigurations] = useState([]);
   const [selectedConfiguration, setSelectedConfiguration] = useState(null);
   const [editMode, setEditMode] = useState(false);
@@ -2473,6 +2474,29 @@ function Store() {
     setTimeout(() => setNotification(null), 1500);
   };
 
+  // Añade una promoción (banner) al carrito tras confirmación
+  const addPromoToCart = (promo) => {
+    const price = Number(promo.price) || 0;
+    const cartItem = {
+      id: Date.now(),
+      product_id: null,
+      _isPromo: true,
+      promo_title: promo.title,
+      product_name: promo.title,
+      product_image: promo.image,
+      unit_price: price,
+      quantity: 1,
+      total: price,
+      selected_ingredients: [],
+      selected_extras: [],
+      selected_complements: []
+    };
+    setCart(prev => [...prev, cartItem]);
+    setNotification({ name: promo.title, image: promo.image });
+    setPromoConfirm(null);
+    setTimeout(() => setNotification(null), 1500);
+  };
+
   // Ref-based version for use inside setTimeout callbacks where state closures are stale
   const addToCartRef = () => {
     const product = selectedProductRef.current;
@@ -2864,12 +2888,13 @@ function Store() {
         }));
       }
       return [{
-        product_id: item.product_id,
+        product_id: item.product_id ?? null,
         quantity: item.quantity,
         unit_price: item.unit_price,
         selected_ingredients: item.selected_ingredients,
         selected_extras: item.selected_extras,
-        selected_complements: item.selected_complements || []
+        selected_complements: item.selected_complements || [],
+        ...(item._isPromo ? { promo_title: item.promo_title } : {})
       }];
     });
 
@@ -3139,12 +3164,13 @@ function Store() {
         }));
       }
       return [{
-        product_id: item.product_id,
+        product_id: item.product_id ?? null,
         quantity: item.quantity,
         unit_price: item.unit_price,
         selected_ingredients: item.selected_ingredients,
         selected_extras: item.selected_extras,
-        selected_complements: item.selected_complements || []
+        selected_complements: item.selected_complements || [],
+        ...(item._isPromo ? { promo_title: item.promo_title } : {})
       }];
     });
     try {
@@ -5144,6 +5170,26 @@ function Store() {
           </button>
         )}
         </div>
+
+        {/* Promociones (banners bajo las categorías) */}
+        {(!editMode || previewMode) && (store?.promos || []).length > 0 && (
+          <div className="store-promos">
+            {store.promos.map(promo => (
+              <div key={promo.id} className="store-promo-card" onClick={() => setPromoConfirm(promo)}>
+                <div className="store-promo-info">
+                  <div className="store-promo-title">{promo.title}</div>
+                  {promo.description && <div className="store-promo-desc">{promo.description}</div>}
+                  {Number(promo.price) > 0 && (
+                    <div className="store-promo-price">{colors.currency.symbol}{formatPrice(promo.price)}</div>
+                  )}
+                </div>
+                {promo.image && (
+                  <img src={getProductImageUrl(promo.image)} alt={promo.title} className="store-promo-img" />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="store-main">
@@ -6087,6 +6133,48 @@ function Store() {
           </button>
         </div>
       </div>
+      )}
+
+      {/* Confirmación de promoción */}
+      {promoConfirm && (
+        <div
+          onClick={() => setPromoConfirm(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 22, maxWidth: 380, width: '100%', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', animation: 'storeModalPop 0.18s ease' }}>
+            {promoConfirm.image && (
+              <img src={getProductImageUrl(promoConfirm.image)} alt={promoConfirm.title} style={{ width: '100%', height: 170, objectFit: 'cover', display: 'block' }} />
+            )}
+            <div style={{ padding: '18px 20px 20px' }}>
+              <div style={{ fontSize: 20, fontWeight: 900, color: '#232028', letterSpacing: '-0.3px' }}>{promoConfirm.title}</div>
+              {promoConfirm.description && (
+                <div style={{ fontSize: 13, color: '#8f8a80', marginTop: 4, lineHeight: 1.4 }}>{promoConfirm.description}</div>
+              )}
+              {Number(promoConfirm.price) > 0 && (
+                <div style={{ fontSize: 22, fontWeight: 900, color: '#232028', marginTop: 10 }}>
+                  {colors.currency.symbol}{formatPrice(promoConfirm.price)}
+                </div>
+              )}
+              <div style={{ fontSize: 14, color: '#5b564d', marginTop: 12, fontWeight: 600 }}>
+                ¿Quieres añadir esta promoción a tu pedido?
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                <button
+                  onClick={() => setPromoConfirm(null)}
+                  style={{ flex: 1, padding: '13px', borderRadius: 999, border: '1px solid #eee6d8', background: '#fff', color: '#232028', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => addPromoToCart(promoConfirm)}
+                  style={{ flex: 1.4, padding: '13px', borderRadius: 999, border: 'none', background: '#FFC42E', color: '#232028', fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 14px rgba(255,196,46,0.4)' }}
+                >
+                  Sí, añadir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {notification && (

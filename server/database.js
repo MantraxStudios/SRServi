@@ -278,6 +278,22 @@ async function createTables() {
   await pool.execute(createCombosTable);
   await pool.execute(createComboItemsTable);
 
+  // ── Promociones de tienda (banners bajo el nav, añadibles al carrito) ──
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS store_promos (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      title VARCHAR(120) NOT NULL,
+      description VARCHAR(255),
+      image TEXT,
+      price DECIMAL(10,2) NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      sort_order INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
   // ── Secciones personalizadas (grupos dinámicos de complementos) ──
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS complement_groups (
@@ -335,6 +351,12 @@ async function createTables() {
     if (!oiColNames.includes('combo_label')) {
       await pool.execute('ALTER TABLE order_items ADD COLUMN combo_label VARCHAR(255) NULL');
       console.log('✅ Columna combo_label agregada a order_items');
+    }
+    if (!oiColNames.includes('promo_title')) {
+      await pool.execute('ALTER TABLE order_items ADD COLUMN promo_title VARCHAR(120) NULL');
+      // Permite items de promoción sin producto asociado (FK acepta NULL)
+      await pool.execute('ALTER TABLE order_items MODIFY product_id INT NULL');
+      console.log('✅ Columna promo_title agregada a order_items (product_id ahora acepta NULL)');
     }
   } catch (e) { console.warn('Migration order_items columns:', e.message); }
 
@@ -3708,6 +3730,48 @@ export async function deleteCombo(comboId, storeId) {
   return true;
 }
 
+// ── Promociones de tienda ──────────────────────────────────────────
+export async function getStorePromos(storeId) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM store_promos WHERE store_id = ? ORDER BY sort_order ASC, id ASC',
+    [storeId]
+  );
+  return rows.map(r => ({ ...r, price: parseFloat(r.price) || 0, is_active: !!r.is_active }));
+}
+
+export async function getPublicStorePromos(storeId) {
+  const [rows] = await pool.execute(
+    'SELECT id, title, description, image, price FROM store_promos WHERE store_id = ? AND is_active = TRUE ORDER BY sort_order ASC, id ASC',
+    [storeId]
+  );
+  return rows.map(r => ({ ...r, price: parseFloat(r.price) || 0 }));
+}
+
+export async function createStorePromo(storeId, data) {
+  const { title, description, image, price, is_active } = data;
+  const [result] = await pool.execute(
+    'INSERT INTO store_promos (store_id, title, description, image, price, is_active) VALUES (?, ?, ?, ?, ?, ?)',
+    [storeId, title, description || null, image || null, parseFloat(price) || 0, is_active === false ? 0 : 1]
+  );
+  const [rows] = await pool.execute('SELECT * FROM store_promos WHERE id = ?', [result.insertId]);
+  return rows[0];
+}
+
+export async function updateStorePromo(promoId, storeId, data) {
+  const { title, description, image, price, is_active } = data;
+  await pool.execute(
+    'UPDATE store_promos SET title = ?, description = ?, image = ?, price = ?, is_active = ? WHERE id = ? AND store_id = ?',
+    [title, description || null, image || null, parseFloat(price) || 0, is_active === false ? 0 : 1, promoId, storeId]
+  );
+  const [rows] = await pool.execute('SELECT * FROM store_promos WHERE id = ?', [promoId]);
+  return rows[0];
+}
+
+export async function deleteStorePromo(promoId, storeId) {
+  await pool.execute('DELETE FROM store_promos WHERE id = ? AND store_id = ?', [promoId, storeId]);
+  return true;
+}
+
 function calculateDiscountAmount(total, discountType, discountValue) {
   const safeTotal = Number(total) || 0;
   const safeValue = Number(discountValue) || 0;
@@ -3889,17 +3953,18 @@ export async function createOrder(storeId, orderData) {
     } catch { selectedComplementsCol = '[]'; }
     try {
       await pool.execute(
-        'INSERT INTO order_items (order_id, product_id, quantity, unit_price, selected_ingredients, selected_extras, selected_complements, combo_id, combo_label) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO order_items (order_id, product_id, quantity, unit_price, selected_ingredients, selected_extras, selected_complements, combo_id, combo_label, promo_title) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           orderId,
-          item.product_id,
+          item.product_id ?? null,
           item.quantity,
           item.unit_price,
           JSON.stringify(item.selected_ingredients || []),
           JSON.stringify(item.selected_extras || []),
           selectedComplementsCol,
           item.combo_id || null,
-          item.combo_label || null
+          item.combo_label || null,
+          item.promo_title || null
         ]
       );
     } catch (e) {
@@ -3908,7 +3973,7 @@ export async function createOrder(storeId, orderData) {
         'INSERT INTO order_items (order_id, product_id, quantity, unit_price, selected_ingredients, selected_extras) VALUES (?, ?, ?, ?, ?, ?)',
         [
           orderId,
-          item.product_id,
+          item.product_id ?? null,
           item.quantity,
           item.unit_price,
           JSON.stringify(item.selected_ingredients || []),
@@ -3917,7 +3982,8 @@ export async function createOrder(storeId, orderData) {
       );
     }
 
-    // Deduct product stock
+    // Deduct product stock (los items de promoción no tienen producto)
+    if (!item.product_id) continue;
     const [invRows] = await pool.execute(
       'SELECT stock, unlimited_stock FROM inventory WHERE product_id = ?',
       [item.product_id]
@@ -4158,9 +4224,9 @@ export async function getWhatsAppOrders(storeId) {
 
 export async function getOrderItems(orderId) {
   const [rows] = await pool.execute(`
-    SELECT oi.*, COALESCE(p.name, 'Producto eliminado') as product_name 
-    FROM order_items oi 
-    LEFT JOIN products p ON oi.product_id = p.id 
+    SELECT oi.*, COALESCE(oi.promo_title, p.name, 'Producto eliminado') as product_name
+    FROM order_items oi
+    LEFT JOIN products p ON oi.product_id = p.id
     WHERE oi.order_id = ?
   `, [orderId]);
   
@@ -5658,7 +5724,7 @@ export async function getTodayOrdersForStore(storeId) {
   const [rows] = await pool.execute(`
     SELECT o.*,
       GROUP_CONCAT(
-        CONCAT(oi.quantity, 'x ', COALESCE(p.name,'Producto'),
+        CONCAT(oi.quantity, 'x ', COALESCE(oi.promo_title, p.name, 'Producto'),
           IF(oi.selected_ingredients IS NOT NULL AND oi.selected_ingredients != '[]',
             CONCAT(' [', oi.selected_ingredients, ']'), ''),
           IF(oi.selected_extras IS NOT NULL AND oi.selected_extras != '[]',
