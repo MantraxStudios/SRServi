@@ -3663,6 +3663,21 @@ html body .store-container .store-product-card * {
   box-shadow: 0 4px 14px rgba(255, 196, 46, 0.3);
 }
 
+/* Imagen uniforme en tarjetas de complementos/extras/secciones:
+   misma proporción para todas, sin recortes, con fondo blanco */
+.option-img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  height: auto;
+  object-fit: contain;
+  background: #fff;
+  padding: 6px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--kiosk-border, #F0E8D9);
+  display: block;
+  flex-shrink: 0;
+}
+
 .option-item input[type="checkbox"],
 .option-item input[type="radio"] {
   width: 20px;

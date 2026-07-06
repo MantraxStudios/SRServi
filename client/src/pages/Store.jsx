@@ -6334,12 +6334,7 @@ function Store() {
                     <img
                       src={getProductImageUrl(ingredient.image)}
                       alt={ingredient.name}
-                      style={{
-                        width: '100%',
-                        height: '110px',
-                        objectFit: 'cover',
-                        borderBottom: `1px solid ${isSelected ? 'var(--store-accent)' : '#e0e0e0'}`
-                      }}
+                      className="option-img"
                     />
                     <div className="text-center" style={{ padding: '8px' }}>
                       <div style={{
@@ -6523,12 +6518,7 @@ function Store() {
                     <img
                       src={getProductImageUrl(extra.image)}
                       alt={extra.name}
-                      style={{
-                        width: '100%',
-                        height: '110px',
-                        objectFit: 'cover',
-                        borderBottom: `1px solid ${isSelected ? 'var(--store-accent)' : '#e0e0e0'}`
-                      }}
+                      className="option-img"
                     />
                     <div className="text-center" style={{ padding: '8px' }}>
                       <div style={{
@@ -6651,9 +6641,7 @@ function Store() {
                               overflow: 'hidden', position: 'relative', opacity: outOfStock ? 0.6 : 1, borderStyle: 'solid', borderRadius: 12
                             }}
                           >
-                            {opt.image && (
-                              <img src={getProductImageUrl(opt.image)} alt={opt.name} style={{ width: '100%', height: 70, objectFit: 'cover' }} />
-                            )}
+                            <img src={getProductImageUrl(opt.image)} alt={opt.name} className="option-img" />
                             <div style={{ padding: '8px 6px', textAlign: 'center', width: '100%' }}>
                               <div className="font-bold" style={{ fontSize: 13, color: isSel ? 'var(--store-primary)' : '#333' }}>{opt.name}</div>
                               {Number(opt.price) > 0 && (
