@@ -1010,6 +1010,7 @@ function Store() {
   const [comboQty, setComboQty] = useState(1);
   const [activeCategory, setActiveCategory] = useState('all');
   const [promoConfirm, setPromoConfirm] = useState(null);
+  const [storePromos, setStorePromos] = useState([]);
   const [configurations, setConfigurations] = useState([]);
   const [selectedConfiguration, setSelectedConfiguration] = useState(null);
   const [editMode, setEditMode] = useState(false);
@@ -2062,6 +2063,19 @@ function Store() {
         .then(r => r.ok ? r.json() : {})
         .then(d => setPrepTimes(d || {}))
         .catch(() => {});
+
+      // Promociones (carrusel bajo las categorías)
+      if (Array.isArray(data.promos) && data.promos.length > 0) {
+        setStorePromos(data.promos);
+      } else {
+        fetch(`/api/public/${code}/promos`, { cache: 'no-store' })
+          .then(r => r.ok ? r.json() : [])
+          .then(d => {
+            console.log('Promos recibidas:', d);
+            setStorePromos(Array.isArray(d) ? d : []);
+          })
+          .catch(() => {});
+      }
 
       // Fetch loyalty config (solo config, sin descargar modelos)
       fetch(`/api/public/${code}/loyalty`)
@@ -5117,7 +5131,7 @@ function Store() {
         </div>
       )}
 
-      <div className="store-body" style={restaurantView && !activeTable ? { display: 'none' } : {}}>
+      <div className={`store-body${editMode && !previewMode ? ' editing' : ''}`} style={restaurantView && !activeTable ? { display: 'none' } : {}}>
       <div className="category-tabs">
         <div
           ref={categoryRef}
@@ -5174,9 +5188,9 @@ function Store() {
         </div>
 
         {/* Promociones (banners bajo las categorías) */}
-        {(store?.promos || []).length > 0 && (
+        {storePromos.length > 0 && (
           <div className="store-promos">
-            {store.promos.map(promo => (
+            {storePromos.map(promo => (
               <div key={promo.id} className="store-promo-card" onClick={() => setPromoConfirm(promo)}>
                 <div className="store-promo-info">
                   <div className="store-promo-title">{promo.title}</div>

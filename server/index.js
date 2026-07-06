@@ -1299,6 +1299,18 @@ app.get('/api/public/:code', async (req, res) => {
   }
 });
 
+// Promociones públicas de la tienda (para el carrusel del tótem)
+app.get('/api/public/:code/promos', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Código no encontrado' });
+    res.json(await getPublicStorePromos(store.id));
+  } catch (error) {
+    console.error('❌ Error en /api/public/:code/promos:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/public/:code/mercado-pago-terminals', async (req, res) => {
   try {
     const store = await getStoreByCode(req.params.code.toUpperCase());

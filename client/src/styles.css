@@ -2515,8 +2515,10 @@ h1, h2, h3, h4, h5, h6 {
 @media (min-width: 900px) {
   .store-promos {
     flex-direction: column;
-    overflow: visible;
+    overflow-y: auto;
     margin-top: 16px;
+    flex: 1;
+    min-height: 0;
   }
 
   .store-promo-card {
@@ -2542,22 +2544,67 @@ h1, h2, h3, h4, h5, h6 {
     width: 100%;
   }
 
+  /* Modo edición: layout apilado clásico (sin sidebar) para el editor */
+  .store-body.editing {
+    flex-direction: column;
+    padding: 0;
+    max-width: none;
+    gap: 0;
+  }
+
+  .store-body.editing .category-tabs {
+    width: 100%;
+    padding: 12px 14px 8px;
+    max-height: none;
+    overflow: visible;
+    display: block;
+  }
+
+  .store-body.editing .category-tabs-list {
+    flex-direction: row;
+    max-height: none;
+    overflow-x: auto;
+  }
+
+  .store-body.editing .category-tab {
+    width: auto;
+    padding: 11px 18px;
+    font-size: 14px;
+  }
+
+  .store-body.editing .store-promos {
+    flex-direction: row;
+    overflow-x: auto;
+    flex: none;
+    margin-top: 10px;
+  }
+
+  .store-body.editing .store-promos .store-promo-card {
+    width: 240px;
+  }
+
   .category-tabs {
     width: 232px;
     flex-shrink: 0;
     padding: 12px 0 16px;
-    overflow-y: auto;
-    scrollbar-width: none;
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
   }
 
-  .category-tabs::-webkit-scrollbar {
-    display: none;
-  }
-
+  /* Las categorías ocupan como máximo el 50% del alto;
+     el resto queda para las promociones */
   .category-tabs-list {
     flex-direction: column;
     gap: 10px;
-    overflow: visible;
+    max-height: 50vh;
+    overflow-y: auto;
+    scrollbar-width: none;
+    flex-shrink: 0;
+  }
+
+  .category-tabs-list::-webkit-scrollbar {
+    display: none;
   }
 
   .category-tab {
@@ -3487,7 +3534,8 @@ html body .store-container .store-product-card * {
   left: var(--sidebar-w, 0px);
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.75);
+  background-color: rgba(35, 32, 40, 0.55);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3496,47 +3544,80 @@ html body .store-container .store-product-card * {
 }
 
 .store-modal {
-  background-color: var(--store-secondary);
-  border-radius: var(--radius-xl);
+  /* Remapea la paleta al estilo kiosko: los estilos inline del modal
+     (seleccionados, precios, botones) usan estas variables */
+  --store-primary: var(--kiosk-dark, #232028);
+  --store-accent: var(--kiosk-accent, #FFC42E);
+  --store-header: #ffffff;
+  --store-secondary: #ffffff;
+  background-color: #fff;
+  border-radius: 26px;
   width: 95vw;
   max-width: 900px;
   height: 85vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--shadow-2xl);
+  box-shadow: 0 24px 70px rgba(30, 25, 15, 0.35);
 }
 
 .store-modal-header {
-  background-color: var(--store-header);
-  color: var(--store-accent);
+  background-color: #fff;
+  color: var(--kiosk-dark, #232028);
   padding: var(--space-5);
   text-align: center;
   position: relative;
 }
 
-.store-modal-close {
-  background: transparent;
-  border: none;
-  color: var(--store-accent);
+.store-modal-header h2 {
+  font-weight: 900;
   font-size: 22px;
+  letter-spacing: -0.4px;
+  color: var(--kiosk-dark, #232028);
+}
+
+.store-modal-close {
+  background: #F5F0E6;
+  border: none;
+  color: var(--kiosk-dark, #232028);
+  font-size: 16px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   position: absolute;
   top: var(--space-4);
   right: var(--space-4);
-  padding: var(--space-2);
+  padding: 0;
+  transition: background var(--transition-fast);
+}
+
+.store-modal-close:hover {
+  background: #EDE5D4;
 }
 
 .store-modal-body {
   flex: 1;
   overflow-y: auto;
   padding: var(--space-5);
+  background: var(--kiosk-bg, #FAF4E9);
 }
 
 .store-modal-footer {
   padding: var(--space-4) var(--space-5);
-  border-top: 1px solid var(--border);
-  background-color: var(--store-secondary);
+  border-top: 1px solid var(--kiosk-border, #F0E8D9);
+  background-color: #fff;
+}
+
+/* Botones del modal estilo kiosko: píldora amarilla */
+.store-modal-footer .btn {
+  border-radius: 999px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.2px;
+  box-shadow: 0 4px 14px rgba(255, 196, 46, 0.35);
 }
 
 /* Option items (ingredients/extras) */
@@ -3555,20 +3636,31 @@ html body .store-container .store-product-card * {
   display: flex;
   align-items: center;
   padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--kiosk-border, #F0E8D9);
+  border-radius: 16px;
   margin-bottom: var(--space-2);
   cursor: pointer;
+  background: #fff;
   transition: all var(--transition);
+  box-shadow: 0 2px 8px rgba(60, 45, 20, 0.05);
 }
 
-.option-item:hover {
-  border-color: var(--store-accent);
+@media (hover: hover) {
+  .option-item:hover {
+    border-color: var(--kiosk-accent, #FFC42E);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(60, 45, 20, 0.1);
+  }
+}
+
+.option-item:active {
+  transform: scale(0.98);
 }
 
 .option-item.selected {
-  border-color: var(--store-accent);
-  background-color: rgba(212, 175, 55, 0.06);
+  border-color: var(--kiosk-accent, #FFC42E);
+  background-color: rgba(255, 196, 46, 0.1);
+  box-shadow: 0 4px 14px rgba(255, 196, 46, 0.3);
 }
 
 .option-item input[type="checkbox"],
