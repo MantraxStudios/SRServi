@@ -2973,7 +2973,7 @@ app.post('/api/store/:code/qr-webhook', async (req, res) => {
         const payment = await paymentRes.json();
         if (payment.status === 'approved' && payment.external_reference) {
           const [orders] = await pool.execute(
-            'SELECT id FROM orders WHERE external_reference = ? AND store_id = ?',
+            'SELECT id, order_number FROM orders WHERE external_reference = ? AND store_id = ?',
             [payment.external_reference, store.id]
           );
           if (orders.length > 0) {
@@ -2981,10 +2981,13 @@ app.post('/api/store/:code/qr-webhook', async (req, res) => {
               "UPDATE orders SET payment_process = 1, cash_approved = TRUE, status = 'preparing', reference_id = ?, sequence_id = ? WHERE id = ?",
               [payment.id?.toString(), payment.external_reference, orders[0].id]
             );
-            const socketId = userSockets.get(store.id);
-            if (socketId) {
-              io.to(socketId).emit('qr_payment_completed', { order_id: orders[0].id, payment_id: payment.id });
-            }
+            // Emite al room de la tienda para que TODOS los clientes conectados
+            // (incluido el teléfono del cliente en modo delivery) reciban la confirmación
+            io.to(`store_${store.id}`).emit('qr_payment_completed', {
+              order_id: orders[0].id,
+              payment_id: payment.id,
+              order_number: orders[0].order_number || null
+            });
           }
         }
       }
@@ -6968,6 +6971,19 @@ app.get('/api/orders/:orderId/payment-status', async (req, res) => {
 
     const order = orders[0];
 
+    // Si el webhook (QR/delivery MP) ya confirmó el pago en la DB,
+    // responde aprobado de inmediato — así el teléfono muestra el # de orden
+    if (order.payment_method === 'card' && order.payment_process === 1 && order.cash_approved) {
+      return res.json({
+        mp_status: 'approved',
+        payment_status: 'approved',
+        paid_amount: String(order.total || '0'),
+        order_status: order.status,
+        order,
+        mp_full: null
+      });
+    }
+
     if (order.payment_method !== 'card') {
       const status = order.status === 'completed' ? 'approved' : 'pending';
       return res.json({ mp_status: status, payment_status: status, order_status: order.status, order, mp_full: null });
@@ -7003,7 +7019,7 @@ app.get('/api/orders/:orderId/payment-status', async (req, res) => {
       }
     }
 
-    let mercadopagoAccessToken = store?.mercadopago_access_token;
+    let mercadopagoAccessToken = store?.mercadopago_access_token || store?.mp_access_token;
     if (order.terminal_id) {
       const [posRows] = await pool.execute(
         "SELECT api_key FROM pos_terminals WHERE id = ? AND provider = 'mercadopago'",
@@ -7233,7 +7249,7 @@ app.post('/api/orders/:orderId/cancel-payment', async (req, res) => {
     }
 
     const store = await getStoreById(parseInt(storeId));
-    let mercadopagoAccessToken = store?.mercadopago_access_token;
+    let mercadopagoAccessToken = store?.mercadopago_access_token || store?.mp_access_token;
     if (order.terminal_id) {
       const [posRows] = await pool.execute(
         "SELECT api_key FROM pos_terminals WHERE id = ? AND provider = 'mercadopago'",
