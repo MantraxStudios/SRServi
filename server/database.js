@@ -7,7 +7,7 @@ const dbConfig = {
   host: 'localhost',
   port: 3306,
   user: 'root',
-  password: 'SDVDttniogreireg@2024',
+  password: '@Fam#+234',
   database: 'srservi',
   waitForConnections: true,
   connectionLimit: 10,

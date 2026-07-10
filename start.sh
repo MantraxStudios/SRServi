@@ -6,6 +6,19 @@
 
 set -e
 
+# Auto-elevar a root: las instalaciones (Ollama, drivers NVIDIA, python3)
+# corren dentro del proceso de Node y necesitan permisos de root.
+if [ "$(id -u)" != "0" ]; then
+    if command -v sudo >/dev/null 2>&1; then
+        echo "Elevando permisos con sudo (necesario para instalar Ollama/drivers/python3)..."
+        exec sudo -E bash "$0" "$@"
+    else
+        echo "ERROR: ejecuta este script como root (no hay sudo disponible):"
+        echo "  su -c \"$0 $*\""
+        exit 1
+    fi
+fi
+
 MODE="${1:-prod}"
 case "$MODE" in
     local|dev|development) MODE="local"; ENV_FILE=".env.development"; VITE_MODE="development" ;;
@@ -20,12 +33,6 @@ echo "=========================================="
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
-
-# Sudo solo si no somos root
-SUDO=""
-if [ "$(id -u)" != "0" ] && command -v sudo >/dev/null 2>&1; then
-    SUDO="sudo"
-fi
 
 # Seleccionar .env según el modo
 echo "[1/6] Configurando entorno ($ENV_FILE)..."
@@ -46,10 +53,10 @@ echo "[3/6] Verificando Python3 (León IA)..."
 if ! command -v python3 >/dev/null 2>&1; then
     echo "  Instalando python3..."
     if command -v apt-get >/dev/null 2>&1; then
-        $SUDO apt-get update -qq
-        $SUDO apt-get install -y python3 python3-venv python3-pip
+        apt-get update -qq
+        apt-get install -y python3 python3-venv python3-pip
     elif command -v yum >/dev/null 2>&1; then
-        $SUDO yum install -y python3 python3-pip
+        yum install -y python3 python3-pip
     else
         echo "  ⚠ No se encontró apt/yum — instala python3 manualmente"
     fi
