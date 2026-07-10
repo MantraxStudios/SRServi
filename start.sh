@@ -65,6 +65,25 @@ if command -v python3 >/dev/null 2>&1; then
     echo "  Python3 disponible ✓ ($(python3 --version 2>&1))"
 fi
 
+# python3-venv (ensurepip) — sin él los venvs se crean SIN pip y fallan
+if command -v python3 >/dev/null 2>&1 && ! python3 -c "import ensurepip" >/dev/null 2>&1; then
+    echo "  Instalando python3-venv..."
+    if command -v apt-get >/dev/null 2>&1; then
+        apt-get update -qq
+        apt-get install -y python3-venv python3-pip
+    elif command -v yum >/dev/null 2>&1; then
+        yum install -y python3-pip
+    fi
+fi
+
+# Limpiar venvs rotos (existen pero sin pip) para que se recreen solos
+for VENV in server/leon_ia/venv server/instagram_venv; do
+    if [ -d "$VENV" ] && [ ! -x "$VENV/bin/pip" ]; then
+        echo "  ⚠ Venv incompleto en $VENV — se elimina para recrearlo"
+        rm -rf "$VENV"
+    fi
+done
+
 # GPU NVIDIA — informativo; autostart.js instala drivers si hace falta
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1; then
     echo "  GPU NVIDIA detectada ✓ — Ollama la usará automáticamente:"

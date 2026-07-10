@@ -5,7 +5,7 @@
  */
 
 import { spawn } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, rmSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -250,21 +250,54 @@ async function ensurePythonEnv() {
   }
   log('Python3 disponible ✓');
 
+  // Venv incompleto (existe pero sin python o sin pip) → recrear desde cero.
+  // Pasa cuando faltaba python3-venv al crearlo: deja bin/python3 pero sin pip.
+  if (existsSync(VENV_DIR) && (!existsSync(PYTHON_BIN) || !existsSync(PIP_BIN))) {
+    warn('Venv incompleto detectado (falta pip) — recreando...');
+    try { rmSync(VENV_DIR, { recursive: true, force: true }); } catch {}
+  }
+
   if (!existsSync(PYTHON_BIN)) {
+    // ensurepip es parte del paquete python3-venv en Debian/Ubuntu
+    if (!await shellOk('python3 -c "import ensurepip"')) {
+      log('Instalando python3-venv (necesario para crear el venv)...');
+      await withHeartbeat(
+        shellStream(
+          '(apt-get update -qq 2>/dev/null; apt-get install -y python3-venv python3-pip) 2>/dev/null || ' +
+          'yum install -y python3-pip 2>/dev/null || true'
+        ),
+        'instalando python3-venv'
+      );
+    }
+
     log(`Creando entorno virtual Python en ${VENV_DIR} ...`);
     const ok = await spawnStream('python3', ['-m', 'venv', VENV_DIR]);
-    if (!ok) { warn('Error creando venv'); return false; }
+    if (!ok || !existsSync(PYTHON_BIN)) {
+      warn('Error creando venv');
+      try { rmSync(VENV_DIR, { recursive: true, force: true }); } catch {}
+      return false;
+    }
+    // Último recurso si el venv quedó sin pip
+    if (!existsSync(PIP_BIN)) {
+      log('Venv sin pip — ejecutando ensurepip...');
+      await spawnStream(PYTHON_BIN, ['-m', 'ensurepip', '--upgrade']);
+    }
+    if (!existsSync(PIP_BIN)) {
+      warn('No se pudo obtener pip en el venv');
+      try { rmSync(VENV_DIR, { recursive: true, force: true }); } catch {}
+      return false;
+    }
     log('Venv León IA creado ✓');
   } else {
     log('Venv León IA ya existe ✓');
   }
 
   log('Actualizando pip...');
-  await spawnStream(PIP_BIN, ['install', '--quiet', '--upgrade', 'pip']);
+  await spawnStream(PYTHON_BIN, ['-m', 'pip', 'install', '--quiet', '--upgrade', 'pip']);
 
   log('Instalando dependencias Python (fastapi, uvicorn, mysql-connector, httpx)...');
   const ok = await withHeartbeat(
-    spawnStream(PIP_BIN, ['install', '-r', REQ_TXT]),
+    spawnStream(PYTHON_BIN, ['-m', 'pip', 'install', '-r', REQ_TXT]),
     'instalando dependencias Python'
   );
   if (!ok) { warn('Error instalando dependencias Python'); return false; }
