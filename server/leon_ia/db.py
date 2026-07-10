@@ -10,6 +10,10 @@ DB_CONFIG = {
     "database": os.getenv("DB_NAME", "srservi")
 }
 
+# Plugin de autenticación opcional (ej: caching_sha2_password, mysql_native_password)
+if os.getenv("DB_AUTH_PLUGIN"):
+    DB_CONFIG["auth_plugin"] = os.getenv("DB_AUTH_PLUGIN")
+
 def get_conn():
     return mysql.connector.connect(**DB_CONFIG)
 
