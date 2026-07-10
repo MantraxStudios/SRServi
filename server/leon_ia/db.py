@@ -1,12 +1,13 @@
+import os
 import mysql.connector
 from datetime import datetime
 
 DB_CONFIG = {
-    "host": "localhost",
-    "port": 3306,
-    "user": "root",
-    "password": "SDVDttniogreireg@2024",
-    "database": "srservi"
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port": int(os.getenv("DB_PORT", "3306")),
+    "user": os.getenv("DB_USER", "root"),
+    "password": os.getenv("DB_PASSWORD", "SDVDttniogreireg@2024"),
+    "database": os.getenv("DB_NAME", "srservi")
 }
 
 def get_conn():

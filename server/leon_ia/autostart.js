@@ -18,10 +18,14 @@ const MAIN_PY    = path.join(LEON_DIR, 'main.py');
 const REQ_TXT    = path.join(LEON_DIR, 'requirements.txt');
 
 const OLLAMA_PORT = 11434;
-const LEON_PORT   = 7777;
-const MODEL       = 'qwen2.5:3b'; // ~2 GB
+const LEON_PORT   = parseInt(process.env.LEON_PORT || '7777', 10);
+// Modelo: configurable por env. Si hay GPU NVIDIA se usa el 7b (mejor español),
+// si no, el 3b (~2 GB, corre bien en CPU).
+const MODEL_GPU   = 'qwen2.5:7b';
+const MODEL_CPU   = 'qwen2.5:3b';
 
 let pythonProc = null;
+let hasNvidiaGPU = false;
 
 const log  = (msg) => console.log(`[León IA] ${msg}`);
 const warn = (msg) => console.warn(`[León IA] ⚠ ${msg}`);
@@ -97,6 +101,58 @@ async function waitForPort(port, timeoutSec = 30) {
   return false;
 }
 
+// ── 0. GPU NVIDIA ─────────────────────────────────────────────────────────────
+/** Ejecuta un shell y devuelve true si el exit code es 0 (sin output). */
+function shellOk(cmd) {
+  return new Promise((resolve) => {
+    const p = spawn('sh', ['-c', cmd], { stdio: 'ignore' });
+    p.on('close', (c) => resolve(c === 0));
+    p.on('error', () => resolve(false));
+  });
+}
+
+/**
+ * Detecta GPU NVIDIA. Si hay hardware NVIDIA sin drivers, intenta instalarlos.
+ * Ollama ya incluye sus librerías CUDA — solo necesita el driver del sistema.
+ */
+async function ensureNvidiaGPU() {
+  if (await commandExists('nvidia-smi') && await shellOk('nvidia-smi -L')) {
+    log('GPU NVIDIA detectada ✓ — Ollama la usará automáticamente');
+    await shellStream('nvidia-smi -L');
+    return true;
+  }
+
+  const hasHardware = await shellOk('lspci 2>/dev/null | grep -qi nvidia');
+  if (!hasHardware) {
+    log('Sin GPU NVIDIA — Ollama correrá en CPU');
+    return false;
+  }
+
+  log('Hardware NVIDIA detectado sin drivers. Instalando drivers (puede tardar varios minutos)...');
+  const ok = await withHeartbeat(
+    shellStream(
+      'if command -v ubuntu-drivers >/dev/null 2>&1; then ubuntu-drivers autoinstall; ' +
+      'elif command -v apt-get >/dev/null 2>&1; then apt-get update -qq && ' +
+      '  (apt-get install -y nvidia-driver-550 nvidia-utils-550 2>/dev/null || ' +
+      '   apt-get install -y nvidia-driver-535 nvidia-utils-535); ' +
+      'elif command -v yum >/dev/null 2>&1; then yum install -y nvidia-driver-latest-dkms; ' +
+      'else false; fi'
+    ),
+    'instalando drivers NVIDIA', 20
+  );
+
+  if (ok && await commandExists('nvidia-smi')) {
+    if (await shellOk('nvidia-smi -L')) {
+      log('Drivers NVIDIA instalados y funcionando ✓');
+      return true;
+    }
+    warn('Drivers instalados pero requieren REINICIAR el servidor para activarse. Por ahora Ollama usará CPU.');
+    return false;
+  }
+  warn('No se pudieron instalar drivers NVIDIA — Ollama correrá en CPU');
+  return false;
+}
+
 // ── 1. Instalar Ollama ────────────────────────────────────────────────────────
 async function ensureOllama() {
   // Asegurar que /usr/local/bin está en el PATH del proceso
@@ -147,6 +203,7 @@ async function ensureOllamaRunning() {
 
 // ── 3. Descargar modelo ───────────────────────────────────────────────────────
 async function ensureModel() {
+  const MODEL = process.env.LEON_MODEL || (hasNvidiaGPU ? MODEL_GPU : MODEL_CPU);
   log('Verificando modelos instalados...');
   const checkProc = await new Promise((resolve) => {
     let out = '';
@@ -159,12 +216,12 @@ async function ensureModel() {
 
   log(`  Modelos disponibles: ${checkProc.trim() || '(ninguno)'}`);
 
-  if (checkProc.includes('qwen2.5')) {
+  if (checkProc.includes(MODEL) || (!process.env.LEON_MODEL && checkProc.includes('qwen2.5'))) {
     log('Modelo qwen2.5 disponible ✓');
     return true;
   }
 
-  log(`Descargando modelo ${MODEL} (~2GB, puede tardar varios minutos)...`);
+  log(`Descargando modelo ${MODEL} (puede tardar varios minutos)...`);
   log('  El progreso aparece abajo. Si no ves barras, el servidor lo está procesando en silencio.');
   const ok = await withHeartbeat(
     spawnStream('ollama', ['pull', MODEL]),
@@ -182,7 +239,7 @@ async function ensurePythonEnv() {
     log('Instalando python3 (apt/yum)...');
     const ok = await withHeartbeat(
       shellStream(
-        'apt-get install -y python3 python3-venv python3-pip 2>/dev/null || ' +
+        '(apt-get update -qq 2>/dev/null; apt-get install -y python3 python3-venv python3-pip) 2>/dev/null || ' +
         'yum install -y python3 python3-pip 2>/dev/null || true'
       ),
       'instalando python3'
@@ -257,19 +314,22 @@ async function startPythonService() {
 export async function initLeonIA() {
   log('=== Iniciando configuración automática de León IA ===');
 
-  log('[Paso 1/5] Verificando Ollama...');
+  log('[Paso 1/6] Verificando GPU NVIDIA...');
+  hasNvidiaGPU = await ensureNvidiaGPU();
+
+  log('[Paso 2/6] Verificando Ollama...');
   if (!await ensureOllama())        { warn('Sin Ollama → León IA usará sistema clásico'); return; }
 
-  log('[Paso 2/5] Verificando ollama serve...');
+  log('[Paso 3/6] Verificando ollama serve...');
   if (!await ensureOllamaRunning()) { warn('Ollama no arrancó → León IA usará sistema clásico'); return; }
 
-  log('[Paso 3/5] Verificando modelo de IA...');
+  log('[Paso 4/6] Verificando modelo de IA...');
   if (!await ensureModel())         { warn('Sin modelo → León IA usará sistema clásico'); return; }
 
-  log('[Paso 4/5] Verificando entorno Python...');
+  log('[Paso 5/6] Verificando entorno Python...');
   if (!await ensurePythonEnv())     { warn('Sin Python env → León IA usará sistema clásico'); return; }
 
-  log('[Paso 5/5] Lanzando servicio FastAPI...');
+  log('[Paso 6/6] Lanzando servicio FastAPI...');
   if (!await startPythonService())  { warn('FastAPI no arrancó → León IA usará sistema clásico'); return; }
 
   log('=== León IA completamente operativo — responde cualquier pregunta en español ===');

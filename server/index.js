@@ -3950,7 +3950,7 @@ function leonBuildResponse(intent, range, data, storeName) {
   }
 }
 
-const LEON_PYTHON_URL = 'http://127.0.0.1:7777';
+const LEON_PYTHON_URL = process.env.LEON_PYTHON_URL || `http://127.0.0.1:${process.env.LEON_PORT || 7777}`;
 let leonPythonAvailable = null; // null = no comprobado, true/false
 
 async function checkLeonPython() {
@@ -13026,7 +13026,7 @@ Responde SOLO con JSON válido, sin texto extra:
 
 Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador nuevo.`;
 
-        const leonRes = await fetch('http://localhost:7777/chat', {
+        const leonRes = await fetch(`${LEON_PYTHON_URL}/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ question: prompt, store_id: parseInt(store_id), history: [] }),
@@ -13480,7 +13480,8 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     initInstagramService().catch(e => console.warn('[IG-Service] Error autostart:', e.message));
 
     // León IA — configuración automática en background (no bloquea el servidor)
-    if (process.platform === 'linux') {
+    // En Windows/Mac se puede forzar con LEON_AUTOSTART=1 en el .env
+    if (process.platform === 'linux' || process.env.LEON_AUTOSTART === '1') {
       initLeonIA().catch(e => console.warn('[León IA] Error autostart:', e.message));
     }
   } catch (error) {

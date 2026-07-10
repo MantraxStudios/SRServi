@@ -5,6 +5,7 @@ Corre en: http://localhost:7777
 """
 
 import json
+import os
 import re
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -23,13 +24,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-OLLAMA_URL = "http://localhost:11434"
+# Configurable vía .env del servidor (autostart.js propaga process.env)
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+LEON_HOST = os.getenv("LEON_HOST", "0.0.0.0")
+LEON_PORT = int(os.getenv("LEON_PORT", "7777"))
 # Modelos recomendados (en orden de preferencia):
 # qwen2.5:7b  → mejor español, ~4GB RAM
 # qwen2.5:3b  → más rápido, ~2GB RAM
 # llama3.2:3b → alternativa, ~2GB RAM
 # mistral:7b  → buena opción, ~4GB RAM
-DEFAULT_MODEL = "qwen2.5:7b"
+DEFAULT_MODEL = os.getenv("LEON_MODEL", "qwen2.5:7b")
 
 SYSTEM_PROMPT = """Eres León IA 🦁, el asistente de negocios inteligente de SRServi para la tienda "{store_name}".
 
@@ -178,4 +182,4 @@ async def chat(req: ChatRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=7777, reload=False)
+    uvicorn.run("main:app", host=LEON_HOST, port=LEON_PORT, reload=False)
