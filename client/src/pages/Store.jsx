@@ -956,6 +956,8 @@ function Store() {
   const tuuModePayFromUrl = searchParams.get('tuumodepay') === 'true';
   const qrReturnResult = searchParams.get('x_result');
   const qrReturnRef = searchParams.get('x_reference');
+  const mpReturnOrder = searchParams.get('mp_order');
+  const mpReturnResult = searchParams.get('mp_result');
   const [qrPaymentResult, setQrPaymentResult] = useState(null);
   const [store, setStore] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1398,6 +1400,46 @@ function Store() {
       setQrPaymentResult({ success: false, message: 'Error verificando pago' });
     });
   }, [qrReturnRef]);
+
+  // Retorno de MercadoPago Checkout Pro (delivery): verificar el pago contra el
+  // servidor y mostrar el resultado — el webhook puede tardar unos segundos
+  const mpReturnHandledRef = useRef(false);
+  useEffect(() => {
+    if (!mpReturnOrder || !store?.store?.id || mpReturnHandledRef.current) return;
+    mpReturnHandledRef.current = true;
+
+    if (mpReturnResult === 'failure') {
+      setQrPaymentResult({ success: false, message: t('paymentNotProcessed', lang) });
+      return;
+    }
+
+    const storeId = store.store.id;
+    let attempts = 0;
+    const check = async () => {
+      attempts++;
+      try {
+        const res = await fetch(`/api/orders/${mpReturnOrder}/payment-status?store_id=${storeId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.payment_status === 'approved' || data.mp_status === 'approved') {
+            setCart([]);
+            setLastOrderNumber(data.order?.order_number || null);
+            setQrPaymentResult({
+              success: true,
+              status: 'completed',
+              amount: data.order?.total,
+              message: 'Pago aprobado',
+              order: data.order?.order_number ? { order_number: data.order.order_number } : null
+            });
+            return;
+          }
+        }
+      } catch { /* reintenta */ }
+      if (attempts < 10) setTimeout(check, 3000);
+      else setQrPaymentResult({ success: false, message: t('paymentNotProcessed', lang) });
+    };
+    check();
+  }, [mpReturnOrder, store]);
 
   // APK version check disabled in Store.jsx — updates handled via admin panel and MainActivity only
 
@@ -3031,7 +3073,8 @@ function Store() {
           body: JSON.stringify({
             order_id: order.id,
             amount: Math.round(Number(finalTotal)),
-            description: `Pedido ${store.store.name || code}`
+            description: `Pedido ${store.store.name || code}`,
+            back_url: deliveryMode ? `${window.location.origin}/store/${code}?delivery=true&mp_order=${order.id}` : null
           })
         });
         const prefData = await prefRes.json();

@@ -2911,10 +2911,33 @@ app.post('/api/store/:code/qr-payment', async (req, res) => {
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
     if (!store.mp_access_token) return res.status(400).json({ error: 'MercadoPago no configurado para esta tienda' });
 
-    const { order_id, amount, description } = req.body;
+    const { order_id, amount, description, back_url } = req.body;
     if (!amount) return res.status(400).json({ error: 'Monto requerido' });
 
     const externalRef = `qr-${store.code}-${order_id || Date.now()}`;
+
+    const preferenceBody = {
+      items: [{
+        title: description || `Pedido ${store.name}`,
+        quantity: 1,
+        currency_id: store.currency_code || 'CLP',
+        unit_price: Number(amount)
+      }],
+      external_reference: externalRef,
+      notification_url: `${process.env.SERVER_URL || 'https://srservi2.srautomatic.com'}/api/store/${store.code}/qr-webhook`
+    };
+
+    // Si el cliente indica una URL de retorno (modo delivery), MP redirige de vuelta al aprobar
+    if (back_url) {
+      const sep = back_url.includes('?') ? '&' : '?';
+      preferenceBody.back_urls = {
+        success: `${back_url}${sep}mp_result=success`,
+        failure: `${back_url}${sep}mp_result=failure`,
+        pending: `${back_url}${sep}mp_result=pending`
+      };
+      // auto_return requiere back_urls https (falla con http/localhost)
+      if (back_url.startsWith('https://')) preferenceBody.auto_return = 'approved';
+    }
 
     const prefResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
@@ -2922,16 +2945,7 @@ app.post('/api/store/:code/qr-payment', async (req, res) => {
         'Authorization': `Bearer ${store.mp_access_token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        items: [{
-          title: description || `Pedido ${store.name}`,
-          quantity: 1,
-          currency_id: store.currency_code || 'CLP',
-          unit_price: Number(amount)
-        }],
-        external_reference: externalRef,
-        notification_url: `${process.env.SERVER_URL || 'https://srservi2.srautomatic.com'}/api/store/${store.code}/qr-webhook`
-      })
+      body: JSON.stringify(preferenceBody)
     });
 
     if (!prefResponse.ok) {
