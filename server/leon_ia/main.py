@@ -35,6 +35,11 @@ LEON_PORT = int(os.getenv("LEON_PORT", "7777"))
 # mistral:7b  → buena opción, ~4GB RAM
 DEFAULT_MODEL = os.getenv("LEON_MODEL", "qwen2.5:7b")
 
+# keep_alive: Ollama acepta número (segundos, -1 = para siempre) o texto con
+# unidad ("30m"). Si el valor es numérico hay que mandarlo como número, no texto.
+_ka = os.getenv("LEON_KEEP_ALIVE", "-1")
+KEEP_ALIVE = int(_ka) if _ka.lstrip("-").isdigit() else _ka
+
 SYSTEM_PROMPT = """Eres León IA 🦁, el asistente de negocios inteligente de SRServi para la tienda "{store_name}".
 
 REGLAS IMPORTANTES:
@@ -108,7 +113,7 @@ async def call_ollama(messages: list, model: str) -> str:
         "stream": False,
         # Mantener el modelo cargado en RAM/VRAM entre consultas
         # (sin esto Ollama lo descarga a los 5 min y recargarlo tarda 10-30s)
-        "keep_alive": os.getenv("LEON_KEEP_ALIVE", "-1"),
+        "keep_alive": KEEP_ALIVE,
         "options": {
             "temperature": 0.7,
             "num_predict": 600,
@@ -153,7 +158,7 @@ async def warmup():
                     "model": model,
                     "messages": [{"role": "user", "content": "hola"}],
                     "stream": False,
-                    "keep_alive": os.getenv("LEON_KEEP_ALIVE", "-1"),
+                    "keep_alive": KEEP_ALIVE,
                     "options": {"num_predict": 1}
                 })
             print(f"[warmup] Modelo {model} cargado y fijado en memoria")
