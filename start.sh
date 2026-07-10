@@ -35,7 +35,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # Seleccionar .env según el modo
-echo "[1/6] Configurando entorno ($ENV_FILE)..."
+echo "[1/7] Configurando entorno ($ENV_FILE)..."
 if [ -f "server/$ENV_FILE" ]; then
     cp "server/$ENV_FILE" server/.env
     echo "  server/.env ← server/$ENV_FILE"
@@ -44,12 +44,12 @@ else
 fi
 
 # Kill existing screens if running
-echo "[2/6] Limpiando pantallas existentes..."
+echo "[2/7] Limpiando pantallas existentes..."
 screen -S srservi-server -X quit 2>/dev/null || true
 screen -S srservi-client -X quit 2>/dev/null || true
 
 # Python3 — requerido por León IA (Ollama). Se instala si falta.
-echo "[3/6] Verificando Python3 (León IA)..."
+echo "[3/7] Verificando Python3 (León IA)..."
 if ! command -v python3 >/dev/null 2>&1; then
     echo "  Instalando python3..."
     if command -v apt-get >/dev/null 2>&1; then
@@ -94,22 +94,172 @@ else
     echo "  Sin GPU NVIDIA — Ollama correrá en CPU"
 fi
 
+# Nginx — solo producción: instala, configura el sitio principal y saca SSL
+echo "[4/7] Configurando Nginx..."
+if [ "$MODE" = "prod" ]; then
+    # Instalar nginx si falta
+    if ! command -v nginx >/dev/null 2>&1; then
+        echo "  Instalando nginx..."
+        if command -v apt-get >/dev/null 2>&1; then
+            apt-get update -qq
+            apt-get install -y nginx
+        elif command -v yum >/dev/null 2>&1; then
+            yum install -y nginx
+        else
+            echo "  ⚠ No se encontró apt/yum — instala nginx manualmente"
+        fi
+    fi
+
+    # Instalar certbot si falta (para SSL; también lo usa nginx-manager.js)
+    if ! command -v certbot >/dev/null 2>&1; then
+        echo "  Instalando certbot..."
+        apt-get install -y certbot 2>/dev/null || yum install -y certbot 2>/dev/null || \
+            echo "  ⚠ No se pudo instalar certbot — el sitio quedará en HTTP"
+    fi
+
+    if command -v nginx >/dev/null 2>&1; then
+        # sites-available/enabled (en CentOS/RHEL no existen por defecto)
+        mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled /var/www/certbot
+        if ! grep -q 'sites-enabled' /etc/nginx/nginx.conf; then
+            sed -i '/http {/a\    include /etc/nginx/sites-enabled/*;' /etc/nginx/nginx.conf
+        fi
+
+        # Dominio y email desde server/.env
+        DOMAIN=$(grep -E '^BASE_URL=' server/.env | head -1 | sed -E 's|^BASE_URL=https?://||; s|/.*$||; s|\r$||')
+        CERT_EMAIL=$(grep -E '^EMAIL_USER=' server/.env | head -1 | cut -d= -f2 | tr -d '\r')
+        BASE_DOMAIN="${DOMAIN#*.}"
+        NGINX_CONF="/etc/nginx/sites-available/srservi.conf"
+
+        # Bloques de proxy compartidos (API/socket/archivos → 8888, resto → cliente 6666)
+        nginx_locations() {
+            cat <<LOCS
+    client_max_body_size 50m;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location ~ ^/(api|socket\.io|uploads|downloads)(/|$) {
+        proxy_pass http://127.0.0.1:8888;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 300s;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:6666;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+LOCS
+        }
+
+        write_http_conf() {
+            {
+                echo "# SRServi auto-generated — sitio principal $DOMAIN"
+                echo "server {"
+                echo "    listen 80;"
+                echo "    server_name $DOMAIN;"
+                nginx_locations
+                echo "}"
+            } > "$NGINX_CONF"
+        }
+
+        write_https_conf() {
+            local CERT_DIR="$1"
+            {
+                echo "# SRServi auto-generated — sitio principal $DOMAIN"
+                echo "server {"
+                echo "    listen 80;"
+                echo "    server_name $DOMAIN;"
+                echo "    location /.well-known/acme-challenge/ { root /var/www/certbot; }"
+                echo "    location / { return 301 https://\$host\$request_uri; }"
+                echo "}"
+                echo ""
+                echo "server {"
+                echo "    listen 443 ssl;"
+                echo "    server_name $DOMAIN;"
+                echo ""
+                echo "    ssl_certificate     $CERT_DIR/fullchain.pem;"
+                echo "    ssl_certificate_key $CERT_DIR/privkey.pem;"
+                echo "    ssl_protocols TLSv1.2 TLSv1.3;"
+                echo "    ssl_ciphers HIGH:!aNULL:!MD5;"
+                echo "    ssl_session_cache shared:SSL:10m;"
+                nginx_locations
+                echo "}"
+            } > "$NGINX_CONF"
+        }
+
+        # Solo tocar la config si es nuestra o no existe (respeta ediciones manuales)
+        if [ ! -f "$NGINX_CONF" ] || grep -q '# SRServi auto-generated' "$NGINX_CONF"; then
+            # ¿Ya hay certificado? (wildcard del dominio base o individual)
+            if [ -f "/etc/letsencrypt/live/$BASE_DOMAIN/fullchain.pem" ]; then
+                echo "  Certificado wildcard encontrado ✓"
+                write_https_conf "/etc/letsencrypt/live/$BASE_DOMAIN"
+            elif [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+                echo "  Certificado de $DOMAIN encontrado ✓"
+                write_https_conf "/etc/letsencrypt/live/$DOMAIN"
+            else
+                write_http_conf
+            fi
+            ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/srservi.conf
+
+            if nginx -t >/dev/null 2>&1; then
+                systemctl enable nginx >/dev/null 2>&1 || true
+                systemctl restart nginx 2>/dev/null || nginx -s reload 2>/dev/null || nginx || true
+                echo "  Nginx configurado para $DOMAIN ✓"
+            else
+                echo "  ⚠ nginx -t falló — revisa la config:"
+                nginx -t || true
+            fi
+
+            # Sin certificado aún → intentar obtenerlo con certbot y subir a HTTPS
+            if ! grep -q 'listen 443' "$NGINX_CONF" && command -v certbot >/dev/null 2>&1; then
+                echo "  Obteniendo certificado SSL para $DOMAIN..."
+                if certbot certonly --webroot -w /var/www/certbot -d "$DOMAIN" \
+                     --email "$CERT_EMAIL" --agree-tos --non-interactive --quiet; then
+                    write_https_conf "/etc/letsencrypt/live/$DOMAIN"
+                    { nginx -t >/dev/null 2>&1 && { systemctl reload nginx 2>/dev/null || nginx -s reload; }; } || true
+                    echo "  SSL activo ✓ — https://$DOMAIN"
+                else
+                    echo "  ⚠ certbot falló (¿DNS apunta a este servidor?) — el sitio queda en HTTP"
+                fi
+            fi
+        else
+            echo "  Config manual detectada en $NGINX_CONF — no se toca"
+            systemctl start nginx 2>/dev/null || true
+        fi
+    fi
+else
+    echo "  Modo local — Nginx no es necesario (acceso directo por puertos)"
+fi
+
 # Install server dependencies if needed
-echo "[4/6] Verificando dependencias del servidor..."
+echo "[5/7] Verificando dependencias del servidor..."
 if [ ! -d "server/node_modules" ]; then
     echo "Instalando dependencias del servidor..."
     cd server && npm install && cd ..
 fi
 
 # Install client dependencies if needed
-echo "[5/6] Verificando dependencias del cliente..."
+echo "[6/7] Verificando dependencias del cliente..."
 if [ ! -d "client/node_modules" ]; then
     echo "Instalando dependencias del cliente..."
     cd client && npm install && cd ..
 fi
 
 # Build client
-echo "[6/6] Compilando cliente (modo $VITE_MODE)..."
+echo "[7/7] Compilando cliente (modo $VITE_MODE)..."
 cd client
 npm run build -- --mode "$VITE_MODE"
 cd ..
@@ -135,6 +285,9 @@ echo "=========================================="
 echo "  SRServi iniciado! (modo $MODE)"
 echo "=========================================="
 echo ""
+if [ "$MODE" = "prod" ] && [ -n "$DOMAIN" ]; then
+    echo "Web:          https://$DOMAIN"
+fi
 echo "Servidor API: http://localhost:8888"
 echo "Cliente:      http://localhost:6666"
 echo "León IA:      http://localhost:7777/health"
