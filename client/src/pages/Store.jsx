@@ -106,7 +106,7 @@ import { PluginProvider } from '../context/PluginContext';
 import { useStore } from '../components/Layout';
 import VirtualKeyboard from '../components/VirtualKeyboard';
 
-const API = 'https://srservi3.srautomatic.com';
+const API = 'https://mantraxtools.store';
 
 function SortableCategoryTab({ catObj, activeCategory, onEdit, onDelete }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: catObj.id });
@@ -299,7 +299,7 @@ function SortableComplementRow({ item, active, onToggle, onEdit, onDelete, showD
   );
 }
 
-const TICKET_API = 'https://srservi3.srautomatic.com';
+const TICKET_API = 'https://mantraxtools.store';
 
 function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, terminalName, onClose }) {
   const [phase, setPhase] = useState('events'); // events|select|confirm|paying|waiting|success|error
@@ -383,7 +383,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
     const d = await r.json();
     const code = d.viewer_code || reference;
     setSuccessCode(code);
-    setSuccessUrl(`${TICKET_API.replace('https://srservi3.srautomatic.com', window.location.origin)}/ticket/${code}`);
+    setSuccessUrl(`${TICKET_API.replace('https://mantraxtools.store', window.location.origin)}/ticket/${code}`);
     setPhase('success');
   };
 

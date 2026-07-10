@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import * as faceapi from '@vladmandic/face-api';
 import { io } from 'socket.io-client';
 
-const API = 'https://srservi3.srautomatic.com';
+const API = 'https://mantraxtools.store';
 const MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
 const MATCH_THRESHOLD = 0.5;
 const STABLE_FRAMES = 5;

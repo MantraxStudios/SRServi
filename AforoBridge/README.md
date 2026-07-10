@@ -1,7 +1,7 @@
 # AforoBridge — Puente Cámara → Contador de Aforo SRServi
 
 App de Windows que conecta una **cámara IP (RTSP)** con tu panel
-`https://srservi3.srautomatic.com/admin/people-counter`.
+`https://mantraxtools.store/admin/people-counter`.
 
 Hace el conteo de entradas/salidas **localmente** (la cámara está en tu red, no es
 accesible desde el servidor remoto) y reporta cada cruce + una vista previa al panel,

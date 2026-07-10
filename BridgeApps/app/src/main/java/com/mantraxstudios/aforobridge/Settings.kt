@@ -100,6 +100,6 @@ class Settings(context: Context) {
     }
 
     companion object {
-        const val DEFAULT_SERVER = "https://srservi3.srautomatic.com"
+        const val DEFAULT_SERVER = "https://mantraxtools.store"
     }
 }

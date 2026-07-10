@@ -4,7 +4,7 @@ import { faUserPlus, faTrash, faSignInAlt, faPhone, faSave, faPen, faUser, faWhi
 import { StoreContext } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
 
-const API = 'https://srservi3.srautomatic.com';
+const API = 'https://mantraxtools.store';
 const GOLD = '#D4AF37';
 
 function initials(name) {

@@ -9,7 +9,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
-const API = 'https://srservi3.srautomatic.com';
+const API = 'https://mantraxtools.store';
 const GOLD = '#D4AF37';
 
 function useIsMobile(bp = 900) {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
-const API = 'https://srservi3.srautomatic.com';
+const API = 'https://mantraxtools.store';
 
 // ── Auth Modal ────────────────────────────────────────────────────────────────
 function DeliveryAuthModal({ onAuth, onClose }) {

@@ -10,7 +10,7 @@ import {
   faFilter, faSearch, faGlobe, faMusic, faToggleOn, faToggleOff
 } from '@fortawesome/free-solid-svg-icons';
 
-const API = 'https://srservi3.srautomatic.com';
+const API = 'https://mantraxtools.store';
 const GOLD = '#C8A415';
 
 const CATEGORY_PRESETS = ['Adulto', 'Niño', 'Adulto Mayor', 'Estudiante', 'VIP', 'General'];

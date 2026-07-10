@@ -66,7 +66,7 @@ class SellActivity : AppCompatActivity() {
         }
 
     companion object {
-        private const val BASE_URL = "https://srservi3.srautomatic.com"
+        private const val BASE_URL = "https://mantraxtools.store"
         private const val EXIT_PIN = "1234"
     }
 

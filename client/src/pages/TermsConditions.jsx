@@ -12,7 +12,7 @@ export default function TermsConditions() {
         </div>
 
         <Section title="1. Aceptación de los términos">
-          <P>Al acceder y usar la plataforma SRServi, disponible en <strong>srservi3.srautomatic.com</strong>, aceptás estos Términos y Condiciones en su totalidad. Si no estás de acuerdo con alguno de estos términos, no uses la plataforma.</P>
+          <P>Al acceder y usar la plataforma SRServi, disponible en <strong>mantraxtools.store</strong>, aceptás estos Términos y Condiciones en su totalidad. Si no estás de acuerdo con alguno de estos términos, no uses la plataforma.</P>
           <P>SRAutomatic SpA se reserva el derecho de modificar estos términos en cualquier momento. Los cambios entrarán en vigencia al publicarse en esta página.</P>
         </Section>
 
@@ -100,7 +100,7 @@ export default function TermsConditions() {
           <P>Para consultas sobre estos Términos y Condiciones:</P>
           <ul style={s.list}>
             <li><strong>Empresa:</strong> SRAutomatic SpA</li>
-            <li><strong>Sitio web:</strong> srservi3.srautomatic.com</li>
+            <li><strong>Sitio web:</strong> mantraxtools.store</li>
             <li><strong>Email:</strong> <a href="mailto:legal@srautomatic.com" style={s.link}>legal@srautomatic.com</a></li>
           </ul>
         </Section>

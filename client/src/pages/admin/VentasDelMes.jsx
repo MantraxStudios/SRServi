@@ -9,7 +9,7 @@ import {
 import { StoreContext } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
 
-const API = 'https://srservi3.srautomatic.com';
+const API = 'https://mantraxtools.store';
 
 const SHIFT_LABELS = { AM: 'Turno AM', PM: 'Turno PM', PART_TIME: 'Part-time' };
 const SHIFT_SHORT = { AM: 'AM', PM: 'PM', PART_TIME: 'PT' };

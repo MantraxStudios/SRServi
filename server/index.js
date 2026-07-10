@@ -306,7 +306,7 @@ const io = new Server(server, {
 const PORT = process.env.SERVER_PORT || 8888;
 const HOST = process.env.SERVER_HOST || '127.0.0.1';
 const JWT_SECRET = process.env.JWT_SECRET || 'srservi-secret-key-2024';
-const BASE_URL = process.env.BASE_URL || 'https://srservi3.srautomatic.com';
+const BASE_URL = process.env.BASE_URL || 'https://mantraxtools.store';
 
 const HAULMER_API_URL = 'https://core.payment.haulmer.com/api/v1/payment';
 
@@ -2930,7 +2930,7 @@ app.post('/api/store/:code/qr-payment', async (req, res) => {
           unit_price: Number(amount)
         }],
         external_reference: externalRef,
-        notification_url: `${process.env.SERVER_URL || 'https://srservi3.srautomatic.com'}/api/store/${store.code}/qr-webhook`
+        notification_url: `${process.env.SERVER_URL || 'https://mantraxtools.store'}/api/store/${store.code}/qr-webhook`
       })
     });
 
@@ -10604,7 +10604,7 @@ async function startServer() {
 
         const storeCode = storeRows[0].code;
         const reference = `SRSN-${store_id}-${order_id || 0}-${Date.now()}`;
-        const serverUrl = 'https://srservi3.srautomatic.com';
+        const serverUrl = 'https://mantraxtools.store';
 
         const nameParts = (customer_name || 'Cliente SRServi').split(' ');
         const firstName = nameParts[0] || 'Cliente';
@@ -10794,7 +10794,7 @@ async function startServer() {
         const [storeRows] = await pool.execute('SELECT code FROM stores WHERE id = ?', [store_id]);
         if (!storeRows[0]) return res.status(404).json({ error: 'Tienda no encontrada' });
 
-        const clientUrl = process.env.BASE_URL || 'https://srservi3.srautomatic.com';
+        const clientUrl = process.env.BASE_URL || 'https://mantraxtools.store';
         const storeCode = storeRows[0].code;
 
         const preferenceClient = new Preference(mpClient);
@@ -13237,7 +13237,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
           return res.status(503).json({ error: 'La app aún no está compilada. Contacta soporte.' });
         }
 
-        const storeUrl = `https://srservi3.srautomatic.com/store/${store.code}`;
+        const storeUrl = `https://mantraxtools.store/store/${store.code}`;
 
         if (process.platform === 'linux') {
           // Auto-install NSIS if missing
@@ -13872,7 +13872,7 @@ app.post('/api/delivery/auth/register', async (req, res) => {
         to: email,
         subject: 'Verifica tu cuenta SRServi',
         html: `<div style="font-family:sans-serif;max-width:420px;margin:0 auto;padding:28px;background:#0a0a0a;color:#fff;border-radius:12px">
-          <div style="text-align:center;margin-bottom:20px"><img src="https://srservi3.srautomatic.com/iconweb.png" width="48" style="border-radius:10px" /></div>
+          <div style="text-align:center;margin-bottom:20px"><img src="https://mantraxtools.store/iconweb.png" width="48" style="border-radius:10px" /></div>
           <h2 style="text-align:center;color:#D4AF37;margin:0 0 10px">Verifica tu email</h2>
           <p style="text-align:center;color:#aaa;margin:0 0 24px">Hola ${name}! Ingresa este código para activar tu cuenta:</p>
           <div style="text-align:center;font-size:40px;font-weight:900;letter-spacing:10px;color:#D4AF37;padding:20px;background:#111;border-radius:10px">${code}</div>
@@ -14034,7 +14034,7 @@ app.put('/api/worker/delivery/:id/status', async (req, res) => {
 
   <!-- Header -->
   <div style="background:#111;padding:24px;text-align:center;border-bottom:1px solid #1e1e1e">
-    <img src="https://srservi3.srautomatic.com/iconweb.png" width="44" height="44" style="border-radius:10px;display:block;margin:0 auto 12px" />
+    <img src="https://mantraxtools.store/iconweb.png" width="44" height="44" style="border-radius:10px;display:block;margin:0 auto 12px" />
     <div style="font-size:11px;letter-spacing:2px;color:#666;text-transform:uppercase;margin-bottom:4px">SRServi Delivery</div>
     <div style="color:#fff;font-size:13px">Pedido #${order.id}</div>
   </div>
@@ -15531,7 +15531,7 @@ app.put('/api/inventory/transfers/:id/cancel', authenticateToken, async (req, re
 // ═══════════════════════════════════════════════════════════════════════
 
 async function sendFeedbackToUsers(users, campaignId) {
-  const BASE = process.env.BASE_URL || process.env.CLIENT_URL || 'https://srservi3.srautomatic.com';
+  const BASE = process.env.BASE_URL || process.env.CLIENT_URL || 'https://mantraxtools.store';
   let sent = 0;
   for (const user of users) {
     const token = crypto.randomBytes(32).toString('hex');

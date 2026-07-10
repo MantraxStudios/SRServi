@@ -1,6 +1,6 @@
 # FullscreenBrowser — SR Automatica
 
-Aplicación Windows que abre https://srservi3.srautomatic.com/ en pantalla completa.
+Aplicación Windows que abre https://mantraxtools.store/ en pantalla completa.
 
 ## Requisitos
 

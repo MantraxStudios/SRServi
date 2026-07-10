@@ -6,10 +6,10 @@
  * Conecta al stream RTSP, detecta cruces de línea y reporta al servidor remoto.
  *
  * Uso:
- *   node local-rtsp-agent.js --server https://srservi3.srautomatic.com --store 1 --token TU_TOKEN
+ *   node local-rtsp-agent.js --server https://mantraxtools.store --store 1 --token TU_TOKEN
  *
  * O con variables de entorno:
- *   SR_SERVER=https://srservi3.srautomatic.com SR_STORE=1 SR_TOKEN=xxx node local-rtsp-agent.js
+ *   SR_SERVER=https://mantraxtools.store SR_STORE=1 SR_TOKEN=xxx node local-rtsp-agent.js
  */
 
 import { spawn, execSync, execFileSync } from 'child_process';
@@ -27,7 +27,7 @@ const arg = (name) => {
   return i >= 0 ? args[i + 1] : null;
 };
 
-const SERVER  = arg('server') || process.env.SR_SERVER || 'https://srservi3.srautomatic.com';
+const SERVER  = arg('server') || process.env.SR_SERVER || 'https://mantraxtools.store';
 const STORE   = parseInt(arg('store')  || process.env.SR_STORE  || '0');
 const TOKEN   = arg('token')  || process.env.SR_TOKEN  || '';
 

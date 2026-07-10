@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser, faLock, faArrowLeft, faUserCog } from '@fortawesome/free-solid-svg-icons';
 
-const API = 'https://srservi3.srautomatic.com';
+const API = 'https://mantraxtools.store';
 
 function WorkerLogin() {
   const navigate = useNavigate();

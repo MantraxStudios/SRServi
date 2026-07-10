@@ -6,7 +6,7 @@ namespace FullscreenBrowser
 {
     public sealed class AppConfig
     {
-        public string Url        { get; set; } = "https://srservi3.srautomatic.com/";
+        public string Url        { get; set; } = "https://mantraxtools.store/";
         public string StoreCode  { get; set; } = "";
         public string PrinterType { get; set; } = "com";   // "com" | "windows"
         public string PrinterPort { get; set; } = "";       // COM3, COM4 ...

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: localhost
--- Tiempo de generación: 10-07-2026 a las 01:47:23
+-- Tiempo de generación: 10-07-2026 a las 01:58:35
 -- Versión del servidor: 8.0.46-0ubuntu0.24.04.3
 -- Versión de PHP: 8.3.6
 
@@ -20,6 +20,8 @@ SET time_zone = "+00:00";
 --
 -- Base de datos: `srservi`
 --
+CREATE DATABASE IF NOT EXISTS `srservi` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+USE `srservi`;
 
 -- --------------------------------------------------------
 
@@ -27,6 +29,7 @@ SET time_zone = "+00:00";
 -- Estructura de tabla para la tabla `admin_roles`
 --
 
+DROP TABLE IF EXISTS `admin_roles`;
 CREATE TABLE `admin_roles` (
   `id` int NOT NULL,
   `owner_id` int NOT NULL,
@@ -154,6 +157,7 @@ INSERT INTO `admin_roles` (`id`, `owner_id`, `name`, `description`, `permissions
 -- Estructura de tabla para la tabla `admin_sub_accounts`
 --
 
+DROP TABLE IF EXISTS `admin_sub_accounts`;
 CREATE TABLE `admin_sub_accounts` (
   `id` int NOT NULL,
   `owner_id` int NOT NULL,
@@ -223,6 +227,7 @@ INSERT INTO `admin_sub_accounts` (`id`, `owner_id`, `role_id`, `name`, `email`, 
 -- Estructura de tabla para la tabla `ai_activity_log`
 --
 
+DROP TABLE IF EXISTS `ai_activity_log`;
 CREATE TABLE `ai_activity_log` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -325,6 +330,7 @@ INSERT INTO `ai_activity_log` (`id`, `store_id`, `action_type`, `description`, `
 -- Estructura de tabla para la tabla `ai_config`
 --
 
+DROP TABLE IF EXISTS `ai_config`;
 CREATE TABLE `ai_config` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -358,6 +364,7 @@ INSERT INTO `ai_config` (`id`, `store_id`, `enabled`, `auto_promotions`, `worker
 -- Estructura de tabla para la tabla `apk_releases`
 --
 
+DROP TABLE IF EXISTS `apk_releases`;
 CREATE TABLE `apk_releases` (
   `id` int NOT NULL,
   `app_name` varchar(50) DEFAULT 'launcher',
@@ -376,6 +383,7 @@ CREATE TABLE `apk_releases` (
 -- Estructura de tabla para la tabla `app_activity`
 --
 
+DROP TABLE IF EXISTS `app_activity`;
 CREATE TABLE `app_activity` (
   `id` int NOT NULL,
   `app_name` varchar(50) NOT NULL,
@@ -549,6 +557,7 @@ INSERT INTO `app_activity` (`id`, `app_name`, `store_code`, `device_id`, `app_ve
 -- Estructura de tabla para la tabla `attendance_persons`
 --
 
+DROP TABLE IF EXISTS `attendance_persons`;
 CREATE TABLE `attendance_persons` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -577,6 +586,7 @@ INSERT INTO `attendance_persons` (`id`, `store_id`, `rut`, `name`, `surname`, `f
 -- Estructura de tabla para la tabla `attendance_records`
 --
 
+DROP TABLE IF EXISTS `attendance_records`;
 CREATE TABLE `attendance_records` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -600,6 +610,7 @@ INSERT INTO `attendance_records` (`id`, `store_id`, `person_id`, `type`, `record
 -- Estructura de tabla para la tabla `attendance_sales`
 --
 
+DROP TABLE IF EXISTS `attendance_sales`;
 CREATE TABLE `attendance_sales` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -633,6 +644,7 @@ INSERT INTO `attendance_sales` (`id`, `store_id`, `date`, `shift`, `gross_sales`
 -- Estructura de tabla para la tabla `attendance_sales_config`
 --
 
+DROP TABLE IF EXISTS `attendance_sales_config`;
 CREATE TABLE `attendance_sales_config` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -661,6 +673,7 @@ INSERT INTO `attendance_sales_config` (`id`, `store_id`, `commission_rate`, `dai
 -- Estructura de tabla para la tabla `cash_movements`
 --
 
+DROP TABLE IF EXISTS `cash_movements`;
 CREATE TABLE `cash_movements` (
   `id` int NOT NULL,
   `cash_register_id` int NOT NULL,
@@ -685,6 +698,7 @@ INSERT INTO `cash_movements` (`id`, `cash_register_id`, `store_id`, `amount`, `d
 -- Estructura de tabla para la tabla `cash_registers`
 --
 
+DROP TABLE IF EXISTS `cash_registers`;
 CREATE TABLE `cash_registers` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -1407,6 +1421,7 @@ INSERT INTO `cash_registers` (`id`, `store_id`, `worker_id`, `worker_name`, `ope
 -- Estructura de tabla para la tabla `categories`
 --
 
+DROP TABLE IF EXISTS `categories`;
 CREATE TABLE `categories` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -1720,6 +1735,7 @@ INSERT INTO `categories` (`id`, `user_id`, `store_id`, `name`, `description`, `c
 -- Estructura de tabla para la tabla `cctv_albums`
 --
 
+DROP TABLE IF EXISTS `cctv_albums`;
 CREATE TABLE `cctv_albums` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -1743,6 +1759,7 @@ INSERT INTO `cctv_albums` (`id`, `user_id`, `name`, `created_at`) VALUES
 -- Estructura de tabla para la tabla `cctv_images`
 --
 
+DROP TABLE IF EXISTS `cctv_images`;
 CREATE TABLE `cctv_images` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -1787,6 +1804,7 @@ INSERT INTO `cctv_images` (`id`, `user_id`, `filename`, `original_name`, `file_s
 -- Estructura de tabla para la tabla `cctv_music`
 --
 
+DROP TABLE IF EXISTS `cctv_music`;
 CREATE TABLE `cctv_music` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -1813,6 +1831,7 @@ INSERT INTO `cctv_music` (`id`, `user_id`, `filename`, `original_name`, `file_si
 -- Estructura de tabla para la tabla `cctv_power_log`
 --
 
+DROP TABLE IF EXISTS `cctv_power_log`;
 CREATE TABLE `cctv_power_log` (
   `id` int NOT NULL,
   `screen_id` int NOT NULL,
@@ -1863,6 +1882,7 @@ INSERT INTO `cctv_power_log` (`id`, `screen_id`, `event`, `logged_at`) VALUES
 -- Estructura de tabla para la tabla `cctv_schedules`
 --
 
+DROP TABLE IF EXISTS `cctv_schedules`;
 CREATE TABLE `cctv_schedules` (
   `id` int NOT NULL,
   `screen_id` int NOT NULL,
@@ -1889,6 +1909,7 @@ INSERT INTO `cctv_schedules` (`id`, `screen_id`, `user_id`, `video_id`, `name`, 
 -- Estructura de tabla para la tabla `cctv_screens`
 --
 
+DROP TABLE IF EXISTS `cctv_screens`;
 CREATE TABLE `cctv_screens` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -1922,6 +1943,7 @@ INSERT INTO `cctv_screens` (`id`, `user_id`, `device_token`, `device_name`, `pai
 -- Estructura de tabla para la tabla `cctv_videos`
 --
 
+DROP TABLE IF EXISTS `cctv_videos`;
 CREATE TABLE `cctv_videos` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -1953,6 +1975,7 @@ INSERT INTO `cctv_videos` (`id`, `user_id`, `filename`, `original_name`, `file_s
 -- Estructura de tabla para la tabla `client_surveys`
 --
 
+DROP TABLE IF EXISTS `client_surveys`;
 CREATE TABLE `client_surveys` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -1980,6 +2003,7 @@ INSERT INTO `client_surveys` (`id`, `store_id`, `answers`, `created_at`) VALUES
 -- Estructura de tabla para la tabla `combos`
 --
 
+DROP TABLE IF EXISTS `combos`;
 CREATE TABLE `combos` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -2014,6 +2038,7 @@ INSERT INTO `combos` (`id`, `store_id`, `name`, `description`, `image`, `is_acti
 -- Estructura de tabla para la tabla `combo_items`
 --
 
+DROP TABLE IF EXISTS `combo_items`;
 CREATE TABLE `combo_items` (
   `id` int NOT NULL,
   `combo_id` int NOT NULL,
@@ -2048,6 +2073,7 @@ INSERT INTO `combo_items` (`id`, `combo_id`, `product_id`, `quantity`) VALUES
 -- Estructura de tabla para la tabla `complement_groups`
 --
 
+DROP TABLE IF EXISTS `complement_groups`;
 CREATE TABLE `complement_groups` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -2132,6 +2158,7 @@ INSERT INTO `complement_groups` (`id`, `store_id`, `name`, `min_select`, `max_se
 -- Estructura de tabla para la tabla `complement_options`
 --
 
+DROP TABLE IF EXISTS `complement_options`;
 CREATE TABLE `complement_options` (
   `id` int NOT NULL,
   `group_id` int NOT NULL,
@@ -2353,6 +2380,7 @@ INSERT INTO `complement_options` (`id`, `group_id`, `store_id`, `name`, `price`,
 -- Estructura de tabla para la tabla `coupons`
 --
 
+DROP TABLE IF EXISTS `coupons`;
 CREATE TABLE `coupons` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -2396,6 +2424,7 @@ INSERT INTO `coupons` (`id`, `store_id`, `code`, `name`, `discount_type`, `disco
 -- Estructura de tabla para la tabla `custom_creations`
 --
 
+DROP TABLE IF EXISTS `custom_creations`;
 CREATE TABLE `custom_creations` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -2420,6 +2449,7 @@ INSERT INTO `custom_creations` (`id`, `store_id`, `title`, `background_image`, `
 -- Estructura de tabla para la tabla `delivery_customers`
 --
 
+DROP TABLE IF EXISTS `delivery_customers`;
 CREATE TABLE `delivery_customers` (
   `id` int NOT NULL,
   `name` varchar(100) DEFAULT NULL,
@@ -2450,6 +2480,7 @@ INSERT INTO `delivery_customers` (`id`, `name`, `email`, `phone`, `email_verifie
 -- Estructura de tabla para la tabla `delivery_sessions`
 --
 
+DROP TABLE IF EXISTS `delivery_sessions`;
 CREATE TABLE `delivery_sessions` (
   `id` int NOT NULL,
   `customer_id` int NOT NULL,
@@ -2479,6 +2510,7 @@ INSERT INTO `delivery_sessions` (`id`, `customer_id`, `token`, `created_at`) VAL
 -- Estructura de tabla para la tabla `delivery_settings`
 --
 
+DROP TABLE IF EXISTS `delivery_settings`;
 CREATE TABLE `delivery_settings` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -2516,6 +2548,7 @@ INSERT INTO `delivery_settings` (`id`, `store_id`, `address`, `lat`, `lng`, `rad
 -- Estructura de tabla para la tabla `extras`
 --
 
+DROP TABLE IF EXISTS `extras`;
 CREATE TABLE `extras` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -3072,6 +3105,7 @@ INSERT INTO `extras` (`id`, `user_id`, `store_id`, `name`, `price`, `created_at`
 -- Estructura de tabla para la tabla `feedback_campaigns`
 --
 
+DROP TABLE IF EXISTS `feedback_campaigns`;
 CREATE TABLE `feedback_campaigns` (
   `id` int NOT NULL,
   `type` enum('monthly','manual') DEFAULT 'manual',
@@ -3094,6 +3128,7 @@ INSERT INTO `feedback_campaigns` (`id`, `type`, `status`, `total_sent`, `total_r
 -- Estructura de tabla para la tabla `feedback_responses`
 --
 
+DROP TABLE IF EXISTS `feedback_responses`;
 CREATE TABLE `feedback_responses` (
   `id` int NOT NULL,
   `token_id` int NOT NULL,
@@ -3113,6 +3148,7 @@ CREATE TABLE `feedback_responses` (
 -- Estructura de tabla para la tabla `feedback_tokens`
 --
 
+DROP TABLE IF EXISTS `feedback_tokens`;
 CREATE TABLE `feedback_tokens` (
   `id` int NOT NULL,
   `campaign_id` int NOT NULL,
@@ -3239,6 +3275,7 @@ INSERT INTO `feedback_tokens` (`id`, `campaign_id`, `user_id`, `token`, `sent_vi
 -- Estructura de tabla para la tabla `haulmer_config`
 --
 
+DROP TABLE IF EXISTS `haulmer_config`;
 CREATE TABLE `haulmer_config` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -3261,6 +3298,7 @@ INSERT INTO `haulmer_config` (`id`, `user_id`, `account_id`, `secret_key`, `comm
 -- Estructura de tabla para la tabla `haulmer_native_config`
 --
 
+DROP TABLE IF EXISTS `haulmer_native_config`;
 CREATE TABLE `haulmer_native_config` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -3290,6 +3328,7 @@ INSERT INTO `haulmer_native_config` (`id`, `user_id`, `account_id`, `secret_key`
 -- Estructura de tabla para la tabla `haulmer_native_transactions`
 --
 
+DROP TABLE IF EXISTS `haulmer_native_transactions`;
 CREATE TABLE `haulmer_native_transactions` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -3340,6 +3379,7 @@ INSERT INTO `haulmer_native_transactions` (`id`, `store_id`, `order_id`, `refere
 -- Estructura de tabla para la tabla `haulmer_transactions`
 --
 
+DROP TABLE IF EXISTS `haulmer_transactions`;
 CREATE TABLE `haulmer_transactions` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -3369,6 +3409,7 @@ INSERT INTO `haulmer_transactions` (`id`, `store_id`, `order_id`, `reference`, `
 -- Estructura de tabla para la tabla `ingredients`
 --
 
+DROP TABLE IF EXISTS `ingredients`;
 CREATE TABLE `ingredients` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -4260,6 +4301,7 @@ INSERT INTO `ingredients` (`id`, `user_id`, `store_id`, `name`, `price`, `create
 -- Estructura de tabla para la tabla `instagram_configs`
 --
 
+DROP TABLE IF EXISTS `instagram_configs`;
 CREATE TABLE `instagram_configs` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -4293,6 +4335,7 @@ INSERT INTO `instagram_configs` (`id`, `store_id`, `ig_username`, `ig_password`,
 -- Estructura de tabla para la tabla `inventory`
 --
 
+DROP TABLE IF EXISTS `inventory`;
 CREATE TABLE `inventory` (
   `id` int NOT NULL,
   `product_id` int NOT NULL,
@@ -5922,6 +5965,7 @@ INSERT INTO `inventory` (`id`, `product_id`, `stock`, `min_stock`, `updated_at`,
 -- Estructura de tabla para la tabla `inventory_movements`
 --
 
+DROP TABLE IF EXISTS `inventory_movements`;
 CREATE TABLE `inventory_movements` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -6341,6 +6385,7 @@ INSERT INTO `inventory_movements` (`id`, `store_id`, `item_type`, `item_id`, `it
 -- Estructura de tabla para la tabla `inventory_sections`
 --
 
+DROP TABLE IF EXISTS `inventory_sections`;
 CREATE TABLE `inventory_sections` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -6375,6 +6420,7 @@ INSERT INTO `inventory_sections` (`id`, `store_id`, `name`, `color`, `sort_order
 -- Estructura de tabla para la tabla `inventory_section_items`
 --
 
+DROP TABLE IF EXISTS `inventory_section_items`;
 CREATE TABLE `inventory_section_items` (
   `id` int NOT NULL,
   `section_id` int NOT NULL,
@@ -6424,6 +6470,7 @@ INSERT INTO `inventory_section_items` (`id`, `section_id`, `item_type`, `item_id
 -- Estructura de tabla para la tabla `inventory_transfers`
 --
 
+DROP TABLE IF EXISTS `inventory_transfers`;
 CREATE TABLE `inventory_transfers` (
   `id` int NOT NULL,
   `from_store_id` int NOT NULL,
@@ -6441,6 +6488,7 @@ CREATE TABLE `inventory_transfers` (
 -- Estructura de tabla para la tabla `inventory_transfer_items`
 --
 
+DROP TABLE IF EXISTS `inventory_transfer_items`;
 CREATE TABLE `inventory_transfer_items` (
   `id` int NOT NULL,
   `transfer_id` int NOT NULL,
@@ -6456,6 +6504,7 @@ CREATE TABLE `inventory_transfer_items` (
 -- Estructura de tabla para la tabla `loyalty_config`
 --
 
+DROP TABLE IF EXISTS `loyalty_config`;
 CREATE TABLE `loyalty_config` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -6483,6 +6532,7 @@ INSERT INTO `loyalty_config` (`id`, `store_id`, `enabled`, `discount_percentage`
 -- Estructura de tabla para la tabla `loyal_customers`
 --
 
+DROP TABLE IF EXISTS `loyal_customers`;
 CREATE TABLE `loyal_customers` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -6518,6 +6568,7 @@ INSERT INTO `loyal_customers` (`id`, `store_id`, `name`, `phone`, `face_descript
 -- Estructura de tabla para la tabla `mercadopago_points`
 --
 
+DROP TABLE IF EXISTS `mercadopago_points`;
 CREATE TABLE `mercadopago_points` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -6534,6 +6585,7 @@ CREATE TABLE `mercadopago_points` (
 -- Estructura de tabla para la tabla `mercadopago_terminal_stores`
 --
 
+DROP TABLE IF EXISTS `mercadopago_terminal_stores`;
 CREATE TABLE `mercadopago_terminal_stores` (
   `id` int NOT NULL,
   `mercadopago_terminal_id` int NOT NULL,
@@ -6575,6 +6627,7 @@ INSERT INTO `mercadopago_terminal_stores` (`id`, `mercadopago_terminal_id`, `sto
 -- Estructura de tabla para la tabla `mercado_pago_terminals`
 --
 
+DROP TABLE IF EXISTS `mercado_pago_terminals`;
 CREATE TABLE `mercado_pago_terminals` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -6620,6 +6673,7 @@ INSERT INTO `mercado_pago_terminals` (`id`, `user_id`, `name`, `mercadopago_acce
 -- Estructura de tabla para la tabla `orders`
 --
 
+DROP TABLE IF EXISTS `orders`;
 CREATE TABLE `orders` (
   `id` int NOT NULL,
   `user_id` int DEFAULT NULL,
@@ -23909,7 +23963,10 @@ INSERT INTO `orders` (`id`, `user_id`, `store_id`, `order_type`, `subtotal`, `di
 (17347, 43, 59, 'serve', 5700.00, 0.00, NULL, 5700.00, 'completed', 'card', 1, '2026-07-10 01:23:34', 'K70', 67, '2026-07-09 21:35:06', NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0.00, NULL, NULL, NULL, NULL),
 (17348, 43, 59, 'serve', 6100.00, 0.00, NULL, 6100.00, 'completed', 'card', 1, '2026-07-10 01:24:19', 'C61', 67, '2026-07-09 21:35:08', 'ORD01KX4T0874JEH9YG8MD2ZA9SJS', 'ORDER-1783646658629-irkpkw2xa', 142, 1, 'ORDER-1783646658629-irkpkw2xa', 'ORD01KX4T0874JEH9YG8MD2ZA9SJS', NULL, '603357', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0.00, NULL, NULL, NULL, NULL),
 (17349, 43, 59, 'serve', 2900.00, 0.00, NULL, 2900.00, 'completed', 'card', 1, '2026-07-10 01:26:38', 'G75', 67, '2026-07-09 21:36:53', NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0.00, NULL, NULL, NULL, NULL),
-(17350, 43, 59, 'serve', 2200.00, 0.00, NULL, 2200.00, 'preparing', 'card', 1, '2026-07-10 01:44:57', 'M42', NULL, NULL, 'ORD01KX4V6189SD9AMZRQJ7BEEAT1', 'ORDER-1783647896662-mv6doxol4', 142, 1, 'ORDER-1783647896662-mv6doxol4', 'ORD01KX4V6189SD9AMZRQJ7BEEAT1', NULL, '603357', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0.00, NULL, NULL, NULL, NULL);
+(17350, 43, 59, 'serve', 2200.00, 0.00, NULL, 2200.00, 'completed', 'card', 1, '2026-07-10 01:44:57', 'M42', 67, '2026-07-09 21:52:06', 'ORD01KX4V6189SD9AMZRQJ7BEEAT1', 'ORDER-1783647896662-mv6doxol4', 142, 1, 'ORDER-1783647896662-mv6doxol4', 'ORD01KX4V6189SD9AMZRQJ7BEEAT1', NULL, '603357', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0.00, NULL, NULL, NULL, NULL),
+(17351, 43, 59, 'serve', 1800.00, 0.00, NULL, 1800.00, 'completed', 'card', 1, '2026-07-10 01:52:57', 'Y09', 67, '2026-07-09 21:57:18', NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0.00, NULL, NULL, NULL, NULL),
+(17352, 43, 59, 'serve', 700.00, 0.00, NULL, 700.00, 'completed', 'card', 1, '2026-07-10 01:53:48', 'I56', 67, '2026-07-09 21:57:13', NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0.00, NULL, NULL, NULL, NULL),
+(17353, 43, 59, 'serve', 4800.00, 0.00, NULL, 4800.00, 'pending', 'card', 1, '2026-07-10 01:55:21', 'Z24', NULL, NULL, NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0.00, NULL, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -23917,6 +23974,7 @@ INSERT INTO `orders` (`id`, `user_id`, `store_id`, `order_type`, `subtotal`, `di
 -- Estructura de tabla para la tabla `order_items`
 --
 
+DROP TABLE IF EXISTS `order_items`;
 CREATE TABLE `order_items` (
   `id` int NOT NULL,
   `order_id` int NOT NULL,
@@ -50121,7 +50179,11 @@ INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `unit_pri
 (26624, 17348, 4427, 1, 3900.00, '[]', '[]', '[]', NULL, NULL, NULL),
 (26625, 17348, 1505, 1, 2200.00, '[]', '[]', '[]', NULL, NULL, NULL),
 (26626, 17349, 1420, 1, 2900.00, '[]', '[]', '[]', NULL, NULL, NULL),
-(26627, 17350, 1505, 1, 2200.00, '[]', '[]', '[]', NULL, NULL, NULL);
+(26627, 17350, 1505, 1, 2200.00, '[]', '[]', '[]', NULL, NULL, NULL),
+(26628, 17351, 1438, 1, 1800.00, '[]', '[]', '[]', NULL, NULL, NULL),
+(26629, 17352, 1484, 1, 700.00, '[]', '[]', '[]', NULL, NULL, NULL),
+(26630, 17353, 1426, 1, 4100.00, '[]', '[]', '[]', NULL, NULL, NULL),
+(26631, 17353, 1484, 1, 700.00, '[]', '[]', '[]', NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -50129,6 +50191,7 @@ INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `unit_pri
 -- Estructura de tabla para la tabla `pedidosya_config`
 --
 
+DROP TABLE IF EXISTS `pedidosya_config`;
 CREATE TABLE `pedidosya_config` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -50144,6 +50207,7 @@ CREATE TABLE `pedidosya_config` (
 -- Estructura de tabla para la tabla `people_counter_config`
 --
 
+DROP TABLE IF EXISTS `people_counter_config`;
 CREATE TABLE `people_counter_config` (
   `store_id` int NOT NULL,
   `line_config` json NOT NULL,
@@ -50173,6 +50237,7 @@ INSERT INTO `people_counter_config` (`store_id`, `line_config`, `flip_direction`
 -- Estructura de tabla para la tabla `people_counter_events`
 --
 
+DROP TABLE IF EXISTS `people_counter_events`;
 CREATE TABLE `people_counter_events` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -64916,6 +64981,7 @@ INSERT INTO `people_counter_events` (`id`, `store_id`, `direction`, `crossed_at`
 -- Estructura de tabla para la tabla `plans`
 --
 
+DROP TABLE IF EXISTS `plans`;
 CREATE TABLE `plans` (
   `id` int NOT NULL,
   `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
@@ -64944,6 +65010,7 @@ INSERT INTO `plans` (`id`, `name`, `description`, `max_stores`, `price_monthly`,
 -- Estructura de tabla para la tabla `plugins`
 --
 
+DROP TABLE IF EXISTS `plugins`;
 CREATE TABLE `plugins` (
   `id` int NOT NULL,
   `plugin_id` varchar(100) NOT NULL,
@@ -64973,6 +65040,7 @@ INSERT INTO `plugins` (`id`, `plugin_id`, `name`, `version`, `description`, `aut
 -- Estructura de tabla para la tabla `plugin_settings`
 --
 
+DROP TABLE IF EXISTS `plugin_settings`;
 CREATE TABLE `plugin_settings` (
   `id` int NOT NULL,
   `plugin_id` varchar(100) NOT NULL,
@@ -64987,6 +65055,7 @@ CREATE TABLE `plugin_settings` (
 -- Estructura de tabla para la tabla `plugin_workshop`
 --
 
+DROP TABLE IF EXISTS `plugin_workshop`;
 CREATE TABLE `plugin_workshop` (
   `id` int NOT NULL,
   `plugin_id` varchar(100) NOT NULL,
@@ -65020,6 +65089,7 @@ INSERT INTO `plugin_workshop` (`id`, `plugin_id`, `user_id`, `name`, `latest_ver
 -- Estructura de tabla para la tabla `plugin_workshop_versions`
 --
 
+DROP TABLE IF EXISTS `plugin_workshop_versions`;
 CREATE TABLE `plugin_workshop_versions` (
   `id` int NOT NULL,
   `plugin_id` varchar(100) NOT NULL,
@@ -65048,6 +65118,7 @@ INSERT INTO `plugin_workshop_versions` (`id`, `plugin_id`, `version`, `zip_path`
 -- Estructura de tabla para la tabla `pos_terminals`
 --
 
+DROP TABLE IF EXISTS `pos_terminals`;
 CREATE TABLE `pos_terminals` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -65118,6 +65189,7 @@ INSERT INTO `pos_terminals` (`id`, `user_id`, `store_id`, `provider`, `name`, `a
 -- Estructura de tabla para la tabla `products`
 --
 
+DROP TABLE IF EXISTS `products`;
 CREATE TABLE `products` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -68070,6 +68142,7 @@ INSERT INTO `products` (`id`, `user_id`, `store_id`, `category_id`, `name`, `des
 -- Estructura de tabla para la tabla `product_complement_groups`
 --
 
+DROP TABLE IF EXISTS `product_complement_groups`;
 CREATE TABLE `product_complement_groups` (
   `id` int NOT NULL,
   `product_id` int NOT NULL,
@@ -68199,6 +68272,7 @@ INSERT INTO `product_complement_groups` (`id`, `product_id`, `group_id`, `sort_o
 -- Estructura de tabla para la tabla `product_extras`
 --
 
+DROP TABLE IF EXISTS `product_extras`;
 CREATE TABLE `product_extras` (
   `id` int NOT NULL,
   `product_id` int NOT NULL,
@@ -72554,6 +72628,7 @@ INSERT INTO `product_extras` (`id`, `product_id`, `extra_id`) VALUES
 -- Estructura de tabla para la tabla `product_ingredients`
 --
 
+DROP TABLE IF EXISTS `product_ingredients`;
 CREATE TABLE `product_ingredients` (
   `id` int NOT NULL,
   `product_id` int NOT NULL,
@@ -78891,6 +78966,7 @@ INSERT INTO `product_ingredients` (`id`, `product_id`, `ingredient_id`, `is_requ
 -- Estructura de tabla para la tabla `product_recipes`
 --
 
+DROP TABLE IF EXISTS `product_recipes`;
 CREATE TABLE `product_recipes` (
   `id` int NOT NULL,
   `item_type` enum('product','extra','ingredient') NOT NULL,
@@ -78926,6 +79002,7 @@ INSERT INTO `product_recipes` (`id`, `item_type`, `item_id`, `raw_material_id`, 
 -- Estructura de tabla para la tabla `rappi_config`
 --
 
+DROP TABLE IF EXISTS `rappi_config`;
 CREATE TABLE `rappi_config` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -78949,6 +79026,7 @@ INSERT INTO `rappi_config` (`id`, `store_id`, `is_enabled`, `webhook_secret`, `c
 -- Estructura de tabla para la tabla `raw_materials`
 --
 
+DROP TABLE IF EXISTS `raw_materials`;
 CREATE TABLE `raw_materials` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -79032,6 +79110,7 @@ INSERT INTO `raw_materials` (`id`, `store_id`, `name`, `quantity`, `unit`, `min_
 -- Estructura de tabla para la tabla `restaurant_tables`
 --
 
+DROP TABLE IF EXISTS `restaurant_tables`;
 CREATE TABLE `restaurant_tables` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -79095,6 +79174,7 @@ INSERT INTO `restaurant_tables` (`id`, `store_id`, `label`, `capacity`, `x`, `y`
 -- Estructura de tabla para la tabla `scheduled_whatsapp_messages`
 --
 
+DROP TABLE IF EXISTS `scheduled_whatsapp_messages`;
 CREATE TABLE `scheduled_whatsapp_messages` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -79196,6 +79276,7 @@ INSERT INTO `scheduled_whatsapp_messages` (`id`, `user_id`, `store_id`, `message
 -- Estructura de tabla para la tabla `screensaver_config`
 --
 
+DROP TABLE IF EXISTS `screensaver_config`;
 CREATE TABLE `screensaver_config` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -79224,6 +79305,7 @@ INSERT INTO `screensaver_config` (`id`, `user_id`, `enabled`, `media_url`, `time
 -- Estructura de tabla para la tabla `square_config`
 --
 
+DROP TABLE IF EXISTS `square_config`;
 CREATE TABLE `square_config` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -79248,6 +79330,7 @@ INSERT INTO `square_config` (`id`, `user_id`, `access_token`, `location_id`, `cr
 -- Estructura de tabla para la tabla `square_devices`
 --
 
+DROP TABLE IF EXISTS `square_devices`;
 CREATE TABLE `square_devices` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -79265,6 +79348,7 @@ CREATE TABLE `square_devices` (
 -- Estructura de tabla para la tabla `sq_checkouts`
 --
 
+DROP TABLE IF EXISTS `sq_checkouts`;
 CREATE TABLE `sq_checkouts` (
   `id` int NOT NULL,
   `checkout_id` varchar(255) NOT NULL,
@@ -80314,6 +80398,7 @@ INSERT INTO `sq_checkouts` (`id`, `checkout_id`, `store_id`, `order_id`, `amount
 -- Estructura de tabla para la tabla `stock_alerts`
 --
 
+DROP TABLE IF EXISTS `stock_alerts`;
 CREATE TABLE `stock_alerts` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -81724,6 +81809,7 @@ INSERT INTO `stock_alerts` (`id`, `store_id`, `item_type`, `item_id`, `item_name
 -- Estructura de tabla para la tabla `stores`
 --
 
+DROP TABLE IF EXISTS `stores`;
 CREATE TABLE `stores` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -81909,6 +81995,7 @@ INSERT INTO `stores` (`id`, `user_id`, `code`, `name`, `primary_color`, `seconda
 -- Estructura de tabla para la tabla `store_clasificacion`
 --
 
+DROP TABLE IF EXISTS `store_clasificacion`;
 CREATE TABLE `store_clasificacion` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -81937,6 +82024,7 @@ INSERT INTO `store_clasificacion` (`id`, `store_id`, `google_url`, `google_qr_de
 -- Estructura de tabla para la tabla `store_configurations`
 --
 
+DROP TABLE IF EXISTS `store_configurations`;
 CREATE TABLE `store_configurations` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -82119,6 +82207,7 @@ INSERT INTO `store_configurations` (`id`, `store_id`, `name`, `description`, `ac
 -- Estructura de tabla para la tabla `store_devices`
 --
 
+DROP TABLE IF EXISTS `store_devices`;
 CREATE TABLE `store_devices` (
   `id` int NOT NULL,
   `device_uid` varchar(100) NOT NULL,
@@ -82796,7 +82885,7 @@ INSERT INTO `store_devices` (`id`, `device_uid`, `store_id`, `label`, `last_seen
 (32429, 'dev_0d77f8e9-6efd-4d6c-8631-01dc70519b9f', 34, NULL, '2026-07-10 00:01:20', '2026-07-03 20:29:29', NULL, NULL, 0),
 (32570, 'dev_96d47211-1546-4877-85ed-75ed58ea8afd', 154, NULL, '2026-07-05 03:00:41', '2026-07-03 23:34:04', NULL, NULL, 0),
 (32574, 'dev_07fb8086-596b-4695-88a1-921033aa801e', 154, NULL, '2026-07-05 02:29:26', '2026-07-03 23:41:50', NULL, NULL, 1),
-(32579, 'dev_aa6bcd11-c139-4327-a0cc-12367f6bcfb8', 59, NULL, '2026-07-10 01:25:37', '2026-07-03 23:44:00', NULL, NULL, 0),
+(32579, 'dev_aa6bcd11-c139-4327-a0cc-12367f6bcfb8', 59, NULL, '2026-07-10 01:56:30', '2026-07-03 23:44:00', NULL, NULL, 0),
 (32856, 'dev_e9c64315-2e19-4de2-9fd9-c18747bb0539', 157, NULL, '2026-07-05 12:44:10', '2026-07-05 12:43:51', NULL, NULL, 0),
 (32858, 'dev_d71eeaff-52f3-41d2-bcfe-781ea7f14431', 157, NULL, '2026-07-06 23:28:26', '2026-07-05 12:47:10', NULL, NULL, 0),
 (32859, 'dev_96feaf88-4c69-4865-8571-5d30a861ba82', 158, NULL, '2026-07-07 13:06:41', '2026-07-05 12:59:26', NULL, NULL, 1),
@@ -82858,6 +82947,7 @@ INSERT INTO `store_devices` (`id`, `device_uid`, `store_id`, `label`, `last_seen
 -- Estructura de tabla para la tabla `store_expenses`
 --
 
+DROP TABLE IF EXISTS `store_expenses`;
 CREATE TABLE `store_expenses` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -82874,6 +82964,7 @@ CREATE TABLE `store_expenses` (
 -- Estructura de tabla para la tabla `store_prep_tables`
 --
 
+DROP TABLE IF EXISTS `store_prep_tables`;
 CREATE TABLE `store_prep_tables` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -82932,6 +83023,7 @@ INSERT INTO `store_prep_tables` (`id`, `store_id`, `title`, `template_json`, `so
 -- Estructura de tabla para la tabla `store_prep_templates`
 --
 
+DROP TABLE IF EXISTS `store_prep_templates`;
 CREATE TABLE `store_prep_templates` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -82945,6 +83037,7 @@ CREATE TABLE `store_prep_templates` (
 -- Estructura de tabla para la tabla `store_promos`
 --
 
+DROP TABLE IF EXISTS `store_promos`;
 CREATE TABLE `store_promos` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -82970,6 +83063,7 @@ INSERT INTO `store_promos` (`id`, `store_id`, `title`, `description`, `image`, `
 -- Estructura de tabla para la tabla `store_ratings`
 --
 
+DROP TABLE IF EXISTS `store_ratings`;
 CREATE TABLE `store_ratings` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -88214,6 +88308,7 @@ INSERT INTO `store_ratings` (`id`, `store_id`, `order_id`, `rating`, `comment`, 
 -- Estructura de tabla para la tabla `store_styles`
 --
 
+DROP TABLE IF EXISTS `store_styles`;
 CREATE TABLE `store_styles` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -88257,6 +88352,7 @@ INSERT INTO `store_styles` (`id`, `store_id`, `visual_settings`, `custom_css`, `
 -- Estructura de tabla para la tabla `superadmin`
 --
 
+DROP TABLE IF EXISTS `superadmin`;
 CREATE TABLE `superadmin` (
   `id` int NOT NULL,
   `email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
@@ -88280,6 +88376,7 @@ INSERT INTO `superadmin` (`id`, `email`, `password`, `created_at`, `username`, `
 -- Estructura de tabla para la tabla `support_tickets`
 --
 
+DROP TABLE IF EXISTS `support_tickets`;
 CREATE TABLE `support_tickets` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -88313,6 +88410,7 @@ INSERT INTO `support_tickets` (`id`, `user_id`, `subject`, `priority`, `status`,
 -- Estructura de tabla para la tabla `tasks`
 --
 
+DROP TABLE IF EXISTS `tasks`;
 CREATE TABLE `tasks` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -91177,6 +91275,7 @@ INSERT INTO `tasks` (`id`, `store_id`, `worker_id`, `name`, `description`, `day_
 -- Estructura de tabla para la tabla `task_completions`
 --
 
+DROP TABLE IF EXISTS `task_completions`;
 CREATE TABLE `task_completions` (
   `id` int NOT NULL,
   `task_id` int NOT NULL,
@@ -94959,6 +95058,7 @@ INSERT INTO `task_completions` (`id`, `task_id`, `week_start`, `completed_at`, `
 -- Estructura de tabla para la tabla `ticket_categories`
 --
 
+DROP TABLE IF EXISTS `ticket_categories`;
 CREATE TABLE `ticket_categories` (
   `id` int NOT NULL,
   `event_id` int NOT NULL,
@@ -94987,6 +95087,7 @@ INSERT INTO `ticket_categories` (`id`, `event_id`, `name`, `description`, `price
 -- Estructura de tabla para la tabla `ticket_events`
 --
 
+DROP TABLE IF EXISTS `ticket_events`;
 CREATE TABLE `ticket_events` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -95031,6 +95132,7 @@ INSERT INTO `ticket_events` (`id`, `store_id`, `name`, `description`, `event_dat
 -- Estructura de tabla para la tabla `ticket_filter_config`
 --
 
+DROP TABLE IF EXISTS `ticket_filter_config`;
 CREATE TABLE `ticket_filter_config` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -95050,6 +95152,7 @@ CREATE TABLE `ticket_filter_config` (
 -- Estructura de tabla para la tabla `ticket_issued`
 --
 
+DROP TABLE IF EXISTS `ticket_issued`;
 CREATE TABLE `ticket_issued` (
   `id` int NOT NULL,
   `purchase_id` int NOT NULL,
@@ -95129,6 +95232,7 @@ INSERT INTO `ticket_issued` (`id`, `purchase_id`, `event_id`, `category_id`, `ca
 -- Estructura de tabla para la tabla `ticket_messages`
 --
 
+DROP TABLE IF EXISTS `ticket_messages`;
 CREATE TABLE `ticket_messages` (
   `id` int NOT NULL,
   `ticket_id` int NOT NULL,
@@ -95213,6 +95317,7 @@ INSERT INTO `ticket_messages` (`id`, `ticket_id`, `sender_type`, `sender_name`, 
 -- Estructura de tabla para la tabla `ticket_purchases`
 --
 
+DROP TABLE IF EXISTS `ticket_purchases`;
 CREATE TABLE `ticket_purchases` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -95270,6 +95375,7 @@ INSERT INTO `ticket_purchases` (`id`, `store_id`, `event_id`, `buyer_name`, `buy
 -- Estructura de tabla para la tabla `ticket_purchase_items`
 --
 
+DROP TABLE IF EXISTS `ticket_purchase_items`;
 CREATE TABLE `ticket_purchase_items` (
   `id` int NOT NULL,
   `purchase_id` int NOT NULL,
@@ -95331,6 +95437,7 @@ INSERT INTO `ticket_purchase_items` (`id`, `purchase_id`, `category_id`, `catego
 -- Estructura de tabla para la tabla `tiktok_configs`
 --
 
+DROP TABLE IF EXISTS `tiktok_configs`;
 CREATE TABLE `tiktok_configs` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -95364,6 +95471,7 @@ INSERT INTO `tiktok_configs` (`id`, `store_id`, `access_token`, `refresh_token`,
 -- Estructura de tabla para la tabla `totem_rentals`
 --
 
+DROP TABLE IF EXISTS `totem_rentals`;
 CREATE TABLE `totem_rentals` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -95390,6 +95498,7 @@ CREATE TABLE `totem_rentals` (
 -- Estructura de tabla para la tabla `totem_rental_payments`
 --
 
+DROP TABLE IF EXISTS `totem_rental_payments`;
 CREATE TABLE `totem_rental_payments` (
   `id` int NOT NULL,
   `rental_id` int NOT NULL,
@@ -95406,6 +95515,7 @@ CREATE TABLE `totem_rental_payments` (
 -- Estructura de tabla para la tabla `tuu_config`
 --
 
+DROP TABLE IF EXISTS `tuu_config`;
 CREATE TABLE `tuu_config` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -95434,6 +95544,7 @@ INSERT INTO `tuu_config` (`id`, `user_id`, `api_key`, `dte_type`, `updated_at`) 
 -- Estructura de tabla para la tabla `tuu_devices`
 --
 
+DROP TABLE IF EXISTS `tuu_devices`;
 CREATE TABLE `tuu_devices` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -95469,6 +95580,7 @@ INSERT INTO `tuu_devices` (`id`, `user_id`, `name`, `serial`, `created_at`) VALU
 -- Estructura de tabla para la tabla `tuu_device_pos`
 --
 
+DROP TABLE IF EXISTS `tuu_device_pos`;
 CREATE TABLE `tuu_device_pos` (
   `id` int NOT NULL,
   `device_uid` varchar(100) NOT NULL,
@@ -95501,6 +95613,7 @@ INSERT INTO `tuu_device_pos` (`id`, `device_uid`, `tuu_device_id`, `store_id`) V
 -- Estructura de tabla para la tabla `tuu_store_device`
 --
 
+DROP TABLE IF EXISTS `tuu_store_device`;
 CREATE TABLE `tuu_store_device` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -95513,6 +95626,7 @@ CREATE TABLE `tuu_store_device` (
 -- Estructura de tabla para la tabla `tuu_transactions`
 --
 
+DROP TABLE IF EXISTS `tuu_transactions`;
 CREATE TABLE `tuu_transactions` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -106401,6 +106515,7 @@ INSERT INTO `tuu_transactions` (`id`, `store_id`, `order_id`, `idempotency_key`,
 -- Estructura de tabla para la tabla `ubereats_config`
 --
 
+DROP TABLE IF EXISTS `ubereats_config`;
 CREATE TABLE `ubereats_config` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -106423,6 +106538,7 @@ INSERT INTO `ubereats_config` (`id`, `store_id`, `is_enabled`, `webhook_secret`,
 -- Estructura de tabla para la tabla `users`
 --
 
+DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
   `id` int NOT NULL,
   `username` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
@@ -106489,7 +106605,7 @@ INSERT INTO `users` (`id`, `username`, `email`, `password`, `code`, `business_na
 (40, 'cesar.estay@finkel.cl', 'cesar.estay@finkel.cl', '$2a$10$SE2TiR1ZxSGVnnfACeckmuJNCk8D9rgPvYgfdNrObZIBnoX2Xfhnu', 'XQI412', NULL, '#000000', '#FFFFFF', '#D4AF37', '#000000', 'USD', '$', 'Dólar Estadounidense', '2026-05-05 20:15:29', 0, '2026-05-16 19:37:56', NULL, 0, 0, '995134', '2026-05-16 15:52:56', 'Chile', NULL, 0, NULL),
 (41, 'Cesar', 'c.araya2106@hotmail.com', '$2a$10$WlQX4xgnLKMSGUfZuSUBW.JVMwAy8Mhppa2x.bg4.Ex8BAHZb3tdi', 'KNF526', 'Punto market', '#000000', '#FFFFFF', '#D4AF37', '#000000', 'USD', '$', 'Dólar Estadounidense', '2026-05-09 01:00:38', 0, '2026-05-09 01:01:39', NULL, 0, 1, NULL, NULL, 'Chile', NULL, 0, NULL),
 (42, 'kevin maicol stuardo miranda', 'isahelados0292@gmail.com', '$2a$10$ruySQJmf4C2mxpITVRSdsOM/p.8emPjm52796W9dX93FWXuR/uEdK', 'ARR101', 'isa helados ', '#000000', '#FFFFFF', '#D4AF37', '#000000', 'USD', '$', 'Dólar Estadounidense', '2026-05-09 02:20:51', 0, '2026-06-04 01:50:57', NULL, 0, 1, NULL, NULL, 'Chile', NULL, 14, NULL),
-(43, 'Máximo toro ', 'mc.max322@gmail.com', '$2a$10$v3oP6qFhBxUGa8JIKgHKsuQh0B8r8Q1ZPl060QHCIXq2nbGOJYOtu', 'MIJ386', 'Dónde el punto (el peñón)', '#000000', '#FFFFFF', '#D4AF37', '#000000', 'USD', '$', 'Dólar Estadounidense', '2026-05-13 01:06:08', 0, '2026-07-10 01:47:18', NULL, 0, 1, NULL, NULL, 'Chile', NULL, 14, '975514641'),
+(43, 'Máximo toro ', 'mc.max322@gmail.com', '$2a$10$v3oP6qFhBxUGa8JIKgHKsuQh0B8r8Q1ZPl060QHCIXq2nbGOJYOtu', 'MIJ386', 'Dónde el punto (el peñón)', '#000000', '#FFFFFF', '#D4AF37', '#000000', 'USD', '$', 'Dólar Estadounidense', '2026-05-13 01:06:08', 0, '2026-07-10 01:57:18', NULL, 0, 1, NULL, NULL, 'Chile', NULL, 14, '975514641'),
 (44, 'flordecafepichilemu@gmail.com', 'flordecafepichilemu@gmail.com', '$2a$10$8INiNLttcKHBndjpd72RROlKAmCg3VGY/HtpZxqw7GRso1MLOhjxy', 'SRM147', 'Flor de cafe ', '#000000', '#FFFFFF', '#D4AF37', '#000000', 'USD', '$', 'Dólar Estadounidense', '2026-05-13 15:35:17', 0, '2026-05-23 00:28:57', NULL, 0, 1, NULL, NULL, 'Chile', NULL, 0, NULL),
 (45, 'Cinnalove', 'cinnalovecl@gmail.com', '$2a$10$jrUlUJphI4vtqBo1sS6OY.FD23a2BOZc3IaYOez3IwmPWIwA9Jawe', 'IOP743', 'CINNALOVE', '#000000', '#FFFFFF', '#D4AF37', '#000000', 'USD', '$', 'Dólar Estadounidense', '2026-05-14 12:22:45', 0, '2026-05-24 23:36:39', NULL, 0, 1, NULL, NULL, 'Chile', NULL, 0, NULL),
 (46, 'Mickael', 'mickptv@hotmail.com', '$2a$10$fOX4f0LjLK.m5wAfCYFiw.O4MnJ33GbH2F9I//RkR8W0PahT.I/J6', 'UDG869', 'Vive Quintay Spa ', '#000000', '#FFFFFF', '#D4AF37', '#000000', 'USD', '$', 'Dólar Estadounidense', '2026-05-15 02:44:20', 0, '2026-05-16 21:12:21', NULL, 0, 1, NULL, NULL, 'Chile', NULL, 14, NULL),
@@ -106586,6 +106702,7 @@ INSERT INTO `users` (`id`, `username`, `email`, `password`, `code`, `business_na
 -- Estructura de tabla para la tabla `user_plans`
 --
 
+DROP TABLE IF EXISTS `user_plans`;
 CREATE TABLE `user_plans` (
   `id` int NOT NULL,
   `user_id` int NOT NULL,
@@ -106646,6 +106763,7 @@ INSERT INTO `user_plans` (`id`, `user_id`, `plan_id`, `billing_cycle`, `starts_a
 -- Estructura de tabla para la tabla `workers`
 --
 
+DROP TABLE IF EXISTS `workers`;
 CREATE TABLE `workers` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -106848,6 +106966,7 @@ INSERT INTO `workers` (`id`, `store_id`, `username`, `password`, `name`, `create
 -- Estructura de tabla para la tabla `worker_comments`
 --
 
+DROP TABLE IF EXISTS `worker_comments`;
 CREATE TABLE `worker_comments` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -106870,6 +106989,7 @@ INSERT INTO `worker_comments` (`id`, `store_id`, `worker_id`, `worker_name`, `co
 -- Estructura de tabla para la tabla `worker_payment_methods`
 --
 
+DROP TABLE IF EXISTS `worker_payment_methods`;
 CREATE TABLE `worker_payment_methods` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -106931,6 +107051,7 @@ INSERT INTO `worker_payment_methods` (`id`, `store_id`, `name`, `color`, `is_act
 -- Estructura de tabla para la tabla `worker_procedures`
 --
 
+DROP TABLE IF EXISTS `worker_procedures`;
 CREATE TABLE `worker_procedures` (
   `id` int NOT NULL,
   `store_id` int NOT NULL,
@@ -106957,6 +107078,7 @@ INSERT INTO `worker_procedures` (`id`, `store_id`, `product_id`, `title`, `steps
 -- Estructura de tabla para la tabla `_migrations`
 --
 
+DROP TABLE IF EXISTS `_migrations`;
 CREATE TABLE `_migrations` (
   `name` varchar(100) NOT NULL,
   `ran_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
@@ -108119,13 +108241,13 @@ ALTER TABLE `mercado_pago_terminals`
 -- AUTO_INCREMENT de la tabla `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17351;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17354;
 
 --
 -- AUTO_INCREMENT de la tabla `order_items`
 --
 ALTER TABLE `order_items`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26628;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26632;
 
 --
 -- AUTO_INCREMENT de la tabla `pedidosya_config`
@@ -108281,7 +108403,7 @@ ALTER TABLE `store_configurations`
 -- AUTO_INCREMENT de la tabla `store_devices`
 --
 ALTER TABLE `store_devices`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34450;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34451;
 
 --
 -- AUTO_INCREMENT de la tabla `store_expenses`

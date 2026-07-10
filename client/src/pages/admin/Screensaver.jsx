@@ -7,7 +7,7 @@ import {
   faCrown, faSpinner, faEye, faImage, faTimes
 } from '@fortawesome/free-solid-svg-icons';
 
-const API = 'https://srservi3.srautomatic.com';
+const API = 'https://mantraxtools.store';
 const GOLD = '#D4AF37';
 
 const TIMEOUT_OPTIONS = [

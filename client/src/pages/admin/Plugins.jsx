@@ -6,7 +6,7 @@ import { useStore } from '../../components/Layout';
 import { usePlugins } from '../../context/PluginContext';
 import { COUNTRIES, DEFAULT_COUNTRY, getCountry, loadPluginCountries, setPluginCountries, getPluginCountries } from '../../constants/pos';
 
-const API = 'https://srservi3.srautomatic.com';
+const API = 'https://mantraxtools.store';
 
 function Plugins() {
   const navigate = useNavigate();

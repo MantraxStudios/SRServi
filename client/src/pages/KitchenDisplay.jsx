@@ -6,7 +6,7 @@ import { faFire, faTimes, faExpand } from '@fortawesome/free-solid-svg-icons';
 import { SOCKET_URL } from '../config.js';
 import KitchenBoard from '../components/KitchenBoard';
 
-const ADDON_BASE = 'https://srservi3.srautomatic.com';
+const ADDON_BASE = 'https://mantraxtools.store';
 
 export default function KitchenDisplay() {
   const navigate = useNavigate();

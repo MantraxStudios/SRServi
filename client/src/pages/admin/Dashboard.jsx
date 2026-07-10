@@ -17,7 +17,7 @@ import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useStore } from '../../components/Layout';
 
-const API = 'https://srservi3.srautomatic.com';
+const API = 'https://mantraxtools.store';
 
 function Dashboard() {
   const { user, token } = useAuth();

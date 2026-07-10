@@ -8,17 +8,22 @@ const execAsync = promisify(exec);
 const NGINX_AVAILABLE = '/etc/nginx/sites-available';
 const NGINX_ENABLED   = '/etc/nginx/sites-enabled';
 const CLIENT_PORT     = process.env.CLIENT_PORT || 6666;
-const BASE_URL        = process.env.BASE_URL    || 'https://srservi3.srautomatic.com';
+const BASE_URL        = process.env.BASE_URL    || 'https://mantraxtools.store';
 const CERTBOT_EMAIL   = process.env.EMAIL_USER  || 'support@srautomatic.com';
 
 function getBaseDomain() {
-  try { return new URL(BASE_URL).hostname.split('.').slice(1).join('.'); }
-  catch { return 'srautomatic.com'; }
+  // Con dominio apex (mantraxtools.store) el base es el mismo dominio;
+  // con subdominio (srservi3.srautomatic.com) se quita el primer label
+  try {
+    const parts = new URL(BASE_URL).hostname.split('.');
+    return parts.length > 2 ? parts.slice(1).join('.') : parts.join('.');
+  }
+  catch { return 'mantraxtools.store'; }
 }
 
 function getMainHost() {
   try { return new URL(BASE_URL).hostname; }
-  catch { return 'srservi3.srautomatic.com'; }
+  catch { return 'mantraxtools.store'; }
 }
 
 function isProduction() {

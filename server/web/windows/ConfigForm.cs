@@ -390,7 +390,7 @@ namespace FullscreenBrowser
         {
             _config.StoreCode   = _txtStoreCode.Text.Trim();
             _config.Url         = string.IsNullOrWhiteSpace(_txtUrl.Text)
-                                    ? "https://srservi3.srautomatic.com/"
+                                    ? "https://mantraxtools.store/"
                                     : _txtUrl.Text.Trim();
             _config.AutoPrint   = _chkAuto.Checked;
             _config.PaperWidth  = PaperWidths[Math.Max(0, _cboPaper.SelectedIndex)];

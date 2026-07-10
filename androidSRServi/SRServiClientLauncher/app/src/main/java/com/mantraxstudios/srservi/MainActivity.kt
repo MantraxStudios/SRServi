@@ -54,7 +54,7 @@ class MainActivity : AppCompatActivity() {
             if (storeCode.isNullOrBlank()) {
                 Toast.makeText(this, getString(R.string.rate_no_code), Toast.LENGTH_SHORT).show()
             } else {
-                val url = "https://srservi3.srautomatic.com/rate/$storeCode"
+                val url = "https://mantraxtools.store/rate/$storeCode"
                 RateActivity.start(this, url)
             }
         }

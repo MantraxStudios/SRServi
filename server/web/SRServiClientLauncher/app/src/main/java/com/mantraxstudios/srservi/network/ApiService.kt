@@ -13,8 +13,8 @@ data class PlanInfo(val planName: String, val maxPrinters: Int)
 object ApiService {
 
     private val gson = Gson()
-    private const val BASE_URL = "https://srservi3.srautomatic.com/api/store"
-    private const val PUBLIC_URL = "https://srservi3.srautomatic.com/api/public"
+    private const val BASE_URL = "https://mantraxtools.store/api/store"
+    private const val PUBLIC_URL = "https://mantraxtools.store/api/public"
 
     fun fetchOrders(storeCode: String): OrdersResponse? {
         val url = "$BASE_URL/$storeCode/orders"
@@ -37,7 +37,7 @@ object ApiService {
     }
 
     fun fetchAppVersion(appName: String): String? {
-        val url = "https://srservi3.srautomatic.com/api/apps/android/version/$appName"
+        val url = "https://mantraxtools.store/api/apps/android/version/$appName"
         val response = httpGet(url) ?: return null
         return try {
             val map = gson.fromJson(response, Map::class.java)

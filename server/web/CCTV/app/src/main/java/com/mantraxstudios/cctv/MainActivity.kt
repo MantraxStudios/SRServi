@@ -78,7 +78,7 @@ private val Gold = Color(0xFFD4AF37)
 private val DarkBg = Color(0xFF0A0A0A)
 private val CardBg = Color(0xFF141414)
 
-private const val BASE_URL = "https://srservi3.srautomatic.com"
+private const val BASE_URL = "https://mantraxtools.store"
 private const val STORE_CODE = "AUTO_STORE_CODE" // build system replaces this; empty = manual pair
 private const val CCTV_APP_VERSION = "1.0.0"
 private const val PREFS_NAME = "cctv_signage"
@@ -1414,7 +1414,7 @@ fun WaitingSignalScreen() {
                     .padding(horizontal = 24.dp, vertical = 10.dp)
             ) {
                 Text(
-                    "srservi3.srautomatic.com/admin",
+                    "mantraxtools.store/admin",
                     color = Gold,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -2047,7 +2047,7 @@ private fun openSecureConnection(urlStr: String): HttpURLConnection {
         sc.init(null, arrayOf<TrustManager>(tm), SecureRandom())
         conn.sslSocketFactory = sc.socketFactory
         conn.hostnameVerifier = HostnameVerifier { hostname, _ ->
-            hostname == "srservi3.srautomatic.com"
+            hostname == "mantraxtools.store"
         }
     } catch (e: Exception) {
         Log.e(TAG, "SSL setup failed: ${e.message}")

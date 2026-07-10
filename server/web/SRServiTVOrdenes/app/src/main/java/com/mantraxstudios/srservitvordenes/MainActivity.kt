@@ -24,8 +24,8 @@ class MainActivity : ComponentActivity() {
 
     // Replaced at build time by the server. Falls back to /tv entry screen if not configured.
     private val storeCode = "AUTO_STORE_CODE"
-    private val targetUrl get() = if (storeCode == "AUTO_STORE_CODE") "https://srservi3.srautomatic.com/tv"
-                                  else "https://srservi3.srautomatic.com/tv/$storeCode"
+    private val targetUrl get() = if (storeCode == "AUTO_STORE_CODE") "https://mantraxtools.store/tv"
+                                  else "https://mantraxtools.store/tv/$storeCode"
 
     private val APP_VERSION = "1.0.0"
 
@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity() {
     private fun checkForUpdateAndHeartbeat() {
         Thread {
             try {
-                val hbConn = java.net.URL("https://srservi3.srautomatic.com/api/app/heartbeat").openConnection() as java.net.HttpURLConnection
+                val hbConn = java.net.URL("https://mantraxtools.store/api/app/heartbeat").openConnection() as java.net.HttpURLConnection
                 hbConn.requestMethod = "POST"
                 hbConn.setRequestProperty("Content-Type", "application/json")
                 hbConn.doOutput = true
@@ -119,7 +119,7 @@ class MainActivity : ComponentActivity() {
                 hbConn.disconnect()
             } catch (_: Exception) {}
             try {
-                val conn = java.net.URL("https://srservi3.srautomatic.com/api/apps/android/version/tvordenes").openConnection() as java.net.HttpURLConnection
+                val conn = java.net.URL("https://mantraxtools.store/api/apps/android/version/tvordenes").openConnection() as java.net.HttpURLConnection
                 conn.connectTimeout = 10000
                 conn.readTimeout = 10000
                 if (conn.responseCode == 200) {
@@ -140,7 +140,7 @@ class MainActivity : ComponentActivity() {
             .setMessage("Versión $serverVersion disponible (tu versión: $APP_VERSION). Descarga la actualización.")
             .setCancelable(true)
             .setPositiveButton("Descargar") { _, _ ->
-                val url = "https://srservi3.srautomatic.com/api/apps/android/download?appName=tvordenes"
+                val url = "https://mantraxtools.store/api/apps/android/download?appName=tvordenes"
                 val req = DownloadManager.Request(Uri.parse(url))
                     .setTitle("SRServi TV Ordenes - Actualización")
                     .setDescription("Descargando v$serverVersion...")
