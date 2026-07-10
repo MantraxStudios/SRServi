@@ -7,7 +7,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { usePlugins } from '../../context/PluginContext';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 
 function Workshop() {
   const { refreshPlugins } = usePlugins();

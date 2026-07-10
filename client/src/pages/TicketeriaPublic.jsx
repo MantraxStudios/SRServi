@@ -6,7 +6,7 @@ import {
   faCheckCircle, faTimesCircle, faArrowLeft, faMinus, faPlus, faShoppingCart
 } from '@fortawesome/free-solid-svg-icons';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 const GOLD = '#C8A415';
 
 function EventCard({ event, onSelect }) {

@@ -7,7 +7,7 @@ import {
 import { useStore } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 const CANVAS_W = 900;
 const CANVAS_H = 540;
 

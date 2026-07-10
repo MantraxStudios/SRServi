@@ -82,7 +82,7 @@ class MainActivity : ComponentActivity() {
             if (savedInstanceState != null) {
                 restoreState(savedInstanceState)
             } else {
-                loadUrl("https://srservi2.srautomatic.com/tv")
+                loadUrl("https://srservi3.srautomatic.com/tv")
             }
         }
 

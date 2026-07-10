@@ -76,7 +76,7 @@ private val Gold = Color(0xFFD4AF37)
 private val DarkBg = Color(0xFF0A0A0A)
 private val CardBg = Color(0xFF141414)
 
-private const val BASE_URL = "https://srservi2.srautomatic.com"
+private const val BASE_URL = "https://srservi3.srautomatic.com"
 private const val PREFS_NAME = "cctv_signage"
 private const val KEY_TOKEN = "device_token"
 private const val KEY_VIDEO_PATH = "current_video_path"
@@ -1264,7 +1264,7 @@ fun WaitingSignalScreen() {
                     .padding(horizontal = 24.dp, vertical = 10.dp)
             ) {
                 Text(
-                    "srservi2.srautomatic.com/admin",
+                    "srservi3.srautomatic.com/admin",
                     color = Gold,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -1868,7 +1868,7 @@ private fun openSecureConnection(urlStr: String): HttpURLConnection {
         sc.init(null, arrayOf<TrustManager>(tm), SecureRandom())
         conn.sslSocketFactory = sc.socketFactory
         conn.hostnameVerifier = HostnameVerifier { hostname, _ ->
-            hostname == "srservi2.srautomatic.com"
+            hostname == "srservi3.srautomatic.com"
         }
     } catch (e: Exception) {
         Log.e(TAG, "SSL setup failed: ${e.message}")

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 
 // ── Auth Modal ────────────────────────────────────────────────────────────────
 function DeliveryAuthModal({ onAuth, onClose }) {

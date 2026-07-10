@@ -124,11 +124,23 @@ if [ "$MODE" = "prod" ]; then
             sed -i '/http {/a\    include /etc/nginx/sites-enabled/*;' /etc/nginx/nginx.conf
         fi
 
-        # Dominio y email desde server/.env
-        DOMAIN=$(grep -E '^BASE_URL=' server/.env | head -1 | sed -E 's|^BASE_URL=https?://||; s|/.*$||; s|\r$||')
+        # Dominio principal (de BASE_URL) + dominios extra (EXTRA_DOMAINS) desde server/.env
+        DOMAIN=$(grep -E '^BASE_URL=' server/.env | head -1 | sed -E 's|^BASE_URL=https?://||; s|/.*$||; s|:[0-9]+$||; s|\r$||')
+        EXTRA_DOMAINS=$(grep -E '^EXTRA_DOMAINS=' server/.env | head -1 | cut -d= -f2- | tr -d '\r')
         CERT_EMAIL=$(grep -E '^EMAIL_USER=' server/.env | head -1 | cut -d= -f2 | tr -d '\r')
-        BASE_DOMAIN="${DOMAIN#*.}"
         NGINX_CONF="/etc/nginx/sites-available/srservi.conf"
+
+        # ¿BASE_URL es una IP o localhost? → sin dominio: HTTP por IP, sin certbot
+        NO_DOMAIN=0
+        if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "localhost" ] || \
+           echo "$DOMAIN" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            NO_DOMAIN=1
+            echo "  Sin dominio (BASE_URL=$DOMAIN) — Nginx servirá por IP en HTTP, sin SSL"
+            ALL_DOMAINS=""
+        else
+            ALL_DOMAINS="$DOMAIN $EXTRA_DOMAINS"
+            echo "  Dominios a configurar: $ALL_DOMAINS"
+        fi
 
         # Bloques de proxy compartidos (API/socket/archivos → 8888, resto → cliente 6666)
         nginx_locations() {
@@ -164,75 +176,107 @@ if [ "$MODE" = "prod" ]; then
 LOCS
         }
 
-        write_http_conf() {
-            {
-                echo "# SRServi auto-generated — sitio principal $DOMAIN"
-                echo "server {"
-                echo "    listen 80;"
-                echo "    server_name $DOMAIN;"
-                nginx_locations
-                echo "}"
-            } > "$NGINX_CONF"
+        # Devuelve el directorio del certificado de un dominio (individual o
+        # wildcard del dominio base), o nada si no hay
+        cert_dir_for() {
+            local d="$1" base="${1#*.}"
+            if [ -f "/etc/letsencrypt/live/$d/fullchain.pem" ]; then
+                echo "/etc/letsencrypt/live/$d"
+            elif [ -f "/etc/letsencrypt/live/$base/fullchain.pem" ]; then
+                echo "/etc/letsencrypt/live/$base"
+            fi
         }
 
-        write_https_conf() {
-            local CERT_DIR="$1"
-            {
-                echo "# SRServi auto-generated — sitio principal $DOMAIN"
-                echo "server {"
+        emit_http_block() {  # $1 = dominio ("" = servir por IP)
+            echo "server {"
+            if [ "$NO_DOMAIN" = "1" ]; then
+                echo "    listen 80 default_server;"
+                echo "    server_name _;"
+            else
                 echo "    listen 80;"
-                echo "    server_name $DOMAIN;"
-                echo "    location /.well-known/acme-challenge/ { root /var/www/certbot; }"
-                echo "    location / { return 301 https://\$host\$request_uri; }"
-                echo "}"
-                echo ""
-                echo "server {"
-                echo "    listen 443 ssl;"
-                echo "    server_name $DOMAIN;"
-                echo ""
-                echo "    ssl_certificate     $CERT_DIR/fullchain.pem;"
-                echo "    ssl_certificate_key $CERT_DIR/privkey.pem;"
-                echo "    ssl_protocols TLSv1.2 TLSv1.3;"
-                echo "    ssl_ciphers HIGH:!aNULL:!MD5;"
-                echo "    ssl_session_cache shared:SSL:10m;"
-                nginx_locations
-                echo "}"
+                echo "    server_name $1;"
+            fi
+            nginx_locations
+            echo "}"
+        }
+
+        emit_https_block() {  # $1 = dominio, $2 = dir del certificado
+            echo "server {"
+            echo "    listen 80;"
+            echo "    server_name $1;"
+            echo "    location /.well-known/acme-challenge/ { root /var/www/certbot; }"
+            echo "    location / { return 301 https://\$host\$request_uri; }"
+            echo "}"
+            echo ""
+            echo "server {"
+            echo "    listen 443 ssl;"
+            echo "    server_name $1;"
+            echo ""
+            echo "    ssl_certificate     $2/fullchain.pem;"
+            echo "    ssl_certificate_key $2/privkey.pem;"
+            echo "    ssl_protocols TLSv1.2 TLSv1.3;"
+            echo "    ssl_ciphers HIGH:!aNULL:!MD5;"
+            echo "    ssl_session_cache shared:SSL:10m;"
+            nginx_locations
+            echo "}"
+        }
+
+        # Escribe la config completa: un bloque por dominio,
+        # HTTPS si ese dominio ya tiene certificado, HTTP si no
+        write_conf() {
+            {
+                echo "# SRServi auto-generated — ${ALL_DOMAINS:-por-IP}"
+                if [ "$NO_DOMAIN" = "1" ]; then
+                    emit_http_block ""
+                else
+                    for d in $ALL_DOMAINS; do
+                        CERT_DIR=$(cert_dir_for "$d")
+                        if [ -n "$CERT_DIR" ]; then
+                            emit_https_block "$d" "$CERT_DIR"
+                        else
+                            emit_http_block "$d"
+                        fi
+                        echo ""
+                    done
+                fi
             } > "$NGINX_CONF"
         }
 
         # Solo tocar la config si es nuestra o no existe (respeta ediciones manuales)
         if [ ! -f "$NGINX_CONF" ] || grep -q '# SRServi auto-generated' "$NGINX_CONF"; then
-            # ¿Ya hay certificado? (wildcard del dominio base o individual)
-            if [ -f "/etc/letsencrypt/live/$BASE_DOMAIN/fullchain.pem" ]; then
-                echo "  Certificado wildcard encontrado ✓"
-                write_https_conf "/etc/letsencrypt/live/$BASE_DOMAIN"
-            elif [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-                echo "  Certificado de $DOMAIN encontrado ✓"
-                write_https_conf "/etc/letsencrypt/live/$DOMAIN"
-            else
-                write_http_conf
-            fi
+            # Sin dominio somos el sitio por defecto → quitar el default de nginx
+            [ "$NO_DOMAIN" = "1" ] && rm -f /etc/nginx/sites-enabled/default
+            write_conf
             ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/srservi.conf
 
             if nginx -t >/dev/null 2>&1; then
                 systemctl enable nginx >/dev/null 2>&1 || true
                 systemctl restart nginx 2>/dev/null || nginx -s reload 2>/dev/null || nginx || true
-                echo "  Nginx configurado para $DOMAIN ✓"
+                echo "  Nginx configurado para ${ALL_DOMAINS:-acceso por IP} ✓"
             else
                 echo "  ⚠ nginx -t falló — revisa la config:"
                 nginx -t || true
             fi
 
-            # Sin certificado aún → intentar obtenerlo con certbot y subir a HTTPS
-            if ! grep -q 'listen 443' "$NGINX_CONF" && command -v certbot >/dev/null 2>&1; then
-                echo "  Obteniendo certificado SSL para $DOMAIN..."
-                if certbot certonly --webroot -w /var/www/certbot -d "$DOMAIN" \
-                     --email "$CERT_EMAIL" --agree-tos --non-interactive --quiet; then
-                    write_https_conf "/etc/letsencrypt/live/$DOMAIN"
+            # Obtener con certbot los certificados que falten y subir a HTTPS
+            # (solo dominios reales; Let's Encrypt no emite certificados para IPs)
+            if [ "$NO_DOMAIN" = "0" ] && command -v certbot >/dev/null 2>&1; then
+                NEW_CERTS=0
+                for d in $ALL_DOMAINS; do
+                    [ -n "$(cert_dir_for "$d")" ] && continue
+                    echo "  Obteniendo certificado SSL para $d..."
+                    if certbot certonly --webroot -w /var/www/certbot -d "$d" \
+                         --email "$CERT_EMAIL" --agree-tos --non-interactive --quiet; then
+                        echo "  SSL de $d obtenido ✓"
+                        NEW_CERTS=1
+                    else
+                        echo "  ⚠ certbot falló para $d (¿el DNS apunta a este servidor?) — queda en HTTP"
+                    fi
+                done
+                if [ "$NEW_CERTS" = "1" ]; then
+                    write_conf
                     { nginx -t >/dev/null 2>&1 && { systemctl reload nginx 2>/dev/null || nginx -s reload; }; } || true
-                    echo "  SSL activo ✓ — https://$DOMAIN"
-                else
-                    echo "  ⚠ certbot falló (¿DNS apunta a este servidor?) — el sitio queda en HTTP"
+                    echo "  HTTPS activo para los dominios con certificado ✓"
                 fi
             fi
         else
@@ -286,7 +330,13 @@ echo "  SRServi iniciado! (modo $MODE)"
 echo "=========================================="
 echo ""
 if [ "$MODE" = "prod" ] && [ -n "$DOMAIN" ]; then
-    echo "Web:          https://$DOMAIN"
+    if [ "${NO_DOMAIN:-0}" = "1" ]; then
+        echo "Web:          http://$DOMAIN (sin dominio — HTTP por IP)"
+    else
+        for d in $ALL_DOMAINS; do
+            echo "Web:          https://$d"
+        done
+    fi
 fi
 echo "Servidor API: http://localhost:8888"
 echo "Cliente:      http://localhost:6666"

@@ -26,7 +26,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { getImageUrl, getProductImageUrl } from '../config.js';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 
 function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, embedded = false }) {
   const [products, setProducts] = useState([]);

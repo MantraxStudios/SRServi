@@ -4,7 +4,7 @@ import { StoreContext } from '../../components/Layout';
 import { getImageUrl } from '../../config.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 
 import {
   faBarcode,

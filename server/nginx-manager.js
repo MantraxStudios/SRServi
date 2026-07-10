@@ -8,7 +8,7 @@ const execAsync = promisify(exec);
 const NGINX_AVAILABLE = '/etc/nginx/sites-available';
 const NGINX_ENABLED   = '/etc/nginx/sites-enabled';
 const CLIENT_PORT     = process.env.CLIENT_PORT || 6666;
-const BASE_URL        = process.env.BASE_URL    || 'https://srservi2.srautomatic.com';
+const BASE_URL        = process.env.BASE_URL    || 'https://srservi3.srautomatic.com';
 const CERTBOT_EMAIL   = process.env.EMAIL_USER  || 'support@srautomatic.com';
 
 function getBaseDomain() {
@@ -18,7 +18,7 @@ function getBaseDomain() {
 
 function getMainHost() {
   try { return new URL(BASE_URL).hostname; }
-  catch { return 'srservi2.srautomatic.com'; }
+  catch { return 'srservi3.srautomatic.com'; }
 }
 
 function isProduction() {

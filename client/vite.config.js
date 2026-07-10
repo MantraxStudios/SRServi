@@ -6,9 +6,9 @@ export default defineConfig({
   server: {
     host: process.env.VITE_CLIENT_HOST || 'localhost',
     port: parseInt(process.env.VITE_CLIENT_PORT || '5173'),
-    allowedHosts: ['srservi2.srautomatic.com']
+    allowedHosts: ['srservi3.srautomatic.com', 'mantraxtools.store', 'www.mantraxtools.store']
   },
   preview: {
-    allowedHosts: ['srservi2.srautomatic.com']
+    allowedHosts: ['srservi3.srautomatic.com', 'mantraxtools.store', 'www.mantraxtools.store']
   }
 })

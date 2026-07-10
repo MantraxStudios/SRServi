@@ -4,7 +4,7 @@ import { faMotorcycle, faSave, faMapMarkerAlt, faClock, faMoneyBillWave, faSync,
 import { useStore } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 
 const inputStyle = {
   width: '100%', padding: '10px 12px', background: '#fff',

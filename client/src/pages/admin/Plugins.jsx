@@ -6,7 +6,7 @@ import { useStore } from '../../components/Layout';
 import { usePlugins } from '../../context/PluginContext';
 import { COUNTRIES, DEFAULT_COUNTRY, getCountry, loadPluginCountries, setPluginCountries, getPluginCountries } from '../../constants/pos';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 
 function Plugins() {
   const navigate = useNavigate();

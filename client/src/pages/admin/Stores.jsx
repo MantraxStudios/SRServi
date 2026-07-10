@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { faPlus, faEdit, faTrash, faCopy, faClone, faStore, faExclamationTriangle, faImage, faChevronDown, faCheck, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { getImageUrl } from '../../config.js';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 
 const CURRENCIES = [
   { code: 'USD', symbol: '$', name: 'Dólar Estadounidense' },

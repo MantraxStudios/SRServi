@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEnvelope, faKey, faLock, faCheckCircle, faShieldAlt } from '@fortawesome/free-solid-svg-icons';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 
 function ForgotPassword() {
   const [method, setMethod] = useState(null); // null | 'email' | 'totp'

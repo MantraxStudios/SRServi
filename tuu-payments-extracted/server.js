@@ -94,7 +94,7 @@ function generateHaulmerSignature(data, secretKey) {
 }
 
 async function createHaulmerPayment(config, amount, description, reference, storeCode, urlSuccess, urlFailed) {
-  const serverUrl = ctx.serverUrl || 'https://srservi2.srautomatic.com';
+  const serverUrl = ctx.serverUrl || 'https://srservi3.srautomatic.com';
   const payload = {
     x_account_id: config.account_id,
     x_amount: amount,
@@ -537,7 +537,7 @@ export async function init(context) {
       const storeCode = stores[0]?.code || '';
 
       const reference = `SRS-${store_id}-${order_id || 'x'}-${Date.now()}`;
-      const serverUrl = ctx.serverUrl || 'https://srservi2.srautomatic.com';
+      const serverUrl = ctx.serverUrl || 'https://srservi3.srautomatic.com';
 
       const result = await createHaulmerPayment(
         config, Math.round(amount),
@@ -645,7 +645,7 @@ export async function init(context) {
       const [stores] = await ctx.db.execute('SELECT code FROM stores WHERE id = ?', [storeId]);
       const storeCode = stores[0]?.code || '';
       const reference = `SRS-${storeId}-${orderId || 'x'}-${Date.now()}`;
-      const serverUrl = 'https://srservi2.srautomatic.com';
+      const serverUrl = 'https://srservi3.srautomatic.com';
 
       const result = await createHaulmerPayment(
         config, Math.round(amount),

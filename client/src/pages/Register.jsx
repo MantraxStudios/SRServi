@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser, faEnvelope, faLock, faStore, faDownload, faUserCog, faGlobe, faDesktop, faVideo, faPhone } from '@fortawesome/free-solid-svg-icons';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 
 function Register() {
   const [step, setStep] = useState('form'); // 'form' | 'verify'

@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLock, faUnlock, faSave, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 
 function StorePin() {
   const { selectedStore } = useStore();

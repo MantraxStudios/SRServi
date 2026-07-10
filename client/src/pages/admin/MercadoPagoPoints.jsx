@@ -20,7 +20,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 // POS nativo integrado: Mercado Pago Point (único built-in).
 const BUILTIN_MP_POINT_COUNTRIES = ['CL', 'AR', 'BR', 'MX', 'PE', 'CO', 'UY'];
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 const GOLD = '#D4AF37';
 
 function MercadoPagoPoints({ view = 'pos' }) {

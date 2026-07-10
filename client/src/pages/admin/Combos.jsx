@@ -4,7 +4,7 @@ import { faPlus, faEdit, faTrash, faLayerGroup, faCamera, faSearch, faMinus, faB
 import { useStore } from '../../components/Layout';
 import { getImageUrl } from '../../config.js';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 
 const emptyForm = {
   name: '',

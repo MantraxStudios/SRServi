@@ -79,7 +79,7 @@ const TEMPLATES = [
   },
 ];
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 
 export default function InstagramAuto() {
   const { token } = useAuth();
@@ -443,7 +443,7 @@ export default function InstagramAuto() {
                 value={cfg.caption_template}
                 onChange={e => setCfg(p => ({ ...p, caption_template: e.target.value }))}
                 rows={4}
-                placeholder={`✨ ${selectedStore.name} ✨\n\n🔥 Lo más pedido esta semana...\n\n📲 Pedí online: srservi2.srautomatic.com/store/${selectedStore.code}`}
+                placeholder={`✨ ${selectedStore.name} ✨\n\n🔥 Lo más pedido esta semana...\n\n📲 Pedí online: srservi3.srautomatic.com/store/${selectedStore.code}`}
                 style={{ ...s.input, resize: 'vertical', height: 'auto' }}
               />
               <p style={s.hint}>Si lo dejás vacío se genera automáticamente.</p>

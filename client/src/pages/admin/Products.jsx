@@ -6,7 +6,7 @@ import { getImageUrl } from '../../config.js';
 import CameraModal from '../../components/CameraModal';
 import RecipeEditor from '../../components/RecipeEditor';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 
 import {
   DndContext,

@@ -7,7 +7,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { getImageUrl } from '../config.js';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 const CANVAS_W = 900;
 const CANVAS_H = 540;
 

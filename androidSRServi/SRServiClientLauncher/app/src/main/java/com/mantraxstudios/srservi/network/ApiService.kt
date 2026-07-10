@@ -10,7 +10,7 @@ import java.net.URL
 object ApiService {
 
     private val gson = Gson()
-    private const val BASE_URL = "https://srservi2.srautomatic.com/api/store"
+    private const val BASE_URL = "https://srservi3.srautomatic.com/api/store"
 
     fun fetchOrders(storeCode: String): OrdersResponse? {
         val url = "$BASE_URL/$storeCode/orders"

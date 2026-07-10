@@ -17,7 +17,7 @@ function WaIcon({ size = 24, color = '#25D366' }) {
   );
 }
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 const GOLD = '#D4AF37';
 
 const BRAIN_ACTION_ICONS = {

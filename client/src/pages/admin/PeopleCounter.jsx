@@ -9,7 +9,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { faWindows, faAndroid } from '@fortawesome/free-brands-svg-icons';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 const getToday = () => new Date().toISOString().slice(0, 10);
 const DEFAULT_LINE = { x1: 0.15, y1: 0.5, x2: 0.85, y2: 0.5 };
 

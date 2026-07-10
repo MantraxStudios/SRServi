@@ -41,7 +41,7 @@ namespace AforoBridge
         // Avanzado (oculto)
         private LinkLabel _advLink = null!;
         private FlowLayoutPanel _advPanel = null!;
-        private readonly InputBox _server = new(false, "https://srservi2.srautomatic.com");
+        private readonly InputBox _server = new(false, "https://srservi3.srautomatic.com");
         private readonly InputBox _port = new(false, "554");
         private readonly DarkCombo _channel = new(editable: true);
         private readonly TrackBar _sens = new() { Minimum = 10, Maximum = 80, TickFrequency = 10 };
@@ -353,7 +353,7 @@ namespace AforoBridge
                 return;
             }
 
-            _s.ServerUrl = string.IsNullOrWhiteSpace(_server.Value) ? "https://srservi2.srautomatic.com" : _server.Value.Trim();
+            _s.ServerUrl = string.IsNullOrWhiteSpace(_server.Value) ? "https://srservi3.srautomatic.com" : _server.Value.Trim();
             _s.Email = _email.Value.Trim();
             _s.Password = _password.Value;
             var store = _stores[_store.SelectedIndex];

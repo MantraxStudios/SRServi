@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faTicketAlt, faPaperPlane, faImage, faTimes, faLock, faRedo, faCheckCircle, faExclamationTriangle, faCircle, faUserShield, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 const PRIORITIES = [
   { value: 'low', label: 'Leve', color: '#95a5a6' },
   { value: 'normal', label: 'Normal', color: '#3498db' },

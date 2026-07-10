@@ -23,7 +23,7 @@ namespace FullscreenBrowser
         private bool _initialized;
         private int  _fetching;
 
-        private const string BASE_URL   = "https://srservi2.srautomatic.com";
+        private const string BASE_URL   = "https://srservi3.srautomatic.com";
         private const int    POLL_MS    = 3000;
 
         private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(10) };

@@ -12,7 +12,7 @@ export default function PrivacyPolicy() {
         </div>
 
         <Section title="1. Información general">
-          <P>SRAutomatic SpA ("nosotros", "la empresa") opera la plataforma SRServi disponible en <strong>srservi2.srautomatic.com</strong>. Esta Política de Privacidad describe cómo recopilamos, usamos, almacenamos y protegemos la información personal de nuestros usuarios.</P>
+          <P>SRAutomatic SpA ("nosotros", "la empresa") opera la plataforma SRServi disponible en <strong>srservi3.srautomatic.com</strong>. Esta Política de Privacidad describe cómo recopilamos, usamos, almacenamos y protegemos la información personal de nuestros usuarios.</P>
           <P>Al usar SRServi aceptás esta política. Si no estás de acuerdo, por favor no uses la plataforma.</P>
         </Section>
 
@@ -91,7 +91,7 @@ export default function PrivacyPolicy() {
           <P>Si tenés preguntas sobre esta Política de Privacidad, contactanos:</P>
           <ul style={s.list}>
             <li><strong>Empresa:</strong> SRAutomatic SpA</li>
-            <li><strong>Sitio web:</strong> srservi2.srautomatic.com</li>
+            <li><strong>Sitio web:</strong> srservi3.srautomatic.com</li>
             <li><strong>Email:</strong> <a href="mailto:privacidad@srautomatic.com" style={s.link}>privacidad@srautomatic.com</a></li>
           </ul>
         </Section>

@@ -32,7 +32,7 @@ const COUNTRY_CODES = [
 const MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
 const MATCH_THRESHOLD = 0.5;
 const STABLE_FRAMES = 4;
-const API = 'https://srservi2.srautomatic.com';
+const API = 'https://srservi3.srautomatic.com';
 
 // Persiste entre renders (se pierde al recargar página; el browser cache de CDN evita re-descarga)
 let faceapiModule = null;
