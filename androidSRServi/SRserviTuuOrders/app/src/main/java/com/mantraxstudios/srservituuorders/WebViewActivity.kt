@@ -186,9 +186,9 @@ class WebViewActivity : ComponentActivity() {
         val prefs = getSharedPreferences("srservi_prefs", MODE_PRIVATE)
         val code  = prefs.getString("store_code", "")?.trim() ?: ""
         val url   = if (code.isNotEmpty())
-            "https://mantraxtools.store/store/$code?tuumodepay=true"
+            "https://srservi2.srautomatic.com/store/$code?tuumodepay=true"
         else
-            "https://mantraxtools.store"
+            "https://srservi2.srautomatic.com"
         webView.loadUrl(url)
     }
 

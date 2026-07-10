@@ -4,7 +4,7 @@ import { faPlus, faEdit, faTrash, faBullhorn, faToggleOn, faToggleOff } from '@f
 import { useStore } from '../../components/Layout';
 import { getImageUrl } from '../../config.js';
 
-const API = 'https://mantraxtools.store';
+const API = 'https://srservi2.srautomatic.com';
 
 const emptyForm = {
   title: '',

@@ -97,7 +97,7 @@ class AdminPanelActivity : AppCompatActivity() {
             }
         }
 
-        webView.loadUrl("https://mantraxtools.store/admin")
+        webView.loadUrl("https://srservi2.srautomatic.com/admin")
     }
 
     override fun onPause() {

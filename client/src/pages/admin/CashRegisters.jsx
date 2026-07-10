@@ -10,7 +10,7 @@ import {
   faClock,
 } from '@fortawesome/free-solid-svg-icons';
 
-const API = 'https://mantraxtools.store';
+const API = 'https://srservi2.srautomatic.com';
 
 function CashRegisters() {
   const { token } = useAuth();

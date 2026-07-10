@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 
-const API = 'https://mantraxtools.store';
+const API = 'https://srservi2.srautomatic.com';
 const GOLD = '#C8A415';
 
 function formatDate(raw) {

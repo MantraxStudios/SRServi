@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
-const API = 'https://mantraxtools.store';
+const API = 'https://srservi2.srautomatic.com';
 
 const card = {
   background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 20, marginBottom: 12

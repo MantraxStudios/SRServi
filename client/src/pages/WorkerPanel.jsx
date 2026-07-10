@@ -481,7 +481,7 @@ function WorkerPanel() {
     fetchCashRegister();
     fetchTasks();
     if (parsedWorker.store_code) {
-      const BASE = 'https://mantraxtools.store';
+      const BASE = 'https://srservi2.srautomatic.com';
       const code = parsedWorker.store_code;
 
       fetch(`${BASE}/api/public/procedures/${code}`)
@@ -827,7 +827,7 @@ function WorkerPanel() {
         const colRows = col.rows || defaultRows;
         if (rowIdx >= colRows) return `<td class="empty"></td>`;
         const cell = (table.cells || {})[`${col.id}_${rowIdx}`] || {};
-        const imgUrl = cell.image_url ? (cell.image_url.startsWith('http') ? cell.image_url : 'https://mantraxtools.store' + cell.image_url) : null;
+        const imgUrl = cell.image_url ? (cell.image_url.startsWith('http') ? cell.image_url : 'https://srservi2.srautomatic.com' + cell.image_url) : null;
         let content = '';
         if (imgUrl) content += `<img src="${imgUrl}" class="cell-img">`;
         if (cell.name) content += `<div class="cell-name">${cell.name}</div>`;
@@ -910,7 +910,7 @@ function WorkerPanel() {
     setTimeout(() => win.print(), 600);
   };
   const fetchDeliveryOrders = async (storeId) => {
-    const BASE = 'https://mantraxtools.store';
+    const BASE = 'https://srservi2.srautomatic.com';
     const token = localStorage.getItem('workerToken');
     setDeliveryLoading(true);
     try {
@@ -921,7 +921,7 @@ function WorkerPanel() {
   };
 
   const handleDeliveryAction = async (orderId, status) => {
-    const BASE = 'https://mantraxtools.store';
+    const BASE = 'https://srservi2.srautomatic.com';
     const token = localStorage.getItem('workerToken');
     const workerData = JSON.parse(localStorage.getItem('worker') || '{}');
     try {
@@ -2190,7 +2190,7 @@ function WorkerPanel() {
                     style={{ width: '100%', padding: 0, background: '#111', border: '1px solid #2a2a2a', borderRadius: 12, cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'stretch' }}>
                     <div style={{ width: 100, flexShrink: 0, background: '#1a1a1a', position: 'relative', minHeight: 58 }}>
                       {c.background_image ? (
-                        <img src={c.background_image.startsWith('http') ? c.background_image : 'https://mantraxtools.store' + c.background_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <img src={c.background_image.startsWith('http') ? c.background_image : 'https://srservi2.srautomatic.com' + c.background_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       ) : (
                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 58 }}>
                           <span style={{ fontSize: 22 }}>🎨</span>
@@ -2220,7 +2220,7 @@ function WorkerPanel() {
                 {procedures.map(proc => {
                   const firstStep = proc.steps?.[0];
                   const imgUrl = firstStep?.image_url
-                    ? (firstStep.image_url.startsWith('http') ? firstStep.image_url : 'https://mantraxtools.store' + firstStep.image_url)
+                    ? (firstStep.image_url.startsWith('http') ? firstStep.image_url : 'https://srservi2.srautomatic.com' + firstStep.image_url)
                     : null;
                   return (
                     <button
@@ -2265,7 +2265,7 @@ function WorkerPanel() {
           const steps = selectedProc.steps || [];
           const step = steps[procStep];
           const imgUrl = step?.image_url
-            ? (step.image_url.startsWith('http') ? step.image_url : 'https://mantraxtools.store' + step.image_url)
+            ? (step.image_url.startsWith('http') ? step.image_url : 'https://srservi2.srautomatic.com' + step.image_url)
             : null;
           const isLast = procStep === steps.length - 1;
           const isFirst = procStep === 0;
@@ -3146,7 +3146,7 @@ function WorkerPanel() {
                 <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: 8 }}>
                   {/* Fondo */}
                   {c.background_image ? (
-                    <img src={c.background_image.startsWith('http') ? c.background_image : 'https://mantraxtools.store' + c.background_image}
+                    <img src={c.background_image.startsWith('http') ? c.background_image : 'https://srservi2.srautomatic.com' + c.background_image}
                       alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   ) : (
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)' }} />
@@ -3161,7 +3161,7 @@ function WorkerPanel() {
                       height: `${(el.height / CH) * 100}%`,
                       opacity: el.opacity, pointerEvents: 'none', overflow: 'hidden',
                     }}>
-                      <img src={el.imgUrl.startsWith('http') ? el.imgUrl : 'https://mantraxtools.store' + el.imgUrl} alt=""
+                      <img src={el.imgUrl.startsWith('http') ? el.imgUrl : 'https://srservi2.srautomatic.com' + el.imgUrl} alt=""
                         style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                     </div>
                   ) : (
@@ -3244,7 +3244,7 @@ function WorkerPanel() {
                           return <td key={col.id} style={{ padding: '10px 12px', borderRight: '1px solid #1a1a1a', background: '#060606', minWidth: 120 }} />;
                         }
                         const cell = (activePrepTable.cells || {})[`${col.id}_${rowIdx}`] || {};
-                        const imgUrl = cell.image_url ? (cell.image_url.startsWith('http') ? cell.image_url : 'https://mantraxtools.store' + cell.image_url) : null;
+                        const imgUrl = cell.image_url ? (cell.image_url.startsWith('http') ? cell.image_url : 'https://srservi2.srautomatic.com' + cell.image_url) : null;
                         return (
                           <td key={col.id} style={{ padding: '10px 12px', borderRight: '1px solid #1a1a1a', verticalAlign: 'middle', textAlign: 'center', minWidth: 120 }}>
                             {(cell.name || imgUrl) ? (

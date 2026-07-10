@@ -7,7 +7,7 @@ import {
 import { StoreContext } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
 
-const API = 'https://mantraxtools.store';
+const API = 'https://srservi2.srautomatic.com';
 
 const TYPE_LABELS = {
   ENTRADA: 'Entrada',

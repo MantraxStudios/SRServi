@@ -8,7 +8,7 @@ namespace FullscreenBrowser
     public class MainForm : Form
     {
         private WebView2 webView;
-        private const string TARGET_URL = "https://mantraxtools.store/";
+        private const string TARGET_URL = "https://srservi2.srautomatic.com/";
 
         public MainForm()
         {

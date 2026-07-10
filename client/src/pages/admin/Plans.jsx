@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { StoreContext } from '../../components/Layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
-const API = 'https://mantraxtools.store';
+const API = 'https://srservi2.srautomatic.com';
 
 import {
   faCrown,

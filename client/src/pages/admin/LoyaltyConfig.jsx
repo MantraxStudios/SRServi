@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStar, faTrash, faUser, faPhone, faToggleOn, faToggleOff, faSave } from '@fortawesome/free-solid-svg-icons';
 
-const API = 'https://mantraxtools.store';
+const API = 'https://srservi2.srautomatic.com';
 
 export default function LoyaltyConfig() {
   const { selectedStore } = useStore();

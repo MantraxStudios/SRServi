@@ -16,7 +16,7 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
 import { Highlight } from '@tiptap/extension-highlight';
 
-const API = 'https://mantraxtools.store';
+const API = 'https://srservi2.srautomatic.com';
 const GOLD = '#D4AF37';
 
 const emptyStep = () => ({ title: '', instruction: '', tip: '', image_url: '' });

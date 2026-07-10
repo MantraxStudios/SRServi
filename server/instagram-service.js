@@ -1,7 +1,7 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 
 const S = 1080;
-const BASE_URL = 'https://mantraxtools.store';
+const BASE_URL = 'https://srservi2.srautomatic.com';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 

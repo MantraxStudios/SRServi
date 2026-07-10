@@ -158,7 +158,7 @@ class WorkerLoginActivity : AppCompatActivity() {
         }
 
         startKioskLock()
-        webView.loadUrl("https://mantraxtools.store/worker-login")
+        webView.loadUrl("https://srservi2.srautomatic.com/worker-login")
     }
 
     private fun closePopup() {

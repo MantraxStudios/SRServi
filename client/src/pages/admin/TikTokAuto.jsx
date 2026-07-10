@@ -42,7 +42,7 @@ const TEMPLATES = [
   { id: 5, name: 'Bold Split', emoji: '✂️', desc: 'Corte diagonal en color de acento. Estilo póster.',      color: '#374151' },
 ];
 
-const API = 'https://mantraxtools.store';
+const API = 'https://srservi2.srautomatic.com';
 
 export default function TikTokAuto() {
   const { token }         = useAuth();
@@ -413,7 +413,7 @@ export default function TikTokAuto() {
               value={cfg.caption_template}
               onChange={e => setCfg(p => ({ ...p, caption_template: e.target.value }))}
               rows={4}
-              placeholder={`✨ ${selectedStore.name} ✨\n\n🔥 Lo más pedido esta semana...\n\n📲 mantraxtools.store/store/${selectedStore.code}\n\n#${selectedStore.name?.replace(/\s+/g, '')} #SRServi #TikTok`}
+              placeholder={`✨ ${selectedStore.name} ✨\n\n🔥 Lo más pedido esta semana...\n\n📲 srservi2.srautomatic.com/store/${selectedStore.code}\n\n#${selectedStore.name?.replace(/\s+/g, '')} #SRServi #TikTok`}
               style={{ ...s.input, resize: 'vertical', height: 'auto' }}
             />
             <p style={s.hint}>Si lo dejás vacío se genera automáticamente.</p>

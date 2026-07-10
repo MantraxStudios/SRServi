@@ -61,7 +61,7 @@ class MainActivity : AppCompatActivity() {
             if (storeCode.isNullOrBlank()) {
                 Toast.makeText(this, getString(R.string.rate_no_code), Toast.LENGTH_SHORT).show()
             } else {
-                val url = "https://mantraxtools.store/rate/$storeCode"
+                val url = "https://srservi2.srautomatic.com/rate/$storeCode"
                 RateActivity.start(this, url)
             }
         }
@@ -132,7 +132,7 @@ class MainActivity : AppCompatActivity() {
 
         Thread {
             try {
-                val buildUrl = java.net.URL("https://mantraxtools.store/api/apps/android/build")
+                val buildUrl = java.net.URL("https://srservi2.srautomatic.com/api/apps/android/build")
                 val conn = buildUrl.openConnection() as java.net.HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json")
@@ -177,7 +177,7 @@ class MainActivity : AppCompatActivity() {
                 // Poll build status
                 while (true) {
                     Thread.sleep(3000)
-                    val statusUrl = java.net.URL("https://mantraxtools.store/api/apps/android/status/$jobId")
+                    val statusUrl = java.net.URL("https://srservi2.srautomatic.com/api/apps/android/status/$jobId")
                     val sc = statusUrl.openConnection() as java.net.HttpURLConnection
                     sc.requestMethod = "GET"
                     if (sc.responseCode != 200) { sc.disconnect(); continue }
@@ -226,9 +226,9 @@ class MainActivity : AppCompatActivity() {
             Thread {
                 try {
                     val url = if (storeCode.isNotBlank())
-                        "https://mantraxtools.store/api/apps/android/download?appName=launcher&storeCode=$storeCode"
+                        "https://srservi2.srautomatic.com/api/apps/android/download?appName=launcher&storeCode=$storeCode"
                     else
-                        "https://mantraxtools.store/api/apps/android/download?appName=launcher"
+                        "https://srservi2.srautomatic.com/api/apps/android/download?appName=launcher"
 
                     val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
                     conn.requestMethod = "GET"

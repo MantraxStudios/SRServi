@@ -9,7 +9,7 @@ import {
   faClock, faPlus, faToggleOn, faToggleOff,
 } from '@fortawesome/free-solid-svg-icons';
 
-const API = 'https://mantraxtools.store';
+const API = 'https://srservi2.srautomatic.com';
 const GOLD = '#D4AF37';
 
 function formatBytes(bytes) {

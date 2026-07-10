@@ -1,6 +1,6 @@
-const API_URL = 'https://mantraxtools.store';
-const SOCKET_URL = 'https://mantraxtools.store';
-const UPLOAD_URL = 'https://mantraxtools.store';
+const API_URL = 'https://srservi2.srautomatic.com';
+const SOCKET_URL = 'https://srservi2.srautomatic.com';
+const UPLOAD_URL = 'https://srservi2.srautomatic.com';
 
 export { API_URL, SOCKET_URL, UPLOAD_URL };
 export const getImageUrl = (imagePath) => {

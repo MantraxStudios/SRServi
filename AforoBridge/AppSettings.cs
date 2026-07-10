@@ -14,7 +14,7 @@ namespace AforoBridge
     /// </summary>
     public class AppSettings
     {
-        public string ServerUrl { get; set; } = "https://mantraxtools.store";
+        public string ServerUrl { get; set; } = "https://srservi2.srautomatic.com";
         public string Email { get; set; } = "";
         // Contraseña de la cuenta web, cifrada (DPAPI base64)
         public string EncPassword { get; set; } = "";

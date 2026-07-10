@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEnvelope, faLock, faDownload, faUserCog, faKey, faShieldAlt, faDesktop, faVideo } from '@fortawesome/free-solid-svg-icons';
 
-const API = 'https://mantraxtools.store';
+const API = 'https://srservi2.srautomatic.com';
 
 function Login() {
   const [step, setStep] = useState('login'); // 'login' | 'totp' | 'verify'

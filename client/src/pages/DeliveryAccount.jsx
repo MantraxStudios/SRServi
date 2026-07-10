@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const API = 'https://mantraxtools.store';
+const API = 'https://srservi2.srautomatic.com';
 
 const STATUS_LABELS = {
   waiting:    { label: 'Recibido',   color: '#6b7280', bg: '#f3f4f6' },

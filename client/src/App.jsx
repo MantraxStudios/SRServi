@@ -90,7 +90,7 @@ import TicketeriaPublic from './pages/TicketeriaPublic';
 import TicketViewer from './pages/TicketViewer';
 
 const TV_CODE_KEY = 'srservi_tv_code';
-const API_HOST = 'mantraxtools.store';
+const API_HOST = 'srservi2.srautomatic.com';
 
 // Detects if app is running on a store subdomain (e.g. mitienda.srautomatic.com)
 function getSubdomainInfo() {

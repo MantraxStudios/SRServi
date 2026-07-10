@@ -10,7 +10,7 @@ import {
 import { useStore } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
 
-const API = 'https://mantraxtools.store';
+const API = 'https://srservi2.srautomatic.com';
 const UNITS = ['unidades', 'kg', 'g', 'mg', 'litros', 'ml', 'porciones', 'tazas', 'cucharadas'];
 const fmt = (n, max = 4) => parseFloat(parseFloat(n || 0).toFixed(max));
 

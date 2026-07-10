@@ -307,7 +307,7 @@ function Tutoriales() {
           En el dispositivo, abre Chrome o cualquier navegador.
         </Step>
         <Step n="2" title="Entra a la URL de tu tienda">
-          Ve a <code style={{ background: '#f3f4f6', padding: '2px 6px', borderRadius: '4px' }}>mantraxtools.store/store/TU_CODIGO</code>.
+          Ve a <code style={{ background: '#f3f4f6', padding: '2px 6px', borderRadius: '4px' }}>srservi2.srautomatic.com/store/TU_CODIGO</code>.
           Tu código de tienda aparece en el selector del menú lateral.
         </Step>
         <Step n="3" title="Pon la pantalla en modo kiosco">

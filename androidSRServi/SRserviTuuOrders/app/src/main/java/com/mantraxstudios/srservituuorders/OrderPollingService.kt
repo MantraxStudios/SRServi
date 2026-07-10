@@ -64,7 +64,7 @@ class OrderPollingService : Service() {
 
         clearDailyIfNeeded()
 
-        val conn = URL("https://mantraxtools.store/api/getCashOrders?pin=$pin")
+        val conn = URL("https://srservi2.srautomatic.com/api/getCashOrders?pin=$pin")
             .openConnection() as HttpURLConnection
         conn.connectTimeout = 10_000
         conn.readTimeout = 10_000
