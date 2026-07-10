@@ -142,7 +142,8 @@ if [ "$MODE" = "prod" ]; then
             echo "  Dominios a configurar: $ALL_DOMAINS"
         fi
 
-        # Bloques de proxy compartidos (API/socket/archivos → 8888, resto → cliente 6666)
+        # Bloques de proxy (API/socket/archivos → 8888, resto → cliente 6666)
+        # Mismo formato que la config manual de sites-available
         nginx_locations() {
             cat <<LOCS
     client_max_body_size 50m;
@@ -151,8 +152,17 @@ if [ "$MODE" = "prod" ]; then
         root /var/www/certbot;
     }
 
-    location ~ ^/(api|socket\.io|uploads|downloads)(/|$) {
-        proxy_pass http://127.0.0.1:8888;
+    location /api/ {
+        proxy_pass http://127.0.0.1:8888/api/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 300s;
+    }
+
+    location /socket.io/ {
+        proxy_pass http://127.0.0.1:8888/socket.io/;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -160,7 +170,22 @@ if [ "$MODE" = "prod" ]; then
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_read_timeout 300s;
+    }
+
+    location /uploads/ {
+        proxy_pass http://127.0.0.1:8888/uploads/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    location /downloads/ {
+        proxy_pass http://127.0.0.1:8888/downloads/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
     location / {
@@ -205,7 +230,7 @@ LOCS
             echo "    listen 80;"
             echo "    server_name $1;"
             echo "    location /.well-known/acme-challenge/ { root /var/www/certbot; }"
-            echo "    location / { return 301 https://\$host\$request_uri; }"
+            echo "    location / { return 301 https://$1\$request_uri; }"
             echo "}"
             echo ""
             echo "server {"
@@ -221,67 +246,79 @@ LOCS
             echo "}"
         }
 
-        # Escribe la config completa: un bloque por dominio,
-        # HTTPS si ese dominio ya tiene certificado, HTTP si no
-        write_conf() {
+        # Escribe la config de UN dominio en su propio archivo
+        # (/etc/nginx/sites-available/<dominio>, igual que las configs manuales).
+        # HTTPS si el dominio ya tiene certificado, HTTP si no.
+        write_domain_conf() {  # $1 = dominio ("" = servir por IP)
+            local name="${1:-srservi-default}"
+            local conf="/etc/nginx/sites-available/$name"
+            # Respetar configs escritas a mano
+            if [ -f "$conf" ] && ! grep -q '# SRServi auto-generated' "$conf"; then
+                echo "  Config manual en $conf — no se toca"
+                ln -sf "$conf" "/etc/nginx/sites-enabled/$name"
+                return
+            fi
+            local CERT_DIR=""
+            [ -n "$1" ] && CERT_DIR=$(cert_dir_for "$1")
             {
-                echo "# SRServi auto-generated — ${ALL_DOMAINS:-por-IP}"
-                if [ "$NO_DOMAIN" = "1" ]; then
-                    emit_http_block ""
+                echo "# SRServi auto-generated — ${1:-acceso por IP}"
+                if [ -n "$CERT_DIR" ]; then
+                    emit_https_block "$1" "$CERT_DIR"
                 else
-                    for d in $ALL_DOMAINS; do
-                        CERT_DIR=$(cert_dir_for "$d")
-                        if [ -n "$CERT_DIR" ]; then
-                            emit_https_block "$d" "$CERT_DIR"
-                        else
-                            emit_http_block "$d"
-                        fi
-                        echo ""
-                    done
+                    emit_http_block "$1"
                 fi
-            } > "$NGINX_CONF"
+            } > "$conf"
+            ln -sf "$conf" "/etc/nginx/sites-enabled/$name"
         }
 
-        # Solo tocar la config si es nuestra o no existe (respeta ediciones manuales)
-        if [ ! -f "$NGINX_CONF" ] || grep -q '# SRServi auto-generated' "$NGINX_CONF"; then
-            # Sin dominio somos el sitio por defecto → quitar el default de nginx
-            [ "$NO_DOMAIN" = "1" ] && rm -f /etc/nginx/sites-enabled/default
-            write_conf
-            ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/srservi.conf
-
-            if nginx -t >/dev/null 2>&1; then
-                systemctl enable nginx >/dev/null 2>&1 || true
-                systemctl restart nginx 2>/dev/null || nginx -s reload 2>/dev/null || nginx || true
-                echo "  Nginx configurado para ${ALL_DOMAINS:-acceso por IP} ✓"
+        write_all_confs() {
+            if [ "$NO_DOMAIN" = "1" ]; then
+                # Sin dominio somos el sitio por defecto → quitar el default de nginx
+                rm -f /etc/nginx/sites-enabled/default
+                write_domain_conf ""
             else
-                echo "  ⚠ nginx -t falló — revisa la config:"
-                nginx -t || true
-            fi
-
-            # Obtener con certbot los certificados que falten y subir a HTTPS
-            # (solo dominios reales; Let's Encrypt no emite certificados para IPs)
-            if [ "$NO_DOMAIN" = "0" ] && command -v certbot >/dev/null 2>&1; then
-                NEW_CERTS=0
                 for d in $ALL_DOMAINS; do
-                    [ -n "$(cert_dir_for "$d")" ] && continue
-                    echo "  Obteniendo certificado SSL para $d..."
-                    if certbot certonly --webroot -w /var/www/certbot -d "$d" \
-                         --email "$CERT_EMAIL" --agree-tos --non-interactive --quiet; then
-                        echo "  SSL de $d obtenido ✓"
-                        NEW_CERTS=1
-                    else
-                        echo "  ⚠ certbot falló para $d (¿el DNS apunta a este servidor?) — queda en HTTP"
-                    fi
+                    write_domain_conf "$d"
                 done
-                if [ "$NEW_CERTS" = "1" ]; then
-                    write_conf
-                    { nginx -t >/dev/null 2>&1 && { systemctl reload nginx 2>/dev/null || nginx -s reload; }; } || true
-                    echo "  HTTPS activo para los dominios con certificado ✓"
-                fi
             fi
+        }
+
+        # Migración: borrar el archivo unificado de versiones previas del script
+        if [ -f "$NGINX_CONF" ] && grep -q '# SRServi auto-generated' "$NGINX_CONF"; then
+            rm -f "$NGINX_CONF" /etc/nginx/sites-enabled/srservi.conf
+        fi
+
+        write_all_confs
+
+        if nginx -t >/dev/null 2>&1; then
+            systemctl enable nginx >/dev/null 2>&1 || true
+            systemctl restart nginx 2>/dev/null || nginx -s reload 2>/dev/null || nginx || true
+            echo "  Nginx configurado para ${ALL_DOMAINS:-acceso por IP} ✓"
         else
-            echo "  Config manual detectada en $NGINX_CONF — no se toca"
-            systemctl start nginx 2>/dev/null || true
+            echo "  ⚠ nginx -t falló — revisa la config:"
+            nginx -t || true
+        fi
+
+        # Obtener con certbot los certificados que falten y subir a HTTPS
+        # (solo dominios reales; Let's Encrypt no emite certificados para IPs)
+        if [ "$NO_DOMAIN" = "0" ] && command -v certbot >/dev/null 2>&1; then
+            NEW_CERTS=0
+            for d in $ALL_DOMAINS; do
+                [ -n "$(cert_dir_for "$d")" ] && continue
+                echo "  Obteniendo certificado SSL para $d..."
+                if certbot certonly --webroot -w /var/www/certbot -d "$d" \
+                     --email "$CERT_EMAIL" --agree-tos --non-interactive --quiet; then
+                    echo "  SSL de $d obtenido ✓"
+                    NEW_CERTS=1
+                else
+                    echo "  ⚠ certbot falló para $d (¿el DNS apunta a este servidor?) — queda en HTTP"
+                fi
+            done
+            if [ "$NEW_CERTS" = "1" ]; then
+                write_all_confs
+                { nginx -t >/dev/null 2>&1 && { systemctl reload nginx 2>/dev/null || nginx -s reload; }; } || true
+                echo "  HTTPS activo para los dominios con certificado ✓"
+            fi
         fi
     fi
 else
