@@ -142,9 +142,21 @@ async def health():
         async with httpx.AsyncClient(timeout=3.0) as client:
             resp = await client.get(f"{OLLAMA_URL}/api/tags")
             models = [m["name"] for m in resp.json().get("models", [])] if resp.status_code == 200 else []
-        return {"status": "ok", "ollama": True, "models": models}
+        ollama_ok = True
     except Exception:
-        return {"status": "ok", "ollama": False, "models": []}
+        ollama_ok, models = False, []
+
+    # Chequear también la DB — el chat la necesita antes que Ollama
+    try:
+        from db import get_conn
+        conn = get_conn()
+        conn.close()
+        db_ok, db_error = True, None
+    except Exception as e:
+        db_ok, db_error = False, str(e)
+
+    return {"status": "ok", "ollama": ollama_ok, "models": models,
+            "db": db_ok, "db_error": db_error}
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):

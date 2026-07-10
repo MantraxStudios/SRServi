@@ -3960,7 +3960,9 @@ async function checkLeonPython() {
     const r = await fetch(`${LEON_PYTHON_URL}/health`, { signal: ctrl.signal });
     clearTimeout(timeout);
     const data = await r.json();
-    leonPythonAvailable = data.ollama === true;
+    // Necesita Ollama Y la base de datos; si su DB falla, usar sistema clásico
+    leonPythonAvailable = data.ollama === true && data.db !== false;
+    if (data.db === false) console.warn('[León IA] DB del servicio Python caída:', data.db_error);
     return leonPythonAvailable;
   } catch {
     leonPythonAvailable = false;
