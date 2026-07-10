@@ -3,3 +3,4 @@ client/dist/
 server/node_modules/
 __pycache__/
 server/leon_ia/venv/
+logs/

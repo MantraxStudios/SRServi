@@ -95,7 +95,12 @@ cd client
 npm run build -- --mode "$VITE_MODE"
 cd ..
 
-SERVER_LOG="/tmp/srservi-server.log"
+# Log dentro del proyecto (en /tmp el kernel bloquea sobrescribir
+# archivos de otro usuario aunque seas root — fs.protected_regular)
+LOG_DIR="$SCRIPT_DIR/logs"
+mkdir -p "$LOG_DIR"
+SERVER_LOG="$LOG_DIR/srservi-server.log"
+rm -f "$SERVER_LOG" /tmp/srservi-server.log 2>/dev/null || true
 > "$SERVER_LOG"
 
 # Start server in screen with logging
