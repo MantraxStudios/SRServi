@@ -2133,7 +2133,7 @@ h1, h2, h3, h4, h5, h6 {
 .store-header {
   background: var(--kiosk-bg, #FAF4E9) !important;
   color: var(--kiosk-dark, #232028);
-  padding: 14px 16px;
+  padding: 10px 12px;
   margin: 0;
   border-radius: 0;
   box-shadow: none;
@@ -2260,7 +2260,7 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (min-width: 768px) {
   .store-header {
-    padding: 16px 32px;
+    padding: 12px 20px;
   }
   .store-header-logo {
     width: 52px;
@@ -2284,15 +2284,15 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (min-width: 1024px) {
   .store-header {
-    padding: 22px 52px;
+    padding: 14px 24px;
   }
   .store-header-logo {
-    width: 68px;
-    height: 68px;
-    border-radius: 16px;
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
   }
   .store-header-name {
-    font-size: 30px;
+    font-size: 26px;
   }
   .store-header-powered {
     font-size: 11px;
@@ -2365,7 +2365,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Category tabs (mobile: horizontal pills / desktop: sidebar) */
 .category-tabs {
-  padding: 12px 14px 8px;
+  padding: 10px 10px 6px;
   background: transparent;
   flex-shrink: 0;
 }
@@ -2396,7 +2396,7 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
-  transition: all var(--transition);
+  transition: background-color var(--transition), border-color var(--transition), transform var(--transition);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   outline: none;
 }
@@ -2538,9 +2538,7 @@ h1, h2, h3, h4, h5, h6 {
     flex-direction: row;
     align-items: stretch;
     gap: 8px;
-    padding: 8px 20px 0;
-    max-width: 1400px;
-    margin: 0 auto;
+    padding: 8px 12px 0;
     width: 100%;
   }
 
@@ -2584,7 +2582,7 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   .category-tabs {
-    width: 232px;
+    width: 208px;
     flex-shrink: 0;
     padding: 12px 0 16px;
     display: flex;
@@ -2626,7 +2624,7 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 22px 16px 10px;
+  padding: 14px 12px 6px;
 }
 
 .category-section-icon {
@@ -2661,22 +2659,33 @@ h1, h2, h3, h4, h5, h6 {
 .products-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 8px 10px;
   justify-items: stretch;
 }
 
-@media (min-width: 640px) {
+/* Tablets de baja resolución (portrait): 4 columnas */
+@media (min-width: 600px) {
   .products-grid {
-    gap: 14px;
-    padding: 12px 16px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    padding: 10px 12px;
+  }
+}
+
+/* Desktop / tablet landscape: la grilla llena todo el ancho disponible */
+@media (min-width: 900px) {
+  .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+    gap: 12px;
+    padding: 12px 14px;
   }
 }
 
 @media (min-width: 1200px) {
   .products-grid {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+    gap: 14px;
   }
 }
 
@@ -2720,13 +2729,21 @@ h1, h2, h3, h4, h5, h6 {
   cursor: default;
 }
 
+/* Perf: no pintar tarjetas fuera de pantalla (clave en equipos de bajos
+   recursos con catálogos grandes). Excluido del modo edición para no
+   interferir con las mediciones de drag & drop de dnd-kit. */
+.store-body:not(.editing) .store-product-wrapper {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+}
+
 .store-product-card {
   position: relative;
   background-color: transparent;
   border: none;
   border-radius: 14px;
   overflow: hidden;
-  transition: all var(--transition-slow);
+  transition: transform var(--transition);
   box-shadow: none;
   width: 100%;
   aspect-ratio: 1 / 1;
@@ -2767,19 +2784,16 @@ html body .store-container .store-product-card * {
 }
 
 /* ===== Smart Mode: Top Selling ===== */
-@keyframes top-selling-glow {
-  0%, 100% { box-shadow: 0 0 8px rgba(255, 107, 53, 0.4), 0 0 16px rgba(255, 107, 53, 0.1); }
-  50% { box-shadow: 0 0 16px rgba(255, 107, 53, 0.6), 0 0 32px rgba(255, 107, 53, 0.2); }
-}
-
+/* Nota perf: se eliminó la animación infinita de box-shadow (repintaba
+   constantemente en dispositivos de bajos recursos). Glow estático. */
 @keyframes top-selling-badge-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
 }
 
 .top-selling-card {
-  animation: top-selling-glow 2s ease-in-out infinite;
   border: 2px solid #ff6b35 !important;
+  box-shadow: 0 0 12px rgba(255, 107, 53, 0.5), 0 0 24px rgba(255, 107, 53, 0.15);
 }
 
 .top-selling-badge {
@@ -2800,31 +2814,17 @@ html body .store-container .store-product-card * {
 }
 
 /* ── Combo promo badge ──────────────────────────────────────────── */
-@keyframes combo-glow {
-  0%, 100% {
-    box-shadow:
-      0 0 8px  rgba(212,175,55,0.55),
-      0 0 20px rgba(212,175,55,0.28),
-      0 0 40px rgba(212,175,55,0.12);
-    border-color: rgba(212,175,55,0.7);
-  }
-  50% {
-    box-shadow:
-      0 0 18px rgba(212,175,55,0.9),
-      0 0 36px rgba(212,175,55,0.55),
-      0 0 64px rgba(212,175,55,0.25);
-    border-color: #D4AF37;
-  }
-}
-
+/* Nota perf: animación infinita de box-shadow reemplazada por glow estático. */
 @keyframes combo-shimmer {
   0%   { background-position: -200% center; }
   100% { background-position:  200% center; }
 }
 
 .combo-promo-card {
-  border: 2px solid rgba(212,175,55,0.7) !important;
-  animation: combo-glow 2.2s ease-in-out infinite;
+  border: 2px solid rgba(212,175,55,0.8) !important;
+  box-shadow:
+    0 0 14px rgba(212,175,55,0.6),
+    0 0 30px rgba(212,175,55,0.3);
 }
 
 .combo-promo-badge {

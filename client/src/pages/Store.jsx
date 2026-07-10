@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { detectLanguage, t, LANGUAGES } from '../i18n';
@@ -206,6 +206,8 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
             <img
               src={getProductImageUrl(product.image)}
               alt={product.name}
+              loading="lazy"
+              decoding="async"
               className={isOutOfStock ? 'grayscale' : ''}
             />
           </div>
@@ -274,7 +276,7 @@ function SortableComplementRow({ item, active, onToggle, onEdit, onDelete, showD
       </div>
       <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, cursor: 'pointer' }}>
         <div style={{ width: '36px', height: '36px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <img src={getProductImageUrl(item.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={getProductImageUrl(item.image)} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: '14px', fontWeight: '600' }}>{item.name}</div>
@@ -4568,6 +4570,25 @@ function Store() {
     return () => clearInterval(interval);
   }, [showDeleteSelectedModal]);
 
+  // Perf: estos cálculos recorren todo el catálogo; memoizados para no
+  // recomputarlos en cada render (este componente re-renderiza con frecuencia)
+  const groupedProducts = useMemo(groupProductsByCategory, [store?.products, store?.categories]);
+
+  // Smart mode: reorder products putting top sellers first
+  const smartProducts = useMemo(() => {
+    const prods = store?.products || [];
+    if (topSellingIds.length === 0 || store?.store?.show_top_selling === false) return prods;
+    const top = [];
+    const rest = [];
+    for (const p of prods) {
+      if (topSellingIds.includes(p.id)) top.push(p);
+      else rest.push(p);
+    }
+    // Sort top by their position in topSellingIds (most sold first)
+    top.sort((a, b) => topSellingIds.indexOf(a.id) - topSellingIds.indexOf(b.id));
+    return [...top, ...rest];
+  }, [store?.products, topSellingIds, store?.store?.show_top_selling]);
+
   const deleteAllProducts = async () => {
     const all = store?.products || [];
     setDeletingAll(true);
@@ -4639,23 +4660,7 @@ function Store() {
     selectedConfiguration.delivery_enabled = true;
   }
 
-  const groupedProducts = groupProductsByCategory();
   const hasProducts = (store?.products || []).length > 0;
-
-  // Smart mode: reorder products putting top sellers first
-  const getSmartProducts = () => {
-    const prods = store?.products || [];
-    if (topSellingIds.length === 0 || store?.store?.show_top_selling === false) return prods;
-    const top = [];
-    const rest = [];
-    for (const p of prods) {
-      if (topSellingIds.includes(p.id)) top.push(p);
-      else rest.push(p);
-    }
-    // Sort top by their position in topSellingIds (most sold first)
-    top.sort((a, b) => topSellingIds.indexOf(a.id) - topSellingIds.indexOf(b.id));
-    return [...top, ...rest];
-  };
 
   const renderProductCard = (product) => {
     const isUnlimited = product.unlimited_stock === true || product.unlimited_stock === 1 || product.unlimited_stock === '1';
@@ -4694,6 +4699,8 @@ function Store() {
             <img
               src={getProductImageUrl(product.image)}
               alt={product.name}
+              loading="lazy"
+              decoding="async"
               className={isOutOfStock ? 'grayscale' : ''}
             />
             {product.description && (
@@ -5200,7 +5207,7 @@ function Store() {
                   )}
                 </div>
                 {promo.image && (
-                  <img src={getProductImageUrl(promo.image)} alt={promo.title} className="store-promo-img" />
+                  <img src={getProductImageUrl(promo.image)} alt={promo.title} className="store-promo-img" loading="lazy" decoding="async" />
                 )}
               </div>
             ))}
@@ -5289,7 +5296,7 @@ function Store() {
           <div className="store-editor-comp-list">
             {extras.map(e => (
               <div key={e.id} className="store-editor-comp-item">
-                <img src={getProductImageUrl(e.image)} alt="" className="store-editor-comp-img" />
+                <img src={getProductImageUrl(e.image)} alt="" className="store-editor-comp-img" loading="lazy" decoding="async" />
                 <div className="store-editor-comp-info">
                   <strong>{e.name}</strong>
                   {Number(e.price) > 0 && <span className="store-editor-comp-price">+${Number(e.price).toFixed(0)}</span>}
@@ -5321,7 +5328,7 @@ function Store() {
           <div className="store-editor-comp-list">
             {ingredients.map(i => (
               <div key={i.id} className="store-editor-comp-item">
-                <img src={getProductImageUrl(i.image)} alt="" className="store-editor-comp-img" />
+                <img src={getProductImageUrl(i.image)} alt="" className="store-editor-comp-img" loading="lazy" decoding="async" />
                 <div className="store-editor-comp-info">
                   <strong>{i.name}</strong>
                   {Number(i.price) > 0 && <span className="store-editor-comp-price">+${Number(i.price).toFixed(0)}</span>}
@@ -5377,7 +5384,7 @@ function Store() {
               <div className="store-editor-comp-list">
                 {group.options.map(opt => (
                   <div key={opt.id} className="store-editor-comp-item">
-                    {opt.image && <img src={getProductImageUrl(opt.image)} alt="" className="store-editor-comp-img" />}
+                    {opt.image && <img src={getProductImageUrl(opt.image)} alt="" className="store-editor-comp-img" loading="lazy" decoding="async" />}
                     <div className="store-editor-comp-info">
                       <strong>{opt.name}</strong>
                       {Number(opt.price) > 0 && <span className="store-editor-comp-price">+${Number(opt.price).toFixed(0)}</span>}
@@ -5426,7 +5433,7 @@ function Store() {
                       </div>
                     )}
                     <div className="store-product-image">
-                      <img src={getProductImageUrl(combo.image)} alt={combo.name} />
+                      <img src={getProductImageUrl(combo.image)} alt={combo.name} loading="lazy" decoding="async" />
                     </div>
                   </div>
                   <div className="store-product-info">
@@ -5458,7 +5465,7 @@ function Store() {
       {(!editMode || previewMode) && !(restaurantView && !activeTable) && activeCategory === 'all' && hasProducts && (
         <div className="category-sections" ref={productsAreaRef}>
           {(() => {
-            const uncategorized = getSmartProducts().filter(p => !p.category_name);
+            const uncategorized = smartProducts.filter(p => !p.category_name);
             return uncategorized.length > 0 ? (
               <div className="products-grid">
                 {uncategorized.map(product => renderProductCard(product))}
