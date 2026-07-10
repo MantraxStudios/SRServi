@@ -106,6 +106,9 @@ async def call_ollama(messages: list, model: str) -> str:
         "model": model,
         "messages": messages,
         "stream": False,
+        # Mantener el modelo cargado en RAM/VRAM entre consultas
+        # (sin esto Ollama lo descarga a los 5 min y recargarlo tarda 10-30s)
+        "keep_alive": os.getenv("LEON_KEEP_ALIVE", "-1"),
         "options": {
             "temperature": 0.7,
             "num_predict": 600,
@@ -135,6 +138,29 @@ async def get_available_model() -> str:
     except Exception:
         pass
     return DEFAULT_MODEL
+
+@app.on_event("startup")
+async def warmup():
+    """Carga el modelo en RAM/VRAM al arrancar para que la primera
+    consulta real no espere los 10-30s de carga."""
+    import asyncio
+
+    async def _load():
+        try:
+            model = await get_available_model()
+            async with httpx.AsyncClient(timeout=300.0) as client:
+                await client.post(f"{OLLAMA_URL}/api/chat", json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": "hola"}],
+                    "stream": False,
+                    "keep_alive": os.getenv("LEON_KEEP_ALIVE", "-1"),
+                    "options": {"num_predict": 1}
+                })
+            print(f"[warmup] Modelo {model} cargado y fijado en memoria")
+        except Exception as e:
+            print(f"[warmup] No se pudo precargar el modelo: {e}")
+
+    asyncio.create_task(_load())
 
 @app.get("/health")
 async def health():
