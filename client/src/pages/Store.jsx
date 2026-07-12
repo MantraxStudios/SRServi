@@ -5196,32 +5196,6 @@ function Store() {
       )}
 
       <div className={`store-body${editMode && !previewMode ? ' editing' : ''}`} style={restaurantView && !activeTable ? { display: 'none' } : {}}>
-      {(!editMode || previewMode) && hasProducts && (
-        <div className="store-product-search-bar" style={{ display: 'flex', padding: '10px 16px 0' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
-            <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--store-text-secondary, #999)', fontSize: 14, pointerEvents: 'none' }} />
-            <input
-              ref={productSearchInputRef}
-              type="text"
-              value={productSearch}
-              onChange={(e) => setProductSearch(e.target.value)}
-              placeholder="Buscar producto…"
-              className="store-product-search-input"
-              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 36px 10px 34px', borderRadius: 10, border: '1px solid var(--store-border, #ddd)', fontSize: 14, outline: 'none' }}
-            />
-            {productSearch && (
-              <button
-                type="button"
-                onClick={() => { setProductSearch(''); productSearchInputRef.current?.focus(); }}
-                style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--store-text-secondary, #999)', fontSize: 15, padding: 6, lineHeight: 1 }}
-                aria-label="Limpiar búsqueda"
-              >
-                <FontAwesomeIcon icon={faTimes} />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
       <div className="category-tabs">
         <div
           ref={categoryRef}
@@ -5299,6 +5273,32 @@ function Store() {
       </div>
 
       <div className="store-main">
+      {(!editMode || previewMode) && hasProducts && (
+        <div className="store-product-search-bar" style={{ display: 'flex', padding: '10px 16px', position: 'sticky', top: 0, zIndex: 5, background: 'var(--kiosk-bg, #FAF4E9)' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--store-text-secondary, #999)', fontSize: 14, pointerEvents: 'none' }} />
+            <input
+              ref={productSearchInputRef}
+              type="text"
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              placeholder="Buscar producto…"
+              className="store-product-search-input"
+              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 36px 10px 34px', borderRadius: 10, border: '1px solid var(--store-border, #ddd)', fontSize: 14, outline: 'none' }}
+            />
+            {productSearch && (
+              <button
+                type="button"
+                onClick={() => { setProductSearch(''); productSearchInputRef.current?.focus(); }}
+                style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--store-text-secondary, #999)', fontSize: 15, padding: 6, lineHeight: 1 }}
+                aria-label="Limpiar búsqueda"
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       {!hasProducts && (
         <div className="store-empty">
           <div className="store-empty-icon" style={{ background: `linear-gradient(135deg, ${colors.accent}20, ${colors.accent}40)` }}>
