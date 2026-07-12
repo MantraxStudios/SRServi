@@ -1013,6 +1013,8 @@ function Store() {
   const [comboModal, setComboModal] = useState(null);
   const [comboQty, setComboQty] = useState(1);
   const [activeCategory, setActiveCategory] = useState('all');
+  const [productSearch, setProductSearch] = useState('');
+  const productSearchInputRef = useRef(null);
   const [promoConfirm, setPromoConfirm] = useState(null);
   const [storePromos, setStorePromos] = useState([]);
   const [configurations, setConfigurations] = useState([]);
@@ -2343,11 +2345,13 @@ function Store() {
   useEffect(() => {
     if (isTouchDevice) return;
     if (anyModalOpen) return;
+    if (document.activeElement === productSearchInputRef.current) return;
     if (barcodeInputRef.current) {
       barcodeInputRef.current.focus({ preventScroll: true });
     }
     const interval = setInterval(() => {
       if (anyModalOpen) return;
+      if (document.activeElement === productSearchInputRef.current) return;
       if (barcodeInputRef.current && document.activeElement !== barcodeInputRef.current) {
         barcodeInputRef.current.focus({ preventScroll: true });
       }
@@ -4632,6 +4636,16 @@ function Store() {
     return [...top, ...rest];
   }, [store?.products, topSellingIds, store?.store?.show_top_selling]);
 
+  // Búsqueda de productos por nombre/código de barras (ignora tildes).
+  // Cuando hay texto, se muestra un listado plano cruzando todas las categorías.
+  const searchedProducts = useMemo(() => {
+    const q = productSearch.trim();
+    if (!q) return null;
+    const normalize = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const nq = normalize(q);
+    return smartProducts.filter(p => normalize(p.name).includes(nq) || (p.barcode && p.barcode.includes(q)));
+  }, [smartProducts, productSearch]);
+
   const deleteAllProducts = async () => {
     const all = store?.products || [];
     setDeletingAll(true);
@@ -5182,6 +5196,32 @@ function Store() {
       )}
 
       <div className={`store-body${editMode && !previewMode ? ' editing' : ''}`} style={restaurantView && !activeTable ? { display: 'none' } : {}}>
+      {(!editMode || previewMode) && hasProducts && (
+        <div className="store-product-search-bar" style={{ display: 'flex', padding: '10px 16px 0' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--store-text-secondary, #999)', fontSize: 14, pointerEvents: 'none' }} />
+            <input
+              ref={productSearchInputRef}
+              type="text"
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              placeholder="Buscar producto…"
+              className="store-product-search-input"
+              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 36px 10px 34px', borderRadius: 10, border: '1px solid var(--store-border, #ddd)', fontSize: 14, outline: 'none' }}
+            />
+            {productSearch && (
+              <button
+                type="button"
+                onClick={() => { setProductSearch(''); productSearchInputRef.current?.focus(); }}
+                style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--store-text-secondary, #999)', fontSize: 15, padding: 6, lineHeight: 1 }}
+                aria-label="Limpiar búsqueda"
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       <div className="category-tabs">
         <div
           ref={categoryRef}
@@ -5451,7 +5491,7 @@ function Store() {
       )}
 
 
-      {(!editMode || previewMode) && !(restaurantView && !activeTable) && activeCategory === 'all' && (store?.combos || []).filter(c => c.is_active && c.items?.length > 0).length > 0 && (
+      {(!editMode || previewMode) && !(restaurantView && !activeTable) && searchedProducts === null && activeCategory === 'all' && (store?.combos || []).filter(c => c.is_active && c.items?.length > 0).length > 0 && (
         <div className="category-section">
           <div className="category-section-header">
             <div className="flex items-center gap-3">
@@ -5505,7 +5545,7 @@ function Store() {
         </div>
       )}
 
-      {(!editMode || previewMode) && !(restaurantView && !activeTable) && activeCategory === 'all' && hasProducts && (
+      {(!editMode || previewMode) && !(restaurantView && !activeTable) && searchedProducts === null && activeCategory === 'all' && hasProducts && (
         <div className="category-sections" ref={productsAreaRef}>
           {(() => {
             const uncategorized = smartProducts.filter(p => !p.category_name);
@@ -5537,11 +5577,25 @@ function Store() {
         </div>
       )}
 
-      {(!editMode || previewMode) && !(restaurantView && !activeTable) && activeCategory !== 'all' && hasProducts && (
+      {(!editMode || previewMode) && !(restaurantView && !activeTable) && searchedProducts === null && activeCategory !== 'all' && hasProducts && (
         <div className="products-grid">
           {(store?.products || [])
             .filter(product => product.category_name === activeCategory)
             .map(product => renderProductCard(product))}
+        </div>
+      )}
+
+      {(!editMode || previewMode) && !(restaurantView && !activeTable) && searchedProducts !== null && (
+        <div className="category-sections" ref={productsAreaRef}>
+          {searchedProducts.length > 0 ? (
+            <div className="products-grid">
+              {searchedProducts.map(product => renderProductCard(product))}
+            </div>
+          ) : (
+            <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--store-text-secondary, #888)' }}>
+              Sin resultados para "{productSearch}"
+            </div>
+          )}
         </div>
       )}
 
