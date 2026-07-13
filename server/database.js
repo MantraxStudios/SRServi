@@ -5144,46 +5144,58 @@ export async function assignPremiumByAdmin(userId, planId, forever, endsAtDate) 
   return { success: true, plan: plan.name, ends_at: endsAt };
 }
 
-export async function getAnalytics(storeId, dateRange = 'week') {
-  let dateFilter = '';
-  const now = new Date();
-  
-  switch (dateRange) {
-    case 'today':
-      dateFilter = `AND DATE(o.created_at) = CURDATE()`;
-      break;
-    case 'week':
-      dateFilter = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`;
-      break;
-    case 'month':
-      dateFilter = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`;
-      break;
-    case 'year':
-      dateFilter = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL 365 DAY)`;
-      break;
-    default:
-      dateFilter = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`;
+export async function getAnalytics(storeId, dateRange = 'week', startDate = null, endDate = null) {
+  let dateFilterO = '';
+  let dateFilterPlain = '';
+  const dateParams = [];
+
+  if (dateRange === 'custom' && startDate && endDate) {
+    dateFilterO = `AND o.created_at >= ? AND o.created_at < DATE_ADD(?, INTERVAL 1 DAY)`;
+    dateFilterPlain = `AND created_at >= ? AND created_at < DATE_ADD(?, INTERVAL 1 DAY)`;
+    dateParams.push(startDate, endDate);
+  } else {
+    switch (dateRange) {
+      case 'today':
+        dateFilterO = `AND DATE(o.created_at) = CURDATE()`;
+        dateFilterPlain = `AND DATE(created_at) = CURDATE()`;
+        break;
+      case 'week':
+        dateFilterO = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`;
+        dateFilterPlain = `AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`;
+        break;
+      case 'month':
+        dateFilterO = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`;
+        dateFilterPlain = `AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`;
+        break;
+      case 'year':
+        dateFilterO = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL 365 DAY)`;
+        dateFilterPlain = `AND created_at >= DATE_SUB(NOW(), INTERVAL 365 DAY)`;
+        break;
+      default:
+        dateFilterO = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`;
+        dateFilterPlain = `AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`;
+    }
   }
 
   const totalOrdersQuery = `
-    SELECT COUNT(*) as total, 
+    SELECT COUNT(*) as total,
            SUM(CASE WHEN status IN ('paid', 'processed', 'completed', 'approved') THEN 1 ELSE 0 END) as completed,
            SUM(CASE WHEN status IN ('pending', 'waiting') THEN 1 ELSE 0 END) as pending,
            SUM(CASE WHEN status IN ('cancelled') THEN 1 ELSE 0 END) as cancelled,
            SUM(CASE WHEN status IN ('paid', 'processed', 'completed', 'approved') THEN total ELSE 0 END) as revenue
     FROM orders o
-    WHERE store_id = ? ${dateFilter}
+    WHERE store_id = ? ${dateFilterO}
   `;
 
-  const [totals] = await pool.execute(totalOrdersQuery, [storeId]);
+  const [totals] = await pool.execute(totalOrdersQuery, [storeId, ...dateParams]);
 
   const avgOrderQuery = `
     SELECT AVG(total) as avg_order
     FROM orders
-    WHERE store_id = ? AND status IN ('paid', 'processed', 'completed', 'approved') ${dateFilter.replace('o.', '')}
+    WHERE store_id = ? AND status IN ('paid', 'processed', 'completed', 'approved') ${dateFilterPlain}
   `;
-  
-  const [avgResult] = await pool.execute(avgOrderQuery.replace('o.created_at', 'created_at').replace('DATE(o.created_at)', 'DATE(created_at)'), [storeId]);
+
+  const [avgResult] = await pool.execute(avgOrderQuery, [storeId, ...dateParams]);
 
   return {
     totalOrders: totals[0].total || 0,
@@ -5195,13 +5207,21 @@ export async function getAnalytics(storeId, dateRange = 'week') {
   };
 }
 
-export async function getSalesByDay(storeId, dateRange = 'week') {
-  let interval = '7 DAY';
-  switch (dateRange) {
-    case 'today': interval = '1 DAY'; break;
-    case 'week': interval = '7 DAY'; break;
-    case 'month': interval = '30 DAY'; break;
-    case 'year': interval = '365 DAY'; break;
+export async function getSalesByDay(storeId, dateRange = 'week', startDate = null, endDate = null) {
+  const params = [storeId];
+  let condition;
+  if (dateRange === 'custom' && startDate && endDate) {
+    condition = `AND created_at >= ? AND created_at < DATE_ADD(?, INTERVAL 1 DAY)`;
+    params.push(startDate, endDate);
+  } else {
+    let interval = '7 DAY';
+    switch (dateRange) {
+      case 'today': interval = '1 DAY'; break;
+      case 'week': interval = '7 DAY'; break;
+      case 'month': interval = '30 DAY'; break;
+      case 'year': interval = '365 DAY'; break;
+    }
+    condition = `AND created_at >= DATE_SUB(NOW(), INTERVAL ${interval})`;
   }
 
   const query = `
@@ -5209,25 +5229,32 @@ export async function getSalesByDay(storeId, dateRange = 'week') {
            COUNT(*) as orders,
            SUM(CASE WHEN status IN ('paid', 'processed', 'completed', 'approved') THEN total ELSE 0 END) as revenue
     FROM orders
-    WHERE store_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
+    WHERE store_id = ? ${condition}
     GROUP BY DATE(created_at)
     ORDER BY date ASC
   `;
-  
-  const [rows] = await pool.execute(query, [storeId]);
+
+  const [rows] = await pool.execute(query, params);
   return rows;
 }
 
-export async function getTopProducts(storeId, limit = 10, dateRange = 'week', { sortBy = 'quantity', categoryId = null } = {}) {
-  let interval = '7 DAY';
-  switch (dateRange) {
-    case 'today': interval = '1 DAY'; break;
-    case 'week': interval = '7 DAY'; break;
-    case 'month': interval = '30 DAY'; break;
-    case 'year': interval = '365 DAY'; break;
+export async function getTopProducts(storeId, limit = 10, dateRange = 'week', { sortBy = 'quantity', categoryId = null, startDate = null, endDate = null } = {}) {
+  const params = [storeId];
+  let dateCondition;
+  if (dateRange === 'custom' && startDate && endDate) {
+    dateCondition = `AND o.created_at >= ? AND o.created_at < DATE_ADD(?, INTERVAL 1 DAY)`;
+    params.push(startDate, endDate);
+  } else {
+    let interval = '7 DAY';
+    switch (dateRange) {
+      case 'today': interval = '1 DAY'; break;
+      case 'week': interval = '7 DAY'; break;
+      case 'month': interval = '30 DAY'; break;
+      case 'year': interval = '365 DAY'; break;
+    }
+    dateCondition = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})`;
   }
 
-  const params = [storeId];
   let categoryFilter = '';
   if (categoryId) {
     categoryFilter = 'AND p.category_id = ?';
@@ -5251,7 +5278,7 @@ export async function getTopProducts(storeId, limit = 10, dateRange = 'week', { 
     LEFT JOIN categories c ON p.category_id = c.id
     WHERE o.store_id = ?
       AND o.status IN ('paid', 'processed', 'completed', 'approved')
-      AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
+      ${dateCondition}
       ${categoryFilter}
     GROUP BY p.id, p.name, p.image, p.category_id, c.name
     ORDER BY ${orderColumn} DESC
@@ -5262,16 +5289,23 @@ export async function getTopProducts(storeId, limit = 10, dateRange = 'week', { 
   return rows;
 }
 
-export async function getBottomProducts(storeId, limit = 10, dateRange = 'week', { sortBy = 'quantity', categoryId = null } = {}) {
-  let interval = '7 DAY';
-  switch (dateRange) {
-    case 'today': interval = '1 DAY'; break;
-    case 'week': interval = '7 DAY'; break;
-    case 'month': interval = '30 DAY'; break;
-    case 'year': interval = '365 DAY'; break;
+export async function getBottomProducts(storeId, limit = 10, dateRange = 'week', { sortBy = 'quantity', categoryId = null, startDate = null, endDate = null } = {}) {
+  const params = [storeId];
+  let dateCondition;
+  if (dateRange === 'custom' && startDate && endDate) {
+    dateCondition = `AND o.created_at >= ? AND o.created_at < DATE_ADD(?, INTERVAL 1 DAY)`;
+    params.push(startDate, endDate);
+  } else {
+    let interval = '7 DAY';
+    switch (dateRange) {
+      case 'today': interval = '1 DAY'; break;
+      case 'week': interval = '7 DAY'; break;
+      case 'month': interval = '30 DAY'; break;
+      case 'year': interval = '365 DAY'; break;
+    }
+    dateCondition = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})`;
   }
 
-  const params = [storeId];
   let categoryFilter = '';
   if (categoryId) {
     categoryFilter = 'AND p.category_id = ?';
@@ -5295,7 +5329,7 @@ export async function getBottomProducts(storeId, limit = 10, dateRange = 'week',
     LEFT JOIN categories c ON p.category_id = c.id
     WHERE o.store_id = ?
       AND o.status IN ('paid', 'processed', 'completed', 'approved')
-      AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
+      ${dateCondition}
       ${categoryFilter}
     GROUP BY p.id, p.name, p.image, p.category_id, c.name
     HAVING total_sold > 0

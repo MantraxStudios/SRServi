@@ -3014,10 +3014,14 @@ app.post('/api/store/:code/qr-webhook', async (req, res) => {
   }
 });
 
+const isValidDateStr = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+
 app.get('/api/analytics/summary', authenticateToken, async (req, res) => {
   try {
     const storeId = req.query.store_id;
     const dateRange = req.query.range || 'week';
+    const startDate = isValidDateStr(req.query.start_date) ? req.query.start_date : null;
+    const endDate = isValidDateStr(req.query.end_date) ? req.query.end_date : null;
     if (!storeId) {
       return res.status(400).json({ error: 'Store ID es requerido' });
     }
@@ -3025,7 +3029,7 @@ app.get('/api/analytics/summary', authenticateToken, async (req, res) => {
     if (!isOwner) {
       return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
-    const analytics = await getAnalytics(parseInt(storeId), dateRange);
+    const analytics = await getAnalytics(parseInt(storeId), dateRange, startDate, endDate);
     res.json(analytics);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -3036,6 +3040,8 @@ app.get('/api/analytics/sales-by-day', authenticateToken, async (req, res) => {
   try {
     const storeId = req.query.store_id;
     const dateRange = req.query.range || 'week';
+    const startDate = isValidDateStr(req.query.start_date) ? req.query.start_date : null;
+    const endDate = isValidDateStr(req.query.end_date) ? req.query.end_date : null;
     if (!storeId) {
       return res.status(400).json({ error: 'Store ID es requerido' });
     }
@@ -3043,7 +3049,7 @@ app.get('/api/analytics/sales-by-day', authenticateToken, async (req, res) => {
     if (!isOwner) {
       return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
-    const sales = await getSalesByDay(parseInt(storeId), dateRange);
+    const sales = await getSalesByDay(parseInt(storeId), dateRange, startDate, endDate);
     res.json(sales);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -3054,11 +3060,13 @@ app.get('/api/analytics/sales-by-dow', authenticateToken, async (req, res) => {
   try {
     const storeId = req.query.store_id;
     const dateRange = req.query.range || 'month';
+    const startDate = isValidDateStr(req.query.start_date) ? req.query.start_date : null;
+    const endDate = isValidDateStr(req.query.end_date) ? req.query.end_date : null;
     if (!storeId) return res.status(400).json({ error: 'Store ID es requerido' });
     const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
     if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
 
-    const rows = await leonGetSalesByDayOfWeek(parseInt(storeId), dateRange);
+    const rows = await leonGetSalesByDayOfWeek(parseInt(storeId), dateRange, startDate, endDate);
     // MySQL DAYOFWEEK: 1=Sun,2=Mon,...,7=Sat → display Mon(2)..Sun(1)
     const DOW_ORDER = [2, 3, 4, 5, 6, 7, 1];
     const DOW_NAMES = ['', 'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -3083,6 +3091,8 @@ app.get('/api/analytics/top-products', authenticateToken, async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const sortBy = req.query.sort_by || 'quantity';
     const categoryId = req.query.category_id ? parseInt(req.query.category_id) : null;
+    const startDate = isValidDateStr(req.query.start_date) ? req.query.start_date : null;
+    const endDate = isValidDateStr(req.query.end_date) ? req.query.end_date : null;
     if (!storeId) {
       return res.status(400).json({ error: 'Store ID es requerido' });
     }
@@ -3090,7 +3100,7 @@ app.get('/api/analytics/top-products', authenticateToken, async (req, res) => {
     if (!isOwner) {
       return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
-    const products = await getTopProducts(parseInt(storeId), limit, dateRange, { sortBy, categoryId });
+    const products = await getTopProducts(parseInt(storeId), limit, dateRange, { sortBy, categoryId, startDate, endDate });
     res.json(products);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -3104,6 +3114,8 @@ app.get('/api/analytics/bottom-products', authenticateToken, async (req, res) =>
     const limit = parseInt(req.query.limit) || 10;
     const sortBy = req.query.sort_by || 'quantity';
     const categoryId = req.query.category_id ? parseInt(req.query.category_id) : null;
+    const startDate = isValidDateStr(req.query.start_date) ? req.query.start_date : null;
+    const endDate = isValidDateStr(req.query.end_date) ? req.query.end_date : null;
     if (!storeId) {
       return res.status(400).json({ error: 'Store ID es requerido' });
     }
@@ -3111,7 +3123,7 @@ app.get('/api/analytics/bottom-products', authenticateToken, async (req, res) =>
     if (!isOwner) {
       return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
-    const products = await getBottomProducts(parseInt(storeId), limit, dateRange, { sortBy, categoryId });
+    const products = await getBottomProducts(parseInt(storeId), limit, dateRange, { sortBy, categoryId, startDate, endDate });
     res.json(products);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -3437,11 +3449,19 @@ async function leonGetTopExtras(storeId, range) {
     .slice(0, 10);
 }
 
-async function leonGetSalesByDayOfWeek(storeId, range) {
-  let interval = '30 DAY';
-  if (range === 'week') interval = '7 DAY';
-  else if (range === 'month') interval = '30 DAY';
-  else if (range === 'year') interval = '365 DAY';
+async function leonGetSalesByDayOfWeek(storeId, range, startDate = null, endDate = null) {
+  const params = [storeId];
+  let dateCondition;
+  if (range === 'custom' && startDate && endDate) {
+    dateCondition = `AND o.created_at >= ? AND o.created_at < DATE_ADD(?, INTERVAL 1 DAY)`;
+    params.push(startDate, endDate);
+  } else {
+    let interval = '30 DAY';
+    if (range === 'week') interval = '7 DAY';
+    else if (range === 'month') interval = '30 DAY';
+    else if (range === 'year') interval = '365 DAY';
+    dateCondition = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})`;
+  }
 
   const DAY_NAMES = ['', 'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
   const [rows] = await pool.execute(
@@ -3451,10 +3471,10 @@ async function leonGetSalesByDayOfWeek(storeId, range) {
      FROM orders o
      WHERE o.store_id = ?
        AND o.status IN ('paid','processed','completed','approved')
-       AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
+       ${dateCondition}
      GROUP BY DAYOFWEEK(o.created_at)
      ORDER BY orders DESC`,
-    [storeId]
+    params
   );
   return rows.map(r => ({ ...r, day_name: DAY_NAMES[r.day_num] || 'Desconocido' }));
 }

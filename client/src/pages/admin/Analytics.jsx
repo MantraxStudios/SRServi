@@ -26,6 +26,8 @@ function Analytics() {
   const { selectedStore } = useContext(StoreContext);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('week');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
   const [summary, setSummary] = useState(null);
   const [salesByDay, setSalesByDay] = useState([]);
   const [salesByDow, setSalesByDow] = useState([]);
@@ -38,19 +40,28 @@ function Analytics() {
   const [productSearch, setProductSearch] = useState('');
   const [bottomProducts, setBottomProducts] = useState([]);
 
+  const isCustomRangeReady = dateRange !== 'custom' || (customStart && customEnd);
+
+  const rangeQueryParams = () => {
+    if (dateRange === 'custom' && customStart && customEnd) {
+      return `range=custom&start_date=${customStart}&end_date=${customEnd}`;
+    }
+    return `range=${dateRange}`;
+  };
+
   useEffect(() => {
-    if (selectedStore?.id) {
+    if (selectedStore?.id && isCustomRangeReady) {
       fetchAnalytics();
       fetchCategories();
     }
-  }, [selectedStore, dateRange]);
+  }, [selectedStore, dateRange, customStart, customEnd]);
 
   useEffect(() => {
-    if (selectedStore?.id) {
+    if (selectedStore?.id && isCustomRangeReady) {
       fetchTopProducts();
       fetchBottomProducts();
     }
-  }, [selectedStore, dateRange, topSortBy, topCategoryId, topLimit]);
+  }, [selectedStore, dateRange, customStart, customEnd, topSortBy, topCategoryId, topLimit]);
 
   const fetchCategories = async () => {
     try {
@@ -69,7 +80,7 @@ function Analytics() {
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
       const storeId = selectedStore.id;
-      let url = `/api/analytics/top-products?store_id=${storeId}&range=${dateRange}&limit=${topLimit}&sort_by=${topSortBy}`;
+      let url = `/api/analytics/top-products?store_id=${storeId}&${rangeQueryParams()}&limit=${topLimit}&sort_by=${topSortBy}`;
       if (topCategoryId) url += `&category_id=${topCategoryId}`;
       const res = await fetch(url, { headers });
       const data = res.ok ? await res.json() : [];
@@ -83,7 +94,7 @@ function Analytics() {
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
       const storeId = selectedStore.id;
-      let url = `/api/analytics/bottom-products?store_id=${storeId}&range=${dateRange}&limit=${topLimit}&sort_by=${topSortBy}`;
+      let url = `/api/analytics/bottom-products?store_id=${storeId}&${rangeQueryParams()}&limit=${topLimit}&sort_by=${topSortBy}`;
       if (topCategoryId) url += `&category_id=${topCategoryId}`;
       const res = await fetch(url, { headers });
       const data = res.ok ? await res.json() : [];
@@ -100,10 +111,10 @@ function Analytics() {
       const storeId = selectedStore.id;
 
       const [summaryRes, salesRes, ordersRes, dowRes] = await Promise.all([
-        fetch(`/api/analytics/summary?store_id=${storeId}&range=${dateRange}`, { headers }),
-        fetch(`/api/analytics/sales-by-day?store_id=${storeId}&range=${dateRange}`, { headers }),
+        fetch(`/api/analytics/summary?store_id=${storeId}&${rangeQueryParams()}`, { headers }),
+        fetch(`/api/analytics/sales-by-day?store_id=${storeId}&${rangeQueryParams()}`, { headers }),
         fetch(`/api/analytics/recent-orders?store_id=${storeId}&limit=10`, { headers }),
-        fetch(`/api/analytics/sales-by-dow?store_id=${storeId}&range=${dateRange}`, { headers }),
+        fetch(`/api/analytics/sales-by-dow?store_id=${storeId}&${rangeQueryParams()}`, { headers }),
       ]);
 
       const [summaryData, salesData, ordersData, dowData] = await Promise.all([
@@ -171,16 +182,43 @@ function Analytics() {
           </h1>
           <p className="text-sm text-muted">Estadísticas de tu tienda</p>
         </div>
-        <div className="analytics-date-filters">
-          {['today', 'week', 'month', 'year'].map((range) => (
+        <div className="analytics-date-filters" style={{ flexWrap: 'wrap', gap: 8 }}>
+          {['today', 'week', 'month', 'year', 'custom'].map((range) => (
             <button
               key={range}
               onClick={() => setDateRange(range)}
               className={`analytics-date-btn${dateRange === range ? ' active' : ''}`}
             >
-              {range === 'today' ? 'Hoy' : range === 'week' ? '7 días' : range === 'month' ? '30 días' : 'Año'}
+              {range === 'today' ? 'Hoy' : range === 'week' ? '7 días' : range === 'month' ? '30 días' : range === 'year' ? 'Año' : 'Personalizado'}
             </button>
           ))}
+          {dateRange === 'custom' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="date"
+                value={customStart}
+                max={customEnd || undefined}
+                onChange={e => setCustomStart(e.target.value)}
+                style={{
+                  background: 'var(--background)', color: 'var(--foreground)',
+                  border: '1px solid var(--border)', borderRadius: 6,
+                  padding: '5px 8px', fontSize: 12,
+                }}
+              />
+              <span className="text-sm text-muted">a</span>
+              <input
+                type="date"
+                value={customEnd}
+                min={customStart || undefined}
+                onChange={e => setCustomEnd(e.target.value)}
+                style={{
+                  background: 'var(--background)', color: 'var(--foreground)',
+                  border: '1px solid var(--border)', borderRadius: 6,
+                  padding: '5px 8px', fontSize: 12,
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
