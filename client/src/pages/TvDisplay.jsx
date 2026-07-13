@@ -181,6 +181,16 @@ function TvDisplay() {
                   style={{ animationDelay: `${idx * 0.1}s` }}
                 >
                   <div className="tv-order-number">{order.order_number}</div>
+                  {order.products?.length > 0 && (
+                    <div className="tv-order-products">
+                      {order.products.map((p, i) => (
+                        <div key={i} className="tv-order-product">
+                          <span className="tv-order-product-qty">{p.quantity}×</span>
+                          <span className="tv-order-product-name">{p.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="tv-order-pulse" />
                 </div>
               ))
@@ -208,6 +218,16 @@ function TvDisplay() {
                   style={{ animationDelay: `${idx * 0.1}s` }}
                 >
                   <div className="tv-order-number">{order.order_number}</div>
+                  {order.products?.length > 0 && (
+                    <div className="tv-order-products">
+                      {order.products.map((p, i) => (
+                        <div key={i} className="tv-order-product">
+                          <span className="tv-order-product-qty">{p.quantity}×</span>
+                          <span className="tv-order-product-name">{p.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="tv-order-shine" />
                 </div>
               ))
@@ -438,10 +458,11 @@ function TvDisplay() {
         .tv-orders-grid {
           flex: 1;
           display: grid;
-          grid-template-columns: repeat(6, 1fr);
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
           gap: 10px;
           overflow-y: auto;
           align-content: start;
+          align-items: start;
         }
 
         .tv-orders-grid::-webkit-scrollbar { width: 0; }
@@ -462,14 +483,15 @@ function TvDisplay() {
         .tv-empty svg { font-size: 48px; opacity: 0.3; }
 
         .tv-order-card {
-          aspect-ratio: 1;
           border-radius: 12px;
           display: flex;
-          align-items: center;
-          justify-content: center;
+          flex-direction: column;
+          align-items: stretch;
+          justify-content: flex-start;
           font-weight: 900;
           position: relative;
           overflow: hidden;
+          padding: 12px 14px;
           animation: tv-fade-in 0.5s ease-out backwards;
         }
 
@@ -487,9 +509,38 @@ function TvDisplay() {
         }
 
         .tv-order-number {
-          font-size: 20px;
+          font-size: 22px;
           letter-spacing: -0.5px;
           z-index: 2;
+          padding-bottom: 8px;
+          margin-bottom: 8px;
+          border-bottom: 2px solid rgba(0,0,0,0.15);
+        }
+
+        .tv-order-products {
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .tv-order-product {
+          display: flex;
+          align-items: baseline;
+          gap: 6px;
+          font-weight: 800;
+        }
+
+        .tv-order-product-qty {
+          font-size: 14px;
+          flex-shrink: 0;
+          opacity: 0.75;
+        }
+
+        .tv-order-product-name {
+          font-size: 14px;
+          line-height: 1.25;
+          font-weight: 700;
         }
 
         .tv-order-pulse {

@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
+import { processProductImage } from './image-processor.js';
 import path from 'path';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -2301,6 +2302,7 @@ app.post('/api/public/:code/products', upload.single('image'), async (req, res) 
     if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
     if (!req.body.name || !req.body.price) return res.status(400).json({ error: 'Nombre y precio requeridos' });
 
+    if (req.file) await processProductImage(req.file);
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : (req.body.image_url || null);
     const product = await createProduct(auth.store.id, {
       name: req.body.name, description: req.body.description || '',
@@ -2330,6 +2332,7 @@ app.put('/api/public/:code/products/:id', upload.single('image'), async (req, re
 
     let imageUrl;
     if (req.file) {
+      await processProductImage(req.file);
       imageUrl = `/uploads/${req.file.filename}`;
     } else if (req.body.image_url) {
       imageUrl = req.body.image_url;
@@ -6518,6 +6521,7 @@ app.post('/api/products', authenticateToken, upload.single('image'), async (req,
       return res.status(400).json({ error: 'Nombre y precio son requeridos' });
     }
 
+    if (req.file) await processProductImage(req.file);
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : (req.body.image_url || null);
 
     const product = await createProduct(parseInt(store_id), {
@@ -6566,6 +6570,7 @@ app.put('/api/products/:id', authenticateToken, upload.single('image'), async (r
 
     let imageUrl;
     if (req.file) {
+      await processProductImage(req.file);
       imageUrl = `/uploads/${req.file.filename}`;
     } else if (req.body.image_url) {
       imageUrl = req.body.image_url;
@@ -7513,6 +7518,17 @@ app.get('/api/store/:code/tv-orders', async (req, res) => {
       [store.id]
     );
 
+    // Mismos productos que se ven en la tablet de cocina, resumidos para la
+    // pantalla pública (solo nombre + cantidad, sin ingredientes/extras).
+    const productsByOrder = {};
+    await Promise.all(rows.map(async (o) => {
+      const items = await getOrderItems(o.id);
+      productsByOrder[o.id] = items.map(it => ({
+        name: it.product_name,
+        quantity: it.quantity
+      }));
+    }));
+
     res.json({
       store: {
         code: store.code,
@@ -7525,17 +7541,20 @@ app.get('/api/store/:code/tv-orders', async (req, res) => {
       preparing: rows.filter(o => o.status === 'preparing').map(o => ({
         id: o.id,
         order_number: o.order_number,
-        created_at: o.created_at
+        created_at: o.created_at,
+        products: productsByOrder[o.id] || []
       })),
       ready: rows.filter(o => o.status === 'ready').map(o => ({
         id: o.id,
         order_number: o.order_number,
-        created_at: o.created_at
+        created_at: o.created_at,
+        products: productsByOrder[o.id] || []
       })),
       completed: rows.filter(o => o.status === 'completed').map(o => ({
         id: o.id,
         order_number: o.order_number,
-        completed_at: o.completed_at
+        completed_at: o.completed_at,
+        products: productsByOrder[o.id] || []
       }))
     });
   } catch (error) {
