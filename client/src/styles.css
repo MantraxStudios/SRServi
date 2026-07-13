@@ -2128,6 +2128,7 @@ h1, h2, h3, h4, h5, h6 {
   flex-direction: column;
   overflow: hidden;
   background-color: var(--kiosk-bg);
+  position: relative;
 }
 
 .store-header {
@@ -12996,4 +12997,45 @@ html body .store-container .store-product-card * {
   .pc-counter-cards > div > div:first-child { font-size: 26px !important; }
   .pc-live-grid { grid-template-columns: 1fr; }
   .pc-stats-grid { grid-template-columns: 1fr; gap: 8px; }
+}
+
+/* ── Tema estacional automático del tótem ── */
+.store-seasonal-banner {
+  position: relative;
+  z-index: 30;
+  text-align: center;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.3px;
+  color: var(--store-secondary, #fff);
+  background: var(--store-header, var(--store-primary, #000));
+  padding: 7px 12px;
+  border-bottom: 2px solid var(--store-accent, #D4AF37);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+}
+.store-seasonal-deco {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+.store-seasonal-emoji {
+  position: absolute;
+  top: -8%;
+  opacity: 0.85;
+  will-change: transform;
+  animation-name: store-seasonal-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.12));
+}
+@keyframes store-seasonal-fall {
+  0%   { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
+  10%  { opacity: 0.85; }
+  90%  { opacity: 0.85; }
+  100% { transform: translateY(110vh) rotate(340deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .store-seasonal-emoji { animation: none; display: none; }
 }

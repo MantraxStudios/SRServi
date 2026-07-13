@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } fro
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { detectLanguage, t, LANGUAGES } from '../i18n';
+import { getSeasonalTheme } from '../utils/seasonalTheme';
 import {
   faShoppingCart,
   faPlus,
@@ -2280,6 +2281,21 @@ function Store() {
       name: 'Dólar Estadounidense'
     }
   };
+
+  // ── Tema estacional automático ──────────────────────────────────────────────
+  // La apariencia y los colores del tótem cambian solos según fechas importantes
+  // (Navidad, Fiestas Patrias, Halloween, San Valentín, Día de la Madre, Año Nuevo).
+  // Solo se aplica en el tótem del cliente (no en el editor del dueño) y si la
+  // tienda no lo desactivó (store.auto_seasonal_theme === false).
+  const seasonalTheme = (store?.store?.auto_seasonal_theme !== false && !adminEditToken)
+    ? getSeasonalTheme(new Date(), store?.store?.country)
+    : null;
+  if (seasonalTheme) {
+    colors.primary = seasonalTheme.colors.primary;
+    colors.secondary = seasonalTheme.colors.secondary;
+    colors.accent = seasonalTheme.colors.accent;
+    colors.header = seasonalTheme.colors.header;
+  }
 
   // Custom labels for the product personalization steps (admin-configurable)
   const complementsLabel = (store?.store?.complements_label || '').trim() || t('complements', lang);
@@ -4883,9 +4899,31 @@ function Store() {
     <div
       ref={storeContainerRef}
       className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}`}
-      style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom }}
+      style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom,
+        ...(seasonalTheme ? { '--kiosk-accent': seasonalTheme.colors.accent, '--kiosk-orange': seasonalTheme.colors.primary, '--kiosk-accent-soft': seasonalTheme.colors.accent + '22' } : {}) }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
     >
+      {seasonalTheme && (
+        <div className="store-seasonal-deco" aria-hidden="true">
+          {Array.from({ length: 14 }).map((_, i) => (
+            <span
+              key={i}
+              className="store-seasonal-emoji"
+              style={{
+                left: `${(i * 7 + (i % 3) * 4) % 100}%`,
+                animationDelay: `${(i * 0.9) % 8}s`,
+                animationDuration: `${7 + (i % 5) * 1.6}s`,
+                fontSize: `${16 + (i % 4) * 6}px`,
+              }}
+            >
+              {seasonalTheme.decorations[i % seasonalTheme.decorations.length]}
+            </span>
+          ))}
+        </div>
+      )}
+      {seasonalTheme && (
+        <div className="store-seasonal-banner">{seasonalTheme.banner}</div>
+      )}
       <header className="store-header">
         <div className="store-header-content">
           <div className="store-header-brand">
