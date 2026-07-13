@@ -73,6 +73,7 @@ import Novedades from './pages/admin/Novedades';
 import InstagramAuto from './pages/admin/InstagramAuto';
 import TikTokAuto from './pages/admin/TikTokAuto';
 import AiImageGenerator from './pages/admin/AiImageGenerator';
+import FudoIntegration from './pages/admin/FudoIntegration';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsConditions from './pages/TermsConditions';
 import CashRegisters from './pages/admin/CashRegisters';
@@ -314,6 +315,7 @@ function App() {
             <Route path="settings" element={<PermissionGate section="settings"><Settings /></PermissionGate>} />
             <Route path="leon-ia" element={<LeonIA />} />
             <Route path="ai-images" element={<AiImageGenerator />} />
+            <Route path="fudo" element={<PermissionGate section="canales"><FudoIntegration /></PermissionGate>} />
             <Route path="tasks" element={<PermissionGate section="tasks"><Tasks /></PermissionGate>} />
             <Route path="inventory" element={<PermissionGate section="inventory"><Inventory /></PermissionGate>} />
             <Route path="procedures" element={<PermissionGate section="procedures"><Procedures /></PermissionGate>} />

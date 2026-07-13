@@ -7620,7 +7620,7 @@ function Store() {
                 alt={store.store.name}
                 style={{
                   width: 70, height: 70, borderRadius: 18,
-                  objectFit: 'cover',
+                  objectFit: 'contain',
                   border: `3px solid ${colors.accent}`,
                   boxShadow: `0 4px 24px ${colors.accent}66`,
                 }}
@@ -9541,7 +9541,7 @@ function Store() {
               {/* Logo circular flotante */}
               <div style={{ width: 110, height: 110, borderRadius: '50%', overflow: 'hidden', border: '3px solid #D4AF37', flexShrink: 0, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'ss-float 4s ease-in-out infinite', boxShadow: '0 0 0 6px rgba(212,175,55,0.12)', marginBottom: 24 }}>
                 {screensaverCfg.store_logo
-                  ? <img src={API + screensaverCfg.store_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  ? <img src={API + screensaverCfg.store_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                   : <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 40, color: '#D4AF37' }} />
                 }
               </div>
@@ -9552,6 +9552,11 @@ function Store() {
                   {screensaverCfg.store_name}
                 </div>
               )}
+
+              {/* Llamado a la acción central */}
+              <div style={{ fontSize: 'clamp(20px,3.5vw,34px)', fontWeight: '900', color: '#D4AF37', textAlign: 'center', letterSpacing: '0.5px', marginBottom: 24 }}>
+                HOLA!! COMPRA AQUÍ
+              </div>
 
               {/* Línea dorada */}
               <div style={{ width: 64, height: 2, background: 'linear-gradient(90deg,transparent,#D4AF37,transparent)', borderRadius: 2, marginBottom: 28 }} />
@@ -9590,7 +9595,7 @@ function Store() {
                 {/* Logo mini circular */}
                 <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', border: '2px solid #D4AF37', flexShrink: 0, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {screensaverCfg.store_logo
-                    ? <img src={API + screensaverCfg.store_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    ? <img src={API + screensaverCfg.store_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                     : <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 15, color: '#D4AF37' }} />
                   }
                 </div>

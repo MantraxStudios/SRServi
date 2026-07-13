@@ -40,6 +40,7 @@ import {
   faChevronRight,
   faRobot,
   faMagicWandSparkles,
+  faPlug,
   faCopy,
   faClipboardList,
   faWarehouse,
@@ -798,6 +799,12 @@ function Layout() {
                   <NavLink to="/admin/tiktok" className="isb-fp-link" onClick={() => setSettingsOpen(false)}>
                     <span className="isb-fp-iconbox"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V9.05a8.16 8.16 0 0 0 4.77 1.53V7.15a4.85 4.85 0 0 1-1-.46z"/></svg></span>
                     TikTok
+                  </NavLink>
+                )}
+                {can('canales', 'view') && (
+                  <NavLink to="/admin/fudo" className="isb-fp-link" onClick={() => setSettingsOpen(false)}>
+                    <FontAwesomeIcon icon={faPlug} /> Fudo
+                    <span style={{ marginLeft: 6, background: '#e5e7eb', color: '#555', fontSize: 9, fontWeight: 800, padding: '1px 4px', borderRadius: 4, flexShrink: 0 }}>PLAN PRO FUDO</span>
                   </NavLink>
                 )}
               </div>

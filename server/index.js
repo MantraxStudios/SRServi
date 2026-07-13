@@ -23,9 +23,10 @@ import PluginManager from './plugins/PluginManager.js';
 import { initLeonIA } from './leon_ia/autostart.js';
 import { generatePromoImage, generateAiPromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
 import { getAiImageStatus, generateAiImage, generateAiVideo } from './ai-image-client.js';
+import { testFudoConnection, syncProductsToFudo } from './fudo-service.js';
 import { initInstagramService } from './instagram_autostart.js';
 
-import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings, createFeedbackCampaign, createFeedbackToken, getFeedbackToken, submitFeedbackResponse, updateCampaignSentCount, getFeedbackCampaigns, getFeedbackResponses, getAllActiveUsersForFeedback, createTotemRental, getTotemRentalByUser, updateTotemRentalMpPreference, updateTotemRentalPayment, markTotemRentalInstalled, updateTotemRentalStatus, updateTotemSubscriptionStatus, getAllTotemRentals, logTotemPayment, createSalesLead, findRecentSalesLead, updateSalesLead, getSalesLeads, getSalesLeadStats, updateSalesLeadStatus, deleteSalesLead } from './database.js';
+import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings, createFeedbackCampaign, createFeedbackToken, getFeedbackToken, submitFeedbackResponse, updateCampaignSentCount, getFeedbackCampaigns, getFeedbackResponses, getAllActiveUsersForFeedback, createTotemRental, getTotemRentalByUser, updateTotemRentalMpPreference, updateTotemRentalPayment, markTotemRentalInstalled, updateTotemRentalStatus, updateTotemSubscriptionStatus, getAllTotemRentals, logTotemPayment, createSalesLead, findRecentSalesLead, updateSalesLead, getSalesLeads, getSalesLeadStats, updateSalesLeadStatus, deleteSalesLead, getFudoConfig, saveFudoConfig, updateFudoSyncStatus } from './database.js';
 import { runSrBrain, runSrBrainForStore, runWeeklySalesReport } from './sr_brain.js';
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds, setBotEnabled, getBotEnabled, getBotPhone } from './whatsapp.js';
 import cron from 'node-cron';
@@ -11869,6 +11870,51 @@ async function startServer() {
         await updateInstagramPosted(req.params.storeId, e.message).catch(() => {});
         res.status(500).json({ error: e.message });
       }
+    });
+
+    // ─── Integración Fudo (POS de terceros, requiere Plan Pro de Fudo) ───────────
+
+    app.get('/api/fudo/:storeId', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const cfg = await getFudoConfig(req.params.storeId);
+        const safe = cfg
+          ? { ...cfg, api_secret: cfg.api_secret ? '••••••' : '' }
+          : { api_secret: '', enabled: false, last_sync_at: null, last_sync_status: null, last_error: null };
+        res.json(safe);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/fudo/:storeId', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const { api_secret, enabled } = req.body;
+        const existing = await getFudoConfig(req.params.storeId);
+        const finalSecret = api_secret === '••••••' ? (existing?.api_secret || '') : api_secret;
+        await saveFudoConfig(req.params.storeId, { api_secret: finalSecret, enabled });
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/fudo/:storeId/sync', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const cfg = await getFudoConfig(req.params.storeId);
+        if (!cfg?.api_secret) return res.status(400).json({ error: 'Configura el API Secret de Fudo primero' });
+
+        const products = await getProducts(parseInt(req.params.storeId));
+        try {
+          await syncProductsToFudo(req.params.storeId, cfg.api_secret, products);
+          await updateFudoSyncStatus(req.params.storeId, 'ok', null);
+          res.json({ ok: true });
+        } catch (syncError) {
+          await updateFudoSyncStatus(req.params.storeId, 'error', syncError.message);
+          res.status(503).json({ error: syncError.message });
+        }
+      } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
     // Estado del servicio de generación de imágenes con IA (modelo open source FLUX.1-schnell)

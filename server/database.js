@@ -649,6 +649,23 @@ async function createTables() {
     } catch (e) { console.warn(`Migration instagram_configs.${col}:`, e.message); }
   }
 
+  // Integración Fudo (POS de terceros) — requiere que la tienda tenga el
+  // Plan Pro de Fudo contratado con ellos, ya que su API de propósito
+  // general (necesaria para sincronizar productos) está limitada a ese plan.
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS fudo_configs (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL UNIQUE,
+      api_secret VARCHAR(500) DEFAULT '',
+      enabled BOOLEAN DEFAULT FALSE,
+      last_sync_at TIMESTAMP NULL DEFAULT NULL,
+      last_sync_status VARCHAR(20) NULL DEFAULT NULL,
+      last_error TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS tiktok_configs (
       id               INT PRIMARY KEY AUTO_INCREMENT,
@@ -5627,6 +5644,28 @@ export async function saveInstagramConfig(storeId, { ig_username, ig_password, c
       post_time = VALUES(post_time),
       post_days = VALUES(post_days)
   `, [storeId, ig_username || '', ig_password || '', caption_template || '', enabled ? 1 : 0, post_time || '10:00', post_days || '0']);
+}
+
+export async function getFudoConfig(storeId) {
+  const [rows] = await pool.execute('SELECT * FROM fudo_configs WHERE store_id = ?', [storeId]);
+  return rows[0] || null;
+}
+
+export async function saveFudoConfig(storeId, { api_secret, enabled }) {
+  await pool.execute(`
+    INSERT INTO fudo_configs (store_id, api_secret, enabled)
+    VALUES (?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      api_secret = VALUES(api_secret),
+      enabled = VALUES(enabled)
+  `, [storeId, api_secret || '', enabled ? 1 : 0]);
+}
+
+export async function updateFudoSyncStatus(storeId, status, errorMsg = null) {
+  await pool.execute(
+    'UPDATE fudo_configs SET last_sync_at = NOW(), last_sync_status = ?, last_error = ? WHERE store_id = ?',
+    [status, errorMsg, storeId]
+  );
 }
 
 export async function getActiveInstagramConfigs() {
