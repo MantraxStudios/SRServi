@@ -2171,21 +2171,21 @@ export async function createStore(userId, data) {
   );
 
   const sampleProducts = [
-    { name: 'Hamburguesa Clásica', description: 'Jugosa hamburguesa con lechuga, tomate y queso', price: 8.99, image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop' },
-    { name: 'Pizza Margherita', description: 'Pizza con salsa de tomate, mozzarella y albahaca', price: 12.99, image: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=300&fit=crop' },
-    { name: 'Café Americano', description: 'Café negro intenso recién preparado', price: 2.50, image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&h=300&fit=crop' },
-    { name: 'Refresco', description: 'Bebida fría de tu sabor favorito', price: 1.99, image: 'https://images.unsplash.com/photo-1581636625402-29b2a704ef13?w=400&h=300&fit=crop' },
-    { name: 'Sándwich de Pollo', description: 'Pollo a la plancha con vegetales frescos', price: 7.50, image: 'https://images.unsplash.com/photo-1553909489-cd47e0907980?w=400&h=300&fit=crop' },
-    { name: 'Hot Dog', description: 'Salchicha con mostaza, ketchup y cebolla', price: 4.99, image: 'https://images.unsplash.com/photo-1612392062126-ef0a80cfd5c4?w=400&h=300&fit=crop' },
-    { name: 'Papas Fritas', description: 'Papas crujientes con sal y especias', price: 3.50, image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400&h=300&fit=crop' },
-    { name: 'Ensalada César', description: 'Lechuga romana, crutones y aderezo César', price: 6.99, image: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=400&h=300&fit=crop' },
-    { name: 'Tacos (3 piezas)', description: 'Tacos con carne, cebolla y cilantro', price: 9.00, image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=400&h=300&fit=crop' },
-    { name: 'Jugo Natural', description: 'Jugo exprimido al momento de frutas frescas', price: 3.99, image: 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?w=400&h=300&fit=crop' },
-    { name: 'Agua Mineral', description: 'Agua purificada fría', price: 1.50, image: 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=400&h=300&fit=crop' },
-    { name: 'Helado de Vainilla', description: 'Helado cremoso artesanal de vainilla', price: 3.00, image: 'https://images.unsplash.com/photo-1570197788417-0e82375c9be7?w=400&h=300&fit=crop' },
-    { name: 'Sopa del Día', description: 'Sopa casera preparada con ingredientes frescos', price: 5.99, image: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop' },
-    { name: 'Pasta Alfredo', description: 'Pasta con crema, mantequilla y parmesano', price: 10.99, image: 'https://images.unsplash.com/photo-1645112411341-6c4fd023714a?w=400&h=300&fit=crop' },
-    { name: 'Pollo a la Plancha', description: 'Pechuga de pollo jugosa con guarnición', price: 11.50, image: 'https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?w=400&h=300&fit=crop' },
+    { name: 'Hamburguesa Clásica', description: 'Jugosa hamburguesa con lechuga, tomate y queso', price: 108.99, image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop' },
+    { name: 'Pizza Margherita', description: 'Pizza con salsa de tomate, mozzarella y albahaca', price: 112.99, image: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=300&fit=crop' },
+    { name: 'Café Americano', description: 'Café negro intenso recién preparado', price: 102.50, image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&h=300&fit=crop' },
+    { name: 'Refresco', description: 'Bebida fría de tu sabor favorito', price: 101.99, image: 'https://images.unsplash.com/photo-1581636625402-29b2a704ef13?w=400&h=300&fit=crop' },
+    { name: 'Sándwich de Pollo', description: 'Pollo a la plancha con vegetales frescos', price: 107.50, image: 'https://images.unsplash.com/photo-1553909489-cd47e0907980?w=400&h=300&fit=crop' },
+    { name: 'Hot Dog', description: 'Salchicha con mostaza, ketchup y cebolla', price: 104.99, image: 'https://images.unsplash.com/photo-1612392062126-ef0a80cfd5c4?w=400&h=300&fit=crop' },
+    { name: 'Papas Fritas', description: 'Papas crujientes con sal y especias', price: 103.50, image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400&h=300&fit=crop' },
+    { name: 'Ensalada César', description: 'Lechuga romana, crutones y aderezo César', price: 106.99, image: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=400&h=300&fit=crop' },
+    { name: 'Tacos (3 piezas)', description: 'Tacos con carne, cebolla y cilantro', price: 109.00, image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=400&h=300&fit=crop' },
+    { name: 'Jugo Natural', description: 'Jugo exprimido al momento de frutas frescas', price: 103.99, image: 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?w=400&h=300&fit=crop' },
+    { name: 'Agua Mineral', description: 'Agua purificada fría', price: 101.50, image: 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=400&h=300&fit=crop' },
+    { name: 'Helado de Vainilla', description: 'Helado cremoso artesanal de vainilla', price: 103.00, image: 'https://images.unsplash.com/photo-1570197788417-0e82375c9be7?w=400&h=300&fit=crop' },
+    { name: 'Sopa del Día', description: 'Sopa casera preparada con ingredientes frescos', price: 105.99, image: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop' },
+    { name: 'Pasta Alfredo', description: 'Pasta con crema, mantequilla y parmesano', price: 110.99, image: 'https://images.unsplash.com/photo-1645112411341-6c4fd023714a?w=400&h=300&fit=crop' },
+    { name: 'Pollo a la Plancha', description: 'Pechuga de pollo jugosa con guarnición', price: 111.50, image: 'https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?w=400&h=300&fit=crop' },
   ];
 
   // ── Default ingredients (shared, active) ──
