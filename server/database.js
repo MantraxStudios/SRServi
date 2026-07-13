@@ -770,11 +770,31 @@ async function migrateSrBrain() {
   // Phone column for workers
   try {
     const [cols] = await pool.execute(`SHOW COLUMNS FROM workers`);
-    if (!cols.map(c => c.Field).includes('phone')) {
+    const wf = cols.map(c => c.Field);
+    if (!wf.includes('phone')) {
       await pool.execute(`ALTER TABLE workers ADD COLUMN phone VARCHAR(20) DEFAULT NULL`);
       console.log('✅ Columna phone agregada a workers');
     }
-  } catch (e) { console.warn('migrateSrBrain workers.phone:', e.message); }
+    // Fecha de cumpleaños (para felicitaciones + cupón automático)
+    if (!wf.includes('birth_date')) {
+      await pool.execute(`ALTER TABLE workers ADD COLUMN birth_date DATE DEFAULT NULL`);
+      console.log('✅ Columna birth_date agregada a workers');
+    }
+  } catch (e) { console.warn('migrateSrBrain workers.phone/birth_date:', e.message); }
+
+  // Columnas de felicitación de cumpleaños en ai_config
+  try {
+    const [cols] = await pool.execute(`SHOW COLUMNS FROM ai_config`);
+    const fields = cols.map(c => c.Field);
+    if (!fields.includes('birthday_greetings')) {
+      await pool.execute(`ALTER TABLE ai_config ADD COLUMN birthday_greetings BOOLEAN DEFAULT TRUE`);
+      console.log('✅ Columna birthday_greetings agregada a ai_config');
+    }
+    if (!fields.includes('birthday_coupon_percent')) {
+      await pool.execute(`ALTER TABLE ai_config ADD COLUMN birthday_coupon_percent INT DEFAULT 15`);
+      console.log('✅ Columna birthday_coupon_percent agregada a ai_config');
+    }
+  } catch (e) { console.warn('migrateSrBrain ai_config birthday:', e.message); }
 
   // Schedule columns for ai_config
   try {
@@ -799,6 +819,8 @@ async function migrateSrBrain() {
       auto_promotions BOOLEAN DEFAULT TRUE,
       worker_reminders BOOLEAN DEFAULT TRUE,
       morale_messages BOOLEAN DEFAULT TRUE,
+      birthday_greetings BOOLEAN DEFAULT TRUE,
+      birthday_coupon_percent INT DEFAULT 15,
       promotion_threshold INT DEFAULT 20,
       sender_name VARCHAR(100) DEFAULT 'El Administrador',
       last_run_at TIMESTAMP NULL,
@@ -4355,7 +4377,7 @@ export async function createWorker(storeId, data) {
 
 export async function getWorkers(storeId) {
   const [rows] = await pool.execute(
-    'SELECT id, store_id, username, name, phone, created_at FROM workers WHERE store_id = ? ORDER BY name',
+    'SELECT id, store_id, username, name, phone, birth_date, created_at FROM workers WHERE store_id = ? ORDER BY name',
     [storeId]
   );
   return rows;
@@ -5934,21 +5956,23 @@ export async function getAiConfig(storeId) {
 }
 
 export async function saveAiConfig(storeId, data) {
-  const { enabled, auto_promotions, worker_reminders, morale_messages, promotion_threshold, sender_name, send_hour, send_days } = data;
+  const { enabled, auto_promotions, worker_reminders, morale_messages, birthday_greetings, birthday_coupon_percent, promotion_threshold, sender_name, send_hour, send_days } = data;
   await pool.execute(`
-    INSERT INTO ai_config (store_id, enabled, auto_promotions, worker_reminders, morale_messages, promotion_threshold, sender_name, send_hour, send_days)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO ai_config (store_id, enabled, auto_promotions, worker_reminders, morale_messages, birthday_greetings, birthday_coupon_percent, promotion_threshold, sender_name, send_hour, send_days)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       enabled = VALUES(enabled),
       auto_promotions = VALUES(auto_promotions),
       worker_reminders = VALUES(worker_reminders),
       morale_messages = VALUES(morale_messages),
+      birthday_greetings = VALUES(birthday_greetings),
+      birthday_coupon_percent = VALUES(birthday_coupon_percent),
       promotion_threshold = VALUES(promotion_threshold),
       sender_name = VALUES(sender_name),
       send_hour = VALUES(send_hour),
       send_days = VALUES(send_days),
       updated_at = CURRENT_TIMESTAMP
-  `, [storeId, enabled ?? false, auto_promotions ?? true, worker_reminders ?? true, morale_messages ?? true, promotion_threshold ?? 20, sender_name || 'El Administrador', send_hour ?? 8, send_days || '1,2,3,4,5,6,7']);
+  `, [storeId, enabled ?? false, auto_promotions ?? true, worker_reminders ?? true, morale_messages ?? true, birthday_greetings ?? true, birthday_coupon_percent ?? 15, promotion_threshold ?? 20, sender_name || 'El Administrador', send_hour ?? 8, send_days || '1,2,3,4,5,6,7']);
   return getAiConfig(storeId);
 }
 
@@ -6015,6 +6039,24 @@ export async function getYesterdayTaskStatus(storeId) {
 
 export async function updateWorkerPhone(workerId, phone) {
   await pool.execute('UPDATE workers SET phone = ? WHERE id = ?', [phone, workerId]);
+}
+
+export async function updateWorkerBirthday(workerId, birthDate) {
+  await pool.execute('UPDATE workers SET birth_date = ? WHERE id = ?', [birthDate || null, workerId]);
+}
+
+// Trabajadores con teléfono que cumplen años HOY (compara mes y día)
+export async function getWorkersWithBirthdayToday(storeId) {
+  const [rows] = await pool.execute(
+    `SELECT id, name, phone, birth_date FROM workers
+     WHERE store_id = ?
+       AND phone IS NOT NULL AND phone != ''
+       AND birth_date IS NOT NULL
+       AND MONTH(birth_date) = MONTH(CURDATE())
+       AND DAY(birth_date) = DAY(CURDATE())`,
+    [storeId]
+  );
+  return rows;
 }
 
 // Worker Procedures

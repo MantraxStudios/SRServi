@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserPlus, faTrash, faSignInAlt, faPhone, faSave, faPen, faUser, faWhiskeyGlass } from '@fortawesome/free-solid-svg-icons';
+import { faUserPlus, faTrash, faSignInAlt, faPhone, faSave, faPen, faUser, faWhiskeyGlass, faCakeCandles } from '@fortawesome/free-solid-svg-icons';
 import { StoreContext } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
 
@@ -56,6 +56,62 @@ function PhoneEditor({ worker, token, onSaved }) {
         autoFocus
         onKeyDown={e => e.key === 'Enter' && save()}
         style={{ fontSize: 12, padding: '4px 8px', border: '1.5px solid #e2e2e2', borderRadius: 6, width: 140, outline: 'none' }}
+      />
+      <button onClick={save} disabled={saving}
+        style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: GOLD, color: '#000', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+        {saving ? '...' : <FontAwesomeIcon icon={faSave} />}
+      </button>
+      <button onClick={() => setEditing(false)}
+        style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #e2e2e2', background: '#fff', fontSize: 11, cursor: 'pointer', color: '#888' }}>✕</button>
+    </div>
+  );
+}
+
+function BirthdayEditor({ worker, token, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const initial = worker.birth_date ? String(worker.birth_date).slice(0, 10) : '';
+  const [birth, setBirth] = useState(initial);
+  const [saving, setSaving] = useState(false);
+
+  const fmt = (d) => {
+    if (!d) return '';
+    const [y, m, day] = d.split('-');
+    return `${day}/${m}`;
+  };
+
+  const save = async () => {
+    setSaving(true);
+    await fetch(`${API}/api/workers/${worker.id}/birthday`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ birth_date: birth || null })
+    });
+    setSaving(false);
+    setEditing(false);
+    worker.birth_date = birth;
+    onSaved?.(birth);
+  };
+
+  if (!editing) return (
+    <button
+      onClick={() => setEditing(true)}
+      style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, padding: 0, color: birth ? '#555' : '#bbb', fontSize: 12 }}
+    >
+      <FontAwesomeIcon icon={faCakeCandles} style={{ fontSize: 10 }} />
+      {birth ? `Cumple: ${fmt(birth)}` : 'Agregar cumpleaños'}
+      <FontAwesomeIcon icon={faPen} style={{ fontSize: 8, opacity: 0.5 }} />
+    </button>
+  );
+
+  return (
+    <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+      <input
+        type="date"
+        value={birth}
+        onChange={e => setBirth(e.target.value)}
+        autoFocus
+        onKeyDown={e => e.key === 'Enter' && save()}
+        style={{ fontSize: 12, padding: '4px 8px', border: '1.5px solid #e2e2e2', borderRadius: 6, outline: 'none' }}
       />
       <button onClick={save} disabled={saving}
         style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: GOLD, color: '#000', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
@@ -203,6 +259,9 @@ function Workers() {
                   <div style={{ fontSize: 12, color: '#888', marginTop: 1 }}>@{worker.username}</div>
                   <div style={{ marginTop: 5 }}>
                     <PhoneEditor worker={worker} token={token} />
+                  </div>
+                  <div style={{ marginTop: 4 }}>
+                    <BirthdayEditor worker={worker} token={token} />
                   </div>
                 </div>
 

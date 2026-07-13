@@ -12,6 +12,7 @@ import {
   getMonthlySalesHistory,
   getYesterdayTaskStatus,
   getWorkersWithPhone,
+  getWorkersWithBirthdayToday,
   createCoupon,
   pool
 } from './database.js';
@@ -224,6 +225,71 @@ async function executeAction(storeId, action, config, workers) {
   }
 }
 
+// ─── Felicitaciones de cumpleaños + cupón de descuento ───────────────────────
+
+async function generateBirthdayMessage(storeId, workerName, couponCode, percent, senderName) {
+  const prompt = `Escribe un mensaje de WhatsApp cálido y personal para felicitar a ${workerName} por su cumpleaños, de parte de "${senderName || 'el equipo'}". Debe ser alegre y sincero (2-3 oraciones), en español latinoamericano. Al final menciona que le regalan un cupón de ${percent}% de descuento con el código ${couponCode} como regalo. Solo el mensaje, sin comillas ni explicaciones.`;
+  const answer = await askLeon(storeId, prompt, 40000);
+  const clean = answer?.trim();
+  if (clean && clean.includes(couponCode)) return clean;
+  // Fallback (o si el modelo olvidó el código, usar plantilla que sí lo incluye)
+  return `🎉 ¡Feliz cumpleaños, ${workerName}! 🥳\n\nDe parte de ${senderName || 'todo el equipo'}, te deseamos un día increíble. Gracias por ser parte de este equipo. 🎂\n\n🎁 Como regalo, tienes un *${percent}% de descuento* con el código *${couponCode}*. ¡Disfrútalo!`;
+}
+
+async function sendBirthdayGreetings(storeId, config) {
+  let birthdayWorkers;
+  try {
+    birthdayWorkers = await getWorkersWithBirthdayToday(storeId);
+  } catch (e) {
+    console.warn(`[SRBrain] Error obteniendo cumpleaños tienda ${storeId}:`, e.message);
+    return;
+  }
+  if (!birthdayWorkers.length) return;
+
+  console.log(`[SRBrain] 🎂 ${birthdayWorkers.length} trabajador(es) cumplen años hoy en tienda ${storeId}`);
+  const percent = Number(config.birthday_coupon_percent) || 15;
+  const year = new Date().getFullYear();
+
+  for (const worker of birthdayWorkers) {
+    const couponCode = `CUMPLE-${worker.id}-${year}`;
+    try {
+      // Idempotencia: si el cupón ya existe, ya lo felicitamos hoy → no reenviar
+      const [existing] = await pool.execute(
+        `SELECT id FROM coupons WHERE store_id = ? AND code = ? LIMIT 1`,
+        [storeId, couponCode]
+      );
+      if (existing.length > 0) {
+        console.log(`[SRBrain] Cumpleaños de ${worker.name} ya procesado (${couponCode}) — omitiendo`);
+        continue;
+      }
+
+      // Crear cupón personal de cumpleaños (un solo uso)
+      await createCoupon(storeId, {
+        code: couponCode,
+        name: `Cumpleaños de ${worker.name}`,
+        discount_type: 'percent',
+        discount_value: percent,
+        min_order_total: 0,
+        usage_limit: 1,
+        is_active: true
+      });
+
+      const message = await generateBirthdayMessage(storeId, worker.name, couponCode, percent, config.sender_name);
+      const result = await sendMessage(storeId, worker.phone, message);
+      if (result?.success) {
+        console.log(`[SRBrain] 🎉 Felicitación de cumpleaños enviada a ${worker.name} (${result.channel})`);
+        await logAiActivity(storeId, 'birthday_sent', `Felicitación de cumpleaños + cupón ${couponCode} (${percent}%) enviada a ${worker.name}`, { worker: worker.name, coupon: couponCode, percent });
+      } else {
+        console.warn(`[SRBrain] ⚠ No se pudo enviar felicitación a ${worker.name} — WhatsApp no conectado`);
+        await logAiActivity(storeId, 'birthday_failed', `No se pudo enviar felicitación a ${worker.name} (WhatsApp no conectado). Cupón ${couponCode} creado.`, { worker: worker.name, coupon: couponCode });
+      }
+    } catch (e) {
+      console.warn(`[SRBrain] Error en cumpleaños de ${worker.name}:`, e.message);
+      await logAiActivity(storeId, 'birthday_error', `Error felicitando a ${worker.name}: ${e.message}`);
+    }
+  }
+}
+
 // ─── Run para una tienda ─────────────────────────────────────────────────────
 
 async function runForStore(storeId) {
@@ -304,6 +370,11 @@ async function runForStore(storeId) {
       console.warn(`[SRBrain] Ningún trabajador tiene teléfono registrado`);
     }
 
+    // ── 1b. Felicitaciones de cumpleaños + cupón de descuento ──────────────────
+    if (config.birthday_greetings !== false) {
+      await sendBirthdayGreetings(storeId, config);
+    }
+
     // ── 2. Análisis completo: cupones y recordatorios de tareas ────────────────
     if (config.auto_promotions || (config.worker_reminders && missedTasks.length > 0)) {
       console.log(`[SRBrain] Consultando a León IA para análisis de cupones/recordatorios...`);
@@ -351,4 +422,108 @@ export async function runSrBrain() {
 // Permite ejecutar manualmente una sola tienda
 export async function runSrBrainForStore(storeId) {
   await runForStore(storeId);
+}
+
+// ─── Reporte semanal de decisiones de ventas (correo al administrador) ───────
+
+async function computeSalesContext(storeId, config) {
+  const salesHistory = await getMonthlySalesHistory(storeId, 6);
+  const now = new Date();
+  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const currentMonthData = salesHistory.find(r => r.month === currentMonthKey);
+  const currentRevenue = parseFloat(currentMonthData?.revenue || 0);
+  const projectedRevenue = dayOfMonth > 0 ? (currentRevenue / dayOfMonth) * daysInMonth : 0;
+  const pastMonths = salesHistory.filter(r => r.month !== currentMonthKey);
+  const avgRevenue = pastMonths.length > 0
+    ? pastMonths.reduce((s, r) => s + parseFloat(r.revenue), 0) / pastMonths.length
+    : 0;
+  const pctDiff = avgRevenue > 0 ? ((projectedRevenue - avgRevenue) / avgRevenue) * 100 : 0;
+  return {
+    store_id: storeId,
+    current_month: currentMonthKey,
+    current_revenue: Math.round(currentRevenue),
+    projected_monthly_revenue: Math.round(projectedRevenue),
+    avg_monthly_revenue_last_months: Math.round(avgRevenue),
+    projected_vs_avg_percent: Math.round(pctDiff),
+    sales_history: salesHistory,
+    promotion_threshold: config.promotion_threshold || 20
+  };
+}
+
+async function askLeonWeeklyStrategy(storeId, context) {
+  const prompt = `Eres el estratega de ventas de SRServi. Analiza estos datos de ventas y DECIDE acciones concretas para mejorar las ventas esta semana. Responde ÚNICAMENTE con JSON válido, sin texto antes ni después, sin markdown.
+
+DATOS DE VENTAS:
+${JSON.stringify(context, null, 2)}
+
+Responde con este JSON exacto:
+{
+  "summary": "diagnóstico breve del estado de las ventas en 1-2 oraciones",
+  "decisions": [
+    {
+      "title": "título corto de la decisión",
+      "reason": "por qué esta decisión mejora las ventas, basado en los datos reales",
+      "expected_impact": "impacto esperado en 1 frase",
+      "coupon": { "code": "PROMO15", "name": "Promoción de la semana", "discount_type": "percent", "discount_value": 15 }
+    }
+  ]
+}
+
+REGLAS:
+- Entre 2 y 4 decisiones, concretas y accionables.
+- El campo "coupon" es OPCIONAL: inclúyelo SOLO si la decisión implica crear un cupón de descuento.
+- Explica siempre el "reason" con base en los números reales.
+- SOLO JSON, nada más.`;
+
+  const raw = await askLeon(storeId, prompt);
+  if (!raw) return null;
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try { return JSON.parse(match[0]); } catch { return null; }
+}
+
+// Analiza, TOMA las decisiones (crea cupones propuestos) y devuelve el detalle
+// para explicárselo por correo al administrador. Devuelve null si no aplica.
+export async function runWeeklySalesReport(storeId) {
+  const config = await getAiConfig(storeId);
+  if (!config?.enabled) return null;
+
+  const context = await computeSalesContext(storeId, config);
+  const strategy = await askLeonWeeklyStrategy(storeId, context);
+  const decisions = Array.isArray(strategy?.decisions) ? strategy.decisions : [];
+
+  // Ejecutar (tomar) las decisiones que impliquen crear un cupón — idempotente
+  for (const d of decisions) {
+    if (d.coupon?.code) {
+      try {
+        const code = String(d.coupon.code).trim().toUpperCase();
+        const [existing] = await pool.execute(
+          `SELECT id FROM coupons WHERE store_id = ? AND code = ? LIMIT 1`, [storeId, code]
+        );
+        if (existing.length === 0) {
+          await createCoupon(storeId, {
+            code,
+            name: d.coupon.name || d.title || 'Promoción de la semana',
+            discount_type: d.coupon.discount_type || 'percent',
+            discount_value: Number(d.coupon.discount_value) || 15,
+            min_order_total: 0,
+            usage_limit: 100,
+            is_active: true
+          });
+          d.coupon_created = true;
+        } else {
+          d.coupon_created = false;
+        }
+        d.coupon_code = code;
+      } catch (e) { console.warn('[SRBrain][semanal] cupón:', e.message); }
+    }
+  }
+
+  await logAiActivity(storeId, 'weekly_report',
+    strategy?.summary || 'Reporte semanal de ventas generado',
+    { decisions: decisions.length });
+
+  return { summary: strategy?.summary || '', decisions, context };
 }

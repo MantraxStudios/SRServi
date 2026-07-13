@@ -24,7 +24,7 @@ import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postT
 import { initInstagramService } from './instagram_autostart.js';
 
 import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings, createFeedbackCampaign, createFeedbackToken, getFeedbackToken, submitFeedbackResponse, updateCampaignSentCount, getFeedbackCampaigns, getFeedbackResponses, getAllActiveUsersForFeedback, createTotemRental, getTotemRentalByUser, updateTotemRentalMpPreference, updateTotemRentalPayment, markTotemRentalInstalled, updateTotemRentalStatus, updateTotemSubscriptionStatus, getAllTotemRentals, logTotemPayment, createSalesLead, findRecentSalesLead, updateSalesLead, getSalesLeads, getSalesLeadStats, updateSalesLeadStatus, deleteSalesLead } from './database.js';
-import { runSrBrain, runSrBrainForStore } from './sr_brain.js';
+import { runSrBrain, runSrBrainForStore, runWeeklySalesReport } from './sr_brain.js';
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds, setBotEnabled, getBotEnabled, getBotPhone } from './whatsapp.js';
 import cron from 'node-cron';
 
@@ -212,6 +212,7 @@ import {
   updatePrepTable,
   deletePrepTable,
   updateWorkerPhone,
+  updateWorkerBirthday,
   pool,
   getAttendancePersons,
   getAttendancePersonByRut,
@@ -13017,6 +13018,15 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
+    // Worker birthday update (para felicitación + cupón automático)
+    app.patch('/api/workers/:id/birthday', authenticateToken, async (req, res) => {
+      try {
+        const { birth_date } = req.body;
+        await updateWorkerBirthday(parseInt(req.params.id), birth_date || null);
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
     // Procedures
     app.get('/api/procedures', authenticateToken, async (req, res) => {
       try {
@@ -13250,6 +13260,80 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
           }
         }
       } catch (e) { console.error('[SRBrain] Cron error:', e.message); }
+    });
+
+    // ── Reporte semanal de decisiones de ventas — Lunes 00:00 ──────────────────
+    // La IA analiza, toma decisiones para mejorar ventas y le explica al
+    // administrador por correo por qué las tomó.
+    function buildWeeklyReportHtml(store, report, currencyCode) {
+      const money = (v) => `${currencyCode || ''} ${Number(v || 0).toLocaleString('es-CL')}`.trim();
+      const ctx = report.context || {};
+      const pct = ctx.projected_vs_avg_percent ?? 0;
+      const trendColor = pct >= 0 ? '#10b981' : '#ef4444';
+      const trendTxt = pct >= 0 ? `▲ ${pct}% sobre el promedio` : `▼ ${Math.abs(pct)}% bajo el promedio`;
+      const decisionsHtml = (report.decisions || []).map((d, i) => `
+        <div style="background:#fff;border:1px solid #eee;border-left:4px solid #D4AF37;border-radius:10px;padding:14px 16px;margin-bottom:12px">
+          <div style="font-weight:800;font-size:15px;color:#1a1a1a;margin-bottom:6px">${i + 1}. ${d.title || 'Decisión'}</div>
+          <div style="font-size:13.5px;color:#374151;margin-bottom:6px"><b>Por qué:</b> ${d.reason || '—'}</div>
+          ${d.expected_impact ? `<div style="font-size:13px;color:#6b7280;margin-bottom:6px"><b>Impacto esperado:</b> ${d.expected_impact}</div>` : ''}
+          ${d.coupon_code ? `<div style="font-size:13px;color:#0f5132;background:#ecfdf5;border-radius:6px;padding:6px 10px;display:inline-block">🎟️ Cupón <b>${d.coupon_code}</b> ${d.coupon_created ? 'creado y activado' : '(ya existía)'}</div>` : ''}
+        </div>`).join('');
+
+      return `<!DOCTYPE html><html><body style="margin:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif">
+        <div style="max-width:640px;margin:0 auto;padding:24px">
+          <div style="background:linear-gradient(135deg,#1a1a1a,#2a2a2a);border-radius:14px 14px 0 0;padding:22px 24px;color:#fff">
+            <div style="font-size:13px;color:#D4AF37;font-weight:700;letter-spacing:.5px">SRServi · León IA</div>
+            <div style="font-size:22px;font-weight:800;margin-top:4px">Decisiones de la semana</div>
+            <div style="font-size:13px;color:#bbb;margin-top:4px">${store.name} · ${new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+          </div>
+          <div style="background:#fff;padding:22px 24px;border-radius:0 0 14px 14px">
+            <p style="font-size:14.5px;color:#1a1a1a;line-height:1.6;margin:0 0 18px">${report.summary || 'León IA analizó tus ventas y tomó decisiones para mejorarlas esta semana.'}</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+              <div style="flex:1;min-width:150px;background:#f9fafb;border-radius:10px;padding:12px 14px">
+                <div style="font-size:11px;color:#888">Proyección del mes</div>
+                <div style="font-size:18px;font-weight:800;color:#1a1a1a">${money(ctx.projected_monthly_revenue)}</div>
+              </div>
+              <div style="flex:1;min-width:150px;background:#f9fafb;border-radius:10px;padding:12px 14px">
+                <div style="font-size:11px;color:#888">Vs. promedio</div>
+                <div style="font-size:18px;font-weight:800;color:${trendColor}">${trendTxt}</div>
+              </div>
+            </div>
+            <div style="font-size:15px;font-weight:800;color:#1a1a1a;margin-bottom:12px">Qué decidió León IA y por qué</div>
+            ${decisionsHtml || '<div style="font-size:13px;color:#888">Esta semana no fueron necesarias decisiones nuevas. ¡Tus ventas van bien!</div>'}
+            <p style="font-size:12px;color:#9ca3af;margin-top:20px;border-top:1px solid #f0f0f0;padding-top:14px">Este reporte lo genera León IA automáticamente cada lunes. Puedes ajustar o desactivar el sistema autónomo desde el panel de administración.</p>
+          </div>
+        </div>
+      </body></html>`;
+    }
+
+    cron.schedule('0 0 * * 1', async () => {
+      console.log('[SRBrain] Generando reportes semanales de ventas (lunes 00:00)...');
+      try {
+        const configs = await getAllEnabledAiConfigs();
+        if (!configs.length) return;
+        const stores = await getAllStoresWithOwnerEmail();
+        const storeMap = new Map(stores.map(s => [s.id, s]));
+        let sent = 0;
+        for (const cfg of configs) {
+          const store = storeMap.get(cfg.store_id);
+          if (!store?.owner_email) continue;
+          try {
+            const report = await runWeeklySalesReport(cfg.store_id);
+            if (!report) continue;
+            const html = buildWeeklyReportHtml(store, report, store.currency_code);
+            await mailer.sendMail({
+              from: `"SRServi" <${process.env.EMAIL_USER}>`,
+              to: store.owner_email,
+              subject: `🧠 Decisiones de León IA para mejorar tus ventas — ${store.name}`,
+              html
+            });
+            sent++;
+          } catch (e) {
+            console.error(`[SRBrain] Error reporte semanal tienda ${cfg.store_id}:`, e.message);
+          }
+        }
+        console.log(`[SRBrain] ✅ ${sent} reportes semanales enviados`);
+      } catch (e) { console.error('[SRBrain] Cron semanal error:', e.message); }
     });
 
     // WhatsApp routes — todas requieren store_id que pertenece al usuario autenticado

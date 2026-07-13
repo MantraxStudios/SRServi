@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Link } from 'react-router-dom';
 import {
   faRobot, faToggleOn, faToggleOff, faPlay, faHistory,
-  faTag, faBell, faSmile, faSave, faChartLine,
+  faTag, faBell, faSmile, faSave, faChartLine, faCakeCandles,
   faExclamationTriangle, faInfoCircle, faSpinner, faArrowRight
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -40,7 +40,8 @@ export default function Autonomous() {
 
   const [config, setConfig] = useState({
     enabled: false, auto_promotions: true, worker_reminders: true,
-    morale_messages: true, promotion_threshold: 20, sender_name: 'El Administrador'
+    morale_messages: true, birthday_greetings: true, birthday_coupon_percent: 15,
+    promotion_threshold: 20, sender_name: 'El Administrador'
   });
   const [log, setLog] = useState([]);
   const [loadingConfig, setLoadingConfig] = useState(true);
@@ -161,6 +162,7 @@ export default function Autonomous() {
           { key: 'auto_promotions', icon: faTag, label: 'Promociones automáticas', desc: `Crea cupones cuando las ventas del mes están por debajo del promedio` },
           { key: 'worker_reminders', icon: faBell, label: 'Recordatorios a trabajadores', desc: 'Envía WhatsApp a trabajadores que no completaron sus tareas' },
           { key: 'morale_messages', icon: faSmile, label: 'Mensajes de ánimo diarios', desc: 'Envía mensajes motivadores cada mañana por WhatsApp' },
+          { key: 'birthday_greetings', icon: faCakeCandles, label: 'Felicitaciones de cumpleaños', desc: 'Felicita por WhatsApp a cada trabajador en su cumpleaños y le regala un cupón de descuento' },
         ].map(mod => (
           <div key={mod.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid #f5f5f5' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -193,6 +195,12 @@ export default function Autonomous() {
             <input style={input} type="number" min="5" max="50" value={config.promotion_threshold || 20}
               onChange={e => setConfig(p => ({ ...p, promotion_threshold: parseInt(e.target.value) || 20 }))} />
             <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>Crear cupón si las ventas están X% por debajo del promedio</div>
+          </div>
+          <div>
+            <label style={label}>Descuento del cupón de cumpleaños (%)</label>
+            <input style={input} type="number" min="5" max="100" value={config.birthday_coupon_percent || 15}
+              onChange={e => setConfig(p => ({ ...p, birthday_coupon_percent: parseInt(e.target.value) || 15 }))} />
+            <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>Regalo de descuento para el trabajador que cumple años</div>
           </div>
         </div>
 
