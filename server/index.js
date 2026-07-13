@@ -4277,47 +4277,8 @@ app.post('/api/sales-chat', async (req, res) => {
   }
 });
 
-// Superadmin: listar leads
-app.get('/api/superadmin/sales-leads', authenticateSuperadminToken, async (req, res) => {
-  try {
-    const { status, limit } = req.query;
-    const [leads, stats] = await Promise.all([
-      getSalesLeads({ status: status || null, limit: limit || 200 }),
-      getSalesLeadStats(),
-    ]);
-    res.json({ leads, stats });
-  } catch (error) {
-    console.error('[SalesChat] listar leads:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Superadmin: cambiar estado de un lead
-app.put('/api/superadmin/sales-leads/:id/status', authenticateSuperadminToken, async (req, res) => {
-  try {
-    const { status, notes } = req.body || {};
-    const valid = ['new', 'contacted', 'qualified', 'won', 'lost'];
-    if (!valid.includes(status)) return res.status(400).json({ error: 'Estado inválido' });
-    await updateSalesLeadStatus(parseInt(req.params.id), status, notes);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('[SalesChat] estado lead:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Superadmin: eliminar lead
-app.delete('/api/superadmin/sales-leads/:id', authenticateSuperadminToken, async (req, res) => {
-  try {
-    await deleteSalesLead(parseInt(req.params.id));
-    res.json({ success: true });
-  } catch (error) {
-    console.error('[SalesChat] eliminar lead:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // ==================== FIN ASISTENTE DE VENTAS IA ====================
+// (Los endpoints superadmin de leads están más abajo, tras definir authenticateSuperadminToken)
 
 app.post('/api/superadmin/login', async (req, res) => {
   try {
@@ -4382,6 +4343,45 @@ const authenticateSuperadminToken = (req, res, next) => {
     next();
   });
 };
+
+// ── Asistente de ventas IA: endpoints superadmin de leads ──
+// (definidos aquí porque requieren authenticateSuperadminToken ya inicializado)
+app.get('/api/superadmin/sales-leads', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { status, limit } = req.query;
+    const [leads, stats] = await Promise.all([
+      getSalesLeads({ status: status || null, limit: limit || 200 }),
+      getSalesLeadStats(),
+    ]);
+    res.json({ leads, stats });
+  } catch (error) {
+    console.error('[SalesChat] listar leads:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/superadmin/sales-leads/:id/status', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { status, notes } = req.body || {};
+    const valid = ['new', 'contacted', 'qualified', 'won', 'lost'];
+    if (!valid.includes(status)) return res.status(400).json({ error: 'Estado inválido' });
+    await updateSalesLeadStatus(parseInt(req.params.id), status, notes);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[SalesChat] estado lead:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/superadmin/sales-leads/:id', authenticateSuperadminToken, async (req, res) => {
+  try {
+    await deleteSalesLead(parseInt(req.params.id));
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[SalesChat] eliminar lead:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Superadmin: update my profile (name + avatar)
 app.put('/api/superadmin/profile', authenticateSuperadminToken, upload.single('avatar'), async (req, res) => {
