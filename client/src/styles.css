@@ -2762,10 +2762,28 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Perf: no pintar tarjetas fuera de pantalla (clave en equipos de bajos
    recursos con catálogos grandes). Excluido del modo edición para no
-   interferir con las mediciones de drag & drop de dnd-kit. */
+   interferir con las mediciones de drag & drop de dnd-kit.
+   El alto estimado (contain-intrinsic-size) tiene que acompañar el ancho
+   real de la tarjeta en cada breakpoint — como son cuadradas (aspect-ratio
+   1/1), una tarjeta más ancha por la grilla de 3 columnas fijas también es
+   más alta. Si el estimado queda corto, el navegador reserva menos espacio
+   del que la tarjeta necesita y aparece un hueco blanco grande hasta que
+   se pinta el contenido real. */
 .store-body:not(.editing) .store-product-wrapper {
   content-visibility: auto;
   contain-intrinsic-size: auto 240px;
+}
+
+@media (min-width: 900px) {
+  .store-body:not(.editing) .store-product-wrapper {
+    contain-intrinsic-size: auto 320px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .store-body:not(.editing) .store-product-wrapper {
+    contain-intrinsic-size: auto 400px;
+  }
 }
 
 .store-product-card {
@@ -2912,8 +2930,8 @@ html body .store-container .store-product-card * {
 }
 
 .store-product-image {
-  width: 88%;
-  height: 88%;
+  width: 96%;
+  height: 96%;
   display: flex;
   align-items: center;
   justify-content: center;
