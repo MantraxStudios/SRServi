@@ -2657,7 +2657,8 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Product grid (store) */
+/* Product grid (store) — siempre 3 columnas, en todas las pantallas.
+   Solo el espaciado (gap/padding) escala con el ancho disponible. */
 .products-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2666,28 +2667,29 @@ h1, h2, h3, h4, h5, h6 {
   justify-items: stretch;
 }
 
-/* Tablets de baja resolución (portrait): 4 columnas */
+/* Tablets de baja resolución (portrait) */
 @media (min-width: 600px) {
   .products-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
-    padding: 10px 12px;
+    padding: 10px 14px;
   }
 }
 
-/* Desktop / tablet landscape: la grilla llena todo el ancho disponible */
+/* Desktop / tablet landscape */
 @media (min-width: 900px) {
   .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
-    gap: 12px;
-    padding: 12px 14px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    padding: 14px 18px;
   }
 }
 
 @media (min-width: 1200px) {
   .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    padding: 16px 24px;
   }
 }
 
