@@ -21,7 +21,7 @@ import * as XLSX from 'xlsx';
 import PluginManager from './plugins/PluginManager.js';
 import { initLeonIA } from './leon_ia/autostart.js';
 import { generatePromoImage, generateAiPromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
-import { getAiImageStatus, generateAiImage } from './ai-image-client.js';
+import { getAiImageStatus, generateAiImage, generateAiVideo } from './ai-image-client.js';
 import { initInstagramService } from './instagram_autostart.js';
 
 import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings, createFeedbackCampaign, createFeedbackToken, getFeedbackToken, submitFeedbackResponse, updateCampaignSentCount, getFeedbackCampaigns, getFeedbackResponses, getAllActiveUsersForFeedback, createTotemRental, getTotemRentalByUser, updateTotemRentalMpPreference, updateTotemRentalPayment, markTotemRentalInstalled, updateTotemRentalStatus, updateTotemSubscriptionStatus, getAllTotemRentals, logTotemPayment, createSalesLead, findRecentSalesLead, updateSalesLead, getSalesLeads, getSalesLeadStats, updateSalesLeadStatus, deleteSalesLead } from './database.js';
@@ -11941,6 +11941,23 @@ async function startServer() {
           steps: 2,
         });
         res.setHeader('Content-Type', 'image/png');
+        res.send(buf);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/ai-image/generate-video', authenticateToken, async (req, res) => {
+      try {
+        const { store_id, prompt, negative_prompt } = req.body || {};
+        if (!store_id) return res.status(400).json({ error: 'Store ID es requerido' });
+        if (!prompt || !prompt.trim()) return res.status(400).json({ error: 'La descripción es requerida' });
+        const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+        if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+
+        const buf = await generateAiVideo({
+          prompt: prompt.trim(),
+          negativePrompt: typeof negative_prompt === 'string' ? negative_prompt : undefined,
+        });
+        res.setHeader('Content-Type', 'video/mp4');
         res.send(buf);
       } catch (e) { res.status(500).json({ error: e.message }); }
     });

@@ -9,3 +9,4 @@ pillow
 huggingface_hub
 sentencepiece
 protobuf
+opencv-python-headless

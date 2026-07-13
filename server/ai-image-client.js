@@ -33,3 +33,22 @@ export async function generateAiImage({ prompt, negativePrompt, width = 512, hei
   if (!res.ok) throw new Error(data.detail || `Error ${res.status} del servicio de imágenes IA`);
   return Buffer.from(data.image_base64, 'base64');
 }
+
+// Genera un video corto (~5s, vertical) a partir de un prompt de texto:
+// primero genera una imagen y después la anima. Devuelve un Buffer MP4.
+// Puede tardar varios minutos, sobre todo la primera vez (carga de ambos modelos).
+export async function generateAiVideo({ prompt, negativePrompt, steps = 4 }) {
+  const res = await fetch(`${AI_IMAGE_URL}/generate-video`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt,
+      negative_prompt: negativePrompt,
+      steps,
+    }),
+    signal: AbortSignal.timeout(900000),
+  });
+  const data = await res.json().catch(() => ({ detail: 'Respuesta inválida del servicio de imágenes IA' }));
+  if (!res.ok) throw new Error(data.detail || `Error ${res.status} del servicio de imágenes IA`);
+  return Buffer.from(data.video_base64, 'base64');
+}
