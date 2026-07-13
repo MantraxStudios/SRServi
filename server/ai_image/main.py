@@ -28,10 +28,13 @@ app.add_middleware(
 
 HOST = os.getenv("AI_IMAGE_HOST", "127.0.0.1")
 PORT = int(os.getenv("AI_IMAGE_PORT", "8788"))
-# stabilityai/sd-turbo: modelo open source distilado, genera en 1-4 pasos.
-# Liviano (~2-3GB). Usa GPU automáticamente si hay una NVIDIA disponible
-# (mucho más rápido), si no cae a CPU.
-MODEL_ID = os.getenv("AI_IMAGE_MODEL", "stabilityai/sd-turbo")
+# black-forest-labs/FLUX.1-schnell: modelo open source (Apache 2.0) de última
+# generación, mucho más realista y fiel al prompt que SD-Turbo. Pesado (~30GB
+# combinado) — pensado para el servidor de producción con GPU NVIDIA de 24GB+.
+# Repo "gated: auto" en Hugging Face: hace falta un HF_TOKEN con la licencia
+# aceptada en https://huggingface.co/black-forest-labs/FLUX.1-schnell
+# (aprobación automática) para poder descargarlo.
+MODEL_ID = os.getenv("AI_IMAGE_MODEL", "black-forest-labs/FLUX.1-schnell")
 
 _pipe = None
 _loading = False
@@ -45,13 +48,23 @@ def _load_pipeline():
     import torch
     from diffusers import AutoPipelineForText2Image
 
-    _device = "cuda" if torch.cuda.is_available() else "cpu"
-    dtype = torch.float16 if _device == "cuda" else torch.float32
+    cuda = torch.cuda.is_available()
+    dtype = torch.bfloat16 if cuda else torch.float32
 
     pipe = AutoPipelineForText2Image.from_pretrained(
         MODEL_ID, torch_dtype=dtype
     )
-    pipe.to(_device)
+
+    if cuda:
+        # FLUX ronda ~30GB combinado (transformer + T5-xxl + CLIP + VAE).
+        # cpu offload mueve cada componente a la GPU solo cuando se usa,
+        # para que entre cómodo incluso en tarjetas de 24GB.
+        pipe.enable_model_cpu_offload()
+        _device = "cuda (offload)"
+    else:
+        pipe.to("cpu")
+        _device = "cpu"
+
     _pipe = pipe
 
 
@@ -78,7 +91,7 @@ class GenerateRequest(BaseModel):
     negative_prompt: str = "texto, letras, palabras, marca de agua, low quality, blurry, distorted"
     width: int = 512
     height: int = 512
-    steps: int = 2
+    steps: int = 4
 
 
 class GenerateResponse(BaseModel):
@@ -103,14 +116,17 @@ async def generate(req: GenerateRequest):
 
     def _run():
         ensure_pipeline()
-        result = _pipe(
+        kwargs = dict(
             prompt=req.prompt,
-            negative_prompt=req.negative_prompt,
             num_inference_steps=max(1, min(req.steps, 4)),
             guidance_scale=0.0,
             width=req.width,
             height=req.height,
         )
+        # FluxPipeline (schnell) no acepta negative_prompt — no hace CFG real.
+        if _pipe.__class__.__name__ != "FluxPipeline":
+            kwargs["negative_prompt"] = req.negative_prompt
+        result = _pipe(**kwargs)
         return result.images[0]
 
     try:

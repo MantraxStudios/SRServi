@@ -754,7 +754,7 @@ async function tpl5_split(ctx, store, products, coupons, sym, accent, primary) {
   ctx.fillText(`${BASE_URL}/store/${code}  ·  Powered by SRAutomatic`, S / 2, footY + 28);
 }
 
-// ─── Template IA — fondo generado por IA (SD-Turbo) + overlay de cupón ───────
+// ─── Template IA — fondo generado por IA (IA de imágenes) + overlay de cupón ───────
 
 function buildAiPromoPrompt(store, coupon, products) {
   const productNames = (products || []).slice(0, 2).map(p => p.name).filter(Boolean).join(' y ');

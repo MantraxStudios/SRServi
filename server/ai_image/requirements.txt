@@ -7,3 +7,5 @@ accelerate
 safetensors
 pillow
 huggingface_hub
+sentencepiece
+protobuf

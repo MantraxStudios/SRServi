@@ -1,5 +1,5 @@
 /**
- * Servicio de generación de imágenes con IA (SD-Turbo, open source)
+ * Servicio de generación de imágenes con IA (FLUX.1-schnell, open source)
  * Mismo patrón que León IA / Instagram: venv propio, instala deps, lanza uvicorn.
  * Cross-platform (Windows para desarrollo, Linux para producción).
  */
@@ -175,7 +175,7 @@ async function launchService() {
 }
 
 export async function initAiImageService() {
-  log('=== Iniciando servicio de generación de imágenes con IA (SD-Turbo) ===');
+  log('=== Iniciando servicio de generación de imágenes con IA (FLUX.1-schnell) ===');
   if (!await ensurePythonEnv()) { warn('Sin entorno Python — generación de imágenes IA no disponible'); return; }
   await launchService();
 }

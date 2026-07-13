@@ -11852,7 +11852,7 @@ async function startServer() {
       }
     });
 
-    // Estado del servicio de generación de imágenes con IA (modelo open source SD-Turbo)
+    // Estado del servicio de generación de imágenes con IA (modelo open source FLUX.1-schnell)
     app.get('/api/instagram/:storeId/ai-status', authenticateToken, async (req, res) => {
       try {
         const store = await getStoreById(req.params.storeId);
@@ -13875,7 +13875,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       initLeonIA().catch(e => console.warn('[León IA] Error autostart:', e.message));
     }
 
-    // Servicio de generación de imágenes con IA (SD-Turbo, open source) — descarga
+    // Servicio de generación de imágenes con IA (FLUX.1-schnell, open source) — descarga
     // el modelo (~2-3GB) la primera vez. En Windows/Mac se fuerza con AI_IMAGE_AUTOSTART=1
     if (process.platform === 'linux' || process.env.AI_IMAGE_AUTOSTART === '1') {
       import('./ai_image/autostart.js')

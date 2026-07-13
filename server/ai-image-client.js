@@ -1,5 +1,5 @@
 // Cliente HTTP hacia el servicio Python de generación de imágenes con IA
-// (server/ai_image/, modelo open source SD-Turbo). Ver server/ai_image/main.py.
+// (server/ai_image/, modelo open source FLUX.1-schnell). Ver server/ai_image/main.py.
 
 const AI_IMAGE_URL = process.env.AI_IMAGE_SERVICE_URL || 'http://127.0.0.1:8788';
 
