@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStore, faChevronRight, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import VirtualKeyboard from '../components/VirtualKeyboard';
+import SalesChat from '../components/SalesChat';
 
 const STORAGE_KEYS = {
   lastStoreCode: 'srservi_last_store_code',
@@ -859,6 +860,7 @@ function Index() {
           </div>
         </div>
       </div>
+      <SalesChat source="landing" />
     </>
   );
 }

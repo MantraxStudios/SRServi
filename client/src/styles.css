@@ -12925,8 +12925,25 @@ html body .store-container .store-product-card * {
 /* badge posición para barra inferior */
 .isb-badge { top: 0px; right: calc(50% - 17px); border-color: #111; }
 
-/* leon-page siempre respeta la barra inferior */
-.leon-page { height: calc(100dvh - var(--isb-bottom-h)); max-height: calc(100dvh - var(--isb-bottom-h)); }
+/* En móvil la página de León se fija entre el tope y la barra inferior fija.
+   Evita que la barra de URL dinámica del navegador deje el input fuera de
+   pantalla o que el contenido se salga horizontalmente. */
+.leon-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: var(--isb-bottom-h);
+  width: auto;
+  height: auto;
+  max-height: none;
+  overflow: hidden;
+  z-index: 500;
+}
+/* Evitar desbordes horizontales de burbujas/gráficos en pantallas chicas */
+.leon-chat, .leon-suggestions, .leon-input-bar, .leon-header { max-width: 100%; }
+.leon-bubble-col { min-width: 0; }
+.leon-chart svg { max-width: 100%; }
 
 /* ─── MOBILE ─── */
 @media (max-width: 768px) {

@@ -62,6 +62,104 @@ DATOS ACTUALES DE LA TIENDA "{store_name}":
 Fecha y hora actual: {fecha}
 """
 
+# ─── Asistente de VENTAS (chat público tipo Vambe) ───────────────────────────
+SALES_SYSTEM_PROMPT = """Eres "Sofía" 🤖, la asesora comercial de SRServi. Tu ÚNICO objetivo es
+convertir a cada visitante en un cliente registrado: entender su negocio, mostrarle
+cómo SRServi lo ayuda y llevarlo a registrarse o dejar sus datos de contacto.
+
+QUÉ ES SRServi:
+Plataforma todo-en-uno para restaurantes, cafeterías, minimarkets y locales de comida.
+Incluye: punto de venta (POS) en Android y web, gestión de productos/combos/promos,
+control de inventario, pedidos para delivery y mesas, pantalla de cocina (KDS),
+TV de órdenes, cartelería CCTV, cupones y programa de fidelidad, analítica de ventas,
+integración con Mercado Pago / Transbank / TUU / SumUp, WhatsApp integrado, y "León IA"
+un asistente que analiza las ventas del negocio. Enfocado en Chile y Latinoamérica.
+
+PLANES (precios en USD/mes, cobro mensual o anual):
+- Gratis: US$0 — hasta 2 tiendas, productos y punto de venta. Ideal para empezar.
+- SOLO: US$11 — hasta 10 tiendas, logo y colores propios, multi-tienda, soporte prioritario.
+- Empresas: US$25 — hasta 25 tiendas, 5 impresoras Bluetooth, personalización y soporte.
+- Personalizado: US$99 — funciones a medida, 10 impresoras, atención directa con desarrollo.
+
+REGLAS DE CONVERSACIÓN:
+- Español latinoamericano, cercano, entusiasta pero NO pesado. Máximo 3-4 oraciones por respuesta.
+- Haz UNA pregunta a la vez para calificar: tipo de negocio, cuántas sucursales, qué problema
+  quiere resolver (ordenar pedidos, cobrar rápido, controlar stock, delivery, etc.).
+- Conecta siempre el beneficio con SU necesidad concreta. Maneja objeciones (precio, migración,
+  hardware) con seguridad y datos reales de los planes.
+- Cuando haya interés real, pide de forma natural NOMBRE y WHATSAPP (y opcionalmente email) para
+  "coordinar una demo gratis y activar tu cuenta". Insiste con suavidad si aún no los da.
+- Invita a registrarse gratis en el botón "Registrarse" / la página de registro cuando esté listo.
+- NUNCA inventes funciones que no existen ni descuentos no autorizados.
+
+EXTRACCIÓN DE DATOS (MUY IMPORTANTE):
+En cuanto tengas AL MENOS un teléfono o un email del visitante, agrega al FINAL de tu respuesta
+una línea EXACTA con este formato (el visitante NO la verá):
+LEAD:{{"name":"...","phone":"...","email":"...","business_type":"...","country":"...","interest":"..."}}
+Incluye solo los campos que conozcas; usa "" en los que no sepas. Actualiza la línea si el visitante
+te da más datos en mensajes siguientes.
+
+Fecha y hora actual: {fecha}
+"""
+
+class SalesHistoryMessage(BaseModel):
+    role: str
+    text: str
+
+class SalesChatRequest(BaseModel):
+    question: str
+    history: List[SalesHistoryMessage] = []
+
+class SalesLead(BaseModel):
+    name: str = ""
+    phone: str = ""
+    email: str = ""
+    business_type: str = ""
+    country: str = ""
+    interest: str = ""
+
+class SalesChatResponse(BaseModel):
+    answer: str
+    lead: Optional[dict] = None
+    ai_powered: bool = True
+    model: str = ""
+
+def extract_lead(text: str):
+    """Extrae el JSON del lead si el modelo lo incluyó (marcador LEAD:...)."""
+    match = re.search(r'LEAD:(\{.*\})', text, re.DOTALL)
+    if not match:
+        return text, None
+    try:
+        lead = json.loads(match.group(1))
+        clean_text = text[:match.start()].strip()
+        # Solo devolver lead si trae algún dato de contacto
+        if lead.get("phone") or lead.get("email"):
+            return clean_text, lead
+        return clean_text, None
+    except Exception:
+        return text, None
+
+@app.post("/sales-chat", response_model=SalesChatResponse)
+async def sales_chat(req: SalesChatRequest):
+    from datetime import datetime
+    system = SALES_SYSTEM_PROMPT.format(fecha=datetime.now().strftime("%A %d/%m/%Y %H:%M"))
+    messages = [{"role": "system", "content": system}]
+    for msg in req.history[-8:]:
+        role = "assistant" if msg.role in ("sofia", "leon", "assistant") else "user"
+        messages.append({"role": role, "content": msg.text})
+    messages.append({"role": "user", "content": req.question})
+
+    model = await get_available_model()
+    try:
+        raw_answer = await call_ollama(messages, model)
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="Ollama no está corriendo.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error Ollama: {e}")
+
+    answer, lead = extract_lead(raw_answer)
+    return SalesChatResponse(answer=answer, lead=lead, ai_powered=True, model=model)
+
 class HistoryMessage(BaseModel):
     role: str
     text: str

@@ -730,6 +730,27 @@ async function createTables() {
     )
   `);
 
+  // ── Leads del asistente de ventas IA (chat público tipo Vambe) ──
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS sales_leads (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      name VARCHAR(150) DEFAULT NULL,
+      phone VARCHAR(40) DEFAULT NULL,
+      email VARCHAR(190) DEFAULT NULL,
+      business_type VARCHAR(150) DEFAULT NULL,
+      country VARCHAR(80) DEFAULT NULL,
+      interest VARCHAR(255) DEFAULT NULL,
+      notes TEXT DEFAULT NULL,
+      conversation JSON DEFAULT NULL,
+      status ENUM('new','contacted','qualified','won','lost') NOT NULL DEFAULT 'new',
+      source VARCHAR(60) DEFAULT 'landing',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_sales_leads_status (status),
+      INDEX idx_sales_leads_created (created_at)
+    )
+  `);
+
   // Tabla de control de migraciones — evita que corran más de una vez
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS _migrations (
@@ -7919,4 +7940,85 @@ export async function logTotemPayment(rentalId, amount, type, mpPaymentId, statu
     'INSERT INTO totem_rental_payments (rental_id, amount, type, mp_payment_id, status) VALUES (?,?,?,?,?)',
     [rentalId, amount, type, mpPaymentId || null, status]
   );
+}
+
+// ─── Leads del asistente de ventas IA (chat público tipo Vambe) ──────────────
+
+export async function createSalesLead(data) {
+  const {
+    name = null, phone = null, email = null, business_type = null,
+    country = null, interest = null, notes = null, conversation = null,
+    source = 'landing'
+  } = data || {};
+  const [res] = await pool.execute(
+    `INSERT INTO sales_leads
+       (name, phone, email, business_type, country, interest, notes, conversation, source)
+     VALUES (?,?,?,?,?,?,?,?,?)`,
+    [name, phone, email, business_type, country, interest, notes,
+     conversation ? JSON.stringify(conversation) : null, source]
+  );
+  return res.insertId;
+}
+
+// Devuelve un lead existente con el mismo teléfono/email en las últimas 24h (evita duplicados)
+export async function findRecentSalesLead(phone, email) {
+  if (!phone && !email) return null;
+  const [rows] = await pool.execute(
+    `SELECT * FROM sales_leads
+     WHERE created_at > (NOW() - INTERVAL 1 DAY)
+       AND ((? IS NOT NULL AND phone = ?) OR (? IS NOT NULL AND email = ?))
+     ORDER BY created_at DESC LIMIT 1`,
+    [phone, phone, email, email]
+  );
+  return rows[0] || null;
+}
+
+export async function updateSalesLead(id, data) {
+  const fields = [];
+  const values = [];
+  for (const key of ['name', 'phone', 'email', 'business_type', 'country', 'interest', 'notes', 'conversation']) {
+    if (data[key] !== undefined) {
+      fields.push(`${key} = ?`);
+      values.push(key === 'conversation' && data[key] ? JSON.stringify(data[key]) : data[key]);
+    }
+  }
+  if (!fields.length) return;
+  values.push(id);
+  await pool.execute(`UPDATE sales_leads SET ${fields.join(', ')} WHERE id = ?`, values);
+}
+
+export async function getSalesLeads({ status = null, limit = 200 } = {}) {
+  const lim = Math.min(parseInt(limit) || 200, 500);
+  if (status) {
+    const [rows] = await pool.execute(
+      `SELECT * FROM sales_leads WHERE status = ? ORDER BY created_at DESC LIMIT ${lim}`,
+      [status]
+    );
+    return rows;
+  }
+  const [rows] = await pool.execute(
+    `SELECT * FROM sales_leads ORDER BY created_at DESC LIMIT ${lim}`
+  );
+  return rows;
+}
+
+export async function getSalesLeadStats() {
+  const [rows] = await pool.execute(
+    `SELECT status, COUNT(*) AS count FROM sales_leads GROUP BY status`
+  );
+  const stats = { total: 0, new: 0, contacted: 0, qualified: 0, won: 0, lost: 0 };
+  for (const r of rows) { stats[r.status] = r.count; stats.total += r.count; }
+  return stats;
+}
+
+export async function updateSalesLeadStatus(id, status, notes) {
+  if (notes !== undefined) {
+    await pool.execute('UPDATE sales_leads SET status = ?, notes = ? WHERE id = ?', [status, notes, id]);
+  } else {
+    await pool.execute('UPDATE sales_leads SET status = ? WHERE id = ?', [status, id]);
+  }
+}
+
+export async function deleteSalesLead(id) {
+  await pool.execute('DELETE FROM sales_leads WHERE id = ?', [id]);
 }

@@ -58,6 +58,7 @@ import RolesManager from './pages/admin/RolesManager';
 import SubAccounts from './pages/admin/SubAccounts';
 import Minimarket from './pages/Minimarket';
 import Index from './pages/Index';
+import SalesAssistant from './pages/SalesAssistant';
 import Store from './pages/Store';
 import TvDisplay from './pages/TvDisplay';
 import Docs from './pages/Docs';
@@ -258,6 +259,8 @@ function App() {
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/asistente" element={<SalesAssistant />} />
+          <Route path="/demo" element={<SalesAssistant />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsConditions />} />
           <Route path="/store/:code" element={<Store />} />

@@ -60,6 +60,7 @@ import {
   faTv,
   faDesktop,
   faChair,
+  faFire,
   faUserTie,
   faWifi,
   faMotorcycle,
@@ -127,6 +128,10 @@ function SuperadminDashboard() {
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [totemRentals, setTotemRentals] = useState([]);
   const [totemLoading, setTotemLoading] = useState(false);
+  const [salesLeads, setSalesLeads] = useState([]);
+  const [salesLeadStats, setSalesLeadStats] = useState({ total: 0, new: 0, contacted: 0, qualified: 0, won: 0, lost: 0 });
+  const [leadsLoading, setLeadsLoading] = useState(false);
+  const [selectedLead, setSelectedLead] = useState(null);
   const [selectedWorkshopPlugin, setSelectedWorkshopPlugin] = useState(null);
   const [premiumTarget, setPremiumTarget] = useState(null);
   const [premiumForever, setPremiumForever] = useState(true);
@@ -400,6 +405,16 @@ function SuperadminDashboard() {
           const res = await fetch(API + '/api/superadmin/totem-rentals', { headers: { 'Authorization': 'Bearer ' + token } });
           if (res.ok) setTotemRentals(await res.json());
         } finally { setTotemLoading(false); }
+      } else if (activeTab === 'leads') {
+        setLeadsLoading(true);
+        try {
+          const res = await fetch(API + '/api/superadmin/sales-leads', { headers: { 'Authorization': 'Bearer ' + token } });
+          if (res.ok) {
+            const data = await res.json();
+            setSalesLeads(Array.isArray(data.leads) ? data.leads : []);
+            if (data.stats) setSalesLeadStats(data.stats);
+          }
+        } finally { setLeadsLoading(false); }
       } else if (activeTab === 'orders') {
         await fetchSaOrders();
         return;
@@ -876,6 +891,14 @@ function SuperadminDashboard() {
           >
             <FontAwesomeIcon icon={faChair} />
             {sidebarOpen && <span>Arriendo Tótem</span>}
+          </div>
+
+          <div
+            className={`sidebar-nav-item ${activeTab === 'leads' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('leads'); setMobileMenuOpen(false); }}
+          >
+            <FontAwesomeIcon icon={faFire} />
+            {sidebarOpen && <span>Leads IA</span>}
           </div>
 
           <div
@@ -2159,6 +2182,124 @@ function SuperadminDashboard() {
                           {r.mp_subscription_id && (
                             <div style={{ marginTop: 10, fontSize: 12, color: '#6b7280', background: '#f9fafb', borderRadius: 8, padding: '6px 10px' }}>
                               🔄 Suscripción MP: <code>{r.mp_subscription_id}</code> · Estado: {r.mp_subscription_status || 'authorized'}
+                            </div>
+                          )}
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                )}
+              </div>
+            ) : activeTab === 'leads' ? (
+              <div>
+                <h3 style={{ margin: '0 0 4px', fontWeight: 800 }}>Leads del asistente IA</h3>
+                <p style={{ margin: '0 0 18px', color: '#888', fontSize: 13 }}>Prospectos captados por Sofía, el chat de ventas del sitio.</p>
+
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
+                  {(() => {
+                    const cards = [
+                      { k: 'total', label: 'Total', color: '#1a1a1a' },
+                      { k: 'new', label: 'Nuevos', color: '#3b82f6' },
+                      { k: 'contacted', label: 'Contactados', color: '#f59e0b' },
+                      { k: 'qualified', label: 'Calificados', color: '#8b5cf6' },
+                      { k: 'won', label: 'Ganados', color: '#10b981' },
+                      { k: 'lost', label: 'Perdidos', color: '#ef4444' },
+                    ];
+                    return cards.map(c => (
+                      <div key={c.k} style={{ flex: '1 1 120px', minWidth: 110, background: '#fff', border: '1px solid #f0f0f0', borderRadius: 12, padding: '14px 16px' }}>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: c.color }}>{salesLeadStats[c.k] || 0}</div>
+                        <div style={{ fontSize: 12, color: '#888' }}>{c.label}</div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+
+                {leadsLoading ? <div style={{ textAlign: 'center', color: '#888', padding: 32 }}>Cargando...</div> : salesLeads.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: '#888', padding: 48, background: '#f9fafb', borderRadius: 16 }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>🔥</div>
+                    <div>Aún no hay leads. Aparecerán aquí cuando el chat capte un contacto.</div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {(() => {
+                      const STATUS = {
+                        new: { label: 'Nuevo', color: '#3b82f6', bg: '#eff6ff' },
+                        contacted: { label: 'Contactado', color: '#f59e0b', bg: '#fffbeb' },
+                        qualified: { label: 'Calificado', color: '#8b5cf6', bg: '#f5f3ff' },
+                        won: { label: 'Ganado', color: '#10b981', bg: '#ecfdf5' },
+                        lost: { label: 'Perdido', color: '#ef4444', bg: '#fef2f2' },
+                      };
+                      const changeStatus = async (id, status) => {
+                        const token = localStorage.getItem('superadminToken');
+                        const res = await fetch(`${API}/api/superadmin/sales-leads/${id}/status`, {
+                          method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ status }),
+                        });
+                        if (res.ok) fetchData(); else alert('❌ No se pudo actualizar');
+                      };
+                      const removeLead = async (id) => {
+                        if (!window.confirm('¿Eliminar este lead?')) return;
+                        const token = localStorage.getItem('superadminToken');
+                        const res = await fetch(`${API}/api/superadmin/sales-leads/${id}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+                        if (res.ok) fetchData(); else alert('❌ No se pudo eliminar');
+                      };
+                      return salesLeads.map(l => (
+                        <div key={l.id} style={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: 14, padding: '16px 18px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                            <div style={{ flex: 1, minWidth: 200 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                                <span style={{ fontWeight: 800, fontSize: 15 }}>{l.name || 'Sin nombre'}</span>
+                                <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, color: STATUS[l.status]?.color, background: STATUS[l.status]?.bg }}>
+                                  {STATUS[l.status]?.label || l.status}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: 13, color: '#6b7280' }}>
+                                {l.phone && <>📱 {l.phone}&nbsp;&nbsp;</>}
+                                {l.email && <>✉️ {l.email}</>}
+                                {(l.business_type || l.country) && <><br/>🏪 {[l.business_type, l.country].filter(Boolean).join(' · ')}</>}
+                                {l.interest && <><br/>💡 {l.interest}</>}
+                              </div>
+                              <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
+                                {new Date(l.created_at).toLocaleString('es-CL')} · vía {l.source}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
+                              {l.phone && (
+                                <a href={`https://wa.me/${String(l.phone).replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
+                                  style={{ padding: '7px 14px', borderRadius: 8, background: '#25D366', color: '#fff', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+                                  WhatsApp
+                                </a>
+                              )}
+                              <select value={l.status} onChange={e => changeStatus(l.id, e.target.value)}
+                                style={{ padding: '7px 12px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, cursor: 'pointer' }}>
+                                <option value="new">Nuevo</option>
+                                <option value="contacted">Contactado</option>
+                                <option value="qualified">Calificado</option>
+                                <option value="won">Ganado</option>
+                                <option value="lost">Perdido</option>
+                              </select>
+                              {l.conversation && (
+                                <button onClick={() => setSelectedLead(selectedLead === l.id ? null : l.id)}
+                                  style={{ padding: '7px 12px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, cursor: 'pointer' }}>
+                                  {selectedLead === l.id ? 'Ocultar chat' : 'Ver chat'}
+                                </button>
+                              )}
+                              <button onClick={() => removeLead(l.id)}
+                                style={{ padding: '7px 12px', borderRadius: 8, border: 'none', background: '#fef2f2', color: '#ef4444', fontSize: 13, cursor: 'pointer' }}>
+                                <FontAwesomeIcon icon={faTrash} />
+                              </button>
+                            </div>
+                          </div>
+                          {selectedLead === l.id && l.conversation && (
+                            <div style={{ marginTop: 12, background: '#f9fafb', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
+                              {(() => {
+                                let conv = l.conversation;
+                                if (typeof conv === 'string') { try { conv = JSON.parse(conv); } catch { conv = []; } }
+                                return (Array.isArray(conv) ? conv : []).map((m, i) => (
+                                  <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '80%', background: m.role === 'user' ? '#D4AF37' : '#fff', color: '#1a1a1a', border: '1px solid #eee', borderRadius: 10, padding: '8px 11px', fontSize: 13 }}>
+                                    {m.text}
+                                  </div>
+                                ));
+                              })()}
                             </div>
                           )}
                         </div>

@@ -23,7 +23,7 @@ import { initLeonIA } from './leon_ia/autostart.js';
 import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
 import { initInstagramService } from './instagram_autostart.js';
 
-import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings, createFeedbackCampaign, createFeedbackToken, getFeedbackToken, submitFeedbackResponse, updateCampaignSentCount, getFeedbackCampaigns, getFeedbackResponses, getAllActiveUsersForFeedback, createTotemRental, getTotemRentalByUser, updateTotemRentalMpPreference, updateTotemRentalPayment, markTotemRentalInstalled, updateTotemRentalStatus, updateTotemSubscriptionStatus, getAllTotemRentals, logTotemPayment } from './database.js';
+import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings, createFeedbackCampaign, createFeedbackToken, getFeedbackToken, submitFeedbackResponse, updateCampaignSentCount, getFeedbackCampaigns, getFeedbackResponses, getAllActiveUsersForFeedback, createTotemRental, getTotemRentalByUser, updateTotemRentalMpPreference, updateTotemRentalPayment, markTotemRentalInstalled, updateTotemRentalStatus, updateTotemSubscriptionStatus, getAllTotemRentals, logTotemPayment, createSalesLead, findRecentSalesLead, updateSalesLead, getSalesLeads, getSalesLeadStats, updateSalesLeadStatus, deleteSalesLead } from './database.js';
 import { runSrBrain, runSrBrainForStore } from './sr_brain.js';
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds, setBotEnabled, getBotEnabled, getBotPhone } from './whatsapp.js';
 import cron from 'node-cron';
@@ -4142,6 +4142,182 @@ ANÁLISIS PREVIO DE LEÓN: ${leonAnswer.text}`;
 });
 
 // ==================== FIN LEÓN IA ====================
+
+// ==================== ASISTENTE DE VENTAS IA (chat público tipo Vambe) ====================
+
+const SALES_NOTIFY_PHONE = process.env.SALES_NOTIFY_PHONE || process.env.TWILIO_PHONE_NUMBER || '';
+const SALES_NOTIFY_EMAIL = process.env.SALES_NOTIFY_EMAIL || process.env.EMAIL_USER || '';
+
+// Respuestas de respaldo si León/Ollama no está disponible
+const SALES_FALLBACK = [
+  '¡Hola! 👋 Soy Sofía, de SRServi. Te ayudo a digitalizar tu negocio: punto de venta, pedidos, inventario y más. ¿Qué tipo de local tienes?',
+  '¡Genial! SRServi funciona para restaurantes, cafeterías y minimarkets. Puedes empezar gratis con hasta 2 tiendas. ¿Quieres que te agende una demo? Déjame tu nombre y WhatsApp 📲',
+  'Con gusto te cuento los planes: Gratis (US$0), SOLO (US$11/mes), Empresas (US$25/mes) y Personalizado (US$99/mes). ¿Cuántas sucursales manejas?',
+];
+
+// Notifica al equipo de ventas por WhatsApp + email cuando entra un lead
+async function notifySalesLead(lead, leadId) {
+  const resumen = [
+    `🔥 *Nuevo lead SRServi* (#${leadId})`,
+    lead.name && `👤 ${lead.name}`,
+    lead.phone && `📱 ${lead.phone}`,
+    lead.email && `✉️ ${lead.email}`,
+    lead.business_type && `🏪 ${lead.business_type}`,
+    lead.country && `🌎 ${lead.country}`,
+    lead.interest && `💡 ${lead.interest}`,
+  ].filter(Boolean).join('\n');
+
+  // WhatsApp (sistema, storeId=0)
+  try {
+    const wa = getWhatsAppStatus(0);
+    if (wa?.connected && SALES_NOTIFY_PHONE) {
+      const phone = SALES_NOTIFY_PHONE.replace(/\D/g, '');
+      if (phone) await sendWhatsAppMessage(0, `${phone}@s.whatsapp.net`, resumen);
+    }
+  } catch (e) { console.warn('[SalesChat] WhatsApp notify falló:', e.message); }
+
+  // Email
+  try {
+    if (SALES_NOTIFY_EMAIL) {
+      await mailer.sendMail({
+        from: `"SRServi" <${process.env.EMAIL_USER}>`,
+        to: SALES_NOTIFY_EMAIL,
+        subject: `🔥 Nuevo lead SRServi: ${lead.name || lead.phone || lead.email || 'sin nombre'}`,
+        html: `<div style="font-family:Arial,sans-serif;font-size:15px;color:#1a1a1a">
+          <h2 style="color:#D4AF37">Nuevo lead desde el asistente de ventas</h2>
+          <p><b>Nombre:</b> ${lead.name || '—'}</p>
+          <p><b>WhatsApp:</b> ${lead.phone || '—'}</p>
+          <p><b>Email:</b> ${lead.email || '—'}</p>
+          <p><b>Tipo de negocio:</b> ${lead.business_type || '—'}</p>
+          <p><b>País:</b> ${lead.country || '—'}</p>
+          <p><b>Interés:</b> ${lead.interest || '—'}</p>
+          <p style="color:#9ca3af;font-size:12px">Lead #${leadId} — SRServi Asistente IA</p>
+        </div>`
+      });
+    }
+  } catch (e) { console.warn('[SalesChat] Email notify falló:', e.message); }
+}
+
+// Endpoint público del chat de ventas
+app.post('/api/sales-chat', async (req, res) => {
+  try {
+    const { question, history = [], source = 'landing' } = req.body || {};
+    if (!question || typeof question !== 'string') {
+      return res.status(400).json({ error: 'Falta el mensaje' });
+    }
+
+    let answer = null;
+    let lead = null;
+    let model = 'fallback';
+
+    if (leonPythonAvailable) {
+      try {
+        const ctrl = new AbortController();
+        const timeout = setTimeout(() => ctrl.abort(), 90000);
+        const pyRes = await fetch(`${LEON_PYTHON_URL}/sales-chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: question.slice(0, 2000), history: (history || []).slice(-8) }),
+          signal: ctrl.signal
+        });
+        clearTimeout(timeout);
+        if (pyRes.ok) {
+          const data = await pyRes.json();
+          answer = data.answer;
+          lead = data.lead || null;
+          model = data.model || 'ollama';
+        }
+      } catch (pyErr) {
+        leonPythonAvailable = false;
+        console.warn('[SalesChat] León Python no disponible:', pyErr.message);
+      }
+    }
+
+    // Respaldo simple si la IA no respondió
+    if (!answer) {
+      const turn = Math.min((history || []).filter(m => m.role === 'user').length, SALES_FALLBACK.length - 1);
+      answer = SALES_FALLBACK[turn];
+    }
+
+    // Persistir / actualizar lead si vino con datos de contacto
+    if (lead && (lead.phone || lead.email)) {
+      try {
+        const fullHistory = [...(history || []), { role: 'user', text: question }, { role: 'sofia', text: answer }];
+        const existing = await findRecentSalesLead(lead.phone || null, lead.email || null);
+        if (existing) {
+          await updateSalesLead(existing.id, {
+            name: lead.name || existing.name,
+            phone: lead.phone || existing.phone,
+            email: lead.email || existing.email,
+            business_type: lead.business_type || existing.business_type,
+            country: lead.country || existing.country,
+            interest: lead.interest || existing.interest,
+            conversation: fullHistory,
+          });
+        } else {
+          const leadId = await createSalesLead({
+            name: lead.name || null,
+            phone: lead.phone || null,
+            email: lead.email || null,
+            business_type: lead.business_type || null,
+            country: lead.country || null,
+            interest: lead.interest || null,
+            conversation: fullHistory,
+            source,
+          });
+          notifySalesLead(lead, leadId).catch(e => console.error('[SalesChat] notify:', e.message));
+        }
+      } catch (e) { console.error('[SalesChat] guardar lead:', e.message); }
+    }
+
+    res.json({ answer, lead: lead && (lead.phone || lead.email) ? lead : null, model });
+  } catch (error) {
+    console.error('[SalesChat] error:', error);
+    res.status(500).json({ error: 'Error en el asistente' });
+  }
+});
+
+// Superadmin: listar leads
+app.get('/api/superadmin/sales-leads', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { status, limit } = req.query;
+    const [leads, stats] = await Promise.all([
+      getSalesLeads({ status: status || null, limit: limit || 200 }),
+      getSalesLeadStats(),
+    ]);
+    res.json({ leads, stats });
+  } catch (error) {
+    console.error('[SalesChat] listar leads:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Superadmin: cambiar estado de un lead
+app.put('/api/superadmin/sales-leads/:id/status', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { status, notes } = req.body || {};
+    const valid = ['new', 'contacted', 'qualified', 'won', 'lost'];
+    if (!valid.includes(status)) return res.status(400).json({ error: 'Estado inválido' });
+    await updateSalesLeadStatus(parseInt(req.params.id), status, notes);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[SalesChat] estado lead:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Superadmin: eliminar lead
+app.delete('/api/superadmin/sales-leads/:id', authenticateSuperadminToken, async (req, res) => {
+  try {
+    await deleteSalesLead(parseInt(req.params.id));
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[SalesChat] eliminar lead:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== FIN ASISTENTE DE VENTAS IA ====================
 
 app.post('/api/superadmin/login', async (req, res) => {
   try {
