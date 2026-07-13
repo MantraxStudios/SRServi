@@ -5976,6 +5976,89 @@ html body .store-container .store-product-card * {
   transition: width 0.4s ease;
 }
 
+.plans-cancel-btn {
+  margin-left: auto;
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1.5px solid #fca5a5;
+  background: #fff;
+  color: #ef4444;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.plans-cancel-btn:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.plans-cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Trial banner */
+.plans-trial-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1.5px solid #fde68a;
+  border-radius: 16px;
+  padding: 18px 24px;
+  margin-bottom: 24px;
+  color: #92400e;
+}
+
+.plans-trial-banner-text {
+  display: flex;
+  align-items: center;
+}
+
+.plans-trial-btn {
+  flex-shrink: 0;
+  padding: 11px 22px;
+  border-radius: 10px;
+  border: none;
+  background: #D4AF37;
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.plans-trial-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Terms checkbox */
+.plans-terms-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: #4b5563;
+  margin-bottom: 24px;
+  cursor: pointer;
+}
+
+.plans-terms-check input {
+  margin-top: 2px;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
 /* Grid */
 .plans-grid {
   display: grid;

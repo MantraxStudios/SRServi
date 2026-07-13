@@ -4790,10 +4790,10 @@ function Store() {
         </div>
         <div className="store-product-info">
           <div className="store-product-name">{product.name}</div>
-          {product.description && (
+          {product.description && product.show_description !== false && (
             <p className="store-product-desc">{product.description}</p>
           )}
-          {prepTimes[product.id] > 0 && (
+          {prepTimes[product.id] > 0 && product.show_prep_time !== false && (
             <div className="store-product-prep">
               <FontAwesomeIcon icon={faClock} style={{ fontSize: 10 }} />
               ~{prepTimes[product.id]} min

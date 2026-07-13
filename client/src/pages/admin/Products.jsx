@@ -50,6 +50,8 @@ function Products() {
     has_ingredients: false,
     max_extras: '',
     max_ingredients: '',
+    show_description: true,
+    show_prep_time: true,
     complement_group_ids: []
   });
   const [error, setError] = useState('');
@@ -217,6 +219,8 @@ function Products() {
       formDataToSend.append('has_ingredients', formData.has_ingredients);
       formDataToSend.append('max_extras', formData.has_extras ? (parseInt(formData.max_extras) || 0) : 0);
       formDataToSend.append('max_ingredients', formData.has_ingredients ? (parseInt(formData.max_ingredients) || 0) : 0);
+      formDataToSend.append('show_description', formData.show_description);
+      formDataToSend.append('show_prep_time', formData.show_prep_time);
       formDataToSend.append('complement_group_ids', JSON.stringify(formData.complement_group_ids || []));
 
       if (formData.imageFile) {
@@ -300,6 +304,8 @@ function Products() {
       has_ingredients: product.has_ingredients || false,
       max_extras: product.max_extras?.toString() || '',
       max_ingredients: product.max_ingredients?.toString() || '',
+      show_description: product.show_description !== false,
+      show_prep_time: product.show_prep_time !== false,
       complement_group_ids: Array.isArray(product.complement_groups)
         ? product.complement_groups.map(g => g.id)
         : (Array.isArray(product.complement_group_ids) ? product.complement_group_ids : [])
@@ -342,6 +348,8 @@ function Products() {
       has_ingredients: false,
       max_extras: '',
       max_ingredients: '',
+      show_description: true,
+      show_prep_time: true,
       complement_group_ids: []
     });
   };
@@ -1025,6 +1033,28 @@ function Products() {
                       onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
                       placeholder="Escanea o escribe el código"
                     />
+                  </div>
+
+                  <div className="form-toggle-card" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <label style={{ flex: 1, margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={formData.show_description}
+                        onChange={(e) => setFormData({ ...formData, show_description: e.target.checked })}
+                      />
+                      <span className="toggle-card-title">Mostrar descripción en la tienda</span>
+                    </label>
+                  </div>
+
+                  <div className="form-toggle-card" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <label style={{ flex: 1, margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={formData.show_prep_time}
+                        onChange={(e) => setFormData({ ...formData, show_prep_time: e.target.checked })}
+                      />
+                      <span className="toggle-card-title">Mostrar tiempo de preparación en la tienda</span>
+                    </label>
                   </div>
                 </div>
 

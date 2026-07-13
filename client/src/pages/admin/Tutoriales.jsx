@@ -230,7 +230,7 @@ function Tutoriales() {
           puedes cambiar entre ellas desde ahí.
         </Step>
         <Step n="2" title="Personaliza tu marca">
-          Ve a <strong>Sistema → Colores y QR</strong> para cambiar los colores de tu tienda, subir tu
+          Ve a <strong>Sistema → Configuraciones</strong> para cambiar los colores de tu tienda, subir tu
           logo y generar el código QR que tus clientes pueden escanear.
         </Step>
         <Step n="3" title="Configura la moneda">

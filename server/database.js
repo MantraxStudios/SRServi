@@ -1203,6 +1203,15 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE products ADD COLUMN complements_private BOOLEAN NOT NULL DEFAULT FALSE');
         console.log('✅ Columna complements_private agregada a products');
       }
+      const prodColNames = prodCols.map(c => c.Field);
+      if (!prodColNames.includes('show_description')) {
+        await pool.execute('ALTER TABLE products ADD COLUMN show_description BOOLEAN NOT NULL DEFAULT TRUE');
+        console.log('✅ Columna show_description agregada a products');
+      }
+      if (!prodColNames.includes('show_prep_time')) {
+        await pool.execute('ALTER TABLE products ADD COLUMN show_prep_time BOOLEAN NOT NULL DEFAULT TRUE');
+        console.log('✅ Columna show_prep_time agregada a products');
+      }
     } catch (err) {
       console.error('❌ Error migrando lista única (owner_product_id):', err.message);
     }
@@ -1378,6 +1387,10 @@ async function migrateTables() {
       if (!userColNames.includes('chatgpt_api_key')) {
         await pool.execute('ALTER TABLE users ADD COLUMN chatgpt_api_key VARCHAR(255) DEFAULT NULL');
         console.log('✅ Columna chatgpt_api_key agregada a users');
+      }
+      if (!userColNames.includes('trial_claimed_at')) {
+        await pool.execute('ALTER TABLE users ADD COLUMN trial_claimed_at TIMESTAMP NULL DEFAULT NULL');
+        console.log('✅ Columna trial_claimed_at agregada a users');
       }
     } catch (err) {
       if (err.message.includes('Duplicate column')) {
@@ -2135,7 +2148,8 @@ export async function getStores(userId) {
       'SELECT * FROM stores WHERE user_id = ? ORDER BY name',
       [userId]
     );
-    return rows;
+    const lockedIds = await getLockedStoreIds(userId);
+    return rows.map(s => ({ ...s, is_locked: lockedIds.has(s.id) }));
   } else {
     const [rows] = await pool.execute('SELECT * FROM stores ORDER BY name');
     return rows;
@@ -3447,12 +3461,14 @@ export async function getProducts(storeId) {
 }
 
 export async function createProduct(storeId, data) {
-  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients } = data;
+  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time } = data;
+  const showDescription = show_description !== false;
+  const showPrepTime = show_prep_time !== false;
 
   const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO products (store_id, user_id, category_id, name, barcode, description, price, image, has_extras, has_ingredients, max_extras, max_ingredients) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, category_id || null, name, barcode || null, description || null, price, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0]
+    'INSERT INTO products (store_id, user_id, category_id, name, barcode, description, price, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, category_id || null, name, barcode || null, description || null, price, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, showDescription ? 1 : 0, showPrepTime ? 1 : 0]
   );
   const productId = result.insertId;
 
@@ -3469,6 +3485,8 @@ export async function createProduct(storeId, data) {
     has_ingredients: !!has_ingredients,
     max_extras: parseInt(max_extras) || 0,
     max_ingredients: parseInt(max_ingredients) || 0,
+    show_description: showDescription,
+    show_prep_time: showPrepTime,
     stock: 0,
     unlimited_stock: true,
     ingredients: await getProductIngredients(productId, category_id),
@@ -3478,11 +3496,13 @@ export async function createProduct(storeId, data) {
 }
 
 export async function updateProduct(productId, storeId, data) {
-  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients } = data;
+  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time } = data;
+  const showDescription = show_description !== false;
+  const showPrepTime = show_prep_time !== false;
 
   await pool.execute(
-    'UPDATE products SET name = ?, barcode = ?, description = ?, price = ?, category_id = ?, image = ?, has_extras = ?, has_ingredients = ?, max_extras = ?, max_ingredients = ? WHERE id = ? AND store_id = ?',
-    [name, barcode || null, description || null, price, category_id || null, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, productId, storeId]
+    'UPDATE products SET name = ?, barcode = ?, description = ?, price = ?, category_id = ?, image = ?, has_extras = ?, has_ingredients = ?, max_extras = ?, max_ingredients = ?, show_description = ?, show_prep_time = ? WHERE id = ? AND store_id = ?',
+    [name, barcode || null, description || null, price, category_id || null, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, showDescription ? 1 : 0, showPrepTime ? 1 : 0, productId, storeId]
   );
 
   // Get current stock from inventory
@@ -3505,6 +3525,8 @@ export async function updateProduct(productId, storeId, data) {
     has_ingredients: !!has_ingredients,
     max_extras: parseInt(max_extras) || 0,
     max_ingredients: parseInt(max_ingredients) || 0,
+    show_description: showDescription,
+    show_prep_time: showPrepTime,
     stock: parseInt(stock) || 0,
     unlimited_stock: !!unlimited_stock,
     ingredients: await getProductIngredients(productId, category_id),
@@ -3655,6 +3677,8 @@ export async function getPublicProducts(storeId) {
       has_ingredients: !!product.has_ingredients,
       max_extras: parseInt(product.max_extras) || 0,
       max_ingredients: parseInt(product.max_ingredients) || 0,
+      show_description: product.show_description !== 0 && product.show_description !== false,
+      show_prep_time: product.show_prep_time !== 0 && product.show_prep_time !== false,
       ingredients: await getProductIngredients(product.id, product.category_id),
       extras: await getProductExtras(product.id, product.category_id),
       complement_groups: await getProductComplementGroups(product.id)
@@ -5159,6 +5183,73 @@ export async function assignPremiumByAdmin(userId, planId, forever, endsAtDate) 
   );
 
   return { success: true, plan: plan.name, ends_at: endsAt };
+}
+
+// ─── Trial gratis (3 meses de SOLO, self-service, sin tarjeta) ───────────────
+
+export async function hasClaimedTrial(userId) {
+  const [rows] = await pool.execute('SELECT trial_claimed_at FROM users WHERE id = ?', [userId]);
+  return !!rows[0]?.trial_claimed_at;
+}
+
+export async function claimFreeTrial(userId) {
+  const alreadyClaimed = await hasClaimedTrial(userId);
+  if (alreadyClaimed) {
+    throw new Error('Ya reclamaste tu prueba gratis anteriormente');
+  }
+
+  const [soloPlanRows] = await pool.execute("SELECT id FROM plans WHERE name = 'SOLO' LIMIT 1");
+  if (soloPlanRows.length === 0) {
+    throw new Error('Plan SOLO no configurado');
+  }
+
+  const endsAt = new Date();
+  endsAt.setMonth(endsAt.getMonth() + 3);
+
+  const result = await assignPremiumByAdmin(userId, soloPlanRows[0].id, false, endsAt);
+  await pool.execute('UPDATE users SET trial_claimed_at = NOW() WHERE id = ?', [userId]);
+
+  return result;
+}
+
+// Vuelve al usuario a Gratis de inmediato (cancelación self-service).
+export async function cancelUserPlan(userId) {
+  const [gratisPlanRows] = await pool.execute("SELECT id FROM plans WHERE name = 'Gratis' LIMIT 1");
+  if (gratisPlanRows.length === 0) {
+    throw new Error('Plan Gratis no configurado');
+  }
+
+  await pool.execute('UPDATE user_plans SET is_active = FALSE WHERE user_id = ?', [userId]);
+  await pool.execute(
+    'INSERT INTO user_plans (user_id, plan_id, billing_cycle, ends_at) VALUES (?, ?, ?, ?)',
+    [userId, gratisPlanRows[0].id, 'forever', new Date('2037-12-31T23:59:59')]
+  );
+
+  return { success: true };
+}
+
+// ─── Bloqueo de tiendas por límite de plan ───────────────────────────────────
+// Si el usuario tiene más tiendas que max_stores de su plan activo (ej. al
+// vencer un trial), las MÁS NUEVAS por encima del límite quedan bloqueadas —
+// las primeras que creó (bajo el plan original) siguen usables.
+
+export async function getLockedStoreIds(userId) {
+  const plan = await getUserPlan(userId);
+  const maxStores = plan?.max_stores ?? 2;
+
+  const [stores] = await pool.execute(
+    'SELECT id FROM stores WHERE user_id = ? ORDER BY created_at ASC',
+    [userId]
+  );
+
+  return new Set(stores.slice(maxStores).map(s => s.id));
+}
+
+export async function isStoreLocked(storeId) {
+  const [rows] = await pool.execute('SELECT user_id FROM stores WHERE id = ?', [storeId]);
+  if (rows.length === 0) return false;
+  const locked = await getLockedStoreIds(rows[0].user_id);
+  return locked.has(storeId);
 }
 
 export async function getAnalytics(storeId, dateRange = 'week', startDate = null, endDate = null) {

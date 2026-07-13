@@ -15,6 +15,8 @@ import {
   faCreditCard,
   faBuilding,
   faStar,
+  faGift,
+  faBan,
 } from '@fortawesome/free-solid-svg-icons';
 
 const PLAN_META = {
@@ -63,6 +65,9 @@ function Plans() {
   const [billingCycle, setBillingCycle] = useState('monthly');
   const [message, setMessage] = useState(null);
   const [mpLoading, setMpLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [claimingTrial, setClaimingTrial] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const scriptLoaded = useRef(false);
 
   useEffect(() => {
@@ -141,7 +146,56 @@ function Plans() {
     }
   };
 
+  const handleClaimTrial = async () => {
+    setClaimingTrial(true);
+    setMessage(null);
+    try {
+      const response = await fetch(API + '/api/claim-trial', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage({ type: 'error', text: data.error || 'No se pudo activar la prueba gratis' });
+        return;
+      }
+      setMessage({ type: 'success', text: data.message });
+      fetchMyPlan();
+    } catch {
+      setMessage({ type: 'error', text: 'Error al activar la prueba gratis' });
+    } finally {
+      setClaimingTrial(false);
+    }
+  };
+
+  const handleCancelPlan = async () => {
+    if (!window.confirm('¿Seguro que querés cancelar tu suscripción? Volverás al plan Gratis de inmediato.')) return;
+    setCancelling(true);
+    setMessage(null);
+    try {
+      const response = await fetch(API + '/api/cancel-plan', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage({ type: 'error', text: data.error || 'No se pudo cancelar la suscripción' });
+        return;
+      }
+      setMessage({ type: 'success', text: data.message });
+      fetchMyPlan();
+    } catch {
+      setMessage({ type: 'error', text: 'Error al cancelar la suscripción' });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const handleSubscribe = async (planId) => {
+    if (!termsAccepted) {
+      setMessage({ type: 'error', text: 'Tenés que aceptar los términos antes de continuar' });
+      return;
+    }
     setSubscribing(planId);
     setMessage(null);
     setMpLoading(true);
@@ -248,7 +302,43 @@ function Plans() {
             style={{ width: `${usagePercent}%`, background: currentMeta.gradient }}
           />
         </div>
+        {getCurrentPlanName() !== 'Gratis' && (
+          <button
+            onClick={handleCancelPlan}
+            disabled={cancelling}
+            className="plans-cancel-btn"
+          >
+            {cancelling ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faBan} />}
+            {' '}{cancelling ? 'Cancelando...' : 'Cancelar suscripción'}
+          </button>
+        )}
       </div>
+
+      {/* Banner de prueba gratis */}
+      {!myPlan?.has_claimed_trial && getCurrentPlanName() === 'Gratis' && (
+        <div className="plans-trial-banner">
+          <div className="plans-trial-banner-text">
+            <FontAwesomeIcon icon={faGift} style={{ fontSize: 22, marginRight: 10 }} />
+            <div>
+              <strong>Probá el plan SOLO gratis por 3 meses</strong>
+              <p style={{ margin: '2px 0 0', fontSize: 13, opacity: 0.85 }}>Sin tarjeta, sin compromiso. Se activa al instante.</p>
+            </div>
+          </div>
+          <button onClick={handleClaimTrial} disabled={claimingTrial} className="plans-trial-btn">
+            {claimingTrial ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Reclamar ahora'}
+          </button>
+        </div>
+      )}
+
+      {/* Términos y condiciones (obligatorio antes de pagar) */}
+      <label className="plans-terms-check">
+        <input
+          type="checkbox"
+          checked={termsAccepted}
+          onChange={(e) => setTermsAccepted(e.target.checked)}
+        />
+        <span>Acepto los términos y condiciones: una vez confirmado el pago, <strong>no habrá devolución</strong>.</span>
+      </label>
 
       {/* Plans grid */}
       <div className="plans-grid">
@@ -319,12 +409,14 @@ function Plans() {
                 {/* CTA */}
                 <button
                   onClick={() => !currentPlan && !isFree && handleSubscribe(plan.id)}
-                  disabled={currentPlan || subscribing === plan.id || isFree}
+                  disabled={currentPlan || subscribing === plan.id || isFree || !termsAccepted}
                   className="plan-subscribe-btn"
+                  title={!currentPlan && !isFree && !termsAccepted ? 'Aceptá los términos y condiciones primero' : undefined}
                   style={{
                     background: currentPlan || isFree ? '#f3f4f6' : meta.gradient,
                     color: currentPlan || isFree ? '#9ca3af' : '#fff',
-                    cursor: currentPlan || isFree || subscribing === plan.id ? 'default' : 'pointer',
+                    opacity: (!currentPlan && !isFree && !termsAccepted) ? 0.5 : 1,
+                    cursor: currentPlan || isFree || subscribing === plan.id || !termsAccepted ? 'default' : 'pointer',
                   }}
                 >
                   {subscribing === plan.id ? (

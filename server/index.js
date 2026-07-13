@@ -165,6 +165,10 @@ import {
   assignPlanToUser,
   assignPremiumByAdmin,
   getPlanById,
+  hasClaimedTrial,
+  claimFreeTrial,
+  cancelUserPlan,
+  isStoreLocked,
   getAnalytics,
   getSalesByDay,
   getTopProducts,
@@ -1237,11 +1241,18 @@ app.get('/api/public/:code', async (req, res) => {
     }
     
     if (store.is_banned) {
-      return res.status(403).json({ 
-        error: 'Esta tienda ha sido suspendida. Contacta a soporte@srautomatic.com para la apelación. La revisión puede demorar entre 1 semana y 1 mes.' 
+      return res.status(403).json({
+        error: 'Esta tienda ha sido suspendida. Contacta a soporte@srautomatic.com para la apelación. La revisión puede demorar entre 1 semana y 1 mes.'
       });
     }
-    
+
+    if (await isStoreLocked(store.id)) {
+      return res.status(403).json({
+        error: 'Esta tienda no está disponible: supera el límite de tiendas de tu plan actual. Actualizá tu plan para reactivarla.',
+        locked_by_plan: true
+      });
+    }
+
     const products = await getPublicProducts(store.id);
     const categories = await getCategories(store.id);
     const openRegister = await getOpenCashRegister(store.id);
@@ -2312,7 +2323,9 @@ app.post('/api/public/:code/products', upload.single('image'), async (req, res) 
       has_extras: req.body.has_extras === 'true' || req.body.has_extras === true,
       has_ingredients: req.body.has_ingredients === 'true' || req.body.has_ingredients === true,
       max_extras: parseInt(req.body.max_extras) || 0,
-      max_ingredients: parseInt(req.body.max_ingredients) || 0
+      max_ingredients: parseInt(req.body.max_ingredients) || 0,
+      show_description: req.body.show_description !== 'false' && req.body.show_description !== false,
+      show_prep_time: req.body.show_prep_time !== 'false' && req.body.show_prep_time !== false
     });
 
     const [updInv] = await pool.execute('UPDATE inventory SET unlimited_stock = 1 WHERE product_id = ?', [product.id]);
@@ -2351,7 +2364,9 @@ app.put('/api/public/:code/products/:id', upload.single('image'), async (req, re
       has_extras: req.body.has_extras === 'true' || req.body.has_extras === true,
       has_ingredients: req.body.has_ingredients === 'true' || req.body.has_ingredients === true,
       max_extras: parseInt(req.body.max_extras) || 0,
-      max_ingredients: parseInt(req.body.max_ingredients) || 0
+      max_ingredients: parseInt(req.body.max_ingredients) || 0,
+      show_description: req.body.show_description !== 'false' && req.body.show_description !== false,
+      show_prep_time: req.body.show_prep_time !== 'false' && req.body.show_prep_time !== false
     });
     emitProductUpdate(auth.store.id, 'product_updated', product);
     res.json(product);
@@ -2481,8 +2496,10 @@ app.get('/api/my-plan', authenticateToken, async (req, res) => {
   try {
     const plan = await getUserPlan(req.user.id);
     const storeInfo = await canUserCreateStore(req.user.id);
-    res.json({ 
+    const hasTrial = await hasClaimedTrial(req.user.id);
+    res.json({
       plan,
+      has_claimed_trial: hasTrial,
       ...storeInfo
     });
   } catch (error) {
@@ -2494,6 +2511,24 @@ app.get('/api/can-create-store', authenticateToken, async (req, res) => {
   try {
     const canCreate = await canUserCreateStore(req.user.id);
     res.json(canCreate);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/claim-trial', authenticateToken, async (req, res) => {
+  try {
+    const result = await claimFreeTrial(req.user.id);
+    res.json({ success: true, message: `¡Listo! Activamos 3 meses gratis del plan ${result.plan}`, ...result });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.post('/api/cancel-plan', authenticateToken, async (req, res) => {
+  try {
+    await cancelUserPlan(req.user.id);
+    res.json({ success: true, message: 'Tu suscripción fue cancelada. Volviste al plan Gratis.' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -6509,7 +6544,7 @@ app.post('/api/products/excel-import', authenticateToken, async (req, res) => {
 
 app.post('/api/products', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, barcode, description, price, category_id, has_extras, has_ingredients, max_extras, max_ingredients } = req.body;
+    const { store_id, name, barcode, description, price, category_id, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time } = req.body;
 
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
@@ -6535,7 +6570,9 @@ app.post('/api/products', authenticateToken, upload.single('image'), async (req,
       has_extras: has_extras === 'true' || has_extras === true,
       has_ingredients: has_ingredients === 'true' || has_ingredients === true,
       max_extras: parseInt(max_extras) || 0,
-      max_ingredients: parseInt(max_ingredients) || 0
+      max_ingredients: parseInt(max_ingredients) || 0,
+      show_description: show_description !== 'false' && show_description !== false,
+      show_prep_time: show_prep_time !== 'false' && show_prep_time !== false
     });
 
     // Secciones dinámicas asignadas
@@ -6556,7 +6593,7 @@ app.post('/api/products', authenticateToken, upload.single('image'), async (req,
 
 app.put('/api/products/:id', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, barcode, description, price, category_id, has_extras, has_ingredients, max_extras, max_ingredients } = req.body;
+    const { store_id, name, barcode, description, price, category_id, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time } = req.body;
 
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
@@ -6590,7 +6627,9 @@ app.put('/api/products/:id', authenticateToken, upload.single('image'), async (r
       has_extras: has_extras === 'true' || has_extras === true,
       has_ingredients: has_ingredients === 'true' || has_ingredients === true,
       max_extras: parseInt(max_extras) || 0,
-      max_ingredients: parseInt(max_ingredients) || 0
+      max_ingredients: parseInt(max_ingredients) || 0,
+      show_description: show_description !== 'false' && show_description !== false,
+      show_prep_time: show_prep_time !== 'false' && show_prep_time !== false
     });
 
     // Secciones dinámicas asignadas
