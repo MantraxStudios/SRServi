@@ -667,20 +667,20 @@ export default function InstagramAuto() {
               <span style={{ fontSize: 10, fontWeight: 700, background: '#D4AF37', color: '#fff', padding: '2px 7px', borderRadius: 99 }}>NUEVO</span>
             </div>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 12px' }}>
-              Una IA de imágenes (open source, corre en el servidor) crea un fondo profesional para tu promoción o cupón, sin plantillas fijas.
+              La IA crea un fondo profesional para tu promoción o cupón, sin plantillas fijas.
             </p>
 
             {aiStatus && aiStatus.status !== 'ok' && (
               <div style={{ padding: '8px 12px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', marginBottom: 12 }}>
                 <p style={{ margin: 0, fontSize: 12, color: '#dc2626' }}>
-                  <FontAwesomeIcon icon={faExclamationTriangle} /> Servicio de IA no disponible en este momento.
+                  <FontAwesomeIcon icon={faExclamationTriangle} /> No se pudo generar la imagen en este momento. Probá de nuevo en unos minutos.
                 </p>
               </div>
             )}
             {aiStatus?.loading && (
               <div style={{ padding: '8px 12px', borderRadius: 8, background: '#eff6ff', border: '1px solid #bfdbfe', marginBottom: 12 }}>
                 <p style={{ margin: 0, fontSize: 12, color: '#1d4ed8' }}>
-                  <FontAwesomeIcon icon={faSpinner} spin /> Descargando/cargando el modelo de IA (puede tardar varios minutos, solo la primera vez)...
+                  <FontAwesomeIcon icon={faSpinner} spin /> La IA se está preparando (solo la primera vez, puede tardar unos minutos)...
                 </p>
               </div>
             )}

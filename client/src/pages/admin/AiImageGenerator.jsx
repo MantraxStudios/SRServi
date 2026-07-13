@@ -151,7 +151,7 @@ export default function AiImageGenerator() {
       {status?.loading && (
         <div style={{ padding: '10px 14px', borderRadius: 10, background: '#eff6ff', border: '1px solid #bfdbfe', marginBottom: 16 }}>
           <p style={{ margin: 0, fontSize: 13, color: '#1d4ed8' }}>
-            <FontAwesomeIcon icon={faSpinner} spin /> Descargando/cargando el modelo de IA (puede tardar varios minutos, solo la primera vez)...
+            <FontAwesomeIcon icon={faSpinner} spin /> La IA se está preparando (solo la primera vez, puede tardar unos minutos)...
           </p>
         </div>
       )}
@@ -220,8 +220,9 @@ export default function AiImageGenerator() {
             <h3 style={{ ...s.cardTitle, color: '#374151' }}>¿Cómo funciona?</h3>
             <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
-                'Modelo de IA open source (SD-Turbo), corre en tu propio servidor — sin costo por imagen.',
+                'Describí lo que querés ver y la IA te genera una imagen lista para usar.',
                 'Generá cualquier imagen: productos, banners, fondos para redes, lo que necesites.',
+                'Elegí el formato (cuadrada, vertical u horizontal) según dónde la vayas a usar.',
                 'Cada imagen queda en tu galería de esta sesión para descargar cuando quieras.',
                 'Para promociones con cupones, usá la sección Instagram Auto-Post.',
               ].map((t, i) => (
