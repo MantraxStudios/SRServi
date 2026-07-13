@@ -2113,6 +2113,9 @@ h1, h2, h3, h4, h5, h6 {
    Store Page (Customer facing)
    ============================================ */
 .store-container {
+  /* Evita que el navegador (force-dark en Android/Chrome) invierta colores
+     de elementos con fondo oscuro y texto claro, como .cart-bar. */
+  color-scheme: light;
   /* Kiosk palette (Sabor Express style) */
   --kiosk-bg: #FAF4E9;
   --kiosk-card: #ffffff;
@@ -2157,7 +2160,10 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
+  /* No crece: si tuviera flex:1 dejaría un hueco vacío antes del saludo
+     (el nombre queda angosto pero la caja se estira igual). Con esto el
+     saludo queda pegado al nombre en mobile/tablet. */
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -2191,6 +2197,7 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 /* Saludo estilo kiosko: "¡Hola! 👋 / Elige lo que más se te antoje" —
@@ -3190,6 +3197,7 @@ html body .store-container .store-product-card * {
   right: 16px;
   max-width: 680px;
   margin: 0 auto;
+  color-scheme: dark;
   background: #26232B;
   display: flex;
   align-items: center;
