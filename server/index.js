@@ -20,7 +20,8 @@ import nodemailer from 'nodemailer';
 import * as XLSX from 'xlsx';
 import PluginManager from './plugins/PluginManager.js';
 import { initLeonIA } from './leon_ia/autostart.js';
-import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
+import { generatePromoImage, generateAiPromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
+import { getAiImageStatus, generateAiImage } from './ai-image-client.js';
 import { initInstagramService } from './instagram_autostart.js';
 
 import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings, createFeedbackCampaign, createFeedbackToken, getFeedbackToken, submitFeedbackResponse, updateCampaignSentCount, getFeedbackCampaigns, getFeedbackResponses, getAllActiveUsersForFeedback, createTotemRental, getTotemRentalByUser, updateTotemRentalMpPreference, updateTotemRentalPayment, markTotemRentalInstalled, updateTotemRentalStatus, updateTotemSubscriptionStatus, getAllTotemRentals, logTotemPayment, createSalesLead, findRecentSalesLead, updateSalesLead, getSalesLeads, getSalesLeadStats, updateSalesLeadStatus, deleteSalesLead } from './database.js';
@@ -11851,6 +11852,99 @@ async function startServer() {
       }
     });
 
+    // Estado del servicio de generación de imágenes con IA (modelo open source SD-Turbo)
+    app.get('/api/instagram/:storeId/ai-status', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        res.json(await getAiImageStatus());
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Preview de imagen promocional generada con IA (fondo) + cupón/producto (overlay)
+    app.get('/api/instagram/:storeId/ai-preview', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const [topProds] = await pool.execute(
+          `SELECT p.id,p.name,p.description,p.price,p.image,COUNT(oi.id) AS sales
+           FROM products p LEFT JOIN order_items oi ON oi.product_id=p.id
+           WHERE p.store_id=? GROUP BY p.id ORDER BY sales DESC LIMIT 5`,
+          [req.params.storeId]
+        );
+        const [coupons] = await pool.execute(
+          'SELECT * FROM coupons WHERE store_id=? AND is_active=TRUE ORDER BY discount_value DESC LIMIT 3',
+          [req.params.storeId]
+        );
+        const prompt = typeof req.query.prompt === 'string' && req.query.prompt.trim() ? req.query.prompt.trim() : null;
+        const buf = await generateAiPromoImage({ store, topProducts: topProds, coupons, currencySymbol: store.currency_symbol || '$', prompt });
+        res.setHeader('Content-Type', 'image/jpeg');
+        res.send(buf);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Publica en Instagram una imagen promocional generada con IA
+    app.post('/api/instagram/:storeId/ai-post-now', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const cfg = await getInstagramConfig(req.params.storeId);
+        if (!cfg?.ig_username || !cfg?.ig_password) return res.status(400).json({ error: 'Configura usuario y contraseña primero' });
+        if (!cfg.ig_connected) return res.status(400).json({ error: 'Debes conectar tu cuenta de Instagram primero' });
+        const [topProds] = await pool.execute(
+          `SELECT p.id,p.name,p.description,p.price,p.image,COUNT(oi.id) AS sales
+           FROM products p LEFT JOIN order_items oi ON oi.product_id=p.id
+           WHERE p.store_id=? GROUP BY p.id ORDER BY sales DESC LIMIT 5`,
+          [req.params.storeId]
+        );
+        const [coupons] = await pool.execute(
+          'SELECT * FROM coupons WHERE store_id=? AND is_active=TRUE ORDER BY discount_value DESC LIMIT 3',
+          [req.params.storeId]
+        );
+        const prompt = typeof req.body?.prompt === 'string' && req.body.prompt.trim() ? req.body.prompt.trim() : null;
+        const buf = await generateAiPromoImage({ store, topProducts: topProds, coupons, currencySymbol: store.currency_symbol || '$', prompt });
+        const caption = req.body?.caption || cfg.caption_template || `✨ ${store.name} ✨\n\n🔥 Mirá nuestras ofertas y los más pedidos de la semana.\n\n📲 Pedí en: ${BASE_URL}/store/${store.code}\n\n#${store.name.replace(/\s+/g,'')} #SRServi`;
+        await postToInstagram({ storeId: req.params.storeId, imageBuffer: buf, caption });
+        await updateInstagramPosted(req.params.storeId, null);
+        res.json({ ok: true });
+      } catch (e) {
+        await updateInstagramPosted(req.params.storeId, e.message).catch(() => {});
+        res.status(500).json({ error: e.message });
+      }
+    });
+
+    // ─── Generador de imágenes con IA de uso general (no atado a Instagram/cupones) ───
+
+    app.get('/api/ai-image/status', authenticateToken, async (req, res) => {
+      try {
+        res.json(await getAiImageStatus());
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/ai-image/generate', authenticateToken, async (req, res) => {
+      try {
+        const { store_id, prompt, negative_prompt, width, height } = req.body || {};
+        if (!store_id) return res.status(400).json({ error: 'Store ID es requerido' });
+        if (!prompt || !prompt.trim()) return res.status(400).json({ error: 'La descripción es requerida' });
+        const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+        if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+
+        const ALLOWED_DIMS = [512, 768, 896];
+        const w = ALLOWED_DIMS.includes(parseInt(width)) ? parseInt(width) : 512;
+        const h = ALLOWED_DIMS.includes(parseInt(height)) ? parseInt(height) : 512;
+
+        const buf = await generateAiImage({
+          prompt: prompt.trim(),
+          negativePrompt: typeof negative_prompt === 'string' ? negative_prompt : undefined,
+          width: w,
+          height: h,
+          steps: 2,
+        });
+        res.setHeader('Content-Type', 'image/png');
+        res.send(buf);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
     // Start Instagram login (handles personal accounts + 2FA + challenge)
     app.post('/api/instagram/:storeId/connect', authenticateToken, async (req, res) => {
       try {
@@ -13779,6 +13873,14 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     // En Windows/Mac se puede forzar con LEON_AUTOSTART=1 en el .env
     if (process.platform === 'linux' || process.env.LEON_AUTOSTART === '1') {
       initLeonIA().catch(e => console.warn('[León IA] Error autostart:', e.message));
+    }
+
+    // Servicio de generación de imágenes con IA (SD-Turbo, open source) — descarga
+    // el modelo (~2-3GB) la primera vez. En Windows/Mac se fuerza con AI_IMAGE_AUTOSTART=1
+    if (process.platform === 'linux' || process.env.AI_IMAGE_AUTOSTART === '1') {
+      import('./ai_image/autostart.js')
+        .then(({ initAiImageService }) => initAiImageService())
+        .catch(e => console.warn('[AI-Image] Error autostart:', e.message));
     }
   } catch (error) {
     console.error('Error al iniciar el servidor:', error);

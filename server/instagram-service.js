@@ -1,4 +1,5 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { generateAiImage } from './ai-image-client.js';
 
 const S = 1080;
 const BASE_URL = 'https://srservi2.srautomatic.com';
@@ -753,7 +754,98 @@ async function tpl5_split(ctx, store, products, coupons, sym, accent, primary) {
   ctx.fillText(`${BASE_URL}/store/${code}  ·  Powered by SRAutomatic`, S / 2, footY + 28);
 }
 
+// ─── Template IA — fondo generado por IA (SD-Turbo) + overlay de cupón ───────
+
+function buildAiPromoPrompt(store, coupon, products) {
+  const productNames = (products || []).slice(0, 2).map(p => p.name).filter(Boolean).join(' y ');
+  const subject = coupon
+    ? `promoción de descuento ${productNames ? `en ${productNames}` : 'para un negocio de comida'}`
+    : (productNames || 'comida y bebidas apetitosas');
+  return `fotografía publicitaria profesional para redes sociales, ${subject}, `
+    + `iluminación cálida, colores vibrantes, composición apetitosa, alta calidad, estilo comercial`;
+}
+
+async function tplAI_generated(ctx, store, products, coupons, sym, accent, primary, aiPrompt) {
+  const name   = store.name || store.store_name || 'Mi Tienda';
+  const code   = store.code || store.store_code || '';
+  const active = (coupons || []).filter(c => c.is_active)[0] || null;
+
+  const prompt = aiPrompt || buildAiPromoPrompt(store, active, products);
+  let bgImg = null;
+  try {
+    const buf = await generateAiImage({ prompt, width: 512, height: 512, steps: 2 });
+    bgImg = await loadImage(buf);
+  } catch {
+    bgImg = null;
+  }
+
+  if (bgImg) {
+    const aspect = bgImg.width / bgImg.height;
+    let dw, dh;
+    if (aspect > 1) { dh = S; dw = dh * aspect; } else { dw = S; dh = dw / aspect; }
+    ctx.drawImage(bgImg, (S - dw) / 2, (S - dh) / 2, dw, dh);
+  } else {
+    // Fallback si el servicio de IA no está disponible: degradado de marca
+    const g = ctx.createLinearGradient(0, 0, S, S);
+    g.addColorStop(0, primary); g.addColorStop(1, accent);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+  }
+
+  // Overlays oscuros arriba/abajo para legibilidad del texto sobre la foto IA
+  const topOv = ctx.createLinearGradient(0, 0, 0, 260);
+  topOv.addColorStop(0, 'rgba(0,0,0,0.65)'); topOv.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = topOv; ctx.fillRect(0, 0, S, 260);
+
+  const botOv = ctx.createLinearGradient(0, S - 380, 0, S);
+  botOv.addColorStop(0, 'rgba(0,0,0,0)'); botOv.addColorStop(1, 'rgba(0,0,0,0.82)');
+  ctx.fillStyle = botOv; ctx.fillRect(0, S - 380, S, 380);
+
+  await drawLogo(ctx, store, 90, 90, 96, accent, contrastColor(accent));
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 40px sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(trunc(name, 20), 150, 90);
+
+  if (active) {
+    const discount = active.discount_type === 'percent' ? `${active.discount_value}%` : `${sym}${active.discount_value}`;
+    ctx.fillStyle = accent; ctx.font = 'bold 96px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(discount, S / 2, S - 240);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 26px sans-serif';
+    ctx.fillText('DE DESCUENTO', S / 2, S - 200);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = 'bold 22px sans-serif';
+    ctx.fillText(trunc(active.name, 40), S / 2, S - 160);
+
+    const codeText = `CÓDIGO: ${active.code}`;
+    ctx.font = 'bold 24px sans-serif';
+    const cW = ctx.measureText(codeText).width + 40;
+    ctx.fillStyle = accent; rr(ctx, S / 2 - cW / 2, S - 130, cW, 46, 23); ctx.fill();
+    ctx.fillStyle = contrastColor(accent); ctx.textBaseline = 'middle';
+    ctx.fillText(codeText, S / 2, S - 107);
+  } else {
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 34px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(`✨ NUEVO EN ${trunc(name, 18).toUpperCase()}`, S / 2, S - 150);
+  }
+
+  ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '16px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(`${BASE_URL}/store/${code}  ·  Powered by SRAutomatic`, S / 2, S - 36);
+}
+
 // ─── main export ──────────────────────────────────────────────────────────────
+
+export async function generateAiPromoImage({ store, topProducts, coupons, currencySymbol, prompt }) {
+  const canvas = createCanvas(S, S);
+  const ctx    = canvas.getContext('2d');
+
+  const primary = store.primary_color || '#000000';
+  const accent  = store.accent_color  || '#D4AF37';
+  const sym     = currencySymbol || '$';
+
+  await tplAI_generated(ctx, store, topProducts, coupons, sym, accent, primary, prompt);
+
+  return canvas.toBuffer('image/jpeg', { quality: 92 });
+}
 
 export async function generatePromoImage({ store, topProducts, coupons, templateCounter, currencySymbol }) {
   const canvas = createCanvas(S, S);

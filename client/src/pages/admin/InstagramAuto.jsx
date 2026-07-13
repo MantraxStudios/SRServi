@@ -6,7 +6,7 @@ import {
   faSave, faPlay, faEye, faEyeSlash,
   faCheckCircle, faTimesCircle, faSpinner, faDownload,
   faToggleOn, faToggleOff, faClock, faExclamationTriangle,
-  faLink, faUnlink, faShieldAlt, faMobileAlt,
+  faLink, faUnlink, faShieldAlt, faMobileAlt, faMagicWandSparkles,
 } from '@fortawesome/free-solid-svg-icons';
 
 const CSS = `
@@ -96,6 +96,12 @@ export default function InstagramAuto() {
   const [previews, setPreviews]     = useState({ 0: null, 1: null, 2: null });
   const [lastStatus, setLastStatus] = useState(null);
   const [toast, setToast]           = useState(null);
+  // Generación de imágenes con IA (SD-Turbo, open source)
+  const [aiPrompt, setAiPrompt]         = useState('');
+  const [aiPreview, setAiPreview]       = useState(null);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiPosting, setAiPosting]       = useState(false);
+  const [aiStatus, setAiStatus]         = useState(null);
   // verification modal state
   const [verifyModal, setVerifyModal] = useState(null); // null | { type: '2fa'|'challenge', info? }
   const [verifyCode, setVerifyCode]   = useState('');
@@ -117,6 +123,21 @@ export default function InstagramAuto() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+  }, [storeId, token]);
+
+  useEffect(() => {
+    if (!storeId || !token) return;
+    setAiPreview(null);
+    let cancelled = false;
+    const checkStatus = () => {
+      fetch(`${API}/api/instagram/${storeId}/ai-status`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(d => { if (!cancelled) setAiStatus(d); })
+        .catch(() => {});
+    };
+    checkStatus();
+    const interval = setInterval(checkStatus, 10000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [storeId, token]);
 
   const showToast = (msg, type = 'success') => {
@@ -255,6 +276,51 @@ export default function InstagramAuto() {
       setLastStatus(prev => ({ ...prev, last_posted_at: new Date().toISOString(), last_error: null, template_counter: (prev?.template_counter || 0) + 1 }));
     } catch (e) { showToast(e.message, 'error'); }
     finally { setPosting(false); }
+  };
+
+  const generateAiPreview = async () => {
+    if (!storeId) return;
+    setAiGenerating(true);
+    try {
+      const qs = aiPrompt.trim() ? `?prompt=${encodeURIComponent(aiPrompt.trim())}` : '';
+      const res = await fetch(`${API}/api/instagram/${storeId}/ai-preview${qs}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Error generando imagen con IA');
+      const blob = await res.blob();
+      setAiPreview(URL.createObjectURL(blob));
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { setAiGenerating(false); }
+  };
+
+  const downloadAiPreview = () => {
+    if (!aiPreview) return;
+    const a = document.createElement('a');
+    a.href = aiPreview;
+    a.download = `instagram-ia-${selectedStore?.code || 'tienda'}.jpg`;
+    a.click();
+  };
+
+  const postAiNow = async () => {
+    if (!storeId) return;
+    if (!cfg.ig_username || !cfg.ig_password) {
+      showToast('Configura usuario y contraseña primero', 'error');
+      return;
+    }
+    if (!window.confirm('¿Publicar esta imagen generada con IA en Instagram?')) return;
+    setAiPosting(true);
+    try {
+      const res = await fetch(`${API}/api/instagram/${storeId}/ai-post-now`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: aiPrompt.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      showToast('¡Publicado en Instagram!');
+      setLastStatus(prev => ({ ...prev, last_posted_at: new Date().toISOString(), last_error: null }));
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { setAiPosting(false); }
   };
 
   if (!selectedStore) {
@@ -593,6 +659,65 @@ export default function InstagramAuto() {
 
         {/* ── Right: Templates preview ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Generación con IA */}
+          <div style={{ ...s.card, border: '2px solid #D4AF37', background: 'linear-gradient(135deg,#fffbee,#fff)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <FontAwesomeIcon icon={faMagicWandSparkles} style={{ color: '#D4AF37', fontSize: 16 }} />
+              <h3 style={{ ...s.cardTitle, marginBottom: 0 }}>Generado con IA</h3>
+              <span style={{ fontSize: 10, fontWeight: 700, background: '#D4AF37', color: '#fff', padding: '2px 7px', borderRadius: 99 }}>NUEVO</span>
+            </div>
+            <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 12px' }}>
+              Una IA de imágenes (open source, corre en el servidor) crea un fondo profesional para tu promoción o cupón, sin plantillas fijas.
+            </p>
+
+            {aiStatus && aiStatus.status !== 'ok' && (
+              <div style={{ padding: '8px 12px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', marginBottom: 12 }}>
+                <p style={{ margin: 0, fontSize: 12, color: '#dc2626' }}>
+                  <FontAwesomeIcon icon={faExclamationTriangle} /> Servicio de IA no disponible en este momento.
+                </p>
+              </div>
+            )}
+            {aiStatus?.loading && (
+              <div style={{ padding: '8px 12px', borderRadius: 8, background: '#eff6ff', border: '1px solid #bfdbfe', marginBottom: 12 }}>
+                <p style={{ margin: 0, fontSize: 12, color: '#1d4ed8' }}>
+                  <FontAwesomeIcon icon={faSpinner} spin /> Descargando/cargando el modelo de IA (puede tardar varios minutos, solo la primera vez)...
+                </p>
+              </div>
+            )}
+
+            <div style={s.field}>
+              <label style={s.label}>Descripción <span style={{ color: '#9ca3af', fontWeight: 400 }}>(opcional)</span></label>
+              <textarea
+                value={aiPrompt}
+                onChange={e => setAiPrompt(e.target.value)}
+                rows={2}
+                placeholder="Ej: hamburguesa gourmet con papas, fondo colorido y apetitoso"
+                style={{ ...s.input, resize: 'vertical', height: 'auto' }}
+              />
+              <p style={s.hint}>Si lo dejás vacío, se genera automáticamente a partir de tus productos y cupones activos.</p>
+            </div>
+
+            <button onClick={generateAiPreview} disabled={aiGenerating} style={{ ...s.btnSmallPrimary, background: '#D4AF37', width: '100%', justifyContent: 'center', padding: '10px', fontSize: 14, marginBottom: aiPreview ? 10 : 0 }}>
+              {aiGenerating ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faMagicWandSparkles} />}
+              {aiGenerating ? ' Generando imagen...' : ' Generar con IA'}
+            </button>
+
+            {aiPreview && (
+              <>
+                <img src={aiPreview} alt="Preview generado con IA" style={{ width: '100%', display: 'block', borderRadius: 10, marginBottom: 10 }} />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={downloadAiPreview} style={{ ...s.btnSmall, flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <FontAwesomeIcon icon={faDownload} /> Descargar
+                  </button>
+                  <button onClick={postAiNow} disabled={aiPosting || !connected} style={{ ...s.btnInstagram, flex: 1, padding: '9px', fontSize: 13, opacity: (!connected || aiPosting) ? 0.5 : 1 }}>
+                    {aiPosting ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPlay} />}
+                    {aiPosting ? ' Publicando...' : ' Publicar'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
           <div style={s.card}>
             <h3 style={s.cardTitle}>Plantillas disponibles</h3>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 16px' }}>

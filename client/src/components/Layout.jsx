@@ -39,6 +39,7 @@ import {
   faChevronLeft,
   faChevronRight,
   faRobot,
+  faMagicWandSparkles,
   faCopy,
   faClipboardList,
   faWarehouse,
@@ -807,6 +808,10 @@ function Layout() {
                   <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faStore} /> Mi Tienda</div>
                   <NavLink to="/admin/leon-ia" className="isb-fp-link" onClick={() => setSettingsOpen(false)}>
                     <FontAwesomeIcon icon={faRobot} /> León IA
+                    <span style={{ marginLeft: 6, background: '#D4AF37', color: '#000', fontSize: 9, fontWeight: 800, padding: '1px 4px', borderRadius: 4, flexShrink: 0 }}>IA</span>
+                  </NavLink>
+                  <NavLink to="/admin/ai-images" className="isb-fp-link" onClick={() => setSettingsOpen(false)}>
+                    <FontAwesomeIcon icon={faMagicWandSparkles} /> Generador de Imágenes
                     <span style={{ marginLeft: 6, background: '#D4AF37', color: '#000', fontSize: 9, fontWeight: 800, padding: '1px 4px', borderRadius: 4, flexShrink: 0 }}>IA</span>
                   </NavLink>
                   <NavLink to="/admin/market" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faBarcode} /> Market</NavLink>
