@@ -106,6 +106,7 @@ import PluginSlot from '../components/PluginSlot';
 import { PluginProvider } from '../context/PluginContext';
 import { useStore } from '../components/Layout';
 import VirtualKeyboard from '../components/VirtualKeyboard';
+import StoreGuide from '../components/StoreGuide';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -10222,6 +10223,21 @@ function Store() {
           </div>
         );
       })()}
+
+      {/* Asistente-guía de compra (solo en la vista de cliente del tótem) */}
+      {!editMode && !restaurantView && !ticketMode && (
+        <StoreGuide
+          step={
+            paymentModalOpen ? 'payment'
+            : cartOpen ? 'cart'
+            : selectedProduct ? 'product'
+            : cart.length > 0 ? 'has-items'
+            : 'browsing'
+          }
+          cartCount={cart.length}
+          accent={colors.accent}
+        />
+      )}
 
     </PluginProvider>
   );
