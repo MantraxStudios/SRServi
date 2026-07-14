@@ -2653,7 +2653,7 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 12px 6px;
+  padding: 10px 12px 6px;
 }
 
 .category-section-icon {
@@ -2689,8 +2689,8 @@ h1, h2, h3, h4, h5, h6 {
 .products-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  padding: 8px 10px;
+  gap: 6px;
+  padding: 6px 8px;
   justify-items: stretch;
 }
 
@@ -2698,8 +2698,8 @@ h1, h2, h3, h4, h5, h6 {
 @media (min-width: 600px) {
   .products-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    padding: 10px 14px;
+    gap: 8px;
+    padding: 8px 10px;
   }
 }
 
@@ -2707,16 +2707,16 @@ h1, h2, h3, h4, h5, h6 {
 @media (min-width: 900px) {
   .products-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-    padding: 14px 18px;
+    gap: 10px;
+    padding: 10px 14px;
   }
 }
 
 @media (min-width: 1200px) {
   .products-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    padding: 16px 24px;
+    gap: 12px;
+    padding: 12px 18px;
   }
 }
 
@@ -2732,7 +2732,7 @@ h1, h2, h3, h4, h5, h6 {
   overflow: hidden;
   background: var(--kiosk-card, #fff);
   border-radius: 18px;
-  padding: 10px 10px 12px;
+  padding: 6px 6px 8px;
   box-shadow: 0 2px 10px rgba(60, 45, 20, 0.06);
   border: 1px solid rgba(0, 0, 0, 0.02);
   transition: transform var(--transition), box-shadow var(--transition);
@@ -3167,7 +3167,7 @@ html body .store-container .store-product-card * {
 
 /* Phones: 3 columns need compact cards */
 @media (max-width: 480px) {
-  .store-product-wrapper { border-radius: 14px; padding: 7px 7px 9px; }
+  .store-product-wrapper { border-radius: 14px; padding: 5px 5px 6px; }
   .store-product-name { font-size: 12px; }
   .store-product-desc { font-size: 10px; -webkit-line-clamp: 1; }
   .store-product-price { font-size: 13px; }
