@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRobot, faTimes, faPaperPlane, faLightbulb, faVolumeHigh, faVolumeXmark } from '@fortawesome/free-solid-svg-icons';
+import { faRobot, faTimes, faLightbulb, faVolumeHigh, faVolumeXmark } from '@fortawesome/free-solid-svg-icons';
 
 /**
  * Asistente-guía de compra para el tótem (cliente final).
@@ -23,10 +23,12 @@ const CONTEXT_HINTS = {
   payment:   { icon: '✅', text: 'Elige tu método de pago y sigue las instrucciones en pantalla.' },
 };
 
-// Intenciones por reglas: cada una con palabras clave y respuesta guiada.
-const INTENTS = [
-  {
-    keys: ['como compro', 'como pido', 'como hago', 'como funciona', 'empezar', 'comprar', 'realizar', 'pedido', 'como uso'],
+// Flujo 100% guiado por botones (el cliente nunca escribe).
+// Cada opción tiene: label (texto del botón), answer (respuesta guiada)
+// y follow (ids de las opciones que aparecen después para seguir guiando).
+const OPTIONS = {
+  buy: {
+    label: '🛒 ¿Cómo compro?',
     answer:
       'Comprar es muy fácil 😊\n\n' +
       '1️⃣ Toca el producto que quieras.\n' +
@@ -35,9 +37,10 @@ const INTENTS = [
       '4️⃣ Abre el carrito 🛒 para revisar tu pedido.\n' +
       '5️⃣ Elige "Servir aquí" o "Llevar" y toca Pagar.\n\n' +
       '¡Yo te voy guiando en cada paso! 🤖',
+    follow: ['add', 'pay'],
   },
-  {
-    keys: ['agregar', 'agrego', 'añadir', 'anadir', 'sumar', 'carrito como', 'como pongo', 'seleccionar producto'],
+  add: {
+    label: '➕ Agregar un producto',
     answer:
       'Para agregar un producto:\n\n' +
       '1️⃣ Toca la foto o el nombre del producto.\n' +
@@ -45,9 +48,10 @@ const INTENTS = [
       '3️⃣ Ajusta la cantidad si quieres.\n' +
       '4️⃣ Toca el botón "Agregar".\n\n' +
       'Verás cómo el carrito 🛒 suma el producto arriba.',
+    follow: ['pay', 'remove'],
   },
-  {
-    keys: ['pagar', 'pago', 'como pago', 'tarjeta', 'efectivo', 'transferencia', 'qr'],
+  pay: {
+    label: '💳 ¿Cómo pago?',
     answer:
       'Para pagar tu pedido:\n\n' +
       '1️⃣ Abre el carrito 🛒.\n' +
@@ -56,55 +60,48 @@ const INTENTS = [
       '4️⃣ Toca "Pagar".\n' +
       '5️⃣ Elige el método (tarjeta, QR o efectivo) y sigue las instrucciones.\n\n' +
       'Al terminar recibirás tu número de pedido 🎟️',
+    follow: ['here', 'total'],
   },
-  {
-    keys: ['quitar', 'eliminar', 'borrar', 'sacar', 'me equivoque', 'equivoque', 'cambiar cantidad', 'menos'],
+  remove: {
+    label: '➖ Quitar o cambiar algo',
     answer:
       'Para quitar o cambiar algo:\n\n' +
       '1️⃣ Abre el carrito 🛒.\n' +
       '2️⃣ Usa los botones – / + para cambiar la cantidad.\n' +
       '3️⃣ Toca el ícono de basura 🗑️ para eliminar un producto.\n\n' +
       'También puedes vaciar todo y empezar de nuevo.',
+    follow: ['add', 'pay'],
   },
-  {
-    keys: ['servir', 'llevar', 'aqui', 'para llevar', 'comer aqui', 'mesa', 'takeaway'],
+  here: {
+    label: '🍽️ Servir aquí o llevar',
     answer:
       '"Servir aquí" es para comer en el local 🍽️\n' +
       '"Llevar" es para llevarte el pedido 🥡\n\n' +
       'Elige la opción al abrir el carrito, justo antes de pagar. Si es en mesa, puede pedirte el número de mesa.',
+    follow: ['pay', 'total'],
   },
-  {
-    keys: ['total', 'cuanto', 'precio', 'cuesta', 'valor', 'suma'],
+  total: {
+    label: '🧾 Ver el total',
     answer:
       'El total lo ves en el carrito 🛒 (arriba a la derecha).\n\n' +
       'Ahí aparece el detalle de cada producto y el monto a pagar antes de confirmar.',
+    follow: ['pay', 'add'],
   },
-  {
-    keys: ['cancelar', 'empezar de nuevo', 'reiniciar', 'borrar todo', 'vaciar', 'salir'],
+  restart: {
+    label: '🔄 Empezar de nuevo',
     answer:
       'Si quieres empezar de nuevo:\n\n' +
       '1️⃣ Abre el carrito 🛒.\n' +
       '2️⃣ Vacía los productos con el ícono de basura 🗑️.\n\n' +
       'Si no tocas nada por un rato, el tótem vuelve solo al inicio. ¡Tranquilo! 😊',
+    follow: ['buy', 'add'],
   },
-];
+};
 
-const QUICK = ['¿Cómo compro?', '¿Cómo pago?', '¿Cómo agrego algo?', '¿Cómo quito un producto?'];
+// Menú principal (todas las opciones, en orden).
+const MENU_IDS = ['buy', 'add', 'pay', 'remove', 'here', 'total', 'restart'];
 
-const GREETING = '¡Hola! 🤖 Soy tu asistente de compra. Te guío paso a paso para que pidas fácil y rápido. ¿En qué te ayudo?';
-const FALLBACK =
-  'Te ayudo con tu compra 😊\n\n' +
-  '• Toca un producto para agregarlo.\n' +
-  '• Abre el carrito 🛒 para revisar.\n' +
-  '• Toca "Pagar" y elige cómo pagar.\n\n' +
-  'Prueba con: "¿cómo pago?" o "¿cómo agrego algo?"';
-
-function normalize(s) {
-  return (s || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '');
-}
+const GREETING = '¡Hola! 🤖 Soy tu asistente de compra. Te guío paso a paso para que pidas fácil y rápido. Toca una opción de abajo 👇';
 
 // ---- Text-to-Speech (voz que guía la venta) ----
 const TTS_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
@@ -133,23 +130,11 @@ function pickSpanishVoice() {
   return voices.find((x) => (x.lang || '').toLowerCase().startsWith('es')) || null;
 }
 
-function matchIntent(text) {
-  const t = normalize(text);
-  let best = null;
-  let bestScore = 0;
-  for (const intent of INTENTS) {
-    const score = intent.keys.reduce((acc, k) => acc + (t.includes(normalize(k)) ? 1 : 0), 0);
-    if (score > bestScore) { bestScore = score; best = intent; }
-  }
-  return bestScore > 0 ? best.answer : FALLBACK;
-}
-
 export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = '#D4AF37' }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([{ role: 'bot', text: GREETING }]);
-  const [input, setInput] = useState('');
+  const [suggestions, setSuggestions] = useState(MENU_IDS);
   const [hintDismissed, setHintDismissed] = useState(false);
-  const [showQuick, setShowQuick] = useState(true);
   const [muted, setMuted] = useState(() => {
     if (typeof localStorage === 'undefined') return false;
     return localStorage.getItem('sg_tts_muted') === '1';
@@ -158,6 +143,7 @@ export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = 
   const lastStepRef = useRef(step);
   const mutedRef = useRef(muted);
   const voiceRef = useRef(null);
+  const greetedRef = useRef(false);
 
   const hint = CONTEXT_HINTS[step] || null;
 
@@ -216,17 +202,26 @@ export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = 
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [messages, open]);
 
-  const send = (text) => {
-    const msg = (text ?? input).trim();
-    if (!msg) return;
-    setShowQuick(false);
-    setInput('');
-    const answer = matchIntent(msg);
-    setMessages((prev) => [...prev, { role: 'user', text: msg }, { role: 'bot', text: answer }]);
-    speak(answer);
-  };
+  // Abre el panel; saluda por voz solo la primera vez (no re-lee al reabrir).
+  const openPanel = useCallback(() => {
+    setOpen(true);
+    setHintDismissed(true);
+    if (!greetedRef.current) {
+      greetedRef.current = true;
+      speak(GREETING);
+    }
+  }, [speak]);
 
-  const onKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); send(); } };
+  // El cliente elige una opción → mostramos su respuesta y las siguientes opciones.
+  const choose = (id) => {
+    const opt = OPTIONS[id];
+    if (!opt) return;
+    setMessages((prev) => [...prev, { role: 'user', text: opt.label }, { role: 'bot', text: opt.answer }]);
+    speak(opt.answer);
+    // Opciones de seguimiento + siempre "Ver todo el menú".
+    const next = (opt.follow || []).filter((x) => x !== id);
+    setSuggestions([...next, 'menu']);
+  };
 
   const styles = useMemo(() => `
     /* Botón pequeño y redondo, POR ENCIMA de la barra del carrito */
@@ -282,14 +277,10 @@ export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = 
     .sg-msg.bot { align-self: flex-start; background: #fff; border: 1px solid #eee; border-bottom-left-radius: 5px; }
     .sg-msg.user { align-self: flex-end; background: ${accent}; color: #1a1a1a; font-weight: 600; border-bottom-right-radius: 5px; }
 
-    .sg-quick { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 12px; background: #f6f6f7; }
-    .sg-quick button { background: #fff; border: 1.5px solid ${accent}; color: #1a1a1a; border-radius: 999px; padding: 9px 14px; font-size: 13.5px; cursor: pointer; font-family: inherit; }
-
-    .sg-input { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #eee; background: #fff; flex-shrink: 0; }
-    .sg-input input { flex: 1; border: 1.5px solid #ddd; border-radius: 999px; padding: 13px 16px; font-size: 15px; outline: none; font-family: inherit; }
-    .sg-input input:focus { border-color: ${accent}; }
-    .sg-input button { width: 48px; height: 48px; border-radius: 50%; border: none; flex-shrink: 0; cursor: pointer; background: ${accent}; color: #1a1a1a; font-size: 17px; }
-    .sg-input button:disabled { opacity: .5; cursor: default; }
+    .sg-quick { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; background: #fff; border-top: 1px solid #eee; flex-shrink: 0; max-height: 40vh; overflow-y: auto; }
+    .sg-quick button { background: #fff; border: 1.5px solid ${accent}; color: #1a1a1a; border-radius: 999px; padding: 11px 16px; font-size: 14.5px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background .15s ease; }
+    .sg-quick button:hover { background: ${accent}22; }
+    .sg-quick .sg-menu-btn { background: ${accent}; color: #1a1a1a; border-color: ${accent}; font-weight: 700; }
 
     @media (max-width: 480px) {
       .sg-panel { inset: 0; width: 100vw; height: 100dvh; max-height: none; border-radius: 0; border: none; }
@@ -315,7 +306,7 @@ export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = 
 
       {/* Botón flotante */}
       {!open && (
-        <button className="sg-fab" onClick={() => { setOpen(true); setHintDismissed(true); speak(GREETING); }} aria-label="Abrir asistente de ayuda" title="¿Necesitas ayuda?">
+        <button className="sg-fab" onClick={openPanel} aria-label="Abrir asistente de ayuda" title="¿Necesitas ayuda?">
           <span className="sg-fab-icon"><FontAwesomeIcon icon={faRobot} /></span>
           <span className="sg-fab-ping" />
         </button>
@@ -357,24 +348,17 @@ export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = 
             ))}
           </div>
 
-          {showQuick && (
-            <div className="sg-quick">
-              {QUICK.map((q) => (
-                <button key={q} onClick={() => send(q)}>{q}</button>
-              ))}
-            </div>
-          )}
-
-          <div className="sg-input">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={onKey}
-              placeholder="Escribe tu pregunta…"
-            />
-            <button onClick={() => send()} disabled={!input.trim()} aria-label="Enviar">
-              <FontAwesomeIcon icon={faPaperPlane} />
-            </button>
+          {/* Opciones guiadas: el cliente solo toca, nunca escribe */}
+          <div className="sg-quick">
+            {suggestions.map((id) =>
+              id === 'menu' ? (
+                <button key="menu" className="sg-menu-btn" onClick={() => setSuggestions(MENU_IDS)}>
+                  🏠 Ver todo el menú
+                </button>
+              ) : (
+                <button key={id} onClick={() => choose(id)}>{OPTIONS[id]?.label}</button>
+              )
+            )}
           </div>
         </div>
       )}
