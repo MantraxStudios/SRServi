@@ -3223,13 +3223,50 @@ html body .store-container .store-product-card * {
   background: #26232B;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px 10px 20px;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 10px 12px 10px 12px;
   z-index: 1000;
   border-radius: 999px;
   box-shadow: 0 14px 40px rgba(30, 25, 15, 0.35);
   border: none;
   backdrop-filter: blur(10px);
+}
+
+/* Botón del asistente IA integrado en la barra del carrito */
+.cart-bar-ia {
+  position: relative;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--kiosk-accent, #FFC42E);
+  color: var(--kiosk-dark, #232028);
+  font-size: 18px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  transition: transform var(--transition);
+}
+.cart-bar-ia:hover { transform: scale(1.08); }
+.cart-bar-ia-ping {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 rgba(239, 68, 68, 0.6);
+  animation: cart-ia-ping 1.8s infinite;
+}
+@keyframes cart-ia-ping {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+  70% { box-shadow: 0 0 0 9px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
 .cart-bar-left {
@@ -3283,6 +3320,7 @@ html body .store-container .store-product-card * {
   display: flex;
   align-items: center;
   gap: 14px;
+  margin-left: auto;
   padding-left: 14px;
   border-left: 1px solid rgba(255, 255, 255, 0.15);
 }

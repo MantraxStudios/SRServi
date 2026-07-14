@@ -130,8 +130,24 @@ function pickSpanishVoice() {
   return voices.find((x) => (x.lang || '').toLowerCase().startsWith('es')) || null;
 }
 
-export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = '#D4AF37' }) {
-  const [open, setOpen] = useState(false);
+export default function StoreGuide({
+  step = 'browsing',
+  cartCount = 0,
+  accent = '#D4AF37',
+  open: openProp,
+  onOpenChange,
+  hideFab = false,
+}) {
+  const [openState, setOpenState] = useState(false);
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : openState;
+  const setOpen = useCallback((v) => {
+    setOpenState((prev) => {
+      const next = typeof v === 'function' ? v(controlled ? openProp : prev) : v;
+      if (onOpenChange) onOpenChange(next);
+      return next;
+    });
+  }, [controlled, openProp, onOpenChange]);
   const [messages, setMessages] = useState([{ role: 'bot', text: GREETING }]);
   const [suggestions, setSuggestions] = useState(MENU_IDS);
   const [hintDismissed, setHintDismissed] = useState(false);
@@ -202,15 +218,20 @@ export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = 
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [messages, open]);
 
-  // Abre el panel; saluda por voz solo la primera vez (no re-lee al reabrir).
+  // Abre el panel (el saludo por voz lo maneja el efecto de abajo).
   const openPanel = useCallback(() => {
     setOpen(true);
     setHintDismissed(true);
-    if (!greetedRef.current) {
+  }, [setOpen]);
+
+  // Saluda por voz solo la primera vez que se abre (no re-lee al reabrir),
+  // sin importar si se abrió con el botón flotante o desde la barra del carrito.
+  useEffect(() => {
+    if (open && !greetedRef.current) {
       greetedRef.current = true;
       speak(GREETING);
     }
-  }, [speak]);
+  }, [open, speak]);
 
   // El cliente elige una opción → mostramos su respuesta y las siguientes opciones.
   const choose = (id) => {
@@ -293,8 +314,9 @@ export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = 
     <>
       <style>{styles}</style>
 
-      {/* Sugerencia contextual automática */}
-      {!open && hint && !hintDismissed && (
+      {/* Sugerencia contextual automática (globo). Se oculta si el disparador
+          vive en la barra del carrito, para no tapar contenido. */}
+      {!open && !hideFab && hint && !hintDismissed && (
         <div className="sg-hint">
           <span className="sg-hint-icon">{hint.icon}</span>
           <span>{hint.text}</span>
@@ -304,8 +326,8 @@ export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = 
         </div>
       )}
 
-      {/* Botón flotante */}
-      {!open && (
+      {/* Botón flotante (solo cuando NO está integrado en la barra del carrito) */}
+      {!open && !hideFab && (
         <button className="sg-fab" onClick={openPanel} aria-label="Abrir asistente de ayuda" title="¿Necesitas ayuda?">
           <span className="sg-fab-icon"><FontAwesomeIcon icon={faRobot} /></span>
           <span className="sg-fab-ping" />

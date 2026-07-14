@@ -5,6 +5,7 @@ import { detectLanguage, t, LANGUAGES } from '../i18n';
 import { getSeasonalTheme } from '../utils/seasonalTheme';
 import {
   faShoppingCart,
+  faRobot,
   faPlus,
   faMinus,
   faTimes,
@@ -970,6 +971,7 @@ function Store() {
   const [storeOpeningError, setStoreOpeningError] = useState('');
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const selectedProductRef = useRef(null);
   const [orderType, setOrderType] = useState('serve');
@@ -6273,6 +6275,15 @@ function Store() {
 
       {hasProducts && !adminEditToken && (
       <div className="cart-bar">
+        <button
+          className="cart-bar-ia"
+          onClick={() => setGuideOpen(true)}
+          aria-label="Asistente de compra"
+          title="¿Necesitas ayuda?"
+        >
+          <FontAwesomeIcon icon={faRobot} />
+          <span className="cart-bar-ia-ping" />
+        </button>
         <div className="cart-bar-left" onClick={() => setCartOpen(true)}>
           <div className="cart-bar-icon">
             <FontAwesomeIcon icon={faShoppingCart} />
@@ -10236,6 +10247,9 @@ function Store() {
           }
           cartCount={cart.length}
           accent={colors.accent}
+          open={guideOpen}
+          onOpenChange={setGuideOpen}
+          hideFab={hasProducts && !adminEditToken}
         />
       )}
 
