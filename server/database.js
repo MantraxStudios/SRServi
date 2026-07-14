@@ -1953,6 +1953,18 @@ async function migrateTables() {
           INDEX idx_fr_user (user_id)
         )
       `);
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS admin_feedback (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          user_id INT NOT NULL UNIQUE,
+          rating TINYINT NOT NULL,
+          liked_most TEXT DEFAULT NULL,
+          improvement TEXT DEFAULT NULL,
+          would_recommend BOOLEAN DEFAULT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_af_created (created_at)
+        )
+      `);
       console.log('ℹ️ Tablas de feedback verificadas/creadas');
     } catch (err) {
       console.error('❌ Error creando tablas de feedback:', err.message);
@@ -8078,6 +8090,32 @@ export async function getFeedbackResponses(campaignId) {
     ORDER BY fr.created_at DESC
     LIMIT 200
   `, campaignId ? [campaignId] : []);
+  return rows;
+}
+
+// ── Feedback obligatorio del panel admin (una única vez por usuario) ──
+export async function getAdminFeedbackByUser(userId) {
+  const [rows] = await pool.execute('SELECT * FROM admin_feedback WHERE user_id = ?', [userId]);
+  return rows[0] || null;
+}
+
+export async function saveAdminFeedback(userId, { rating, liked_most, improvement, would_recommend }) {
+  await pool.execute(
+    `INSERT INTO admin_feedback (user_id, rating, liked_most, improvement, would_recommend)
+     VALUES (?, ?, ?, ?, ?)`,
+    [userId, rating, liked_most || null, improvement || null,
+     would_recommend === null || would_recommend === undefined ? null : (would_recommend ? 1 : 0)]
+  );
+}
+
+export async function getAllAdminFeedback() {
+  const [rows] = await pool.execute(`
+    SELECT af.*, u.username, u.business_name, u.email
+    FROM admin_feedback af
+    JOIN users u ON u.id = af.user_id
+    ORDER BY af.created_at DESC
+    LIMIT 500
+  `);
   return rows;
 }
 

@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRole } from '../context/RoleContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import MandatoryFeedbackModal from './MandatoryFeedbackModal';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -143,6 +144,7 @@ function Layout() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [fpStoreOpen, setFpStoreOpen] = useState(false);
   const [phoneModal, setPhoneModal] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState(false);
   const [phoneInput, setPhoneInput] = useState('');
   const [phoneSaving, setPhoneSaving] = useState(false);
   const [phoneError, setPhoneError] = useState('');
@@ -179,6 +181,15 @@ function Layout() {
       })
       .catch(() => {});
   }, [user]);
+
+  // Feedback obligatorio — se pide una única vez por usuario
+  useEffect(() => {
+    if (!user || !token || isSubAccount) return;
+    fetch(`${API}/api/user/feedback-status`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data && !data.submitted) setFeedbackModal(true); })
+      .catch(() => {});
+  }, [user, token, isSubAccount]);
 
   const savePhone = async () => {
     const digits = phoneInput.replace(/\D/g, '');
@@ -1198,6 +1209,11 @@ function Layout() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Feedback obligatorio (una única vez, tras el modal de teléfono) */}
+      {feedbackModal && !phoneModal && (
+        <MandatoryFeedbackModal token={token} onDone={() => setFeedbackModal(false)} />
       )}
 
     </StoreContext.Provider>

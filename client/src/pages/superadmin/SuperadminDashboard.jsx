@@ -39,6 +39,7 @@ import {
   faPuzzlePiece,
   faClock,
   faEnvelope,
+  faCommentDots,
   faDownload,
   faEye,
   faTicketAlt,
@@ -126,6 +127,8 @@ function SuperadminDashboard() {
   const [feedbackSending, setFeedbackSending] = useState(false);
   const [feedbackSendResult, setFeedbackSendResult] = useState(null);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
+  const [adminFeedback, setAdminFeedback] = useState([]);
+  const [adminFeedbackLoading, setAdminFeedbackLoading] = useState(false);
   const [totemRentals, setTotemRentals] = useState([]);
   const [totemLoading, setTotemLoading] = useState(false);
   const [salesLeads, setSalesLeads] = useState([]);
@@ -399,6 +402,12 @@ function SuperadminDashboard() {
           if (campRes.ok) setFeedbackCampaigns(await campRes.json());
           if (respRes.ok) setFeedbackResponses(await respRes.json());
         } finally { setFeedbackLoading(false); }
+      } else if (activeTab === 'admin-feedback') {
+        setAdminFeedbackLoading(true);
+        try {
+          const res = await fetch(API + '/api/superadmin/admin-feedback', { headers: { 'Authorization': 'Bearer ' + token } });
+          if (res.ok) setAdminFeedback(await res.json());
+        } finally { setAdminFeedbackLoading(false); }
       } else if (activeTab === 'totem-rentals') {
         setTotemLoading(true);
         try {
@@ -883,6 +892,14 @@ function SuperadminDashboard() {
           >
             <FontAwesomeIcon icon={faEnvelope} />
             {sidebarOpen && <span>Feedback</span>}
+          </div>
+
+          <div
+            className={`sidebar-nav-item ${activeTab === 'admin-feedback' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('admin-feedback'); setMobileMenuOpen(false); }}
+          >
+            <FontAwesomeIcon icon={faCommentDots} />
+            {sidebarOpen && <span>Feedback Panel</span>}
           </div>
 
           <div
@@ -2102,6 +2119,60 @@ function SuperadminDashboard() {
                       </div>
                     )}
                   </>
+                )}
+              </div>
+            ) : activeTab === 'admin-feedback' ? (
+              <div>
+                <h3 style={{ margin: 0, fontWeight: 800 }}>Feedback del Panel</h3>
+                <p style={{ margin: '4px 0 20px', color: '#888', fontSize: 13 }}>Valoraciones que cada usuario envía una única vez al ingresar al panel de administración.</p>
+
+                {/* Stats */}
+                {adminFeedback.length > 0 && (() => {
+                  const ratings = adminFeedback.map(r => r.rating).filter(Boolean);
+                  const avg = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : '—';
+                  const rec = adminFeedback.filter(r => r.would_recommend === 1 || r.would_recommend === true).length;
+                  return (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 12, marginBottom: 24 }}>
+                      {[
+                        ['⭐ Satisfacción', avg + '/5', '#C8A415'],
+                        ['📝 Respuestas', String(adminFeedback.length), '#3b82f6'],
+                        ['👍 Recomendarían', `${rec}/${adminFeedback.length}`, '#10b981'],
+                      ].map(([label, value, color]) => (
+                        <div key={label} style={{ background: '#fff', borderRadius: 12, padding: '16px', border: '1px solid #f0f0f0', textAlign: 'center' }}>
+                          <div style={{ fontSize: 20, fontWeight: 900, color }}>{value}</div>
+                          <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>{label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {adminFeedbackLoading ? (
+                  <div style={{ textAlign: 'center', color: '#888', padding: 32 }}>Cargando...</div>
+                ) : adminFeedback.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: '#888', padding: 48, background: '#f9fafb', borderRadius: 16 }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>💬</div>
+                    <div>Aún no hay feedback enviado.</div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {adminFeedback.map(r => (
+                      <div key={r.id} style={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: 12, padding: '14px 18px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 14 }}>{r.business_name || r.username} <span style={{ color: '#888', fontSize: 12, fontWeight: 400 }}>({r.email})</span></div>
+                            <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{new Date(r.created_at).toLocaleString('es-CL')}</div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+                            <span style={{ fontSize: 13, fontWeight: 700 }}>⭐ {r.rating}/5</span>
+                            {r.would_recommend !== null && <span style={{ fontSize: 13 }}>{r.would_recommend ? '👍' : '👎'}</span>}
+                          </div>
+                        </div>
+                        {r.liked_most && <p style={{ margin: '10px 0 0', fontSize: 13, color: '#374151', background: '#f9fafb', borderRadius: 8, padding: '8px 12px' }}>❤️ {r.liked_most}</p>}
+                        {r.improvement && <p style={{ margin: '6px 0 0', fontSize: 13, color: '#374151', background: '#fef9c3', borderRadius: 8, padding: '8px 12px' }}>💡 {r.improvement}</p>}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             ) : activeTab === 'totem-rentals' ? (

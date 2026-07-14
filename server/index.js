@@ -26,7 +26,7 @@ import { getAiImageStatus, generateAiImage, generateAiVideo } from './ai-image-c
 import { testFudoConnection, syncProductsToFudo } from './fudo-service.js';
 import { initInstagramService } from './instagram_autostart.js';
 
-import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings, createFeedbackCampaign, createFeedbackToken, getFeedbackToken, submitFeedbackResponse, updateCampaignSentCount, getFeedbackCampaigns, getFeedbackResponses, getAllActiveUsersForFeedback, createTotemRental, getTotemRentalByUser, updateTotemRentalMpPreference, updateTotemRentalPayment, markTotemRentalInstalled, updateTotemRentalStatus, updateTotemSubscriptionStatus, getAllTotemRentals, logTotemPayment, createSalesLead, findRecentSalesLead, updateSalesLead, getSalesLeads, getSalesLeadStats, updateSalesLeadStatus, deleteSalesLead, getFudoConfig, saveFudoConfig, updateFudoSyncStatus } from './database.js';
+import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings, createFeedbackCampaign, createFeedbackToken, getFeedbackToken, submitFeedbackResponse, updateCampaignSentCount, getFeedbackCampaigns, getFeedbackResponses, getAllActiveUsersForFeedback, getAdminFeedbackByUser, saveAdminFeedback, getAllAdminFeedback, createTotemRental, getTotemRentalByUser, updateTotemRentalMpPreference, updateTotemRentalPayment, markTotemRentalInstalled, updateTotemRentalStatus, updateTotemSubscriptionStatus, getAllTotemRentals, logTotemPayment, createSalesLead, findRecentSalesLead, updateSalesLead, getSalesLeads, getSalesLeadStats, updateSalesLeadStatus, deleteSalesLead, getFudoConfig, saveFudoConfig, updateFudoSyncStatus } from './database.js';
 import { runSrBrain, runSrBrainForStore, runWeeklySalesReport } from './sr_brain.js';
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds, setBotEnabled, getBotEnabled, getBotPhone } from './whatsapp.js';
 import cron from 'node-cron';
@@ -1458,6 +1458,42 @@ app.put('/api/user/phone', authenticateToken, async (req, res) => {
     await pool.execute('UPDATE users SET phone = ? WHERE id = ?', [phone, req.user.id]);
     res.json({ success: true, phone });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Feedback obligatorio del panel admin — estado (¿ya lo envió?)
+app.get('/api/user/feedback-status', authenticateToken, async (req, res) => {
+  try {
+    const fb = await getAdminFeedbackByUser(req.user.id);
+    res.json({ submitted: !!fb });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Feedback obligatorio del panel admin — enviar (una única vez)
+app.post('/api/user/feedback', authenticateToken, async (req, res) => {
+  try {
+    const rating = parseInt(req.body.rating, 10);
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Debes seleccionar una calificación válida' });
+    }
+    const existing = await getAdminFeedbackByUser(req.user.id);
+    if (existing) {
+      return res.status(409).json({ error: 'Ya enviaste tu feedback' });
+    }
+    const { liked_most, improvement, would_recommend } = req.body;
+    await saveAdminFeedback(req.user.id, {
+      rating,
+      liked_most: (liked_most || '').toString().trim().slice(0, 2000),
+      improvement: (improvement || '').toString().trim().slice(0, 2000),
+      would_recommend: would_recommend === undefined ? null : !!would_recommend,
+    });
+    res.json({ success: true });
+  } catch (error) {
+    // Choque de UNIQUE en carreras concurrentes → tratar como ya enviado
+    if (error.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Ya enviaste tu feedback' });
     res.status(500).json({ error: error.message });
   }
 });
@@ -16133,6 +16169,14 @@ app.get('/api/superadmin/feedback/responses', authenticateSuperadminToken, async
     const { campaign_id } = req.query;
     const responses = await getFeedbackResponses(campaign_id ? parseInt(campaign_id) : null);
     res.json(responses);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Superadmin: feedback obligatorio del panel admin (una vez por usuario)
+app.get('/api/superadmin/admin-feedback', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const rows = await getAllAdminFeedback();
+    res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
