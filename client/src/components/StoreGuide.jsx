@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRobot, faTimes, faPaperPlane, faLightbulb } from '@fortawesome/free-solid-svg-icons';
+import { faRobot, faTimes, faPaperPlane, faLightbulb, faVolumeHigh, faVolumeXmark } from '@fortawesome/free-solid-svg-icons';
 
 /**
  * Asistente-guía de compra para el tótem (cliente final).
@@ -106,6 +106,33 @@ function normalize(s) {
     .replace(/\p{Diacritic}/gu, '');
 }
 
+// ---- Text-to-Speech (voz que guía la venta) ----
+const TTS_SUPPORTED = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+// Deja el texto listo para leer en voz alta: quita emojis, viñetas y numeración.
+function cleanForSpeech(text) {
+  return (text || '')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}️‍]/gu, '') // emojis/símbolos
+    .replace(/[•·▪]/g, '')
+    .replace(/^\s*\d+[️⃣.)-]*\s*/gm, '') // "1️⃣", "1." al inicio de línea
+    .replace(/["“”]/g, '')
+    .replace(/\n+/g, '. ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+// Elige la mejor voz en español disponible (prioriza es-CL/es-MX/es-ES).
+function pickSpanishVoice() {
+  if (!TTS_SUPPORTED) return null;
+  const voices = window.speechSynthesis.getVoices() || [];
+  const prefs = ['es-cl', 'es-419', 'es-mx', 'es-us', 'es-es', 'es'];
+  for (const p of prefs) {
+    const v = voices.find((x) => (x.lang || '').toLowerCase().startsWith(p));
+    if (v) return v;
+  }
+  return voices.find((x) => (x.lang || '').toLowerCase().startsWith('es')) || null;
+}
+
 function matchIntent(text) {
   const t = normalize(text);
   let best = null;
@@ -123,18 +150,67 @@ export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = 
   const [input, setInput] = useState('');
   const [hintDismissed, setHintDismissed] = useState(false);
   const [showQuick, setShowQuick] = useState(true);
+  const [muted, setMuted] = useState(() => {
+    if (typeof localStorage === 'undefined') return false;
+    return localStorage.getItem('sg_tts_muted') === '1';
+  });
   const bodyRef = useRef(null);
   const lastStepRef = useRef(step);
+  const mutedRef = useRef(muted);
+  const voiceRef = useRef(null);
 
   const hint = CONTEXT_HINTS[step] || null;
 
-  // Reaparece la sugerencia cuando cambia el paso.
+  // Mantiene sincronizado el ref para poder consultar el estado dentro de callbacks.
+  useEffect(() => { mutedRef.current = muted; }, [muted]);
+
+  // Carga la voz en español (las voces llegan de forma asíncrona en algunos navegadores).
+  useEffect(() => {
+    if (!TTS_SUPPORTED) return;
+    const load = () => { voiceRef.current = pickSpanishVoice(); };
+    load();
+    window.speechSynthesis.onvoiceschanged = load;
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+      try { window.speechSynthesis.cancel(); } catch { /* noop */ }
+    };
+  }, []);
+
+  // Lee un texto en voz alta (cancela lo anterior para no encimar audios).
+  const speak = useCallback((text) => {
+    if (!TTS_SUPPORTED || mutedRef.current) return;
+    const clean = cleanForSpeech(text);
+    if (!clean) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(clean);
+      u.lang = (voiceRef.current && voiceRef.current.lang) || 'es-ES';
+      if (voiceRef.current) u.voice = voiceRef.current;
+      u.rate = 1;
+      u.pitch = 1;
+      window.speechSynthesis.speak(u);
+    } catch { /* noop */ }
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    setMuted((prev) => {
+      const next = !prev;
+      mutedRef.current = next;
+      try { localStorage.setItem('sg_tts_muted', next ? '1' : '0'); } catch { /* noop */ }
+      if (next && TTS_SUPPORTED) { try { window.speechSynthesis.cancel(); } catch { /* noop */ } }
+      return next;
+    });
+  }, []);
+
+  // Reaparece la sugerencia cuando cambia el paso, y la lee en voz alta.
   useEffect(() => {
     if (lastStepRef.current !== step) {
       lastStepRef.current = step;
       setHintDismissed(false);
+      const h = CONTEXT_HINTS[step];
+      if (h) speak(h.text);
     }
-  }, [step]);
+  }, [step, speak]);
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
@@ -147,33 +223,43 @@ export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = 
     setInput('');
     const answer = matchIntent(msg);
     setMessages((prev) => [...prev, { role: 'user', text: msg }, { role: 'bot', text: answer }]);
+    speak(answer);
   };
 
   const onKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); send(); } };
 
   const styles = useMemo(() => `
+    /* Botón pequeño y redondo, POR ENCIMA de la barra del carrito */
     .sg-fab {
-      position: fixed; bottom: 22px; left: 22px; z-index: 9990;
-      display: flex; align-items: center; gap: 10px;
-      padding: 12px 18px 12px 14px; border-radius: 999px; border: none; cursor: pointer;
+      position: fixed; bottom: 92px; left: 16px; z-index: 9990;
+      width: 54px; height: 54px; padding: 0; border-radius: 50%; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
       background: ${accent}; color: #1a1a1a;
-      box-shadow: 0 8px 26px rgba(0,0,0,0.32);
-      font-weight: 800; font-size: 16px; font-family: inherit;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.32);
+      font-family: inherit;
       transition: transform .18s ease;
     }
-    .sg-fab:hover { transform: scale(1.05); }
+    .sg-fab:hover { transform: scale(1.08); }
     .sg-fab-icon { font-size: 22px; }
-    .sg-fab-ping { position: absolute; top: -3px; right: -3px; width: 14px; height: 14px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 0 rgba(239,68,68,0.6); animation: sg-ping 1.8s infinite; }
+    .sg-fab-ping { position: absolute; top: -2px; right: -2px; width: 13px; height: 13px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 0 rgba(239,68,68,0.6); animation: sg-ping 1.8s infinite; }
     @keyframes sg-ping { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.6);} 70% { box-shadow: 0 0 0 10px rgba(239,68,68,0);} 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0);} }
 
+    /* Globo de mensaje que baja desde arriba, anclado sobre el botón */
     .sg-hint {
-      position: fixed; bottom: 86px; left: 22px; z-index: 9989; max-width: 320px;
-      background: #fff; color: #1a1a1a; border-radius: 16px; padding: 14px 16px;
+      position: fixed; bottom: 156px; left: 16px; z-index: 9989; max-width: 300px;
+      background: #fff; color: #1a1a1a; border-radius: 16px; padding: 12px 14px;
       box-shadow: 0 12px 40px rgba(0,0,0,0.22); border: 2px solid ${accent};
-      display: flex; gap: 10px; align-items: flex-start; font-size: 15px; line-height: 1.4;
-      animation: sg-pop .25s ease;
+      display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; line-height: 1.4;
+      animation: sg-drop .3s cubic-bezier(.2,.8,.3,1.2);
     }
-    @keyframes sg-pop { from { opacity: 0; transform: translateY(8px) scale(.96);} to { opacity: 1; transform: none;} }
+    /* Colita del globo apuntando hacia abajo (al botón) */
+    .sg-hint::after {
+      content: ''; position: absolute; bottom: -10px; left: 22px;
+      width: 18px; height: 18px; background: #fff;
+      border-right: 2px solid ${accent}; border-bottom: 2px solid ${accent};
+      transform: rotate(45deg); border-bottom-right-radius: 3px;
+    }
+    @keyframes sg-drop { from { opacity: 0; transform: translateY(-14px) scale(.96);} to { opacity: 1; transform: none;} }
     .sg-hint-icon { font-size: 20px; flex-shrink: 0; }
     .sg-hint-close { margin-left: 6px; background: none; border: none; color: #999; cursor: pointer; font-size: 15px; flex-shrink: 0; }
 
@@ -188,7 +274,8 @@ export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = 
     .sg-ava { width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; background: ${accent}; color: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 19px; }
     .sg-t { font-weight: 800; font-size: 16px; line-height: 1.1; }
     .sg-s { font-size: 11.5px; color: #22c55e; margin-top: 2px; }
-    .sg-x { margin-left: auto; background: none; border: none; color: #bbb; font-size: 20px; cursor: pointer; padding: 6px; }
+    .sg-mute { margin-left: auto; background: none; border: none; color: ${accent}; font-size: 18px; cursor: pointer; padding: 6px 8px; }
+    .sg-x { background: none; border: none; color: #bbb; font-size: 20px; cursor: pointer; padding: 6px; }
 
     .sg-body { flex: 1; overflow-y: auto; padding: 16px; background: #f6f6f7; display: flex; flex-direction: column; gap: 10px; }
     .sg-msg { max-width: 84%; padding: 12px 14px; border-radius: 16px; font-size: 15px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
@@ -206,8 +293,8 @@ export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = 
 
     @media (max-width: 480px) {
       .sg-panel { inset: 0; width: 100vw; height: 100dvh; max-height: none; border-radius: 0; border: none; }
-      .sg-fab { bottom: 16px; left: 16px; }
-      .sg-hint { left: 16px; right: 16px; max-width: none; bottom: 80px; }
+      .sg-fab { bottom: 88px; left: 12px; }
+      .sg-hint { left: 12px; right: 12px; max-width: none; bottom: 150px; }
     }
   `, [accent]);
 
@@ -228,9 +315,8 @@ export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = 
 
       {/* Botón flotante */}
       {!open && (
-        <button className="sg-fab" onClick={() => { setOpen(true); setHintDismissed(true); }} aria-label="Abrir asistente de ayuda">
+        <button className="sg-fab" onClick={() => { setOpen(true); setHintDismissed(true); speak(GREETING); }} aria-label="Abrir asistente de ayuda" title="¿Necesitas ayuda?">
           <span className="sg-fab-icon"><FontAwesomeIcon icon={faRobot} /></span>
-          ¿Ayuda?
           <span className="sg-fab-ping" />
         </button>
       )}
@@ -244,6 +330,16 @@ export default function StoreGuide({ step = 'browsing', cartCount = 0, accent = 
               <div className="sg-t">Asistente de compra</div>
               <div className="sg-s">● Te guío paso a paso</div>
             </div>
+            {TTS_SUPPORTED && (
+              <button
+                className="sg-mute"
+                onClick={toggleMute}
+                aria-label={muted ? 'Activar voz' : 'Silenciar voz'}
+                title={muted ? 'Activar voz' : 'Silenciar voz'}
+              >
+                <FontAwesomeIcon icon={muted ? faVolumeXmark : faVolumeHigh} />
+              </button>
+            )}
             <button className="sg-x" onClick={() => setOpen(false)} aria-label="Cerrar">
               <FontAwesomeIcon icon={faTimes} />
             </button>
