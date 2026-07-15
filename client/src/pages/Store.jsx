@@ -2557,6 +2557,35 @@ function Store() {
     setTimeout(() => setNotification(null), 1500);
   };
 
+  // Agrega al carrito los productos pedidos por voz (asistente IA).
+  const addVoiceItems = (items) => {
+    if (!Array.isArray(items) || items.length === 0) return;
+    const now = Date.now();
+    const newItems = items.map((it, idx) => {
+      const price = Number(it.product.price) || 0;
+      const qty = Math.max(1, parseInt(it.quantity, 10) || 1);
+      return {
+        id: now + idx,
+        product_id: it.product.id,
+        product_name: it.product.name,
+        product_image: it.product.image,
+        unit_price: price,
+        quantity: qty,
+        total: price * qty,
+        selected_ingredients: [],
+        selected_extras: [],
+        selected_complements: [],
+      };
+    });
+    setCart(prev => [...prev, ...newItems]);
+    const first = items[0].product;
+    setNotification({
+      name: newItems.length > 1 ? `${newItems.length} productos agregados` : first.name,
+      image: first.image,
+    });
+    setTimeout(() => setNotification(null), 1800);
+  };
+
   // Añade una promoción (banner) al carrito tras confirmación
   const addPromoToCart = (promo) => {
     const price = Number(promo.price) || 0;
@@ -10250,6 +10279,9 @@ function Store() {
           open={guideOpen}
           onOpenChange={setGuideOpen}
           hideFab={hasProducts && !adminEditToken}
+          products={store?.products || []}
+          onAddItems={addVoiceItems}
+          currencySymbol={colors.currency.symbol}
         />
       )}
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRobot, faTimes, faLightbulb, faVolumeHigh, faVolumeXmark } from '@fortawesome/free-solid-svg-icons';
+import { faRobot, faTimes, faLightbulb, faVolumeHigh, faVolumeXmark, faMicrophone, faStop } from '@fortawesome/free-solid-svg-icons';
 
 /**
  * Asistente-guía de compra para el tótem (cliente final).
@@ -130,6 +130,92 @@ function pickSpanishVoice() {
   return voices.find((x) => (x.lang || '').toLowerCase().startsWith('es')) || null;
 }
 
+// ---- Reconocimiento de voz + pedido hablado ("quiero 2 hamburguesas de carne") ----
+const SR_CTOR = typeof window !== 'undefined'
+  ? (window.SpeechRecognition || window.webkitSpeechRecognition)
+  : null;
+const STT_SUPPORTED = !!SR_CTOR;
+
+function normalize(s) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();
+}
+
+// Pasa una palabra a "singular" simple para tolerar plurales (hamburguesas → hamburguesa).
+function singular(w) {
+  if (w.length > 4 && w.endsWith('es')) return w.slice(0, -2);
+  if (w.length > 3 && w.endsWith('s')) return w.slice(0, -1);
+  return w;
+}
+
+const NUM_WORDS = {
+  un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7,
+  ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15,
+  veinte: 20, par: 2, docena: 12,
+};
+
+// Palabras de relleno que no aportan al nombre del producto.
+const STOP_WORDS = new Set([
+  'quiero', 'quisiera', 'dame', 'agrega', 'agregar', 'agregame', 'agregame', 'ponme', 'pon',
+  'anade', 'anadir', 'me', 'unos', 'unas', 'de', 'del', 'la', 'el', 'los', 'las', 'por',
+  'favor', 'con', 'y', 'mas', 'tambien', 'necesito', 'para', 'llevar', 'quiere', 'porfa',
+  'a', 'al', 'que', 'sea', 'sean', 'seria', 'serian',
+]);
+
+// Divide el texto en pedidos separados ("2 papas y una bebida" → ["2 papas", "una bebida"]).
+function splitOrders(text) {
+  return normalize(text)
+    .replace(/\by\b/g, ',')
+    .split(/[,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// De un segmento, extrae { qty, queryTokens }.
+function parseSegment(seg) {
+  const tokens = seg.split(/\s+/).filter(Boolean);
+  let qty = 1;
+  let qtyFound = false;
+  const rest = [];
+  for (const tk of tokens) {
+    if (!qtyFound && /^\d+$/.test(tk)) { qty = parseInt(tk, 10); qtyFound = true; continue; }
+    if (!qtyFound && NUM_WORDS[tk] != null) { qty = NUM_WORDS[tk]; qtyFound = true; continue; }
+    if (STOP_WORDS.has(tk)) continue;
+    rest.push(tk);
+  }
+  return { qty: Math.max(1, Math.min(qty, 50)), queryTokens: rest };
+}
+
+// Puntúa qué tan bien un producto coincide con las palabras pedidas.
+function scoreProduct(queryTokens, product) {
+  if (!queryTokens.length) return 0;
+  const nameTokens = normalize(product.name).split(/\s+/).filter(Boolean);
+  const catTokens = normalize(product.category_name || '').split(/\s+/).filter(Boolean);
+  let score = 0;
+  for (const q0 of queryTokens) {
+    const q = singular(q0);
+    if (q.length < 2) continue;
+    const inName = nameTokens.some((n0) => {
+      const n = singular(n0);
+      return n === q || n.includes(q) || q.includes(n);
+    });
+    if (inName) { score += 2; continue; }
+    const inCat = catTokens.some((n0) => { const n = singular(n0); return n === q || n.includes(q); });
+    if (inCat) score += 1;
+  }
+  return score;
+}
+
+// Encuentra el mejor producto para un segmento hablado.
+function findBestProduct(queryTokens, products) {
+  let best = null;
+  let bestScore = 0;
+  for (const p of products) {
+    const s = scoreProduct(queryTokens, p);
+    if (s > bestScore) { bestScore = s; best = p; }
+  }
+  return bestScore > 0 ? best : null;
+}
+
 export default function StoreGuide({
   step = 'browsing',
   cartCount = 0,
@@ -137,6 +223,9 @@ export default function StoreGuide({
   open: openProp,
   onOpenChange,
   hideFab = false,
+  products = [],
+  onAddItems,
+  currencySymbol = '$',
 }) {
   const [openState, setOpenState] = useState(false);
   const controlled = openProp !== undefined;
@@ -151,6 +240,8 @@ export default function StoreGuide({
   const [messages, setMessages] = useState([{ role: 'bot', text: GREETING }]);
   const [suggestions, setSuggestions] = useState(MENU_IDS);
   const [hintDismissed, setHintDismissed] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [transcript, setTranscript] = useState('');
   const [muted, setMuted] = useState(() => {
     if (typeof localStorage === 'undefined') return false;
     return localStorage.getItem('sg_tts_muted') === '1';
@@ -160,6 +251,11 @@ export default function StoreGuide({
   const mutedRef = useRef(muted);
   const voiceRef = useRef(null);
   const greetedRef = useRef(false);
+  const recognitionRef = useRef(null);
+  const productsRef = useRef(products);
+  useEffect(() => { productsRef.current = products; }, [products]);
+
+  const voiceEnabled = STT_SUPPORTED && typeof onAddItems === 'function' && products.length > 0;
 
   const hint = CONTEXT_HINTS[step] || null;
 
@@ -203,6 +299,78 @@ export default function StoreGuide({
       return next;
     });
   }, []);
+
+  // Interpreta lo que dijo el cliente: busca productos parecidos y los agrega al carrito.
+  const processTranscript = useCallback((text) => {
+    const heard = (text || '').trim();
+    setMessages((prev) => [...prev, { role: 'user', text: `🎤 “${heard}”` }]);
+    const list = productsRef.current || [];
+    const segments = splitOrders(heard);
+    const added = [];
+    const notFound = [];
+    for (const seg of segments) {
+      const { qty, queryTokens } = parseSegment(seg);
+      if (!queryTokens.length) continue;
+      const product = findBestProduct(queryTokens, list);
+      if (product) added.push({ product, quantity: qty });
+      else notFound.push(queryTokens.join(' '));
+    }
+
+    let reply;
+    if (added.length) {
+      if (typeof onAddItems === 'function') onAddItems(added);
+      const detail = added
+        .map((a) => `• ${a.quantity}× ${a.product.name} (${currencySymbol}${Number(a.product.price).toLocaleString('es-CL')})`)
+        .join('\n');
+      reply = `¡Listo! Agregué a tu carrito 🛒:\n\n${detail}`;
+      if (notFound.length) reply += `\n\nNo encontré: ${notFound.join(', ')}. Puedes decirlo de nuevo o buscarlo en el menú.`;
+      reply += '\n\n¿Quieres agregar algo más? 😊';
+    } else {
+      reply = 'No encontré ese producto en el menú 😕\n\nIntenta de nuevo diciendo, por ejemplo: "quiero dos hamburguesas de carne".';
+    }
+    setMessages((prev) => [...prev, { role: 'bot', text: reply }]);
+    speak(reply);
+  }, [onAddItems, currencySymbol, speak]);
+
+  // Empieza/detiene la escucha por micrófono.
+  const startListening = useCallback(() => {
+    if (!voiceEnabled) return;
+    if (listening) { try { recognitionRef.current?.stop(); } catch { /* noop */ } return; }
+    try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
+    let rec = recognitionRef.current;
+    if (!rec) {
+      rec = new SR_CTOR();
+      rec.lang = 'es-CL';
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+      rec.continuous = false;
+      recognitionRef.current = rec;
+    }
+    let finalText = '';
+    rec.onresult = (e) => {
+      let interim = '';
+      finalText = '';
+      for (let i = 0; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalText += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      setTranscript(finalText || interim);
+    };
+    rec.onerror = () => { setListening(false); };
+    rec.onend = () => {
+      setListening(false);
+      const said = (finalText || '').trim();
+      setTranscript('');
+      if (said) processTranscript(said);
+    };
+    setTranscript('');
+    setListening(true);
+    try { rec.start(); } catch { setListening(false); }
+  }, [voiceEnabled, listening, processTranscript]);
+
+  // Detiene el micrófono si el componente se desmonta.
+  useEffect(() => () => { try { recognitionRef.current?.abort(); } catch { /* noop */ } }, []);
 
   // Reaparece la sugerencia cuando cambia el paso, y la lee en voz alta.
   useEffect(() => {
@@ -298,6 +466,22 @@ export default function StoreGuide({
     .sg-msg.bot { align-self: flex-start; background: #fff; border: 1px solid #eee; border-bottom-left-radius: 5px; }
     .sg-msg.user { align-self: flex-end; background: ${accent}; color: #1a1a1a; font-weight: 600; border-bottom-right-radius: 5px; }
 
+    .sg-voice {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      margin: 0; padding: 14px 16px; border: none; border-top: 1px solid #eee;
+      background: ${accent}; color: #1a1a1a; font-family: inherit; font-weight: 800; font-size: 14.5px;
+      cursor: pointer; text-align: center; line-height: 1.2; flex-shrink: 0;
+    }
+    .sg-voice svg { font-size: 18px; }
+    .sg-voice.on { background: #ef4444; color: #fff; animation: sg-rec 1s infinite; }
+    @keyframes sg-rec { 0%,100% { opacity: 1; } 50% { opacity: .7; } }
+    .sg-listening { background: #fff5f5 !important; border-color: #ef4444 !important; color: #b91c1c; display: flex; align-items: center; gap: 8px; }
+    .sg-ldots { display: inline-flex; gap: 3px; }
+    .sg-ldots i { width: 6px; height: 6px; border-radius: 50%; background: #ef4444; animation: sg-bounce 1s infinite; }
+    .sg-ldots i:nth-child(2) { animation-delay: .15s; }
+    .sg-ldots i:nth-child(3) { animation-delay: .3s; }
+    @keyframes sg-bounce { 0%,100% { transform: translateY(0); opacity: .4; } 50% { transform: translateY(-4px); opacity: 1; } }
+
     .sg-quick { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; background: #fff; border-top: 1px solid #eee; flex-shrink: 0; max-height: 40vh; overflow-y: auto; }
     .sg-quick button { background: #fff; border: 1.5px solid ${accent}; color: #1a1a1a; border-radius: 999px; padding: 11px 16px; font-size: 14.5px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background .15s ease; }
     .sg-quick button:hover { background: ${accent}22; }
@@ -368,7 +552,25 @@ export default function StoreGuide({
             {messages.map((m, i) => (
               <div key={i} className={`sg-msg ${m.role}`}>{m.text}</div>
             ))}
+            {listening && (
+              <div className="sg-msg bot sg-listening">
+                <span className="sg-ldots"><i /><i /><i /></span>
+                {transcript ? `“${transcript}”` : 'Te escucho… dime tu pedido 🎤'}
+              </div>
+            )}
           </div>
+
+          {/* Pedido por voz: el cliente habla y agrega productos al carrito */}
+          {voiceEnabled && (
+            <button
+              className={`sg-voice${listening ? ' on' : ''}`}
+              onClick={startListening}
+              aria-label={listening ? 'Detener' : 'Pedir hablando'}
+            >
+              <FontAwesomeIcon icon={listening ? faStop : faMicrophone} />
+              {listening ? 'Toca para terminar' : 'Pídelo hablando (ej: "2 hamburguesas de carne")'}
+            </button>
+          )}
 
           {/* Opciones guiadas: el cliente solo toca, nunca escribe */}
           <div className="sg-quick">
