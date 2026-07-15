@@ -6,6 +6,8 @@ import { getSeasonalTheme } from '../utils/seasonalTheme';
 import {
   faShoppingCart,
   faRobot,
+  faMicrophone,
+  faStop,
   faPlus,
   faMinus,
   faTimes,
@@ -972,6 +974,11 @@ function Store() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [voiceListening, setVoiceListening] = useState(false);
+  const guideRef = useRef(null);
+  // ¿El navegador soporta reconocimiento de voz? (para mostrar el micro en la barra)
+  const voiceSupported = typeof window !== 'undefined'
+    && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const selectedProductRef = useRef(null);
   const [orderType, setOrderType] = useState('serve');
@@ -6313,6 +6320,20 @@ function Store() {
           <FontAwesomeIcon icon={faRobot} />
           <span className="cart-bar-ia-ping" />
         </button>
+        {voiceSupported && (store?.products?.length > 0) && (
+          <button
+            className={`cart-bar-mic${voiceListening ? ' listening' : ''}`}
+            onClick={() => {
+              if (voiceListening) guideRef.current?.stop();
+              else guideRef.current?.startVoice();
+            }}
+            aria-label={voiceListening ? 'Detener' : 'Pedir hablando'}
+            title={voiceListening ? 'Detener' : 'Pídelo hablando'}
+          >
+            <FontAwesomeIcon icon={voiceListening ? faStop : faMicrophone} />
+            {!voiceListening && <span className="cart-bar-mic-label">Pide hablando</span>}
+          </button>
+        )}
         <div className="cart-bar-left" onClick={() => setCartOpen(true)}>
           <div className="cart-bar-icon">
             <FontAwesomeIcon icon={faShoppingCart} />
@@ -10267,6 +10288,8 @@ function Store() {
       {/* Asistente-guía de compra (solo en la vista de cliente del tótem) */}
       {!editMode && !restaurantView && !ticketMode && (
         <StoreGuide
+          ref={guideRef}
+          onListeningChange={setVoiceListening}
           step={
             paymentModalOpen ? 'payment'
             : cartOpen ? 'cart'

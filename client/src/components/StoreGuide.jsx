@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRobot, faTimes, faLightbulb, faVolumeHigh, faVolumeXmark, faMicrophone, faStop } from '@fortawesome/free-solid-svg-icons';
 
@@ -216,7 +216,7 @@ function findBestProduct(queryTokens, products) {
   return bestScore > 0 ? best : null;
 }
 
-export default function StoreGuide({
+const StoreGuide = forwardRef(function StoreGuide({
   step = 'browsing',
   cartCount = 0,
   accent = '#D4AF37',
@@ -226,7 +226,8 @@ export default function StoreGuide({
   products = [],
   onAddItems,
   currencySymbol = '$',
-}) {
+  onListeningChange,
+}, ref) {
   const [openState, setOpenState] = useState(false);
   const controlled = openProp !== undefined;
   const open = controlled ? openProp : openState;
@@ -332,21 +333,43 @@ export default function StoreGuide({
     speak(reply);
   }, [onAddItems, currencySymbol, speak]);
 
+  // Muestra un aviso del bot (y lo lee) para explicar por qué falló el micrófono.
+  const botSay = useCallback((text) => {
+    setMessages((prev) => [...prev, { role: 'bot', text }]);
+    speak(text);
+  }, [speak]);
+
   // Empieza/detiene la escucha por micrófono.
-  const startListening = useCallback(() => {
+  const startListening = useCallback(async () => {
     if (!voiceEnabled) return;
     if (listening) { try { recognitionRef.current?.stop(); } catch { /* noop */ } return; }
     try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
-    let rec = recognitionRef.current;
-    if (!rec) {
-      rec = new SR_CTOR();
-      rec.lang = 'es-CL';
-      rec.interimResults = true;
-      rec.maxAlternatives = 1;
-      rec.continuous = false;
-      recognitionRef.current = rec;
+
+    // Pide permiso de micrófono ANTES de iniciar el reconocimiento.
+    // En muchos kioscos/navegadores, sin este paso el reconocimiento
+    // termina de inmediato (se "cancela solo") por falta de permiso.
+    try {
+      if (navigator.mediaDevices?.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((t) => t.stop());
+      }
+    } catch {
+      setListening(false);
+      botSay('Necesito permiso para usar el micrófono 🎤. Actívalo en el navegador e inténtalo otra vez. Igual puedes pedir tocando el menú de abajo 👇');
+      return;
     }
+
+    // Instancia nueva en cada uso (reutilizar puede dejar el objeto en mal estado).
+    try { recognitionRef.current?.abort(); } catch { /* noop */ }
+    const rec = new SR_CTOR();
+    rec.lang = 'es-CL';
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+    rec.continuous = false;
+    recognitionRef.current = rec;
+
     let finalText = '';
+    let gotError = false;
     rec.onresult = (e) => {
       let interim = '';
       finalText = '';
@@ -357,17 +380,46 @@ export default function StoreGuide({
       }
       setTranscript(finalText || interim);
     };
-    rec.onerror = () => { setListening(false); };
+    rec.onerror = (e) => {
+      gotError = true;
+      setListening(false);
+      const err = e?.error;
+      if (err === 'not-allowed' || err === 'service-not-allowed') {
+        botSay('No tengo permiso para el micrófono 🎤. Actívalo en el navegador para pedir hablando.');
+      } else if (err === 'audio-capture') {
+        botSay('No detecté un micrófono conectado 🎤.');
+      } else if (err === 'no-speech') {
+        botSay('No te escuché 😅. Toca el micrófono y dime tu pedido, por ejemplo: "dos hamburguesas de carne".');
+      }
+      // 'aborted' es normal al detener manualmente: no mostramos nada.
+    };
     rec.onend = () => {
       setListening(false);
       const said = (finalText || '').trim();
       setTranscript('');
       if (said) processTranscript(said);
+      else if (!gotError) botSay('No te escuché 😅. Toca el micrófono y dime tu pedido.');
     };
     setTranscript('');
     setListening(true);
     try { rec.start(); } catch { setListening(false); }
-  }, [voiceEnabled, listening, processTranscript]);
+  }, [voiceEnabled, listening, processTranscript, botSay]);
+
+  // Abre el panel y arranca a escuchar (para dispararlo desde la barra del carrito).
+  const startVoice = useCallback(() => {
+    setOpen(true);
+    startListening();
+  }, [setOpen, startListening]);
+
+  // Expone controles de voz al componente padre (barra del carrito).
+  useImperativeHandle(ref, () => ({
+    startVoice,
+    voiceEnabled,
+    stop: () => { try { recognitionRef.current?.stop(); } catch { /* noop */ } },
+  }), [startVoice, voiceEnabled]);
+
+  // Avisa al padre cuando cambia el estado de escucha (para animar su botón).
+  useEffect(() => { if (onListeningChange) onListeningChange(listening); }, [listening, onListeningChange]);
 
   // Detiene el micrófono si el componente se desmonta.
   useEffect(() => () => { try { recognitionRef.current?.abort(); } catch { /* noop */ } }, []);
@@ -588,4 +640,6 @@ export default function StoreGuide({
       )}
     </>
   );
-}
+});
+
+export default StoreGuide;
