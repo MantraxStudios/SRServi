@@ -1478,6 +1478,8 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
         }
     }
 
+    val deviceToken = remember { prefs.getString(KEY_TOKEN, "") ?: "" }
+
     // Reportar encendido al servidor + heartbeat periódico
     LaunchedEffect(Unit) {
         val token = prefs.getString(KEY_TOKEN, null)
@@ -1527,7 +1529,6 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
     }
 
     // Consultar servidor cada 30s — solo en modo online
-    val deviceToken = remember { prefs.getString(KEY_TOKEN, "") ?: "" }
     LaunchedEffect(deviceToken, offlineMode) {
         if (offlineMode) return@LaunchedEffect
         while (true) {
