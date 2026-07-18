@@ -227,7 +227,7 @@ class WebViewActivity : ComponentActivity() {
                     })
                 })
             }
-            val pkg = listOf("com.haulmer.paymentapp.dev")
+            val pkg = listOf("com.haulmer.paymentapp")
                 .firstOrNull { packageManager.getLaunchIntentForPackage(it) != null }
                 ?: run {
                     val err = JSONObject().apply { put("approved",false); put("errorMessage","TUU no instalada") }

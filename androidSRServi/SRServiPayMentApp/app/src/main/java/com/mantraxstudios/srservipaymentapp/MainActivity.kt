@@ -211,14 +211,31 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        val launchIntent =
-            packageManager.getLaunchIntentForPackage(
-                TUU_PACKAGE_NAME
-            )
+        // IMPORTANTE: se construye un Intent NUEVO con ACTION_SEND y se
+        // restringe al paquete de TUU con setPackage(). Así Android resuelve
+        // la actividad de TUU que declara el intent-filter para
+        // ACTION_SEND + "text/json" (la actividad de pago), en vez de abrir
+        // la pantalla de inicio. Usar getLaunchIntentForPackage() apuntaba a
+        // la actividad LAUNCHER y por eso el flujo de pago nunca iniciaba.
+        val launchIntent = Intent(Intent.ACTION_SEND).apply {
 
-        if (launchIntent == null) {
+            // Tipo esperado por TUU
+            type = "text/json"
 
-            Log.e(TAG, "TUU no encontrada: $TUU_PACKAGE_NAME")
+            // Restringe la resolución al paquete de TUU
+            setPackage(TUU_PACKAGE_NAME)
+
+            // Clave principal usada por TUU para recibir el payload
+            putExtra(Intent.EXTRA_TEXT, payload.toString())
+
+            // flags = 0 para que el resultado vuelva correctamente
+            flags = 0
+        }
+
+        // Verificar que TUU está instalada y puede manejar el intent
+        if (launchIntent.resolveActivity(packageManager) == null) {
+
+            Log.e(TAG, "TUU no puede manejar el intent o no está instalada: $TUU_PACKAGE_NAME")
 
             binding.tvStatus.text =
                 "TUU no instalada"
@@ -228,34 +245,13 @@ class MainActivity : AppCompatActivity() {
             )
 
             binding.tvResult.text =
-                "No se encontró:\n$TUU_PACKAGE_NAME"
+                "No se encontró una app que maneje el pago:\n$TUU_PACKAGE_NAME"
 
             return
         }
 
         // Log de diagnóstico — útil para verificar que el intent está bien armado
-        Log.d(TAG, "Intent component: ${launchIntent.component}")
-        Log.d(TAG, "Intent package:   ${launchIntent.`package`}")
-
-        launchIntent.action = Intent.ACTION_SEND
-
-        // IMPORTANTE: flags = 0 para que el resultado vuelva correctamente
-        launchIntent.flags = 0
-
-        // IMPORTANTE: tipo esperado por TUU
-        launchIntent.type = "text/json"
-
-        // Clave principal usada por versiones nuevas de TUU
-        launchIntent.putExtra(
-            Intent.EXTRA_TEXT,
-            payload.toString()
-        )
-
-        // Clave alternativa para compatibilidad con versiones anteriores
-        launchIntent.putExtra(
-            "paymentData",
-            payload.toString()
-        )
+        Log.d(TAG, "Intent resuelto a: ${launchIntent.resolveActivity(packageManager)}")
 
         Log.d(
             TAG,
