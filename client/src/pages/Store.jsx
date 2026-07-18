@@ -6320,20 +6320,6 @@ function Store() {
           <FontAwesomeIcon icon={faRobot} />
           <span className="cart-bar-ia-ping" />
         </button>
-        {voiceSupported && (store?.products?.length > 0) && (
-          <button
-            className={`cart-bar-mic${voiceListening ? ' listening' : ''}`}
-            onClick={() => {
-              if (voiceListening) guideRef.current?.stop();
-              else guideRef.current?.startVoice();
-            }}
-            aria-label={voiceListening ? 'Detener' : 'Pedir hablando'}
-            title={voiceListening ? 'Detener' : 'Pídelo hablando'}
-          >
-            <FontAwesomeIcon icon={voiceListening ? faStop : faMicrophone} />
-            {!voiceListening && <span className="cart-bar-mic-label">Pide hablando</span>}
-          </button>
-        )}
         <div className="cart-bar-left" onClick={() => setCartOpen(true)}>
           <div className="cart-bar-icon">
             <FontAwesomeIcon icon={faShoppingCart} />
