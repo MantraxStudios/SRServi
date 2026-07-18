@@ -345,19 +345,25 @@ const StoreGuide = forwardRef(function StoreGuide({
     if (listening) { try { recognitionRef.current?.stop(); } catch { /* noop */ } return; }
     try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
 
-    // Pide permiso de micrófono ANTES de iniciar el reconocimiento.
-    // En muchos kioscos/navegadores, sin este paso el reconocimiento
-    // termina de inmediato (se "cancela solo") por falta de permiso.
+    // Pide permiso de micrófono ANTES de iniciar el reconocimiento y MANTÉN el
+    // stream abierto durante toda la escucha. En Chrome Android / WebView de
+    // kiosco, soltar el micrófono justo antes de rec.start() hace que el
+    // reconocimiento aborte al instante (se "para solo"). Lo liberamos recién
+    // en onend/onerror.
+    let micStream = null;
     try {
       if (navigator.mediaDevices?.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach((t) => t.stop());
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       }
     } catch {
       setListening(false);
       botSay('Necesito permiso para usar el micrófono 🎤. Actívalo en el navegador e inténtalo otra vez. Igual puedes pedir tocando el menú de abajo 👇');
       return;
     }
+    const releaseMic = () => {
+      try { micStream?.getTracks().forEach((t) => t.stop()); } catch { /* noop */ }
+      micStream = null;
+    };
 
     // Instancia nueva en cada uso (reutilizar puede dejar el objeto en mal estado).
     try { recognitionRef.current?.abort(); } catch { /* noop */ }
@@ -370,6 +376,7 @@ const StoreGuide = forwardRef(function StoreGuide({
 
     let finalText = '';
     let gotError = false;
+    const startedAt = Date.now();
     rec.onresult = (e) => {
       let interim = '';
       finalText = '';
@@ -394,15 +401,29 @@ const StoreGuide = forwardRef(function StoreGuide({
       // 'aborted' es normal al detener manualmente: no mostramos nada.
     };
     rec.onend = () => {
+      releaseMic();
       setListening(false);
       const said = (finalText || '').trim();
       setTranscript('');
-      if (said) processTranscript(said);
-      else if (!gotError) botSay('No te escuché 😅. Toca el micrófono y dime tu pedido.');
+      if (said) { processTranscript(said); return; }
+      if (gotError) return;
+      // Terminó sin capturar nada y sin un error normal. Si fue casi instantáneo,
+      // el navegador no pudo iniciar el servicio de voz (WebView sin soporte real).
+      if (Date.now() - startedAt < 500) {
+        botSay('Tu navegador no pudo iniciar el reconocimiento de voz 😕. Prueba desde Chrome, o pide tocando el menú de abajo 👇');
+      } else {
+        botSay('No te escuché 😅. Toca el micrófono y dime tu pedido.');
+      }
     };
     setTranscript('');
     setListening(true);
-    try { rec.start(); } catch { setListening(false); }
+    try {
+      rec.start();
+    } catch {
+      releaseMic();
+      setListening(false);
+      botSay('No pude iniciar el micrófono 😕. Intenta de nuevo, o pide tocando el menú de abajo 👇');
+    }
   }, [voiceEnabled, listening, processTranscript, botSay]);
 
   // Abre el panel y arranca a escuchar (para dispararlo desde la barra del carrito).
