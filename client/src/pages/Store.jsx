@@ -3133,7 +3133,11 @@ function Store() {
             order_id: order.id,
             amount: Math.round(Number(finalTotal)),
             description: `Pedido ${store.store.name || code}`,
-            back_url: deliveryMode ? `${window.location.origin}/store/${code}?delivery=true&mp_order=${order.id}` : null
+            // Siempre volver a la tienda con el id de la orden para que MP redirija
+            // y se muestre "compra exitosa" al aprobar (antes solo en delivery).
+            back_url: deliveryMode
+              ? `${window.location.origin}/store/${code}?delivery=true&mp_order=${order.id}`
+              : `${window.location.origin}/store/${code}?mp_order=${order.id}`
           })
         });
         const prefData = await prefRes.json();

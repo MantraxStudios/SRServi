@@ -2993,6 +2993,13 @@ app.post('/api/store/:code/qr-payment', async (req, res) => {
 
     const externalRef = `qr-${store.code}-${order_id || Date.now()}`;
 
+    // URL de retorno: si el cliente no envía una, la construimos hacia la tienda con
+    // el id de la orden, para que MP SIEMPRE redirija de vuelta al aprobar y se muestre
+    // "compra exitosa" (antes solo se configuraba en modo delivery → nunca volvía en totem).
+    const clientBase = process.env.BASE_URL || 'https://srservi2.srautomatic.com';
+    const effectiveBackUrl = back_url
+      || (order_id ? `${clientBase}/store/${store.code}?mp_order=${order_id}` : null);
+
     const preferenceBody = {
       items: [{
         title: description || `Pedido ${store.name}`,
@@ -3004,16 +3011,15 @@ app.post('/api/store/:code/qr-payment', async (req, res) => {
       notification_url: `${process.env.SERVER_URL || 'https://srservi2.srautomatic.com'}/api/store/${store.code}/qr-webhook`
     };
 
-    // Si el cliente indica una URL de retorno (modo delivery), MP redirige de vuelta al aprobar
-    if (back_url) {
-      const sep = back_url.includes('?') ? '&' : '?';
+    if (effectiveBackUrl) {
+      const sep = effectiveBackUrl.includes('?') ? '&' : '?';
       preferenceBody.back_urls = {
-        success: `${back_url}${sep}mp_result=success`,
-        failure: `${back_url}${sep}mp_result=failure`,
-        pending: `${back_url}${sep}mp_result=pending`
+        success: `${effectiveBackUrl}${sep}mp_result=success`,
+        failure: `${effectiveBackUrl}${sep}mp_result=failure`,
+        pending: `${effectiveBackUrl}${sep}mp_result=pending`
       };
       // auto_return requiere back_urls https (falla con http/localhost)
-      if (back_url.startsWith('https://')) preferenceBody.auto_return = 'approved';
+      if (effectiveBackUrl.startsWith('https://')) preferenceBody.auto_return = 'approved';
     }
 
     const prefResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
@@ -12633,6 +12639,7 @@ async function startServer() {
         "ALTER TABLE cctv_screens ADD COLUMN display_mode ENUM('video','images') DEFAULT 'video'",
         'ALTER TABLE cctv_screens ADD COLUMN current_album_id INT DEFAULT NULL',
         'ALTER TABLE cctv_screens ADD COLUMN volume_level TINYINT(3) UNSIGNED NOT NULL DEFAULT 100',
+        'ALTER TABLE cctv_screens ADD COLUMN device_uid VARCHAR(128) DEFAULT NULL',
         'ALTER TABLE cctv_images ADD COLUMN album_id INT DEFAULT NULL'
       ]) {
         try { await pool.execute(sql); } catch (_) { /* columna ya existe */ }
@@ -12752,9 +12759,10 @@ async function startServer() {
     app.post('/api/cctv/pair', async (req, res) => {
       try {
         await ensureCctvTables();
-        const { pairing_code, device_name } = req.body;
+        const { pairing_code, device_name, device_uid } = req.body;
         if (!pairing_code) return res.status(400).json({ error: 'Código requerido' });
         const dname = device_name || 'TV Cartelería';
+        const uid = (device_uid || '').toString().trim() || null;
 
         // Try as store code first (permanent — the recommended method)
         const [storeRows] = await pool.execute(
@@ -12763,18 +12771,21 @@ async function startServer() {
         );
         if (storeRows.length) {
           const { user_id } = storeRows[0];
-          // If same device_name already paired for this user, reuse its token
-          const [existing] = await pool.execute(
-            'SELECT id, device_token FROM cctv_screens WHERE user_id = ? AND device_name = ? AND device_token IS NOT NULL',
-            [user_id, dname]
-          );
-          if (existing.length) {
-            return res.json({ device_token: existing[0].device_token, paired: true });
+          // Reuse token only for the SAME physical device (device_uid). Sin uid
+          // no reusamos por device_name para evitar que varias TV compartan token.
+          if (uid) {
+            const [existing] = await pool.execute(
+              'SELECT id, device_token FROM cctv_screens WHERE user_id = ? AND device_uid = ? AND device_token IS NOT NULL',
+              [user_id, uid]
+            );
+            if (existing.length) {
+              return res.json({ device_token: existing[0].device_token, paired: true });
+            }
           }
           const deviceToken = crypto.randomBytes(32).toString('hex');
           await pool.execute(
-            'INSERT INTO cctv_screens (user_id, device_name, device_token) VALUES (?, ?, ?)',
-            [user_id, dname, deviceToken]
+            'INSERT INTO cctv_screens (user_id, device_name, device_token, device_uid) VALUES (?, ?, ?, ?)',
+            [user_id, dname, deviceToken, uid]
           );
           return res.json({ device_token: deviceToken, paired: true });
         }

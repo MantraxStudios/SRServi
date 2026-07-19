@@ -83,6 +83,7 @@ private const val STORE_CODE = "AUTO_STORE_CODE" // build system replaces this; 
 private const val CCTV_APP_VERSION = "1.0.0"
 private const val PREFS_NAME = "cctv_signage"
 private const val KEY_TOKEN = "device_token"
+private const val KEY_DEVICE_UID = "device_uid"
 private const val KEY_VIDEO_PATH = "current_video_path"
 private const val KEY_VIDEO_URL = "current_video_url"
 private const val KEY_MUSIC_URL = "current_music_url"
@@ -104,6 +105,24 @@ private fun isNetworkAvailable(context: Context): Boolean {
         @Suppress("DEPRECATION")
         cm.activeNetworkInfo?.isConnected == true
     }
+}
+
+/**
+ * Devuelve un identificador estable y único por dispositivo, para que cada TV
+ * se empareje como una pantalla independiente (y no compartan el mismo device_token).
+ * Usa ANDROID_ID y, si no está disponible, un UUID aleatorio persistido.
+ */
+private fun getDeviceUid(context: Context): String {
+    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs.getString(KEY_DEVICE_UID, null)?.let { return it }
+    val androidId = try {
+        Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+    } catch (_: Exception) { null }
+    // 9774d56d682e549c es un ANDROID_ID conocido por repetirse en emuladores/algunos equipos.
+    val uid = androidId?.takeIf { it.isNotBlank() && it != "9774d56d682e549c" }
+        ?: java.util.UUID.randomUUID().toString()
+    prefs.edit().putString(KEY_DEVICE_UID, uid).apply()
+    return uid
 }
 
 private fun getVideoStorageDir(context: Context): File {
@@ -1123,11 +1142,12 @@ fun SplashScreen(onFinish: () -> Unit) {
 fun AutoPairScreen(storeCode: String, onPaired: (String) -> Unit, onError: () -> Unit) {
     var errorMsg by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     LaunchedEffect(storeCode) {
         scope.launch {
             try {
-                val token = pairDevice(storeCode)
+                val token = pairDevice(storeCode, getDeviceUid(context))
                 onPaired(token)
             } catch (e: Exception) {
                 errorMsg = e.message ?: "Error al conectar"
@@ -1160,6 +1180,7 @@ fun PairingScreen(onPaired: (String) -> Unit) {
     var loading by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     Box(
         modifier = Modifier
@@ -1258,7 +1279,7 @@ fun PairingScreen(onPaired: (String) -> Unit) {
                         scope.launch {
                             loading = true
                             try {
-                                val token = pairDevice(code.trim())
+                                val token = pairDevice(code.trim(), getDeviceUid(context))
                                 onPaired(token)
                             } catch (e: Exception) {
                                 val msg = e.message ?: "Error desconocido"
@@ -1537,8 +1558,8 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
 
                 // ── Video (con evaluación de programación) ─────────────────────
                 val activeSchedule = getActiveSchedule(config.optJSONArray("schedules"))
-                val videoUrl = (activeSchedule?.optString("video_url")?.takeIf { it.isNotEmpty() }
-                    ?: config.optString("video_url").takeIf { it.isNotEmpty() })
+                val videoUrl = (activeSchedule?.optString("video_url")?.takeIf { it.isNotEmpty() && it != "null" }
+                    ?: config.optString("video_url").takeIf { it.isNotEmpty() && it != "null" && !config.isNull("video_url") })
                 val savedUrl = prefs.getString(KEY_VIDEO_URL, null)
 
                 if (videoUrl != null && videoUrl != savedUrl) {
@@ -1620,11 +1641,16 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                 }
 
                 // ── Música en loop ─────────────────────────────────────────────
-                val musicUrl = config.optString("music_url").takeIf { it.isNotEmpty() }
+                // optString() devuelve el literal "null" cuando el JSON trae null,
+                // por eso hay que filtrarlo explícitamente además de vacío.
+                val musicUrl = config.optString("music_url")
+                    .takeIf { it.isNotEmpty() && it != "null" && !config.isNull("music_url") }
                 val savedMusicUrl = prefs.getString(KEY_MUSIC_URL, null)
 
                 // ── Volumen (afecta video Y música) ────────────────────────
-                val videoMuted = config.optInt("video_muted", 0) != 0
+                // video_muted llega como boolean JSON; optBoolean lo interpreta bien
+                // (optInt devolvería siempre el default ante un boolean).
+                val videoMuted = config.optBoolean("video_muted", false)
                 val volumeLevel = config.optInt("volume_level", 100).coerceIn(0, 100) / 100f
                 val effectiveVolume = if (videoMuted) 0f else volumeLevel
                 exoPlayer.volume = effectiveVolume
@@ -2074,14 +2100,14 @@ private fun reportPowerEvent(deviceToken: String, event: String) {
     }
 }
 
-private suspend fun pairDevice(code: String): String = withContext(Dispatchers.IO) {
+private suspend fun pairDevice(code: String, deviceUid: String): String = withContext(Dispatchers.IO) {
     val conn = openSecureConnection("$BASE_URL/api/cctv/pair")
     conn.requestMethod = "POST"
     conn.setRequestProperty("Content-Type", "application/json")
     conn.doOutput = true
     conn.connectTimeout = 15_000
     conn.readTimeout = 15_000
-    val body = """{"pairing_code":"$code","device_name":"TV Cartelería"}"""
+    val body = """{"pairing_code":"$code","device_name":"TV Cartelería","device_uid":"$deviceUid"}"""
     conn.outputStream.use { it.write(body.toByteArray()) }
     val responseCode = try { conn.responseCode } catch (e: Exception) {
         conn.disconnect()
