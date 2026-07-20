@@ -152,8 +152,15 @@ class MainActivity : ComponentActivity() {
     private var showBackMenu by mutableStateOf(false)
     private var setupDone = false
 
+    companion object {
+        // Referencia a la actividad viva, para que KioskService pueda cerrarla
+        // cuando la pantalla se apaga / la TV entra en suspensión.
+        var instance: MainActivity? = null
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        instance = this
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         onBackPressedDispatcher.addCallback(this) { showBackMenu = true }
         KioskService.start(this)
@@ -389,11 +396,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        KioskService.instance?.scheduleRelaunch(15_000)
+        // Si la pantalla está apagada (suspensión) no reprogramar relanzado:
+        // la app debe permanecer cerrada hasta que la TV vuelva a encenderse.
+        if (!KioskService.screenOff) KioskService.instance?.scheduleRelaunch(15_000)
         if (appScreen == "player") {
             val token = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_TOKEN, null)
             if (!token.isNullOrEmpty()) Thread { reportPowerEvent(token, "off") }.start()
         }
+    }
+
+    override fun onDestroy() {
+        if (instance === this) instance = null
+        super.onDestroy()
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {

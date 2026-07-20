@@ -5,8 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
@@ -19,8 +21,31 @@ class KioskService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var relaunchRunnable: Runnable? = null
 
+    // Receptor de encendido/apagado de pantalla (suspensión de la TV).
+    // ACTION_SCREEN_ON/OFF no se pueden declarar en el manifest, deben
+    // registrarse en runtime desde un componente vivo (este servicio).
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    // TV apagada / en suspensión: cerrar la app.
+                    screenOff = true
+                    cancelRelaunch()
+                    try { MainActivity.instance?.finishAndRemoveTask() } catch (_: Exception) {}
+                }
+                Intent.ACTION_SCREEN_ON -> {
+                    // TV encendida / fuera de suspensión: abrir la app.
+                    screenOff = false
+                    launchApp()
+                }
+            }
+        }
+    }
+
     companion object {
         var instance: KioskService? = null
+        // Mientras la pantalla está apagada no se debe relanzar la app.
+        @Volatile var screenOff = false
         private const val CHANNEL_ID = "cctv_kiosk_channel"
         private const val NOTIFICATION_ID = 1
 
@@ -39,11 +64,16 @@ class KioskService : Service() {
         instance = this
         createNotificationChannel()
         startForegroundSafe()
+        registerReceiver(screenReceiver, IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
+        })
     }
 
     override fun onDestroy() {
         instance = null
         cancelRelaunch()
+        try { unregisterReceiver(screenReceiver) } catch (_: Exception) {}
         super.onDestroy()
     }
 
@@ -60,13 +90,9 @@ class KioskService : Service() {
     fun scheduleRelaunch(delayMs: Long = 15_000L) {
         relaunchRunnable?.let { handler.removeCallbacks(it) }
         relaunchRunnable = Runnable {
-            try {
-                startActivity(
-                    Intent(this@KioskService, RestartBridgeActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                )
-            } catch (_: Exception) {}
+            // No relanzar mientras la pantalla esté apagada/en suspensión.
+            if (screenOff) return@Runnable
+            launchApp()
         }
         handler.postDelayed(relaunchRunnable!!, delayMs)
     }
@@ -74,6 +100,16 @@ class KioskService : Service() {
     fun cancelRelaunch() {
         relaunchRunnable?.let { handler.removeCallbacks(it) }
         relaunchRunnable = null
+    }
+
+    private fun launchApp() {
+        try {
+            startActivity(
+                Intent(this, RestartBridgeActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
+        } catch (_: Exception) {}
     }
 
     private fun startForegroundSafe() {
