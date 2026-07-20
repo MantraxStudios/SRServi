@@ -40,6 +40,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -91,6 +92,7 @@ private const val KEY_MUSIC_PATH = "current_music_path"
 private const val KEY_LAUNCHER_CONFIRMED = "launcher_confirmed"
 private const val KEY_OFFLINE_MODE = "offline_mode"
 private const val KEY_AUTO_OFFLINE = "auto_offline"
+private const val KEY_ROTATION = "display_rotation"
 private const val TAG = "CCTVSignage"
 private const val PERM_NOTIFICATIONS = "android.permission.POST_NOTIFICATIONS"
 private const val PERM_STORAGE = "android.permission.WRITE_EXTERNAL_STORAGE"
@@ -163,6 +165,7 @@ class MainActivity : ComponentActivity() {
             var isConnected by remember { mutableStateOf(isNetworkAvailable(context)) }
             var showVideoList by remember { mutableStateOf(false) }
             var overrideVideoPath by remember { mutableStateOf<String?>(null) }
+            var displayRotation by remember { mutableStateOf(prefs.getInt(KEY_ROTATION, 0)) }
             var showUpdateDialog by remember { mutableStateOf(false) }
             var updateServerVersion by remember { mutableStateOf("") }
 
@@ -265,7 +268,8 @@ class MainActivity : ComponentActivity() {
                         prefs = prefs,
                         offlineMode = offlineMode,
                         isConnected = isConnected,
-                        overrideVideoPath = overrideVideoPath
+                        overrideVideoPath = overrideVideoPath,
+                        rotation = displayRotation
                     )
                 }
 
@@ -287,6 +291,12 @@ class MainActivity : ComponentActivity() {
                         onShowVideoList = {
                             showBackMenu = false
                             showVideoList = true
+                        },
+                        rotation = displayRotation,
+                        onRotate = {
+                            val next = (displayRotation + 90) % 360
+                            displayRotation = next
+                            prefs.edit().putInt(KEY_ROTATION, next).apply()
                         }
                     )
                 }
@@ -696,7 +706,9 @@ fun BackMenuDialog(
     offlineMode: Boolean = false,
     isConnected: Boolean = true,
     onToggleMode: () -> Unit = {},
-    onShowVideoList: () -> Unit = {}
+    onShowVideoList: () -> Unit = {},
+    rotation: Int = 0,
+    onRotate: () -> Unit = {}
 ) {
     Box(
         modifier = Modifier
@@ -789,6 +801,34 @@ fun BackMenuDialog(
                     shape = RoundedCornerShape(14.dp)
                 ) {
                     Text("Ver videos guardados", color = Gold, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                // Rotación de pantalla (horizontal / vertical)
+                OutlinedButton(
+                    onClick = onRotate,
+                    modifier = Modifier.fillMaxWidth().height(58.dp),
+                    border = BorderStroke(1.dp, Gold.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            "Rotar pantalla · ${rotation}°",
+                            color = Gold,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            when (rotation) {
+                                90, 270 -> "Vertical (portrait)"
+                                180 -> "Horizontal invertida"
+                                else -> "Horizontal (landscape)"
+                            },
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 11.sp
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(10.dp))
@@ -1454,11 +1494,40 @@ fun WaitingSignalScreen() {
     }
 }
 
+// ─── Rotation container ──────────────────────────────────────────────────────
+
+/**
+ * Rota el contenido (video/imagen) en 0/90/180/270 grados para pantallas montadas
+ * en horizontal o vertical. En 90/270 intercambia ancho/alto para que el contenido
+ * siga llenando la pantalla física sin recortes.
+ */
+@Composable
+fun RotatingContent(rotation: Int, content: @Composable () -> Unit) {
+    if (rotation % 360 == 0) {
+        Box(modifier = Modifier.fillMaxSize()) { content() }
+        return
+    }
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        val swap = rotation % 180 != 0
+        val contentModifier = if (swap) {
+            Modifier.size(width = maxHeight, height = maxWidth)
+        } else {
+            Modifier.fillMaxSize()
+        }
+        Box(
+            modifier = contentModifier.graphicsLayer { rotationZ = rotation.toFloat() }
+        ) { content() }
+    }
+}
+
 // ─── Player ──────────────────────────────────────────────────────────────────
 
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Boolean, overrideVideoPath: String? = null) {
+fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Boolean, overrideVideoPath: String? = null, rotation: Int = 0) {
     val context = LocalContext.current
     var downloadProgress by remember { mutableFloatStateOf(-1f) }
     var downloadingName by remember { mutableStateOf("") }
@@ -1712,27 +1781,29 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        if (displayMode == "images") {
-            ImageSlideshowScreen(images = slideshowImages)
-        } else {
-            AndroidView(
-                factory = { ctx ->
-                    PlayerView(ctx).apply {
-                        player = exoPlayer
-                        useController = false
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
+        RotatingContent(rotation = rotation) {
+            if (displayMode == "images") {
+                ImageSlideshowScreen(images = slideshowImages)
+            } else {
+                AndroidView(
+                    factory = { ctx ->
+                        PlayerView(ctx).apply {
+                            player = exoPlayer
+                            useController = false
+                            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
 
-            // Pantalla de espera cuando no hay video
-            AnimatedVisibility(
-                visible = !hasVideo,
-                enter = fadeIn(tween(600)),
-                exit = fadeOut(tween(800))
-            ) {
-                WaitingSignalScreen()
+                // Pantalla de espera cuando no hay video
+                AnimatedVisibility(
+                    visible = !hasVideo,
+                    enter = fadeIn(tween(600)),
+                    exit = fadeOut(tween(800))
+                ) {
+                    WaitingSignalScreen()
+                }
             }
         }
 
