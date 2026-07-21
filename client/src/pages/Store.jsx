@@ -3146,7 +3146,15 @@ function Store() {
         setQrPaymentUrl(prefData.init_point);
         setPaymentWaiting(true);
         setPaymentTimeLeft(600);
-        window.open(prefData.init_point, '_blank', 'noopener,noreferrer');
+        // En delivery (celular del cliente) redirigir en la MISMA pestaña para que
+        // MP vuelva con auto_return a la tienda donde estaba y muestre el N° de orden.
+        // Abrir en pestaña nueva dejaba la tienda original colgada y descargaba el
+        // comprobante en la pestaña de retorno.
+        if (deliveryMode) {
+          window.location.href = prefData.init_point;
+        } else {
+          window.open(prefData.init_point, '_blank', 'noopener,noreferrer');
+        }
 
       // --- Haulmer QR Nativo ---
       } else if (selectedMethod === 'haulmer_native') {
