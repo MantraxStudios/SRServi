@@ -52,6 +52,7 @@ import DeliveryLanding from './pages/DeliveryLanding';
 import DeliveryStore from './pages/DeliveryStore';
 import DeliveryTrack from './pages/DeliveryTrack';
 import DeliveryAccount from './pages/DeliveryAccount';
+import DeliveryPaymentResult from './pages/DeliveryPaymentResult';
 import DeliveryConfig from './pages/admin/DeliveryConfig';
 import SubdomainConfig from './pages/admin/SubdomainConfig';
 import RolesManager from './pages/admin/RolesManager';
@@ -266,6 +267,7 @@ function App() {
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsConditions />} />
           <Route path="/store/:code" element={<Store />} />
+          <Route path="/pago-delivery/:code" element={<DeliveryPaymentResult />} />
           <Route path="/rate/:code" element={<Rate />} />
           <Route path="/survey/:code" element={<ClientSurvey />} />
           <Route path="/delivery" element={<DeliveryLanding />} />

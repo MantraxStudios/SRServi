@@ -3145,10 +3145,12 @@ function Store() {
             order_id: order.id,
             amount: Math.round(Number(finalTotal)),
             description: `Pedido ${store.store.name || code}`,
-            // Siempre volver a la tienda con el id de la orden para que MP redirija
-            // y se muestre "compra exitosa" al aprobar (antes solo en delivery).
+            // En delivery MP redirige a una página dedicada de resultado (muestra el
+            // N° de orden, la info del pago y descarga el comprobante). En iPhone volver
+            // al /store fallaba con "Load failed" y no mostraba el número. En totem
+            // normal se sigue volviendo al store para mostrar "compra exitosa".
             back_url: deliveryMode
-              ? `${window.location.origin}/store/${code}?delivery=true&mp_order=${order.id}`
+              ? `${window.location.origin}/pago-delivery/${code}?order=${order.id}&store_id=${storeId}&store=${encodeURIComponent(store?.store?.name || '')}`
               : `${window.location.origin}/store/${code}?mp_order=${order.id}`
           })
         });
