@@ -343,7 +343,8 @@ const mpClient = new MercadoPagoConfig({
 console.log('MercadoPago Token configured:', !!process.env.MP_ACCESS_TOKEN);
 
 app.use(cors());
-app.use(express.json({ limit: '5mb' }));
+app.use(express.json({ limit: '1gb' }));
+app.use(express.urlencoded({ limit: '1gb', extended: true }));
 
 const userSockets = new Map();
 
