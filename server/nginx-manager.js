@@ -39,6 +39,8 @@ server {
     listen 80;
     server_name ${fqdn};
 
+    client_max_body_size 1024M;
+
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
     }
@@ -52,6 +54,9 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_request_buffering off;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
     }
 }
 `;
@@ -79,6 +84,8 @@ server {
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_session_cache shared:SSL:10m;
 
+    client_max_body_size 1024M;
+
     location / {
         proxy_pass http://127.0.0.1:${CLIENT_PORT};
         proxy_set_header Host ${mainHost};
@@ -88,6 +95,9 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_request_buffering off;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
     }
 }
 `;
@@ -116,6 +126,8 @@ server {
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_session_cache shared:SSL:10m;
 
+    client_max_body_size 1024M;
+
     location / {
         proxy_pass http://127.0.0.1:${CLIENT_PORT};
         proxy_set_header Host ${mainHost};
@@ -125,6 +137,9 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_request_buffering off;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
     }
 }
 `;
