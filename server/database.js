@@ -4039,6 +4039,7 @@ export async function createOrder(storeId, orderData) {
     payment_method,
     cash_approved: cashApproved,
     table_number: table_number || null,
+    customer_comment: customer_comment || null,
     items
   };
 

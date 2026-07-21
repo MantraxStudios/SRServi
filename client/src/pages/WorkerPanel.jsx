@@ -1730,6 +1730,17 @@ function WorkerPanel() {
                       </div>
                     );
                   })()}
+                  {order.customer_comment && order.customer_comment.trim() && (
+                    <div style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 6,
+                      background: 'rgba(212,175,55,0.10)', border: '1px solid rgba(212,175,55,0.35)',
+                      borderRadius: 8, padding: '7px 10px', marginTop: 8,
+                      fontSize: 12.5, color: '#f5e6b0', lineHeight: 1.4
+                    }}>
+                      <FontAwesomeIcon icon={faCommentDots} style={{ color: '#D4AF37', marginTop: 2, flexShrink: 0 }} />
+                      <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{order.customer_comment}</span>
+                    </div>
+                  )}
                   {showPrices && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
                       <div className="worker-order-total" style={{ margin: 0 }}>
@@ -1961,6 +1972,17 @@ function WorkerPanel() {
                       </div>
                     );
                   })()}
+                  {order.customer_comment && order.customer_comment.trim() && (
+                    <div style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 6,
+                      background: 'rgba(212,175,55,0.10)', border: '1px solid rgba(212,175,55,0.35)',
+                      borderRadius: 8, padding: '7px 10px', marginTop: 8,
+                      fontSize: 12.5, color: '#f5e6b0', lineHeight: 1.4
+                    }}>
+                      <FontAwesomeIcon icon={faCommentDots} style={{ color: '#D4AF37', marginTop: 2, flexShrink: 0 }} />
+                      <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{order.customer_comment}</span>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
                     {showPrices ? (
                       <div className="worker-order-total" style={{ margin: 0 }}>
@@ -2626,6 +2648,21 @@ function WorkerPanel() {
                     ))}
                   </div>
                 )}
+
+            {selectedOrder.customer_comment && selectedOrder.customer_comment.trim() && (
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: 8,
+                background: 'rgba(212,175,55,0.10)', border: '1px solid rgba(212,175,55,0.35)',
+                borderRadius: 8, padding: '10px 12px', marginTop: 12,
+                fontSize: 14, color: '#8a6d1a', lineHeight: 1.45
+              }}>
+                <FontAwesomeIcon icon={faCommentDots} style={{ color: '#D4AF37', marginTop: 2, flexShrink: 0 }} />
+                <div>
+                  <strong style={{ display: 'block', marginBottom: 2 }}>Comentario del cliente:</strong>
+                  <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedOrder.customer_comment}</span>
+                </div>
+              </div>
+            )}
 
             {selectedOrder.status === 'completed' && selectedOrder.completed_by_name && (
               <div className="worker-completed-info">

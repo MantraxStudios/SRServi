@@ -7083,7 +7083,10 @@ app.post('/api/orders', async (req, res) => {
           }
 
           const total = Number(order.total || 0).toFixed(0);
-          const content = `{br}{center}{w}Pedido #${order.order_number}{/w}{br}{center}${timeStr}{br}{br}--------------------------------${itemsContent}{br}--------------------------------{br}{center}{w}TOTAL: $${total}{/w}{br}{br}{center}Por favor pagar{br}{center}{w}con efectivo en caja{/w}{br}{br}`;
+          const commentContent = (order.customer_comment && String(order.customer_comment).trim())
+            ? `{br}--------------------------------{br}{w}NOTA:{/w}{br}${String(order.customer_comment).trim()}`
+            : '';
+          const content = `{br}{center}{w}Pedido #${order.order_number}{/w}{br}{center}${timeStr}{br}{br}--------------------------------${itemsContent}{br}--------------------------------{br}{center}{w}TOTAL: $${total}{/w}{br}${commentContent}{br}{center}Por favor pagar{br}{center}{w}con efectivo en caja{/w}{br}{br}`;
 
           const mpRes = await fetch('https://api.mercadopago.com/terminals/v1/actions', {
             method: 'POST',
@@ -7494,7 +7497,10 @@ app.post('/api/orders/:orderId/confirm-payment', async (req, res) => {
           }
 
           const total = Number(updatedOrder.total || 0).toFixed(0);
-          const content = `{br}{center}{w}Pedido #${updatedOrder.order_number}{/w}{br}{center}${timeStr}{br}{br}--------------------------------${itemsContent}{br}--------------------------------{br}{center}{w}TOTAL: $${total}{/w}{br}{br}{center}Pago con tarjeta{br}{br}`;
+          const commentContent = (updatedOrder.customer_comment && String(updatedOrder.customer_comment).trim())
+            ? `{br}--------------------------------{br}{w}NOTA:{/w}{br}${String(updatedOrder.customer_comment).trim()}`
+            : '';
+          const content = `{br}{center}{w}Pedido #${updatedOrder.order_number}{/w}{br}{center}${timeStr}{br}{br}--------------------------------${itemsContent}{br}--------------------------------{br}{center}{w}TOTAL: $${total}{/w}{br}${commentContent}{br}{center}Pago con tarjeta{br}{br}`;
 
           const payload = {
             type: 'print',
