@@ -2076,7 +2076,19 @@ function Store() {
 
   const fetchStore = async () => {
     try {
-      const response = await fetch(`/api/public/${code}`, { cache: 'no-store' });
+      // Safari en iPhone suele lanzar "Load failed" en el primer fetch justo al
+      // volver de una redirección externa (ej. MercadoPago → tienda). Es una
+      // conexión reutilizada/obsoleta: reintentar unas pocas veces lo resuelve.
+      let response;
+      for (let attempt = 0; ; attempt++) {
+        try {
+          response = await fetch(`/api/public/${code}`, { cache: 'no-store' });
+          break;
+        } catch (netErr) {
+          if (attempt >= 3) throw netErr;
+          await new Promise(r => setTimeout(r, 600 * (attempt + 1)));
+        }
+      }
 
       if (!response.ok) {
         if (response.status === 404) {
