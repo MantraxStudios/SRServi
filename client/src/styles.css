@@ -2134,18 +2134,6 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
 }
 
-/* En monitores grandes (PC) el tótem está pensado para una tablet vertical.
-   Lo centramos a un ancho tipo kiosco para que las tarjetas, botones y el
-   editor no se vean gigantes. No afecta a tablets reales (por debajo del
-   breakpoint) ni al tótem en pantalla completa vertical. */
-@media (min-width: 1024px) {
-  .store-container {
-    max-width: 900px;
-    margin-inline: auto;
-    box-shadow: 0 0 0 100vmax rgba(20, 16, 10, 0.14);
-  }
-}
-
 .store-header {
   background: var(--kiosk-bg, #FAF4E9) !important;
   color: var(--kiosk-dark, #232028);
@@ -2729,6 +2717,20 @@ h1, h2, h3, h4, h5, h6 {
     grid-template-columns: repeat(3, 1fr);
     gap: 12px;
     padding: 12px 18px;
+  }
+}
+
+/* En modo edición usamos todo el ancho con tarjetas más chicas para que
+   quepan muchas en pantalla (clave en PC). Auto-fill: 2 columnas en teléfono,
+   más columnas a medida que crece la pantalla. */
+.store-body.editing .products-grid {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+@media (min-width: 1024px) {
+  .store-body.editing .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
 }
 
