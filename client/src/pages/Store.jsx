@@ -4949,20 +4949,6 @@ function Store() {
     }
   };
 
-  const renderAddProductCard = () => (
-    <button type="button" className="store-product-wrapper store-add-wrapper" key="add-product" onClick={() => openProdModal()}>
-      <div className="store-product-card store-add-card">
-        <span className="store-add-badge">
-          <FontAwesomeIcon icon={faPlus} className="store-add-icon" />
-        </span>
-      </div>
-      <div className="store-product-info">
-        <span className="store-add-title">Nuevo producto</span>
-        <span className="store-add-hint">Toca para crear</span>
-      </div>
-    </button>
-  );
-
   return (
     <PluginProvider mode="store">
     {ticketMode && (
@@ -5465,6 +5451,12 @@ function Store() {
             </button>
           </div>
           <div className="store-editor-actions">
+            {!previewMode && editorTab === 'products' && (
+              <button className="store-editor-done store-editor-add" onClick={() => openProdModal()}>
+                <FontAwesomeIcon icon={faPlus} />
+                <span className="editor-btn-label">Nuevo producto</span>
+              </button>
+            )}
             <button
               className="store-editor-done"
               style={{ background: previewMode ? '#28a745' : 'rgba(255,255,255,0.1)', color: previewMode ? '#fff' : 'rgba(255,255,255,0.8)' }}
@@ -5821,9 +5813,6 @@ function Store() {
                   </div>
                 </div>
               ))}
-              <div style={{ padding: '0 16px' }}>
-                {renderAddProductCard()}
-              </div>
             </div>
           </SortableContext>
           <DragOverlay>
