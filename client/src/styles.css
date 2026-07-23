@@ -10015,64 +10015,74 @@ html body .store-container .store-product-card * {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
-  background: var(--store-primary);
+  gap: 12px;
+  padding: 8px 16px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 100%),
+    var(--store-primary);
   color: var(--store-secondary);
   position: sticky;
   top: 0;
   z-index: 100;
   width: 100%;
   box-sizing: border-box;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  box-shadow: 0 4px 18px rgba(0,0,0,0.28);
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+  box-shadow: 0 6px 22px rgba(0,0,0,0.30);
 }
 
 .store-editor-tabs {
   display: flex;
+  align-items: center;
   gap: 4px;
-  flex-shrink: 0;
-  padding: 2px;
+  flex: 1;
+  min-width: 0;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.16);
 }
 
 .store-editor-tab {
-  padding: 9px 14px;
+  padding: 9px 15px;
   border: none;
   background: transparent;
   color: var(--store-secondary);
-  opacity: 0.55;
+  opacity: 0.62;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   white-space: nowrap;
   border-radius: 10px;
-  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  transition: opacity 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s;
 }
+
+.store-editor-tab svg { font-size: 14px; }
 
 .store-editor-tab:hover {
   opacity: 1;
-  background: rgba(255,255,255,0.07);
+  background: rgba(255,255,255,0.08);
 }
 
 .store-editor-tab.active {
   opacity: 1;
-  background: rgba(255,255,255,0.1);
-  color: var(--store-accent);
-  box-shadow: inset 0 -2.5px 0 var(--store-accent);
+  background: rgba(255,255,255,0.14);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.22);
 }
 
 .store-editor-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-shrink: 0;
 }
 
 .store-editor-done {
-  padding: 9px 18px;
+  padding: 10px 18px;
   border: none;
-  border-radius: 10px;
+  border-radius: 11px;
   background: var(--store-accent);
   color: var(--store-primary);
   font-size: 13px;
@@ -10080,10 +10090,10 @@ html body .store-container .store-product-card * {
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   white-space: nowrap;
   transition: transform 0.12s, filter 0.15s, box-shadow 0.15s;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+  box-shadow: 0 3px 12px rgba(0,0,0,0.24);
 }
 
 .store-editor-done:hover { transform: translateY(-1px); filter: brightness(1.07); }
@@ -10091,38 +10101,6 @@ html body .store-container .store-product-card * {
 
 /* ── Editor en teléfono: targets grandes y barra compacta ── */
 @media (max-width: 640px) {
-  .store-editor-bar {
-    padding: 6px 8px;
-    gap: 6px;
-  }
-
-  .store-editor-tabs {
-    overflow-x: auto;
-    scrollbar-width: none;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .store-editor-tabs::-webkit-scrollbar {
-    display: none;
-  }
-
-  .store-editor-tab {
-    padding: 12px 13px;
-    font-size: 17px;
-    flex-shrink: 0;
-  }
-
-  /* Solo iconos en las pestañas (más espacio) */
-  .editor-tab-label {
-    display: none;
-  }
-
-  .store-editor-done {
-    padding: 12px 14px;
-    font-size: 13px;
-  }
-
   /* Botones editar/eliminar del producto: tamaño dedo */
   .store-prod-edit-overlay {
     display: flex;
@@ -10384,23 +10362,82 @@ html body .store-container .store-product-card * {
 }
 
 /* Add product card */
+.store-add-wrapper {
+  border: none;
+  font: inherit;
+  text-align: center;
+  background: var(--kiosk-card, #fff);
+  outline: none;
+}
+
 .store-add-card {
   border: 2px dashed var(--store-accent) !important;
-  background: transparent !important;
+  background:
+    radial-gradient(120% 120% at 50% 0%, rgba(0,0,0,0.045) 0%, rgba(0,0,0,0.015) 55%, transparent 100%) !important;
+  opacity: 0.92;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  min-height: 120px;
+  transition: opacity var(--transition), background var(--transition);
+}
+
+.store-add-badge {
+  width: 30%;
+  max-width: 76px;
+  min-width: 44px;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--store-accent);
+  color: var(--store-primary, #232028);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+  transition: transform var(--transition-fast);
 }
 
 .store-add-icon {
-  font-size: 32px;
-  color: var(--store-accent);
+  font-size: clamp(16px, 3.2vw, 26px);
+  color: inherit;
 }
 
-.store-add-card:active {
-  background: rgba(0,0,0,0.03) !important;
+.store-add-title {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--kiosk-dark, #232028);
+  letter-spacing: -0.2px;
+}
+
+.store-add-hint {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--kiosk-muted, #8f8a80);
+  margin-top: 2px;
+}
+
+.store-add-wrapper .store-product-info {
+  text-align: center;
+  align-items: center;
+}
+
+@media (hover: hover) {
+  .store-add-wrapper:hover .store-add-card {
+    opacity: 1;
+    background:
+      radial-gradient(120% 120% at 50% 0%, rgba(0,0,0,0.07) 0%, rgba(0,0,0,0.02) 60%, transparent 100%) !important;
+  }
+  .store-add-wrapper:hover .store-add-badge {
+    transform: scale(1.06);
+  }
+}
+
+.store-add-wrapper:active .store-add-badge {
+  transform: scale(0.92);
+}
+
+@media (min-width: 900px) {
+  .store-add-title { font-size: 16px; }
 }
 
 /* Product edit modal */
@@ -10520,6 +10557,7 @@ html body .store-container .store-product-card * {
   .store-editor-bar {
     flex-direction: column;
     align-items: stretch;
+    gap: 0;
     padding: 0;
   }
 
@@ -10527,6 +10565,11 @@ html body .store-container .store-product-card * {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    flex: none;
+    gap: 2px;
+    padding: 6px 8px;
+    border-radius: 0;
+    background: transparent;
     border-bottom: 1px solid rgba(255,255,255,0.12);
   }
 
@@ -10535,51 +10578,49 @@ html body .store-container .store-product-card * {
   .store-editor-tab {
     flex-direction: column;
     align-items: center;
-    padding: 8px 14px;
-    gap: 3px;
+    justify-content: center;
+    padding: 7px 12px;
+    gap: 4px;
     font-size: 10px;
+    font-weight: 700;
     flex-shrink: 0;
-    min-width: 58px;
-    border-radius: 0;
+    min-width: 60px;
+    border-radius: 12px;
   }
 
   .store-editor-tab svg {
-    font-size: 16px;
+    font-size: 17px;
   }
 
   .store-editor-tab.active {
-    border-top: 3px solid var(--store-accent);
-    background: rgba(255,255,255,0.08);
-    color: var(--store-accent);
+    background: rgba(255,255,255,0.16);
+    color: #fff;
     box-shadow: none;
   }
 
   .store-editor-actions {
     display: flex;
-    gap: 0;
-    background: rgba(0,0,0,0.18);
+    gap: 8px;
+    padding: 8px 10px;
+    background: rgba(0,0,0,0.20);
   }
 
   .store-editor-done {
     flex: 1;
     justify-content: center;
-    padding: 11px 8px;
-    font-size: 12px;
-    border-radius: 0;
-    background: transparent;
+    padding: 12px 10px;
+    font-size: 13px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.10);
     color: var(--store-secondary);
-    border-right: 1px solid rgba(255,255,255,0.12);
-    opacity: 0.85;
     box-shadow: none;
   }
 
   .store-editor-done:hover { transform: none; filter: none; }
 
   .store-editor-done:last-child {
-    border-right: none;
     background: var(--store-accent);
     color: var(--store-primary);
-    opacity: 1;
   }
 
   .store-editor-complements {
@@ -10650,14 +10691,6 @@ html body .store-container .store-product-card * {
     width: 26px;
     height: 26px;
     font-size: 11px;
-  }
-
-  .store-add-card {
-    min-height: 100px;
-  }
-
-  .store-add-icon {
-    font-size: 24px;
   }
 
   .store-edit-drag-handle {

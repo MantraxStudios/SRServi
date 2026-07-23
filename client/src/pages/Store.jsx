@@ -4950,16 +4950,17 @@ function Store() {
   };
 
   const renderAddProductCard = () => (
-    <div className="store-product-wrapper" key="add-product">
-      <div className="store-product-card store-add-card" onClick={() => openProdModal()}>
-        <FontAwesomeIcon icon={faPlus} className="store-add-icon" />
+    <button type="button" className="store-product-wrapper store-add-wrapper" key="add-product" onClick={() => openProdModal()}>
+      <div className="store-product-card store-add-card">
+        <span className="store-add-badge">
+          <FontAwesomeIcon icon={faPlus} className="store-add-icon" />
+        </span>
       </div>
       <div className="store-product-info">
-        <div className="store-product-details">
-          <span className="store-product-name">Nuevo producto</span>
-        </div>
+        <span className="store-add-title">Nuevo producto</span>
+        <span className="store-add-hint">Toca para crear</span>
       </div>
-    </div>
+    </button>
   );
 
   return (
