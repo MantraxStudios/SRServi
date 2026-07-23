@@ -8772,6 +8772,20 @@ function Store() {
                 gap: '6px', maxHeight: '184px', overflowY: 'auto',
                 padding: '4px', border: '1px solid #e0e0e0', borderRadius: '8px'
               }}>
+                <button
+                  type="button"
+                  title="Sin icono (automático)"
+                  onClick={() => setCatIconKey('')}
+                  style={{
+                    aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: catIconKey === '' ? '2px solid var(--store-accent)' : '2px solid transparent',
+                    background: catIconKey === '' ? 'rgba(0,0,0,0.05)' : '#f5f5f5',
+                    borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: 700,
+                    color: catIconKey === '' ? 'var(--store-primary)' : '#999', lineHeight: 1.1
+                  }}
+                >
+                  Ninguno
+                </button>
                 {CATEGORY_ICON_LIST.map(({ key, label, icon }) => (
                   <button
                     key={key}

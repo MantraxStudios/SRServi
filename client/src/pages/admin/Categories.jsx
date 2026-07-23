@@ -226,6 +226,20 @@ function Categories() {
                   gap: 6, maxHeight: 200, overflowY: 'auto',
                   padding: 6, border: '1px solid #e0e0e0', borderRadius: 8
                 }}>
+                  <button
+                    type="button"
+                    title="Sin icono (automático)"
+                    onClick={() => setFormData(prev => ({ ...prev, icon: '' }))}
+                    style={{
+                      aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      border: formData.icon === '' ? '2px solid #D4AF37' : '2px solid transparent',
+                      background: formData.icon === '' ? 'rgba(212,175,55,0.12)' : '#f5f5f5',
+                      borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                      color: formData.icon === '' ? '#111' : '#999', lineHeight: 1.1
+                    }}
+                  >
+                    Ninguno
+                  </button>
                   {CATEGORY_ICON_LIST.map(({ key, label, icon }) => {
                     const selected = formData.icon === key;
                     return (
