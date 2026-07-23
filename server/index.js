@@ -2426,7 +2426,7 @@ app.post('/api/public/:code/categories', async (req, res) => {
     const auth = await verifyStoreAccess(req.params.code, req.body);
     if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
     if (!req.body.name) return res.status(400).json({ error: 'Nombre es requerido' });
-    const category = await createCategory(auth.store.id, { name: req.body.name, description: req.body.description || '' });
+    const category = await createCategory(auth.store.id, { name: req.body.name, description: req.body.description || '', icon: req.body.icon || null });
     emitProductUpdate(auth.store.id, 'category_created', category);
     res.json(category);
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -2437,7 +2437,7 @@ app.put('/api/public/:code/categories/:id', async (req, res) => {
     const auth = await verifyStoreAccess(req.params.code, req.body);
     if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
     if (!req.body.name) return res.status(400).json({ error: 'Nombre es requerido' });
-    const category = await updateCategory(parseInt(req.params.id), auth.store.id, { name: req.body.name, description: req.body.description || '' });
+    const category = await updateCategory(parseInt(req.params.id), auth.store.id, { name: req.body.name, description: req.body.description || '', icon: req.body.icon || null });
     emitProductUpdate(auth.store.id, 'category_updated', category);
     res.json(category);
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -5292,7 +5292,7 @@ app.get('/api/categories', authenticateToken, async (req, res) => {
 
 app.post('/api/categories', authenticateToken, async (req, res) => {
   try {
-    const { store_id, name, description } = req.body;
+    const { store_id, name, description, icon } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
@@ -5303,7 +5303,7 @@ app.post('/api/categories', authenticateToken, async (req, res) => {
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
-    const category = await createCategory(parseInt(store_id), { name, description });
+    const category = await createCategory(parseInt(store_id), { name, description, icon });
     emitProductUpdate(parseInt(store_id), 'category_created', category);
     res.json(category);
   } catch (error) {
@@ -5313,7 +5313,7 @@ app.post('/api/categories', authenticateToken, async (req, res) => {
 
 app.put('/api/categories/:id', authenticateToken, async (req, res) => {
   try {
-    const { store_id, name, description } = req.body;
+    const { store_id, name, description, icon } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
@@ -5324,7 +5324,7 @@ app.put('/api/categories/:id', authenticateToken, async (req, res) => {
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
-    const category = await updateCategory(parseInt(req.params.id), parseInt(store_id), { name, description });
+    const category = await updateCategory(parseInt(req.params.id), parseInt(store_id), { name, description, icon });
     emitProductUpdate(parseInt(store_id), 'category_updated', category);
     res.json(category);
   } catch (error) {

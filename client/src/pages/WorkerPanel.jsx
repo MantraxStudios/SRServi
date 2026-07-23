@@ -535,16 +535,25 @@ function WorkerPanel() {
         });
       }
       if (order.payment_process === 0 && order.payment_method !== 'mercadopago') {
-        setPendingCashOrders(prev => [order, ...prev]);
+        setPendingCashOrders(prev => {
+          if (prev.find(o => o.id === order.id)) return prev;
+          return [order, ...prev];
+        });
       } else if (order.payment_process === 1) {
-        setOrders(prev => [order, ...prev]);
+        setOrders(prev => {
+          if (prev.find(o => o.id === order.id)) return prev;
+          return [order, ...prev];
+        });
       }
     });
 
     socket.on('cash_approved', (order) => {
       setPendingCashOrders(prev => prev.filter(o => o.id !== order.id));
       if (order.payment_process === 1) {
-        setOrders(prev => [order, ...prev]);
+        setOrders(prev => {
+          if (prev.find(o => o.id === order.id)) return prev;
+          return [order, ...prev];
+        });
       }
     });
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
+import { CATEGORY_ICON_LIST, getCategoryIcon } from '../../utils/categoryIcons';
 
 function Categories() {
   const { selectedStore } = useStore();
@@ -11,7 +12,8 @@ function Categories() {
   const [editingCategory, setEditingCategory] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
-    description: ''
+    description: '',
+    icon: ''
   });
   const [error, setError] = useState('');
 
@@ -76,7 +78,7 @@ function Categories() {
 
       setShowModal(false);
       setEditingCategory(null);
-      setFormData({ name: '', description: '' });
+      setFormData({ name: '', description: '', icon: '' });
       fetchCategories();
     } catch (err) {
       setError(err.message);
@@ -87,7 +89,8 @@ function Categories() {
     setEditingCategory(category);
     setFormData({
       name: category.name,
-      description: category.description || ''
+      description: category.description || '',
+      icon: category.icon || ''
     });
     setShowModal(true);
   };
@@ -114,7 +117,7 @@ function Categories() {
 
   const openModal = () => {
     setEditingCategory(null);
-    setFormData({ name: '', description: '' });
+    setFormData({ name: '', description: '', icon: '' });
     setShowModal(true);
   };
 
@@ -144,6 +147,7 @@ function Categories() {
               <table className="table">
                 <thead>
                   <tr>
+                    <th>Icono</th>
                     <th>Nombre</th>
                     <th>Descripcion</th>
                     <th>Acciones</th>
@@ -152,6 +156,11 @@ function Categories() {
                 <tbody>
                 {categories.map(category => (
                   <tr key={category.id}>
+                    <td style={{ fontSize: 18, color: '#555', width: 48, textAlign: 'center' }}>
+                      {getCategoryIcon(category.icon)
+                        ? <FontAwesomeIcon icon={getCategoryIcon(category.icon)} />
+                        : <span style={{ color: '#bbb' }}>—</span>}
+                    </td>
                     <td className="font-semibold">{category.name}</td>
                     <td>{category.description || '-'}</td>
                     <td>
@@ -209,6 +218,38 @@ function Categories() {
                   rows="3"
                   placeholder="Descripcion opcional"
                 />
+              </div>
+              <div className="form-group">
+                <label>Icono</label>
+                <div style={{
+                  display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(46px, 1fr))',
+                  gap: 6, maxHeight: 200, overflowY: 'auto',
+                  padding: 6, border: '1px solid #e0e0e0', borderRadius: 8
+                }}>
+                  {CATEGORY_ICON_LIST.map(({ key, label, icon }) => {
+                    const selected = formData.icon === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        title={label}
+                        onClick={() => setFormData(prev => ({ ...prev, icon: selected ? '' : key }))}
+                        style={{
+                          aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          border: selected ? '2px solid #D4AF37' : '2px solid transparent',
+                          background: selected ? 'rgba(212,175,55,0.12)' : '#f5f5f5',
+                          borderRadius: 8, cursor: 'pointer', fontSize: 18,
+                          color: selected ? '#111' : '#555'
+                        }}
+                      >
+                        <FontAwesomeIcon icon={icon} />
+                      </button>
+                    );
+                  })}
+                </div>
+                <small style={{ color: '#888', display: 'block', marginTop: 6 }}>
+                  {formData.icon ? 'Toca el icono seleccionado para quitarlo.' : 'Opcional. Si no eliges, se usa un icono automático según el nombre.'}
+                </small>
               </div>
               <button type="submit" className="btn btn-primary btn-full">
                 {editingCategory ? 'Actualizar' : 'Crear'}

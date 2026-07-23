@@ -1057,6 +1057,10 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE categories ADD COLUMN sort_order INT NOT NULL DEFAULT 0');
         console.log('✅ Columna sort_order agregada a categories');
       }
+      if (!catColNames.includes('icon')) {
+        await pool.execute('ALTER TABLE categories ADD COLUMN icon VARCHAR(50) DEFAULT NULL');
+        console.log('✅ Columna icon agregada a categories');
+      }
     } catch (migErr) {
       console.error('❌ Error migrando categories:', migErr.message);
     }
@@ -2649,22 +2653,22 @@ export async function updateCategoriesOrder(storeId, categoryOrders) {
 }
 
 export async function createCategory(storeId, data) {
-  const { name, description } = data;
+  const { name, description, icon } = data;
   const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO categories (store_id, user_id, name, description) VALUES (?, ?, ?, ?)',
-    [storeId, store.user_id, name, description || null]
+    'INSERT INTO categories (store_id, user_id, name, description, icon) VALUES (?, ?, ?, ?, ?)',
+    [storeId, store.user_id, name, description || null, icon || null]
   );
-  return { id: result.insertId, store_id: storeId, name, description };
+  return { id: result.insertId, store_id: storeId, name, description, icon: icon || null };
 }
 
 export async function updateCategory(categoryId, storeId, data) {
-  const { name, description } = data;
+  const { name, description, icon } = data;
   await pool.execute(
-    'UPDATE categories SET name = ?, description = ? WHERE id = ? AND store_id = ?',
-    [name, description || null, categoryId, storeId]
+    'UPDATE categories SET name = ?, description = ?, icon = ? WHERE id = ? AND store_id = ?',
+    [name, description || null, icon || null, categoryId, storeId]
   );
-  return { id: categoryId, store_id: storeId, name, description };
+  return { id: categoryId, store_id: storeId, name, description, icon: icon || null };
 }
 
 export async function deleteCategory(categoryId, storeId) {

@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { detectLanguage, t, LANGUAGES } from '../i18n';
 import { getSeasonalTheme } from '../utils/seasonalTheme';
+import { CATEGORY_ICON_LIST, getCategoryIcon } from '../utils/categoryIcons';
 import {
   faShoppingCart,
   faRobot,
@@ -69,6 +70,14 @@ import {
   faThLarge,
 } from '@fortawesome/free-solid-svg-icons';
 
+// Icono de categoría: usa el icono personalizado si está asignado,
+// si no, cae en la heurística por nombre (estilo kiosko).
+const catIconFor = (catObj) => {
+  const custom = catObj && getCategoryIcon(catObj.icon);
+  if (custom) return custom;
+  return catIcon(catObj?.name || '');
+};
+
 // Icono heurístico por nombre de categoría (estilo kiosko)
 const catIcon = (name = '') => {
   const n = name.toLowerCase();
@@ -129,6 +138,7 @@ function SortableCategoryTab({ catObj, activeCategory, onEdit, onDelete }) {
       <span className="cat-drag-handle" {...attributes} {...listeners}>
         <FontAwesomeIcon icon={faGripVertical} />
       </span>
+      <span className="category-tab-icon"><FontAwesomeIcon icon={catIconFor(catObj)} /></span>
       {catObj.name}
       <span className="cat-tab-edit-icons">
         <span onClick={(e) => { e.stopPropagation(); onEdit(catObj); }}><FontAwesomeIcon icon={faEdit} /></span>
@@ -1042,6 +1052,7 @@ function Store() {
   const [editingCat, setEditingCat] = useState(null);
   const [catModalFromProduct, setCatModalFromProduct] = useState(false);
   const [catName, setCatName] = useState('');
+  const [catIconKey, setCatIconKey] = useState('');
   const [tuuProvider, setTuuProvider] = useState(null);
   const [qrProvider, setQrProvider] = useState(null);
   const [qrPaymentUrl, setQrPaymentUrl] = useState(null);
@@ -4241,6 +4252,7 @@ function Store() {
   const openCatModal = (cat = null, fromProduct = false) => {
     setEditingCat(cat);
     setCatName(cat ? cat.name : '');
+    setCatIconKey(cat ? (cat.icon || '') : '');
     setCatModalFromProduct(fromProduct);
     setCatModalOpen(true);
   };
@@ -4254,7 +4266,7 @@ function Store() {
       const res = await fetch(url, {
         method: editingCat ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...getAuthBody(), name: catName.trim() })
+        body: JSON.stringify({ ...getAuthBody(), name: catName.trim(), icon: catIconKey || null })
       });
       const savedCat = await res.json();
       if (catModalFromProduct && !editingCat && savedCat?.id) {
@@ -4262,6 +4274,7 @@ function Store() {
       }
       setCatModalOpen(false);
       setCatName('');
+      setCatIconKey('');
       setEditingCat(null);
       setCatModalFromProduct(false);
       fetchStore();
@@ -5342,7 +5355,7 @@ function Store() {
               data-category={catObj.name}
               onClick={() => setActiveCategory(catObj.name)}
             >
-              <span className="category-tab-icon"><FontAwesomeIcon icon={catIcon(catObj.name)} /></span>
+              <span className="category-tab-icon"><FontAwesomeIcon icon={catIconFor(catObj)} /></span>
               <span className="category-tab-label">{catObj.name}</span>
             </button>
           ))
@@ -8750,6 +8763,37 @@ function Store() {
                 boxSizing: 'border-box'
               }}
             />
+            <div style={{ marginTop: '14px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--store-primary)', marginBottom: '8px' }}>
+                Icono de la categoría
+              </div>
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(46px, 1fr))',
+                gap: '6px', maxHeight: '184px', overflowY: 'auto',
+                padding: '4px', border: '1px solid #e0e0e0', borderRadius: '8px'
+              }}>
+                {CATEGORY_ICON_LIST.map(({ key, label, icon }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    title={label}
+                    onClick={() => setCatIconKey(prev => prev === key ? '' : key)}
+                    style={{
+                      aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      border: catIconKey === key ? '2px solid var(--store-accent)' : '2px solid transparent',
+                      background: catIconKey === key ? 'rgba(0,0,0,0.05)' : '#f5f5f5',
+                      borderRadius: '8px', cursor: 'pointer', fontSize: '18px',
+                      color: catIconKey === key ? 'var(--store-primary)' : '#555'
+                    }}
+                  >
+                    <FontAwesomeIcon icon={icon} />
+                  </button>
+                ))}
+              </div>
+              <div style={{ fontSize: '11px', color: '#888', marginTop: '6px' }}>
+                {catIconKey ? 'Toca el icono seleccionado para quitarlo.' : 'Opcional. Si no eliges, se usa un icono automático según el nombre.'}
+              </div>
+            </div>
             <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
               <button
                 onClick={() => { setCatModalOpen(false); setCatModalFromProduct(false); }}
