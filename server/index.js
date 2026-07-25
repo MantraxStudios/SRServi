@@ -117,6 +117,7 @@ import {
   updateIngredientsOrder,
   updateExtrasOrder,
   createOrder,
+  deductExternalOrderInventory,
   getOrders,
   getWhatsAppOrders,
   updateUserSettings,
@@ -11326,6 +11327,9 @@ async function startServer() {
         );
         const orderId = result.insertId;
 
+        // Descontar inventario (stock + recetas) mapeando items por nombre
+        deductExternalOrderInventory(store.id, externalItems, orderId).catch(e => console.error('[Rappi] deduct inventory:', e.message));
+
         const newOrder = {
           id: orderId,
           order_number: orderNumber,
@@ -11512,6 +11516,9 @@ async function startServer() {
         );
         const orderId = result.insertId;
 
+        // Descontar inventario (stock + recetas) mapeando items por nombre
+        deductExternalOrderInventory(store.id, externalItems, orderId).catch(e => console.error('[UberEats] deduct inventory:', e.message));
+
         const newOrder = {
           id: orderId, order_number: orderNumber, store_id: store.id,
           order_type: 'ubereats', total, status: 'preparing',
@@ -11679,6 +11686,9 @@ async function startServer() {
           ]
         );
         const orderId = result.insertId;
+
+        // Descontar inventario (stock + recetas) mapeando items por nombre
+        deductExternalOrderInventory(store.id, externalItems, orderId).catch(e => console.error('[PedidosYa] deduct inventory:', e.message));
 
         const newOrder = {
           id: orderId,

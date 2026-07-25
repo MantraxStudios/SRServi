@@ -3977,6 +3977,59 @@ export async function generateUniqueOrderNumber(storeId) {
   return (used.size + 1).toString();
 }
 
+// Descuenta stock de un producto (tabla inventory) + las materias primas de su
+// receta (product_recipes → raw_materials), multiplicado por la cantidad.
+// Reutilizable por ventas normales, componentes de combos y pedidos externos.
+export async function deductProductInventory(storeId, productId, quantity, { orderId = null, productName = '' } = {}) {
+  if (!productId || !quantity) return;
+  const [invRows] = await pool.execute(
+    'SELECT stock, unlimited_stock FROM inventory WHERE product_id = ?',
+    [productId]
+  );
+  if (invRows.length > 0 && !invRows[0].unlimited_stock) {
+    const prevStock = invRows[0].stock;
+    const newStock = Math.max(0, prevStock - quantity);
+    await pool.execute(
+      'UPDATE inventory SET stock = GREATEST(0, stock - ?) WHERE product_id = ?',
+      [quantity, productId]
+    );
+    logInventoryMovement({ storeId, itemType: 'product', itemId: productId, itemName: productName, previousQty: prevStock, newQty: newStock, reason: 'order', referenceId: orderId }).catch(() => {});
+  }
+  const [prodRecipe] = await pool.execute(
+    'SELECT pr.raw_material_id, pr.quantity_used, rm.name as rm_name, rm.quantity as rm_qty FROM product_recipes pr JOIN raw_materials rm ON pr.raw_material_id = rm.id WHERE pr.item_type = ? AND pr.item_id = ?',
+    ['product', productId]
+  );
+  for (const r of prodRecipe) {
+    const deduct = r.quantity_used * quantity;
+    const prevQ = parseFloat(r.rm_qty);
+    const newQ = Math.max(0, prevQ - deduct);
+    await pool.execute(
+      'UPDATE raw_materials SET quantity = GREATEST(0, quantity - ?) WHERE id = ?',
+      [deduct, r.raw_material_id]
+    );
+    logInventoryMovement({ storeId, itemType: 'raw_material', itemId: r.raw_material_id, itemName: r.rm_name, previousQty: prevQ, newQty: newQ, reason: 'recipe', referenceId: orderId }).catch(() => {});
+  }
+}
+
+// Descuenta inventario para pedidos de plataformas externas (Rappi, PedidosYa,
+// Uber Eats). Los items externos no traen product_id, así que se mapean por
+// nombre (case-insensitive) contra los productos de la tienda. Best-effort:
+// si un item no coincide con ningún producto se ignora silenciosamente.
+export async function deductExternalOrderInventory(storeId, externalItems, orderId = null) {
+  if (!Array.isArray(externalItems)) return;
+  for (const it of externalItems) {
+    const name = (it?.name || '').trim();
+    const qty = Number(it?.quantity || it?.qty || 1);
+    if (!name || !qty) continue;
+    const [prod] = await pool.execute(
+      'SELECT id, name FROM products WHERE store_id = ? AND LOWER(name) = LOWER(?) LIMIT 1',
+      [storeId, name]
+    );
+    if (!prod.length) continue;
+    await deductProductInventory(storeId, prod[0].id, qty, { orderId, productName: prod[0].name });
+  }
+}
+
 export async function createOrder(storeId, orderData) {
   const { order_type, items, payment_method, coupon_code, table_number, delivery_address, delivery_customer_id, customer_email, customer_name, persons, event_name, show_time, customer_comment } = orderData;
   
@@ -4083,21 +4136,24 @@ export async function createOrder(storeId, orderData) {
       );
     }
 
-    // Deduct product stock (los items de promoción no tienen producto)
-    if (!item.product_id) continue;
-    const [invRows] = await pool.execute(
-      'SELECT stock, unlimited_stock FROM inventory WHERE product_id = ?',
-      [item.product_id]
-    );
-    if (invRows.length > 0 && !invRows[0].unlimited_stock) {
-      const prevStock = invRows[0].stock;
-      const newStock = Math.max(0, prevStock - item.quantity);
-      await pool.execute(
-        'UPDATE inventory SET stock = GREATEST(0, stock - ?) WHERE product_id = ?',
-        [item.quantity, item.product_id]
-      );
-      logInventoryMovement({ storeId, itemType: 'product', itemId: item.product_id, itemName: item.name || '', previousQty: prevStock, newQty: newStock, reason: 'order', referenceId: finalOrder.id }).catch(() => {});
+    // Combos y promos no tienen product_id propio. Para combos descontamos cada
+    // producto componente (stock + receta); las store_promos no tienen lista de
+    // materiales asociada, así que no hay nada que descontar.
+    if (!item.product_id) {
+      if (item.combo_id) {
+        const [comboComps] = await pool.execute(
+          'SELECT ci.product_id, ci.quantity, p.name FROM combo_items ci JOIN products p ON p.id = ci.product_id WHERE ci.combo_id = ?',
+          [item.combo_id]
+        );
+        for (const comp of comboComps) {
+          await deductProductInventory(storeId, comp.product_id, comp.quantity * item.quantity, { orderId: finalOrder.id, productName: comp.name });
+        }
+      }
+      continue;
     }
+
+    // Deduct product stock + materias primas de su receta
+    await deductProductInventory(storeId, item.product_id, item.quantity, { orderId: finalOrder.id, productName: item.name || '' });
 
     // Deduct complement (ingredient) stock and raw materials
     for (const ing of (item.selected_ingredients || [])) {
@@ -4175,21 +4231,6 @@ export async function createOrder(storeId, orderData) {
       } catch { /* ignore */ }
     }
 
-    // Deduct raw materials for product (recipe) — multiplied by order quantity
-    const [prodRecipe] = await pool.execute(
-      'SELECT pr.raw_material_id, pr.quantity_used, rm.name as rm_name, rm.quantity as rm_qty FROM product_recipes pr JOIN raw_materials rm ON pr.raw_material_id = rm.id WHERE pr.item_type = ? AND pr.item_id = ?',
-      ['product', item.product_id]
-    );
-    for (const r of prodRecipe) {
-      const deduct = r.quantity_used * item.quantity;
-      const prevQ = parseFloat(r.rm_qty);
-      const newQ = Math.max(0, prevQ - deduct);
-      await pool.execute(
-        'UPDATE raw_materials SET quantity = GREATEST(0, quantity - ?) WHERE id = ?',
-        [deduct, r.raw_material_id]
-      );
-      logInventoryMovement({ storeId, itemType: 'raw_material', itemId: r.raw_material_id, itemName: r.rm_name, previousQty: prevQ, newQty: newQ, reason: 'recipe', referenceId: finalOrder.id }).catch(() => {});
-    }
   }
 
   return finalOrder;
