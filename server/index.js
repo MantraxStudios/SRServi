@@ -8751,7 +8751,14 @@ app.get('/api/public/:code/screensaver', async (req, res) => {
     const plan = await getUserPlan(store.user_id);
     const isPremium = plan && plan.plan_name && plan.plan_name !== 'Gratis';
     if (!isPremium) return res.json({ enabled: false });
-    const [rows] = await pool.execute('SELECT * FROM screensaver_config WHERE user_id = ?', [store.user_id]);
+    // La config se guarda por tienda (UNIQUE user_id+store_id), así que hay que
+    // filtrar por la tienda concreta del código; leer solo por user_id devolvía
+    // una fila arbitraria de otra tienda en cuentas con varias tiendas.
+    let [rows] = await pool.execute('SELECT * FROM screensaver_config WHERE user_id = ? AND store_id = ?', [store.user_id, store.id]);
+    // Fallback a config global (store_id = 0) creada antes del selector por tienda
+    if (!rows.length) {
+      [rows] = await pool.execute('SELECT * FROM screensaver_config WHERE user_id = ? AND store_id = 0 LIMIT 1', [store.user_id]);
+    }
     const cfg = rows[0] || { enabled: false, media_url: null, timeout_seconds: 60 };
     res.json({ ...cfg, store_logo: store.logo_url || null, store_name: store.name });
   } catch (e) { res.status(500).json({ error: e.message }); }
