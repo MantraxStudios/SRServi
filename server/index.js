@@ -13742,6 +13742,29 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       } catch (e) { console.error('[SRBrain] Cron error:', e.message); }
     });
 
+    // ── Reinicio periódico de OpenSSH — cada 1 hora en punto ───────────────────
+    // El servicio SSH del servidor deja de responder cada tanto; lo reiniciamos
+    // cada hora para mantener el acceso remoto disponible. Solo en Linux.
+    cron.schedule('0 * * * *', () => {
+      if (process.platform !== 'linux') return;
+      const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
+      const services = ['ssh', 'sshd']; // Debian/Ubuntu = ssh, RHEL/Fedora = sshd
+      const tryRestart = (i) => {
+        if (i >= services.length) {
+          console.error('[SSH] No se pudo reiniciar OpenSSH (ningún servicio ssh/sshd respondió)');
+          return;
+        }
+        const svc = services[i];
+        const cmd = isRoot ? 'systemctl' : 'sudo';
+        const args = isRoot ? ['restart', svc] : ['-n', 'systemctl', 'restart', svc];
+        execFile(cmd, args, (err) => {
+          if (err) { tryRestart(i + 1); return; }
+          console.log(`[SSH] OpenSSH (${svc}) reiniciado — ${new Date().toLocaleString('es-CL')}`);
+        });
+      };
+      tryRestart(0);
+    });
+
     // ── Reporte semanal de decisiones de ventas — Lunes 00:00 ──────────────────
     // La IA analiza, toma decisiones para mejorar ventas y le explica al
     // administrador por correo por qué las tomó.
