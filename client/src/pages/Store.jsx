@@ -68,6 +68,7 @@ import {
   faCookieBite,
   faWineBottle,
   faThLarge,
+  faFont,
 } from '@fortawesome/free-solid-svg-icons';
 
 // Icono de categoría: usa el icono personalizado si está asignado,
@@ -949,6 +950,112 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
   );
 }
 
+// ===== Editor de Estilos: valores base y plantillas listas =====
+const SE_BLANK = {
+  fontFamily: '', fontSize: '', titleSize: '', priceSize: '',
+  fontWeight: '', textShadow: '', cardShadow: '', cardRadius: '',
+  productNameColor: '', productPriceColor: '', cardBg: '', cardBorder: '',
+  headerBg: '', headerTextColor: '', categoryBg: '', categoryActiveColor: '',
+  cartBg: '', cartTextColor: ''
+};
+
+const STYLE_PRESETS = [
+  {
+    id: 'clasico', name: 'Clásico', emoji: '⚪', bg: '#f8fafc', swatch: ['#ffffff', '#111111'],
+    settings: { ...SE_BLANK }
+  },
+  {
+    id: 'elegante', name: 'Elegante', emoji: '🥂', bg: '#1a1a2e', swatch: ['#1a1a2e', '#d4af37'],
+    settings: {
+      ...SE_BLANK,
+      fontFamily: "'Playfair Display', serif", fontWeight: '600', titleSize: '17px', priceSize: '18px',
+      cardShadow: '0 8px 32px rgba(0,0,0,0.2)', cardRadius: '16px',
+      productNameColor: '#1a1a2e', productPriceColor: '#c19a3a', cardBg: '#ffffff', cardBorder: '1px solid #e8dcc0',
+      headerBg: '#1a1a2e', headerTextColor: '#d4af37', categoryBg: '#f5f1e6', categoryActiveColor: '#1a1a2e',
+      cartBg: '#1a1a2e', cartTextColor: '#d4af37'
+    }
+  },
+  {
+    id: 'moderno', name: 'Moderno', emoji: '💠', bg: '#eff6ff', swatch: ['#2563eb', '#ffffff'],
+    settings: {
+      ...SE_BLANK,
+      fontFamily: "'Poppins', sans-serif", fontWeight: '500',
+      cardShadow: '0 4px 16px rgba(0,0,0,0.15)', cardRadius: '16px',
+      productNameColor: '#1e293b', productPriceColor: '#2563eb', cardBg: '#ffffff',
+      headerBg: '#2563eb', headerTextColor: '#ffffff', categoryBg: '#eff6ff', categoryActiveColor: '#2563eb',
+      cartBg: '#2563eb', cartTextColor: '#ffffff'
+    }
+  },
+  {
+    id: 'vibrante', name: 'Vibrante', emoji: '🌈', bg: '#fff0f0', swatch: ['#ff6b6b', '#feca57'],
+    settings: {
+      ...SE_BLANK,
+      fontFamily: "'Montserrat', sans-serif", fontWeight: '700',
+      cardShadow: '0 8px 32px rgba(0,0,0,0.2)', cardRadius: '24px',
+      productNameColor: '#c0392b', productPriceColor: '#ff6b6b', cardBg: '#fffbf0', cardBorder: '2px solid #feca57',
+      headerBg: '#ff6b6b', headerTextColor: '#ffffff', categoryBg: '#fff0f0', categoryActiveColor: '#ff6b6b',
+      cartBg: '#ff6b6b', cartTextColor: '#ffffff'
+    }
+  },
+  {
+    id: 'minimalista', name: 'Minimalista', emoji: '◻️', bg: '#fafafa', swatch: ['#ffffff', '#111111'],
+    settings: {
+      ...SE_BLANK,
+      fontFamily: "'Inter', sans-serif", fontWeight: '400', cardRadius: '8px',
+      productNameColor: '#111111', productPriceColor: '#111111', cardBg: '#ffffff', cardBorder: '1px solid #eeeeee',
+      headerBg: '#ffffff', headerTextColor: '#111111', categoryBg: '#f5f5f5', categoryActiveColor: '#111111',
+      cartBg: '#111111', cartTextColor: '#ffffff'
+    }
+  },
+  {
+    id: 'calido', name: 'Cálido', emoji: '🔥', bg: '#fff8f0', swatch: ['#8b4513', '#e8a87c'],
+    settings: {
+      ...SE_BLANK,
+      fontFamily: "'Lato', sans-serif", fontWeight: '600',
+      cardShadow: '0 4px 16px rgba(139,69,19,0.15)', cardRadius: '16px',
+      productNameColor: '#5c3317', productPriceColor: '#c0622d', cardBg: '#fff8f0',
+      headerBg: '#8b4513', headerTextColor: '#ffe8d6', categoryBg: '#f9ede0', categoryActiveColor: '#8b4513',
+      cartBg: '#8b4513', cartTextColor: '#ffe8d6'
+    }
+  },
+  {
+    id: 'nocturno', name: 'Nocturno', emoji: '🌙', bg: '#0f172a', swatch: ['#0f172a', '#38bdf8'],
+    settings: {
+      ...SE_BLANK,
+      fontFamily: "'Inter', sans-serif", fontWeight: '500',
+      cardShadow: '0 8px 32px rgba(0,0,0,0.4)', cardRadius: '16px',
+      productNameColor: '#e2e8f0', productPriceColor: '#38bdf8', cardBg: '#1e293b', cardBorder: '1px solid #334155',
+      headerBg: '#0f172a', headerTextColor: '#38bdf8', categoryBg: '#1e293b', categoryActiveColor: '#38bdf8',
+      cartBg: '#0f172a', cartTextColor: '#38bdf8'
+    }
+  }
+];
+
+// Campo de color reutilizable y amigable
+function SEColorField({ label, value, fallback, onChange }) {
+  const val = value || fallback || '#000000';
+  return (
+    <label className="se-color">
+      <input type="color" value={val} onChange={(e) => onChange(e.target.value)} />
+      <span className="se-color-info">
+        <span className="se-color-label">{label}</span>
+        <span className="se-color-hex">{val}</span>
+      </span>
+    </label>
+  );
+}
+
+// Tarjeta de sección del editor
+function SESection({ icon, title, hint, children }) {
+  return (
+    <div className="se-card">
+      <div className="se-card-title"><span className="se-ic"><FontAwesomeIcon icon={icon} /></span>{title}</div>
+      {hint && <p className="se-card-hint">{hint}</p>}
+      {children}
+    </div>
+  );
+}
+
 function Store() {
   const { code } = useParams();
   const navigate = useNavigate();
@@ -1162,7 +1269,7 @@ function Store() {
   const [excelError, setExcelError] = useState('');
   const [excelResults, setExcelResults] = useState(null);
   const excelFileRef = useRef(null);
-  const [styleTab, setStyleTab] = useState('visual');
+  const [styleTab, setStyleTab] = useState('plantillas');
   const [visualSettings, setVisualSettings] = useState({
     fontFamily: '', fontSize: '', titleSize: '', priceSize: '',
     fontWeight: '', textShadow: '', cardShadow: '', cardRadius: '',
@@ -8492,198 +8599,243 @@ function Store() {
         </div>
       )}
 
-      {styleEditorOpen && (
+      {styleEditorOpen && (() => {
+        const setField = (key, val) => { const v = { ...visualSettings, [key]: val }; setVisualSettings(v); applyStyles(v, customCss); };
+        const applyPreset = (p) => { const v = { ...SE_BLANK, ...p.settings }; setVisualSettings(v); applyStyles(v, customCss); };
+        const cur = {}; Object.keys(SE_BLANK).forEach(k => { cur[k] = visualSettings[k] || ''; });
+        const activePresetId = (STYLE_PRESETS.find(p => Object.keys(SE_BLANK).every(k => (p.settings[k] || '') === cur[k])) || {}).id;
+        return (
         <div className="store-modal-overlay" onClick={() => setStyleEditorOpen(false)} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
-          <div className="store-prod-modal" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column', maxWidth: '420px' }}>
-            <h3 style={{ margin: '0 0 12px', color: 'var(--store-primary)', textAlign: 'center' }}>
-              <FontAwesomeIcon icon={faPalette} /> Editor de Estilos
-              <span style={{ fontSize: '10px', display: 'block', color: '#999', marginTop: '2px' }}>PREMIUM</span>
-            </h3>
+          <div className="store-prod-modal se-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="se-head">
+              <span className="se-badge">PREMIUM</span>
+              <h3><FontAwesomeIcon icon={faPalette} /> Diseña tu tienda</h3>
+              <p className="se-sub">Elige una plantilla o personaliza los colores. Los cambios se ven al instante 👇</p>
+            </div>
 
-            <div style={{ display: 'flex', gap: '0', marginBottom: '12px', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--store-primary)' }}>
-              <button onClick={() => setStyleTab('visual')} style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: '700', border: 'none', cursor: 'pointer', background: styleTab === 'visual' ? 'var(--store-primary)' : 'var(--store-secondary)', color: styleTab === 'visual' ? 'var(--store-secondary)' : 'var(--store-primary)' }}>
-                <FontAwesomeIcon icon={faPalette} /> Visual
+            <div className="se-tabs">
+              <button className={`se-tab${styleTab === 'plantillas' ? ' active' : ''}`} onClick={() => setStyleTab('plantillas')}>
+                <FontAwesomeIcon icon={faStar} /><span>Plantillas</span>
               </button>
-              <button onClick={() => setStyleTab('css')} style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: '700', border: 'none', cursor: 'pointer', background: styleTab === 'css' ? 'var(--store-primary)' : 'var(--store-secondary)', color: styleTab === 'css' ? 'var(--store-secondary)' : 'var(--store-primary)' }}>
-                <FontAwesomeIcon icon={faCode} /> CSS Pro
+              <button className={`se-tab${styleTab === 'visual' ? ' active' : ''}`} onClick={() => setStyleTab('visual')}>
+                <FontAwesomeIcon icon={faPalette} /><span>Personalizar</span>
+              </button>
+              <button className={`se-tab${styleTab === 'css' ? ' active' : ''}`} onClick={() => setStyleTab('css')}>
+                <FontAwesomeIcon icon={faCode} /><span>Avanzado</span>
               </button>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-              {styleTab === 'visual' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#555', borderBottom: '1px solid #eee', paddingBottom: '4px' }}>Tipografia</div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Fuente</label>
-                      <select value={visualSettings.fontFamily} onChange={(e) => { const v = { ...visualSettings, fontFamily: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%' }}>
-                        <option value="">Por defecto</option>
-                        <option value="'Inter', sans-serif">Inter</option>
-                        <option value="'Roboto', sans-serif">Roboto</option>
-                        <option value="'Poppins', sans-serif">Poppins</option>
-                        <option value="'Montserrat', sans-serif">Montserrat</option>
-                        <option value="'Playfair Display', serif">Playfair Display</option>
-                        <option value="'Lato', sans-serif">Lato</option>
-                        <option value="'Oswald', sans-serif">Oswald</option>
-                        <option value="'Raleway', sans-serif">Raleway</option>
-                        <option value="monospace">Monospace</option>
-                      </select>
+            <div className="se-body">
+              {/* Vista previa en vivo (visible en Plantillas y Personalizar) */}
+              {styleTab !== 'css' && (
+                <div className="se-preview-wrap">
+                  <div className="se-preview-label"><FontAwesomeIcon icon={faEye} /> Vista previa</div>
+                  <div className="se-preview" style={{ fontFamily: visualSettings.fontFamily || undefined, fontWeight: visualSettings.fontWeight || undefined, background: visualSettings.cardBg || '#fff' }}>
+                    <div className="se-preview-header" style={{ background: visualSettings.headerBg || 'var(--store-primary, #111)', color: visualSettings.headerTextColor || '#fff' }}>
+                      {store?.store?.name || 'Mi Tienda'}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Peso</label>
-                      <select value={visualSettings.fontWeight} onChange={(e) => { const v = { ...visualSettings, fontWeight: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%' }}>
-                        <option value="">Normal</option>
-                        <option value="300">Light (300)</option>
-                        <option value="400">Regular (400)</option>
-                        <option value="500">Medium (500)</option>
-                        <option value="600">Semi Bold (600)</option>
-                        <option value="700">Bold (700)</option>
-                        <option value="800">Extra Bold (800)</option>
-                      </select>
+                    <div className="se-preview-cats">
+                      <span className="se-preview-cat" style={{ background: visualSettings.categoryActiveColor || 'var(--store-primary, #111)', color: '#fff' }}>Populares</span>
+                      <span className="se-preview-cat" style={{ background: visualSettings.categoryBg || '#e5e7eb', color: '#334155' }}>Bebidas</span>
                     </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Tamaño general</label>
-                      <input type="text" value={visualSettings.fontSize} onChange={(e) => { const v = { ...visualSettings, fontSize: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} placeholder="ej: 14px" className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
+                    <div className="se-preview-card" style={{ background: visualSettings.cardBg || '#fff', border: visualSettings.cardBorder || '1px solid #eef0f3', borderRadius: visualSettings.cardRadius || '12px', boxShadow: visualSettings.cardShadow || 'none' }}>
+                      <div className="se-preview-thumb"><FontAwesomeIcon icon={faHamburger} /></div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ color: visualSettings.productNameColor || '#111', fontSize: visualSettings.titleSize || '15px', fontWeight: 700, textShadow: visualSettings.textShadow || undefined }}>Producto de ejemplo</div>
+                        <div style={{ color: visualSettings.productPriceColor || '#111', fontSize: visualSettings.priceSize || '15px', fontWeight: 800, textShadow: visualSettings.textShadow || undefined }}>$5.990</div>
+                      </div>
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Tamaño titulo</label>
-                      <input type="text" value={visualSettings.titleSize} onChange={(e) => { const v = { ...visualSettings, titleSize: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} placeholder="ej: 16px" className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Tamaño precio</label>
-                      <input type="text" value={visualSettings.priceSize} onChange={(e) => { const v = { ...visualSettings, priceSize: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} placeholder="ej: 18px" className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '11px', color: '#888' }}>Sombra de texto</label>
-                    <select value={visualSettings.textShadow} onChange={(e) => { const v = { ...visualSettings, textShadow: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%' }}>
-                      <option value="">Sin sombra</option>
-                      <option value="1px 1px 2px rgba(0,0,0,0.3)">Suave</option>
-                      <option value="2px 2px 4px rgba(0,0,0,0.5)">Media</option>
-                      <option value="3px 3px 6px rgba(0,0,0,0.7)">Fuerte</option>
-                      <option value="0 0 10px rgba(255,255,255,0.8)">Glow claro</option>
-                      <option value="0 0 10px rgba(0,0,0,0.8)">Glow oscuro</option>
-                    </select>
-                  </div>
-
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#555', borderBottom: '1px solid #eee', paddingBottom: '4px', marginTop: '6px' }}>Colores</div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Nombre producto</label>
-                      <input type="color" value={visualSettings.productNameColor || '#000000'} onChange={(e) => { const v = { ...visualSettings, productNameColor: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Precio producto</label>
-                      <input type="color" value={visualSettings.productPriceColor || '#000000'} onChange={(e) => { const v = { ...visualSettings, productPriceColor: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Header fondo</label>
-                      <input type="color" value={visualSettings.headerBg || '#000000'} onChange={(e) => { const v = { ...visualSettings, headerBg: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Header texto</label>
-                      <input type="color" value={visualSettings.headerTextColor || '#ffffff'} onChange={(e) => { const v = { ...visualSettings, headerTextColor: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
-                    </div>
-                  </div>
-
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#555', borderBottom: '1px solid #eee', paddingBottom: '4px', marginTop: '6px' }}>Tarjetas de producto</div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Fondo tarjeta</label>
-                      <input type="color" value={visualSettings.cardBg || '#ffffff'} onChange={(e) => { const v = { ...visualSettings, cardBg: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Borde tarjeta</label>
-                      <input type="text" value={visualSettings.cardBorder} onChange={(e) => { const v = { ...visualSettings, cardBorder: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} placeholder="ej: 2px solid gold" className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Sombra tarjeta</label>
-                      <select value={visualSettings.cardShadow} onChange={(e) => { const v = { ...visualSettings, cardShadow: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%' }}>
-                        <option value="">Sin sombra</option>
-                        <option value="0 2px 8px rgba(0,0,0,0.1)">Suave</option>
-                        <option value="0 4px 16px rgba(0,0,0,0.15)">Media</option>
-                        <option value="0 8px 32px rgba(0,0,0,0.2)">Grande</option>
-                        <option value="0 0 20px rgba(212,175,55,0.3)">Glow dorado</option>
-                        <option value="0 0 20px rgba(0,0,0,0.4)">Glow oscuro</option>
-                      </select>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Radio bordes</label>
-                      <select value={visualSettings.cardRadius} onChange={(e) => { const v = { ...visualSettings, cardRadius: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%' }}>
-                        <option value="">Por defecto</option>
-                        <option value="0">Sin bordes (0)</option>
-                        <option value="4px">Poco (4px)</option>
-                        <option value="8px">Normal (8px)</option>
-                        <option value="16px">Redondeado (16px)</option>
-                        <option value="24px">Muy redondeado (24px)</option>
-                        <option value="50%">Circular</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#555', borderBottom: '1px solid #eee', paddingBottom: '4px', marginTop: '6px' }}>Categorias</div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Fondo tab</label>
-                      <input type="color" value={visualSettings.categoryBg || '#ffffff'} onChange={(e) => { const v = { ...visualSettings, categoryBg: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Tab activo</label>
-                      <input type="color" value={visualSettings.categoryActiveColor || '#000000'} onChange={(e) => { const v = { ...visualSettings, categoryActiveColor: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
-                    </div>
-                  </div>
-
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#555', borderBottom: '1px solid #eee', paddingBottom: '4px', marginTop: '6px' }}>Barra del carrito</div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Fondo carrito</label>
-                      <input type="color" value={visualSettings.cartBg || '#000000'} onChange={(e) => { const v = { ...visualSettings, cartBg: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '11px', color: '#888' }}>Texto carrito</label>
-                      <input type="color" value={visualSettings.cartTextColor || '#ffffff'} onChange={(e) => { const v = { ...visualSettings, cartTextColor: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
+                    <div className="se-preview-cartbar" style={{ background: visualSettings.cartBg || 'var(--store-primary, #111)', color: visualSettings.cartTextColor || '#fff' }}>
+                      <span>1 producto</span><span>$5.990</span>
                     </div>
                   </div>
                 </div>
               )}
 
+              {styleTab === 'plantillas' && (
+                <>
+                  <p className="se-card-hint" style={{ marginBottom: 12 }}>Toca una plantilla para aplicar un diseño completo al instante. Luego puedes ajustar detalles en <b>Personalizar</b>.</p>
+                  <div className="se-preset-grid">
+                    {STYLE_PRESETS.map(p => (
+                      <button key={p.id} className={`se-preset${activePresetId === p.id ? ' active' : ''}`} onClick={() => applyPreset(p)}>
+                        <div className="se-preset-thumb" style={{ background: p.bg }}>{p.emoji}</div>
+                        <div className="se-preset-foot">
+                          <div className="se-preset-name">
+                            {p.name}
+                            {activePresetId === p.id && <FontAwesomeIcon icon={faCheckCircle} style={{ color: 'var(--store-primary, #111)', fontSize: 12 }} />}
+                          </div>
+                          <div className="se-preset-swatches">
+                            {p.swatch.map((c, i) => <span key={i} style={{ background: c }} />)}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {styleTab === 'visual' && (
+                <div className="se-grid">
+                  <SESection icon={faFont} title="Texto y fuente" hint="Cómo se ve la letra en toda tu tienda.">
+                    <div className="se-row">
+                      <div className="se-field">
+                        <label>Tipo de letra</label>
+                        <select value={visualSettings.fontFamily} onChange={(e) => setField('fontFamily', e.target.value)} className="se-input">
+                          <option value="">Por defecto</option>
+                          <option value="'Inter', sans-serif">Inter</option>
+                          <option value="'Roboto', sans-serif">Roboto</option>
+                          <option value="'Poppins', sans-serif">Poppins</option>
+                          <option value="'Montserrat', sans-serif">Montserrat</option>
+                          <option value="'Playfair Display', serif">Playfair Display</option>
+                          <option value="'Lato', sans-serif">Lato</option>
+                          <option value="'Oswald', sans-serif">Oswald</option>
+                          <option value="'Raleway', sans-serif">Raleway</option>
+                          <option value="monospace">Monospace</option>
+                        </select>
+                      </div>
+                      <div className="se-field">
+                        <label>Grosor</label>
+                        <select value={visualSettings.fontWeight} onChange={(e) => setField('fontWeight', e.target.value)} className="se-input">
+                          <option value="">Normal</option>
+                          <option value="300">Delgada</option>
+                          <option value="400">Regular</option>
+                          <option value="500">Media</option>
+                          <option value="600">Semi negrita</option>
+                          <option value="700">Negrita</option>
+                          <option value="800">Extra negrita</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="se-row" style={{ marginTop: 10 }}>
+                      <div className="se-field"><label>Tamaño título</label>
+                        <select value={visualSettings.titleSize} onChange={(e) => setField('titleSize', e.target.value)} className="se-input">
+                          <option value="">Normal</option>
+                          <option value="13px">Pequeño</option>
+                          <option value="16px">Mediano</option>
+                          <option value="19px">Grande</option>
+                          <option value="22px">Muy grande</option>
+                        </select>
+                      </div>
+                      <div className="se-field"><label>Tamaño precio</label>
+                        <select value={visualSettings.priceSize} onChange={(e) => setField('priceSize', e.target.value)} className="se-input">
+                          <option value="">Normal</option>
+                          <option value="14px">Pequeño</option>
+                          <option value="18px">Mediano</option>
+                          <option value="22px">Grande</option>
+                          <option value="26px">Muy grande</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="se-row" style={{ marginTop: 10 }}>
+                      <div className="se-field"><label>Sombra del texto</label>
+                        <select value={visualSettings.textShadow} onChange={(e) => setField('textShadow', e.target.value)} className="se-input">
+                          <option value="">Sin sombra</option>
+                          <option value="1px 1px 2px rgba(0,0,0,0.3)">Suave</option>
+                          <option value="2px 2px 4px rgba(0,0,0,0.5)">Media</option>
+                          <option value="3px 3px 6px rgba(0,0,0,0.7)">Fuerte</option>
+                          <option value="0 0 10px rgba(255,255,255,0.8)">Brillo claro</option>
+                          <option value="0 0 10px rgba(0,0,0,0.8)">Brillo oscuro</option>
+                        </select>
+                      </div>
+                    </div>
+                  </SESection>
+
+                  <SESection icon={faHamburger} title="Colores de productos" hint="El nombre y el precio de cada producto.">
+                    <div className="se-row">
+                      <div className="se-field"><SEColorField label="Nombre" value={visualSettings.productNameColor} fallback="#111111" onChange={(v) => setField('productNameColor', v)} /></div>
+                      <div className="se-field"><SEColorField label="Precio" value={visualSettings.productPriceColor} fallback="#111111" onChange={(v) => setField('productPriceColor', v)} /></div>
+                    </div>
+                  </SESection>
+
+                  <SESection icon={faStore} title="Encabezado" hint="La barra superior con el nombre de tu tienda.">
+                    <div className="se-row">
+                      <div className="se-field"><SEColorField label="Fondo" value={visualSettings.headerBg} fallback="#111111" onChange={(v) => setField('headerBg', v)} /></div>
+                      <div className="se-field"><SEColorField label="Texto" value={visualSettings.headerTextColor} fallback="#ffffff" onChange={(v) => setField('headerTextColor', v)} /></div>
+                    </div>
+                  </SESection>
+
+                  <SESection icon={faThLarge} title="Tarjetas de producto" hint="La caja donde aparece cada producto.">
+                    <div className="se-row">
+                      <div className="se-field"><SEColorField label="Fondo tarjeta" value={visualSettings.cardBg} fallback="#ffffff" onChange={(v) => setField('cardBg', v)} /></div>
+                    </div>
+                    <div className="se-row" style={{ marginTop: 10 }}>
+                      <div className="se-field"><label>Sombra</label>
+                        <select value={visualSettings.cardShadow} onChange={(e) => setField('cardShadow', e.target.value)} className="se-input">
+                          <option value="">Sin sombra</option>
+                          <option value="0 2px 8px rgba(0,0,0,0.1)">Suave</option>
+                          <option value="0 4px 16px rgba(0,0,0,0.15)">Media</option>
+                          <option value="0 8px 32px rgba(0,0,0,0.2)">Grande</option>
+                          <option value="0 0 20px rgba(212,175,55,0.3)">Brillo dorado</option>
+                          <option value="0 0 20px rgba(0,0,0,0.4)">Brillo oscuro</option>
+                        </select>
+                      </div>
+                      <div className="se-field"><label>Esquinas</label>
+                        <select value={visualSettings.cardRadius} onChange={(e) => setField('cardRadius', e.target.value)} className="se-input">
+                          <option value="">Por defecto</option>
+                          <option value="0">Rectas</option>
+                          <option value="4px">Poco redondeadas</option>
+                          <option value="8px">Normales</option>
+                          <option value="16px">Redondeadas</option>
+                          <option value="24px">Muy redondeadas</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="se-row" style={{ marginTop: 10 }}>
+                      <div className="se-field"><label>Borde <span style={{ color: '#cbd5e1', fontWeight: 400 }}>(avanzado)</span></label>
+                        <input type="text" value={visualSettings.cardBorder} onChange={(e) => setField('cardBorder', e.target.value)} placeholder="ej: 2px solid gold" className="se-input" />
+                      </div>
+                    </div>
+                  </SESection>
+
+                  <SESection icon={faTags} title="Categorías" hint="Los botones para filtrar por tipo de producto.">
+                    <div className="se-row">
+                      <div className="se-field"><SEColorField label="Fondo" value={visualSettings.categoryBg} fallback="#ffffff" onChange={(v) => setField('categoryBg', v)} /></div>
+                      <div className="se-field"><SEColorField label="Seleccionada" value={visualSettings.categoryActiveColor} fallback="#111111" onChange={(v) => setField('categoryActiveColor', v)} /></div>
+                    </div>
+                  </SESection>
+
+                  <SESection icon={faShoppingCart} title="Barra del carrito" hint="La barra inferior con el total y el botón de pagar.">
+                    <div className="se-row">
+                      <div className="se-field"><SEColorField label="Fondo" value={visualSettings.cartBg} fallback="#111111" onChange={(v) => setField('cartBg', v)} /></div>
+                      <div className="se-field"><SEColorField label="Texto" value={visualSettings.cartTextColor} fallback="#ffffff" onChange={(v) => setField('cartTextColor', v)} /></div>
+                    </div>
+                  </SESection>
+                </div>
+              )}
+
               {styleTab === 'css' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <p style={{ fontSize: '11px', color: '#888', margin: 0 }}>CSS personalizado. Usa selectores como <code>.store-container</code>, <code>.store-product-card</code>, <code>.store-header</code>, etc.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <p className="se-css-hint">
+                    <FontAwesomeIcon icon={faInfoCircle} /> Solo para expertos. Escribe CSS usando selectores como <code>.store-container</code>, <code>.store-product-card</code> o <code>.store-header</code>. Si no sabes qué es esto, usa las pestañas <b>Plantillas</b> o <b>Personalizar</b>.
+                  </p>
                   <textarea
+                    className="se-css-area"
                     value={customCss}
                     onChange={(e) => { setCustomCss(e.target.value); applyStyles(visualSettings, e.target.value); }}
                     placeholder={`.store-product-card {\n  border: 2px solid gold;\n  transform: scale(1.02);\n}\n\n.store-header {\n  background: linear-gradient(135deg, #1a1a2e, #16213e);\n}`}
-                    style={{ width: '100%', minHeight: '250px', padding: '12px', fontSize: '12px', fontFamily: 'monospace', border: '2px solid #e0e0e0', borderRadius: '8px', resize: 'vertical', boxSizing: 'border-box', lineHeight: '1.5', background: '#1e1e1e', color: '#d4d4d4' }}
                   />
                 </div>
               )}
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-              <button onClick={() => setStyleEditorOpen(false)} className="store-prod-modal-btn cancel">Cerrar</button>
+            <div className="se-foot">
+              <button onClick={() => setStyleEditorOpen(false)} className="se-btn ghost">Cerrar</button>
               <button onClick={() => {
-                if (!confirm('Reiniciar todos los estilos a los valores por defecto?')) return;
-                const defaults = { fontFamily: '', fontSize: '', titleSize: '', priceSize: '', fontWeight: '', textShadow: '', cardShadow: '', cardRadius: '', productNameColor: '', productPriceColor: '', cardBg: '', cardBorder: '', headerBg: '', headerTextColor: '', categoryBg: '', categoryActiveColor: '', cartBg: '', cartTextColor: '' };
-                setVisualSettings(defaults);
+                if (!confirm('¿Reiniciar todo el diseño a los valores por defecto?')) return;
+                setVisualSettings({ ...SE_BLANK });
                 setCustomCss('');
-                applyStyles(defaults, '');
-              }} className="store-prod-modal-btn cancel" style={{ flex: 'none', padding: '10px', fontSize: '12px' }}>
-                Reiniciar
+                applyStyles({ ...SE_BLANK }, '');
+              }} className="se-btn ghost" title="Volver al diseño original">
+                <FontAwesomeIcon icon={faTimesCircle} /> Reiniciar
               </button>
-              <button onClick={saveStoreStyles} disabled={styleSaving} className="store-prod-modal-btn confirm" style={{ background: 'var(--store-accent)', color: 'var(--store-primary)' }}>
-                {styleSaving ? 'Guardando...' : 'Guardar estilos'}
+              <button onClick={saveStoreStyles} disabled={styleSaving} className="se-btn primary">
+                <FontAwesomeIcon icon={faCheck} /> {styleSaving ? 'Guardando...' : 'Guardar diseño'}
               </button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {complementModal && (
         <div className="store-modal-overlay" onClick={() => setComplementModal(null)} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
