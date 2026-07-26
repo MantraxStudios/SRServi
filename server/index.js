@@ -8699,6 +8699,13 @@ async function ensureScreensaverTable() {
       UNIQUE KEY uq_screensaver_store (user_id, store_id)
     )
   `);
+  // Columna de layout personalizado (JSON con elementos texto/botón y flags)
+  try {
+    const [cols] = await pool.execute('SHOW COLUMNS FROM screensaver_config');
+    if (!cols.map(c => c.Field).includes('layout')) {
+      await pool.execute('ALTER TABLE screensaver_config ADD COLUMN layout LONGTEXT NULL');
+    }
+  } catch (e) { console.warn('screensaver layout column:', e.message); }
   _screensaverTableReady = true;
 }
 
@@ -8721,11 +8728,17 @@ app.post('/api/screensaver/config', authenticateToken, upload.single('media'), a
     let media_url = req.body.media_url || null;
     if (req.file) media_url = '/uploads/' + req.file.filename;
     const store_id = parseInt(req.body.store_id) || 0;
+    // Layout personalizado (JSON string). Se valida que sea JSON parseable.
+    let layout = null;
+    if (typeof req.body.layout === 'string' && req.body.layout.trim()) {
+      try { layout = JSON.stringify(JSON.parse(req.body.layout)); }
+      catch { return res.status(400).json({ error: 'Layout inválido' }); }
+    }
     await pool.execute(
-      `INSERT INTO screensaver_config (user_id, store_id, enabled, media_url, timeout_seconds)
-       VALUES (?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), media_url = COALESCE(VALUES(media_url), media_url), timeout_seconds = VALUES(timeout_seconds), updated_at = NOW()`,
-      [req.user.id, store_id, enabled, media_url, timeout_seconds]
+      `INSERT INTO screensaver_config (user_id, store_id, enabled, media_url, timeout_seconds, layout)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), media_url = COALESCE(VALUES(media_url), media_url), timeout_seconds = VALUES(timeout_seconds), layout = VALUES(layout), updated_at = NOW()`,
+      [req.user.id, store_id, enabled, media_url, timeout_seconds, layout]
     );
     const [rows] = await pool.execute('SELECT * FROM screensaver_config WHERE user_id = ? AND store_id = ?', [req.user.id, store_id]);
     res.json(rows[0]);

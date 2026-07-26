@@ -9642,8 +9642,30 @@ function Store() {
           clearTimeout(screensaverTimerRef.current);
           if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
         };
+        // Layout personalizado creado desde el editor admin (opcional)
+        let ssLayout = null;
+        try { ssLayout = screensaverCfg.layout ? JSON.parse(screensaverCfg.layout) : null; } catch { ssLayout = null; }
+        const hasCustom = ssLayout && Array.isArray(ssLayout.elements) && ssLayout.elements.length > 0;
+        const clickAnywhere = ssLayout ? ssLayout.clickAnywhere !== false : false;
+        const renderSSEl = (el) => {
+          const isBtn = el.type === 'button';
+          const style = {
+            position: 'absolute', left: el.xPct + '%', top: el.yPct + '%', transform: 'translate(-50%,-50%)',
+            fontSize: el.fontSize + 'vmin', fontWeight: el.bold ? 900 : (isBtn ? 700 : 500), fontStyle: el.italic ? 'italic' : 'normal',
+            color: el.color || '#fff', textAlign: el.align || 'center', whiteSpace: 'pre-wrap', lineHeight: 1.15, maxWidth: '92%',
+            ...(isBtn
+              ? { background: el.bg || '#D4AF37', padding: `${el.padY ?? 3}vmin ${el.padX ?? 6}vmin`, borderRadius: (el.radius ?? 12) + 'vmin', boxShadow: '0 6px 24px rgba(0,0,0,0.35)', cursor: 'pointer' }
+              : { textShadow: '0 2px 18px rgba(0,0,0,0.55)' }),
+          };
+          return <div key={el.id} style={style} onClick={isBtn ? dismissSS : undefined} onTouchStart={isBtn ? dismissSS : undefined}>{el.content}</div>;
+        };
+
         return (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99990, background: '#000', overflow: 'hidden' }}>
+          <div
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99990, background: '#000', overflow: 'hidden', cursor: (hasCustom && clickAnywhere) ? 'pointer' : 'default' }}
+            onClick={(hasCustom && clickAnywhere) ? dismissSS : undefined}
+            onTouchStart={(hasCustom && clickAnywhere) ? dismissSS : undefined}
+          >
 
             {/* Full-screen background image */}
             {screensaverCfg.media_url && (
@@ -9657,7 +9679,19 @@ function Store() {
             {/* Dark overlay gradient */}
             <div style={{ position: 'absolute', inset: 0, background: screensaverCfg.media_url ? 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 100%)' : 'linear-gradient(160deg, #0a0a0a 0%, #111 100%)' }} />
 
-            {/* ══════════ Layout principal centrado ══════════ */}
+            {/* ══════════ Layout personalizado (editor) ══════════ */}
+            {hasCustom ? (
+              <>
+                {ssLayout.elements.map(renderSSEl)}
+                {!clickAnywhere && (
+                  <div style={{ position: 'absolute', bottom: 18, left: 0, right: 0, textAlign: 'center', fontSize: 'clamp(11px,1.6vw,15px)', color: 'rgba(255,255,255,0.45)', letterSpacing: 2, textTransform: 'uppercase' }}>
+                    Toca un botón para continuar
+                  </div>
+                )}
+              </>
+            ) : (<>
+
+            {/* ══════════ Layout principal centrado (diseño por defecto) ══════════ */}
             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, padding: '40px 48px 160px' }}>
 
               {/* Logo circular flotante */}
@@ -9731,6 +9765,8 @@ function Store() {
                 <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 13, color: '#D4AF37', animation: 'ss-arrow 0.9s ease-in-out infinite', flexShrink: 0 }} />
               </button>
             </div>
+
+            </>)}
 
             <style>{`
               @keyframes ss-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
