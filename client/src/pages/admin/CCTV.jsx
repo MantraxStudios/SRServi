@@ -6,7 +6,7 @@ import {
   faVideo, faUpload, faTrash, faDesktop, faKey, faCopy, faCheck,
   faPlay, faPen, faTimes, faExclamationTriangle, faHistory, faPowerOff,
   faMusic, faVolumeMute, faVolumeUp, faImage, faArrowUp, faArrowDown, faFolder,
-  faClock, faPlus, faToggleOn, faToggleOff,
+  faClock, faPlus, faToggleOn, faToggleOff, faLayerGroup,
 } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -44,6 +44,16 @@ export default function CCTV() {
   const [albumFilter, setAlbumFilter] = useState(null);
   const [newAlbumName, setNewAlbumName] = useState('');
   const [assignAlbumModal, setAssignAlbumModal] = useState(null);
+
+  const [groups, setGroups] = useState([]);
+  const [loadingGroups, setLoadingGroups] = useState(true);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [renameGroupModal, setRenameGroupModal] = useState(null);
+  const [renameGroupName, setRenameGroupName] = useState('');
+  const [groupVideoModal, setGroupVideoModal] = useState(null);
+  const [groupMusicModal, setGroupMusicModal] = useState(null);
+  const [groupAlbumModal, setGroupAlbumModal] = useState(null);
+  const [screenGroupModal, setScreenGroupModal] = useState(null);
   const [localVolumes, setLocalVolumes] = useState({});
 
   const [loadingVideos, setLoadingVideos] = useState(true);
@@ -121,6 +131,10 @@ export default function CCTV() {
     try { const r = await fetch(`${API}/api/cctv/albums`, { headers }); if (r.ok) setAlbums(await r.json()); }
     catch { }
   };
+  const fetchGroups = async () => {
+    try { const r = await fetch(`${API}/api/cctv/groups`, { headers }); if (r.ok) setGroups(await r.json()); }
+    catch { } finally { setLoadingGroups(false); }
+  };
 
   const fetchScreenSchedules = async (screenId) => {
     setScreenSchedules(prev => ({ ...prev, [screenId]: { ...(prev[screenId] || {}), loading: true } }));
@@ -186,7 +200,7 @@ export default function CCTV() {
     }));
   };
 
-  useEffect(() => { fetchVideos(); fetchScreens(); fetchMusic(); fetchImages(); fetchAlbums(); }, []);
+  useEffect(() => { fetchVideos(); fetchScreens(); fetchMusic(); fetchImages(); fetchAlbums(); fetchGroups(); }, []);
   useEffect(() => {
     if (tab === 'screens') { const t = setInterval(fetchScreens, 15000); return () => clearInterval(t); }
   }, [tab]);
@@ -364,6 +378,62 @@ export default function CCTV() {
     } catch (e) { showError(e.message); }
   };
 
+  // ── Group management ──────────────────────────────────────────────────────────
+  const createGroup = async () => {
+    if (!newGroupName.trim()) return;
+    try {
+      const r = await fetch(`${API}/api/cctv/groups`, {
+        method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newGroupName.trim() })
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      setNewGroupName('');
+      await fetchGroups();
+      showSuccess('Grupo creado');
+    } catch (e) { showError(e.message); }
+  };
+
+  const updateGroup = async (id, patch, msg) => {
+    try {
+      const r = await fetch(`${API}/api/cctv/groups/${id}`, {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch)
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      await fetchGroups();
+      if (msg) showSuccess(msg);
+    } catch (e) { showError(e.message); }
+  };
+
+  const renameGroup = async () => {
+    if (!renameGroupModal || !renameGroupName.trim()) return;
+    await updateGroup(renameGroupModal.id, { name: renameGroupName.trim() }, 'Grupo renombrado');
+    setRenameGroupModal(null);
+  };
+
+  const deleteGroup = async (id) => {
+    try {
+      const r = await fetch(`${API}/api/cctv/groups/${id}`, { method: 'DELETE', headers });
+      if (!r.ok) throw new Error((await r.json()).error);
+      await fetchGroups(); await fetchScreens();
+      showSuccess('Grupo eliminado');
+    } catch (e) { showError(e.message); }
+    setDeleteConfirm(null);
+  };
+
+  const assignScreenGroup = async (screenId, groupId) => {
+    try {
+      const r = await fetch(`${API}/api/cctv/screens/${screenId}/group`, {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: groupId || null })
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      await fetchScreens(); await fetchGroups();
+      showSuccess(groupId ? 'Pantalla agregada al grupo' : 'Pantalla quitada del grupo');
+      setScreenGroupModal(null);
+    } catch (e) { showError(e.message); }
+  };
+
   // ── Screen controls ─────────────────────────────────────────────────────────
   const setScreenMode = async (screen, mode) => {
     try {
@@ -525,6 +595,7 @@ export default function CCTV() {
           ['videos', faVideo, 'Videos', videos.length],
           ['images', faImage, 'Imágenes', images.length],
           ['music', faMusic, 'Música', music.length],
+          ['groups', faLayerGroup, 'Grupos', groups.length],
           ['screens', faDesktop, 'Pantallas', screens.length],
         ].map(([key, icon, label, count]) => (
           <button key={key} onClick={() => setTab(key)} style={{
@@ -766,6 +837,139 @@ export default function CCTV() {
         </div>
       )}
 
+      {/* GROUPS TAB */}
+      {tab === 'groups' && (
+        <div>
+          {/* Create group */}
+          <div style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '16px 20px', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <FontAwesomeIcon icon={faLayerGroup} style={{ color: GOLD, fontSize: 14 }} />
+              <span style={{ fontWeight: 700, fontSize: 14, color: '#09090b' }}>Grupos de pantallas</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <input
+                value={newGroupName}
+                onChange={e => setNewGroupName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && createGroup()}
+                placeholder="Nuevo grupo... (ej: Salón principal)"
+                style={{ padding: '7px 12px', border: '1px solid #e4e4e7', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fafafa', flex: '1 1 200px', minWidth: 140 }}
+              />
+              <button onClick={createGroup} disabled={!newGroupName.trim()}
+                style={{ padding: '7px 16px', background: GOLD, border: 'none', borderRadius: 8, cursor: newGroupName.trim() ? 'pointer' : 'default', color: '#0a0a0a', fontWeight: 700, fontSize: 13, opacity: newGroupName.trim() ? 1 : 0.5 }}>
+                Crear grupo
+              </button>
+            </div>
+          </div>
+
+          <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '10px 16px', marginBottom: 20, fontSize: 13, color: '#0369a1' }}>
+            Asigná un video (o música / modo imágenes) al grupo y <strong>todas las pantallas del grupo reproducen lo mismo</strong>. Agregá pantallas a un grupo desde la pestaña <strong>Pantallas</strong> → botón <strong>Grupo</strong>.
+          </div>
+
+          {loadingGroups ? <div style={{ textAlign: 'center', color: '#71717a', padding: 40 }}>Cargando...</div>
+            : groups.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 48 }}>
+                <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: 32, color: '#a1a1aa', marginBottom: 12 }} />
+                <div style={{ color: '#71717a', fontSize: 14, fontWeight: 500 }}>No hay grupos creados</div>
+                <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>Creá un grupo para sincronizar el contenido de varias pantallas</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {groups.map(g => {
+                  const mode = g.display_mode || 'video';
+                  const members = screens.filter(s => s.group_id === g.id);
+                  return (
+                    <div key={g.id} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '14px 16px' }}>
+                      {/* Header */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                        <div style={{ width: 36, height: 36, background: '#fff8e1', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <FontAwesomeIcon icon={faLayerGroup} style={{ color: GOLD, fontSize: 15 }} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span style={{ color: '#09090b', fontWeight: 700, fontSize: 15 }}>{g.name}</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: '#f4f4f5', color: '#71717a', border: '1px solid #e4e4e7', whiteSpace: 'nowrap' }}>
+                              {g.screen_count} pantalla{g.screen_count !== 1 ? 's' : ''}
+                            </span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: mode === 'images' ? '#fdf4ff' : '#fff8e1', color: mode === 'images' ? '#7e22ce' : '#92400e', border: `1px solid ${mode === 'images' ? '#e9d5ff' : '#fde68a'}`, whiteSpace: 'nowrap' }}>
+                              {mode === 'images' ? '🖼 Imgs' : '▶ Video'}
+                            </span>
+                          </div>
+                          <div style={{ marginTop: 3, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            {mode === 'video' && g.video_name && <span style={{ color: '#92400e', fontSize: 12 }}>▶ {g.video_name}</span>}
+                            {mode === 'images' && <span style={{ color: '#7e22ce', fontSize: 12 }}>{g.album_name ? <><FontAwesomeIcon icon={faFolder} style={{ fontSize: 10, marginRight: 4 }} />{g.album_name}</> : '🖼 Todas las imágenes'}</span>}
+                            {g.music_name && <span style={{ color: '#0369a1', fontSize: 12 }}>♪ {g.music_name}</span>}
+                          </div>
+                        </div>
+                        <button onClick={() => { setRenameGroupModal(g); setRenameGroupName(g.name); }} style={{ background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#71717a' }} title="Renombrar">
+                          <FontAwesomeIcon icon={faPen} style={{ fontSize: 12 }} />
+                        </button>
+                        <button onClick={() => setDeleteConfirm({ type: 'group', id: g.id, name: g.name })} style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#dc2626' }} title="Eliminar">
+                          <FontAwesomeIcon icon={faTrash} style={{ fontSize: 12 }} />
+                        </button>
+                      </div>
+
+                      {/* Playback controls */}
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', paddingBottom: members.length ? 10 : 0, borderBottom: members.length ? '1px solid #f4f4f5' : 'none' }}>
+                        <button onClick={() => updateGroup(g.id, { display_mode: mode === 'images' ? 'video' : 'images' })}
+                          style={{ background: mode === 'images' ? '#fdf4ff' : '#f4f4f5', border: `1px solid ${mode === 'images' ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: mode === 'images' ? '#7e22ce' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <FontAwesomeIcon icon={mode === 'images' ? faVideo : faImage} style={{ fontSize: 11 }} />
+                          {mode === 'images' ? 'Video' : 'Imgs'}
+                        </button>
+                        {mode === 'video' && (
+                          <button onClick={() => updateGroup(g.id, { video_muted: !g.video_muted })}
+                            style={{ background: g.video_muted ? '#fef2f2' : '#f0fdf4', border: `1px solid ${g.video_muted ? '#fca5a5' : '#bbf7d0'}`, borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: g.video_muted ? '#dc2626' : '#15803d', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <FontAwesomeIcon icon={g.video_muted ? faVolumeMute : faVolumeUp} style={{ fontSize: 11 }} />
+                            {g.video_muted ? 'Mute' : 'Audio'}
+                          </button>
+                        )}
+                        {mode === 'video' && (
+                          <button onClick={() => setGroupVideoModal(g)}
+                            style={{ background: g.video_name ? '#fff8e1' : '#f4f4f5', border: `1px solid ${g.video_name ? '#fde68a' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: g.video_name ? '#92400e' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <FontAwesomeIcon icon={faVideo} style={{ fontSize: 11 }} />
+                            Video
+                          </button>
+                        )}
+                        {mode === 'images' && (
+                          <button onClick={() => setGroupAlbumModal(g)}
+                            style={{ background: g.album_name ? '#fdf4ff' : '#f4f4f5', border: `1px solid ${g.album_name ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: g.album_name ? '#7e22ce' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, maxWidth: 130, overflow: 'hidden' }}>
+                            <FontAwesomeIcon icon={faFolder} style={{ fontSize: 11, flexShrink: 0 }} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.album_name || 'Álbum'}</span>
+                          </button>
+                        )}
+                        <button onClick={() => setGroupMusicModal(g)}
+                          style={{ background: g.music_name ? '#f0f9ff' : '#f4f4f5', border: `1px solid ${g.music_name ? '#bae6fd' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: g.music_name ? '#0369a1' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <FontAwesomeIcon icon={faMusic} style={{ fontSize: 11 }} />
+                          Música
+                        </button>
+                      </div>
+
+                      {/* Member screens */}
+                      {members.length > 0 && (
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                          {members.map(s => (
+                            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 20, padding: '4px 6px 4px 10px' }}>
+                              <FontAwesomeIcon icon={faDesktop} style={{ fontSize: 10, color: s.is_online ? '#16a34a' : '#a1a1aa' }} />
+                              <span style={{ fontSize: 12, fontWeight: 600, color: '#09090b' }}>{s.device_name}</span>
+                              <button onClick={() => assignScreenGroup(s.id, null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a1a1aa', padding: '0 2px' }} title="Quitar del grupo">
+                                <FontAwesomeIcon icon={faTimes} style={{ fontSize: 11 }} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {members.length === 0 && (
+                        <div style={{ color: '#a1a1aa', fontSize: 12, marginTop: 10, fontStyle: 'italic' }}>
+                          Sin pantallas. Agregalas desde la pestaña Pantallas → botón Grupo.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+        </div>
+      )}
+
       {/* SCREENS TAB */}
       {tab === 'screens' && (
         <div>
@@ -801,6 +1005,7 @@ export default function CCTV() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {screens.map(s => {
                   const mode = s.display_mode || 'video';
+                  const grouped = !!s.group_id;
                   return (
                     <div key={s.id} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '12px 14px' }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
@@ -816,26 +1021,44 @@ export default function CCTV() {
                                 {s.is_online ? '● On' : '○ Off'}
                               </span>
                               {/* Mode badge */}
-                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: mode === 'images' ? '#fdf4ff' : '#fff8e1', color: mode === 'images' ? '#7e22ce' : '#92400e', border: `1px solid ${mode === 'images' ? '#e9d5ff' : '#fde68a'}`, whiteSpace: 'nowrap' }}>
-                                {mode === 'images' ? '🖼 Imgs' : '▶ Video'}
-                              </span>
+                              {!grouped && (
+                                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: mode === 'images' ? '#fdf4ff' : '#fff8e1', color: mode === 'images' ? '#7e22ce' : '#92400e', border: `1px solid ${mode === 'images' ? '#e9d5ff' : '#fde68a'}`, whiteSpace: 'nowrap' }}>
+                                  {mode === 'images' ? '🖼 Imgs' : '▶ Video'}
+                                </span>
+                              )}
+                              {/* Group badge */}
+                              {grouped && (
+                                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: '#eef2ff', color: '#4338ca', border: '1px solid #c7d2fe', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: 9 }} />{s.group_name}
+                                </span>
+                              )}
                             </div>
                             <div style={{ color: '#a1a1aa', fontSize: 12, marginTop: 2 }}>Última vez: {s.last_seen ? formatDate(s.last_seen) : 'Nunca'}</div>
-                            {mode === 'video' && s.video_name && <div style={{ color: '#71717a', fontSize: 12, marginTop: 1 }}>▶ {s.video_name}</div>}
-                            {mode === 'images' && (
-                              <div style={{ color: '#7e22ce', fontSize: 12, marginTop: 1 }}>
-                                {s.album_name
-                                  ? <><FontAwesomeIcon icon={faFolder} style={{ fontSize: 10, marginRight: 4 }} />{s.album_name}</>
-                                  : `🖼 Todas las imágenes`}
-                                {images.length > 0 && ` · loop ${formatSeconds(totalLoopTime)}`}
+                            {grouped ? (
+                              <div style={{ color: '#4338ca', fontSize: 12, marginTop: 1 }}>
+                                <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: 10, marginRight: 4 }} />
+                                Reproducción controlada por el grupo <strong>{s.group_name}</strong>
                               </div>
+                            ) : (
+                              <>
+                                {mode === 'video' && s.video_name && <div style={{ color: '#71717a', fontSize: 12, marginTop: 1 }}>▶ {s.video_name}</div>}
+                                {mode === 'images' && (
+                                  <div style={{ color: '#7e22ce', fontSize: 12, marginTop: 1 }}>
+                                    {s.album_name
+                                      ? <><FontAwesomeIcon icon={faFolder} style={{ fontSize: 10, marginRight: 4 }} />{s.album_name}</>
+                                      : `🖼 Todas las imágenes`}
+                                    {images.length > 0 && ` · loop ${formatSeconds(totalLoopTime)}`}
+                                  </div>
+                                )}
+                                {s.music_name && <div style={{ color: '#0369a1', fontSize: 12, marginTop: 1 }}>♪ {s.music_name}</div>}
+                              </>
                             )}
-                            {s.music_name && <div style={{ color: '#0369a1', fontSize: 12, marginTop: 1 }}>♪ {s.music_name}</div>}
                           </div>
                         </div>
 
                         {/* Action buttons */}
                         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'flex-start', width: '100%' }}>
+                          {!grouped && (<>
                           {/* Mode toggle */}
                           <button onClick={() => setScreenMode(s, mode === 'images' ? 'video' : 'images')}
                             style={{ background: mode === 'images' ? '#fdf4ff' : '#f4f4f5', border: `1px solid ${mode === 'images' ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: mode === 'images' ? '#7e22ce' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -872,6 +1095,13 @@ export default function CCTV() {
                               Video
                             </button>
                           )}
+                          </>)}
+                          {/* Group */}
+                          <button onClick={() => setScreenGroupModal(s)}
+                            style={{ background: grouped ? '#eef2ff' : '#f4f4f5', border: `1px solid ${grouped ? '#c7d2fe' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: grouped ? '#4338ca' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, maxWidth: 130, overflow: 'hidden' }}>
+                            <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: 11, flexShrink: 0 }} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{grouped ? s.group_name : 'Grupo'}</span>
+                          </button>
                           <button onClick={() => openPowerLog(s)} style={{ background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#71717a' }} title="Historial">
                             <FontAwesomeIcon icon={faHistory} style={{ fontSize: 12 }} />
                           </button>
@@ -1155,6 +1385,138 @@ export default function CCTV() {
         </div>
       )}
 
+      {/* Group Video Modal */}
+      {groupVideoModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Video para grupo <span style={{ color: GOLD }}>{groupVideoModal.name}</span></h3>
+              <button onClick={() => setGroupVideoModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#a1a1aa' }}><FontAwesomeIcon icon={faTimes} /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
+              <button onClick={() => { updateGroup(groupVideoModal.id, { video_id: null }, 'Video removido del grupo'); setGroupVideoModal(null); }} style={{ background: '#fafafa', border: '1px solid #e4e4e7', borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', color: '#71717a', fontStyle: 'italic', fontSize: 14 }}>Sin video</button>
+              {videos.map(v => (
+                <button key={v.id} onClick={() => { updateGroup(groupVideoModal.id, { video_id: v.id }, 'Video asignado al grupo'); setGroupVideoModal(null); }} style={{ background: groupVideoModal.current_video_id === v.id ? '#fff8e1' : '#fafafa', border: `1px solid ${groupVideoModal.current_video_id === v.id ? '#fde68a' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left' }}>
+                  <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>{v.original_name}</div>
+                  <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{formatBytes(v.file_size)}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Group Music Modal */}
+      {groupMusicModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Música para grupo <span style={{ color: GOLD }}>{groupMusicModal.name}</span></h3>
+              <button onClick={() => setGroupMusicModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#a1a1aa' }}><FontAwesomeIcon icon={faTimes} /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
+              <button onClick={() => { updateGroup(groupMusicModal.id, { music_id: null }, 'Música removida'); setGroupMusicModal(null); }} style={{ background: '#fafafa', border: '1px solid #e4e4e7', borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', color: '#71717a', fontStyle: 'italic', fontSize: 14 }}>Sin música</button>
+              {music.map(m => (
+                <button key={m.id} onClick={() => { updateGroup(groupMusicModal.id, { music_id: m.id }, 'Música asignada al grupo'); setGroupMusicModal(null); }} style={{ background: groupMusicModal.current_music_id === m.id ? '#f0f9ff' : '#fafafa', border: `1px solid ${groupMusicModal.current_music_id === m.id ? '#bae6fd' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <FontAwesomeIcon icon={faMusic} style={{ color: '#0369a1', fontSize: 14, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>{m.original_name}</div>
+                    <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{formatBytes(m.file_size)}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Group Album Modal */}
+      {groupAlbumModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Imágenes para grupo <span style={{ color: GOLD }}>{groupAlbumModal.name}</span></h3>
+              <button onClick={() => setGroupAlbumModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#a1a1aa' }}><FontAwesomeIcon icon={faTimes} /></button>
+            </div>
+            <p style={{ color: '#71717a', fontSize: 13, margin: '0 0 16px' }}>Elegí qué imágenes se muestran en las pantallas del grupo.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 340, overflowY: 'auto' }}>
+              <button onClick={() => { updateGroup(groupAlbumModal.id, { album_id: null }, 'Grupo mostrará todas las imágenes'); setGroupAlbumModal(null); }}
+                style={{ background: !groupAlbumModal.current_album_id ? '#fff8e1' : '#fafafa', border: `1px solid ${!groupAlbumModal.current_album_id ? '#fde68a' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>🖼 Todas las imágenes</div>
+                <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{images.length} imagen{images.length !== 1 ? 'es' : ''}</div>
+              </button>
+              {albums.map(a => {
+                const count = images.filter(i => i.album_id === a.id).length;
+                return (
+                  <button key={a.id} onClick={() => { updateGroup(groupAlbumModal.id, { album_id: a.id }, 'Álbum asignado al grupo'); setGroupAlbumModal(null); }}
+                    style={{ background: groupAlbumModal.current_album_id === a.id ? '#fdf4ff' : '#fafafa', border: `1px solid ${groupAlbumModal.current_album_id === a.id ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <FontAwesomeIcon icon={faFolder} style={{ color: GOLD, fontSize: 18, flexShrink: 0 }} />
+                    <div>
+                      <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>{a.name}</div>
+                      <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{count} imagen{count !== 1 ? 'es' : ''}</div>
+                    </div>
+                  </button>
+                );
+              })}
+              {albums.length === 0 && (
+                <div style={{ color: '#a1a1aa', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>
+                  No hay álbumes. Creá uno en la pestaña <strong>Imágenes</strong>.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Group Modal */}
+      {renameGroupModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 17, fontWeight: 700 }}>Renombrar grupo</h3>
+            <input value={renameGroupName} onChange={e => setRenameGroupName(e.target.value)} onKeyDown={e => e.key === 'Enter' && renameGroup()} placeholder="Nombre del grupo" autoFocus
+              style={{ width: '100%', padding: '10px 12px', background: '#fafafa', border: '1px solid #e4e4e7', borderRadius: 8, color: '#09090b', fontSize: 15, outline: 'none', boxSizing: 'border-box', marginBottom: 14 }} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setRenameGroupModal(null)} style={{ flex: 1, padding: '10px', background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 8, color: '#71717a', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
+              <button onClick={renameGroup} style={{ flex: 1, padding: '10px', background: GOLD, border: 'none', borderRadius: 8, color: '#0a0a0a', fontWeight: 700, cursor: 'pointer' }}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Screen to Group Modal */}
+      {screenGroupModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Grupo para <span style={{ color: GOLD }}>{screenGroupModal.device_name}</span></h3>
+              <button onClick={() => setScreenGroupModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#a1a1aa' }}><FontAwesomeIcon icon={faTimes} /></button>
+            </div>
+            <p style={{ color: '#71717a', fontSize: 13, margin: '0 0 16px' }}>Al agregarla a un grupo, la pantalla reproduce el contenido del grupo.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 340, overflowY: 'auto' }}>
+              <button onClick={() => assignScreenGroup(screenGroupModal.id, null)}
+                style={{ background: !screenGroupModal.group_id ? '#fff8e1' : '#fafafa', border: `1px solid ${!screenGroupModal.group_id ? '#fde68a' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', color: '#71717a', fontStyle: 'italic', fontSize: 14 }}>
+                Sin grupo (control individual)
+              </button>
+              {groups.map(g => (
+                <button key={g.id} onClick={() => assignScreenGroup(screenGroupModal.id, g.id)}
+                  style={{ background: screenGroupModal.group_id === g.id ? '#eef2ff' : '#fafafa', border: `1px solid ${screenGroupModal.group_id === g.id ? '#c7d2fe' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <FontAwesomeIcon icon={faLayerGroup} style={{ color: GOLD, fontSize: 18, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>{g.name}</div>
+                    <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{g.screen_count} pantalla{g.screen_count !== 1 ? 's' : ''} · {(g.display_mode || 'video') === 'images' ? 'imágenes' : (g.video_name || 'sin video')}</div>
+                  </div>
+                </button>
+              ))}
+              {groups.length === 0 && (
+                <div style={{ color: '#a1a1aa', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>
+                  No hay grupos. Creá uno en la pestaña <strong>Grupos</strong>.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirm Modal */}
       {deleteConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
@@ -1163,7 +1525,7 @@ export default function CCTV() {
               <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: 20, color: '#dc2626' }} />
             </div>
             <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700 }}>
-              ¿Eliminar {deleteConfirm.type === 'video' ? 'video' : deleteConfirm.type === 'music' ? 'música' : deleteConfirm.type === 'image' ? 'imagen' : deleteConfirm.type === 'album' ? 'álbum' : 'pantalla'}?
+              ¿Eliminar {deleteConfirm.type === 'video' ? 'video' : deleteConfirm.type === 'music' ? 'música' : deleteConfirm.type === 'image' ? 'imagen' : deleteConfirm.type === 'album' ? 'álbum' : deleteConfirm.type === 'group' ? 'grupo' : 'pantalla'}?
             </h3>
             <p style={{ color: '#71717a', fontSize: 14, margin: '0 0 20px' }}><strong style={{ color: '#09090b' }}>{deleteConfirm.name}</strong> será eliminado permanentemente.</p>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -1174,6 +1536,7 @@ export default function CCTV() {
                   else if (deleteConfirm.type === 'music') deleteMusic(deleteConfirm.id);
                   else if (deleteConfirm.type === 'image') deleteImage(deleteConfirm.id);
                   else if (deleteConfirm.type === 'album') deleteAlbum(deleteConfirm.id);
+                  else if (deleteConfirm.type === 'group') deleteGroup(deleteConfirm.id);
                   else deleteScreen(deleteConfirm.id);
                 }}
                 style={{ flex: 1, padding: '11px', background: '#dc2626', border: 'none', borderRadius: 8, color: '#fff', cursor: 'pointer', fontWeight: 700 }}>

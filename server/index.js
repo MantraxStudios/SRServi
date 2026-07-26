@@ -12655,6 +12655,20 @@ async function startServer() {
         )
       `);
       await pool.execute(`
+        CREATE TABLE IF NOT EXISTS cctv_groups (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          name VARCHAR(255) NOT NULL,
+          current_video_id INT DEFAULT NULL,
+          current_music_id INT DEFAULT NULL,
+          display_mode ENUM('video','images') DEFAULT 'video',
+          current_album_id INT DEFAULT NULL,
+          video_muted TINYINT(1) DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_cctv_groups_user (user_id)
+        )
+      `);
+      await pool.execute(`
         CREATE TABLE IF NOT EXISTS cctv_schedules (
           id INT AUTO_INCREMENT PRIMARY KEY,
           screen_id INT NOT NULL,
@@ -12677,6 +12691,7 @@ async function startServer() {
         'ALTER TABLE cctv_screens ADD COLUMN current_album_id INT DEFAULT NULL',
         'ALTER TABLE cctv_screens ADD COLUMN volume_level TINYINT(3) UNSIGNED NOT NULL DEFAULT 100',
         'ALTER TABLE cctv_screens ADD COLUMN device_uid VARCHAR(128) DEFAULT NULL',
+        'ALTER TABLE cctv_screens ADD COLUMN group_id INT DEFAULT NULL',
         'ALTER TABLE cctv_images ADD COLUMN album_id INT DEFAULT NULL'
       ]) {
         try { await pool.execute(sql); } catch (_) { /* columna ya existe */ }
@@ -12730,11 +12745,13 @@ async function startServer() {
           SELECT s.*, v.original_name AS video_name, v.url AS video_url,
             m.original_name AS music_name, m.id AS music_id,
             alb.name AS album_name,
+            g.name AS group_name,
             (CASE WHEN s.last_seen IS NOT NULL AND TIMESTAMPDIFF(SECOND, s.last_seen, NOW()) < 90 THEN 1 ELSE 0 END) AS is_online
           FROM cctv_screens s
           LEFT JOIN cctv_videos v ON v.id = s.current_video_id
           LEFT JOIN cctv_music m ON m.id = s.current_music_id
           LEFT JOIN cctv_albums alb ON alb.id = s.current_album_id
+          LEFT JOIN cctv_groups g ON g.id = s.group_id
           WHERE s.user_id = ? AND s.device_token IS NOT NULL
           ORDER BY s.created_at DESC
         `, [req.user.id]);
@@ -12855,25 +12872,65 @@ async function startServer() {
         const { device_token } = req.query;
         if (!device_token) return res.status(400).json({ error: 'device_token requerido' });
         const [rows] = await pool.execute(`
-          SELECT s.id, s.user_id, s.device_name, s.current_video_id, s.video_muted,
-            COALESCE(s.volume_level, 100) AS volume_level,
-            COALESCE(s.display_mode, 'video') AS display_mode,
-            v.url AS video_url, v.original_name AS video_name, v.filename AS video_filename,
-            m.url AS music_url, m.original_name AS music_name
+          SELECT s.id, s.user_id, s.device_name, s.group_id,
+            s.current_video_id, s.current_music_id, s.current_album_id, s.video_muted, s.display_mode,
+            COALESCE(s.volume_level, 100) AS volume_level
           FROM cctv_screens s
-          LEFT JOIN cctv_videos v ON v.id = s.current_video_id
-          LEFT JOIN cctv_music m ON m.id = s.current_music_id
           WHERE s.device_token = ?
         `, [device_token]);
         if (!rows.length) return res.status(404).json({ error: 'Dispositivo no encontrado' });
         await pool.execute('UPDATE cctv_screens SET last_seen = NOW() WHERE device_token = ?', [device_token]);
-        const config = { ...rows[0] };
-        const userId = config.user_id;
-        const screenId = config.id;
-        delete config.user_id;
-        config.video_muted = !!config.video_muted;
+        const screen = rows[0];
+        const userId = screen.user_id;
+        const screenId = screen.id;
+
+        // Cuando la pantalla pertenece a un grupo, la reproducción se toma del grupo
+        // para que todas las pantallas del grupo muestren lo mismo.
+        let playback = {
+          current_video_id: screen.current_video_id,
+          current_music_id: screen.current_music_id,
+          current_album_id: screen.current_album_id,
+          video_muted: screen.video_muted,
+          display_mode: screen.display_mode || 'video',
+        };
+        if (screen.group_id) {
+          const [gRows] = await pool.execute(
+            'SELECT current_video_id, current_music_id, current_album_id, video_muted, display_mode FROM cctv_groups WHERE id = ?',
+            [screen.group_id]
+          );
+          if (gRows.length) {
+            playback = {
+              current_video_id: gRows[0].current_video_id,
+              current_music_id: gRows[0].current_music_id,
+              current_album_id: gRows[0].current_album_id,
+              video_muted: gRows[0].video_muted,
+              display_mode: gRows[0].display_mode || 'video',
+            };
+          }
+        }
+
+        const [[vRow]] = playback.current_video_id
+          ? await pool.execute('SELECT url AS video_url, original_name AS video_name, filename AS video_filename FROM cctv_videos WHERE id = ?', [playback.current_video_id])
+          : [[{}]];
+        const [[mRow]] = playback.current_music_id
+          ? await pool.execute('SELECT url AS music_url, original_name AS music_name FROM cctv_music WHERE id = ?', [playback.current_music_id])
+          : [[{}]];
+
+        const config = {
+          id: screenId,
+          device_name: screen.device_name,
+          volume_level: screen.volume_level,
+          current_video_id: playback.current_video_id,
+          display_mode: playback.display_mode,
+          video_muted: !!playback.video_muted,
+          video_url: vRow?.video_url || null,
+          video_name: vRow?.video_name || null,
+          video_filename: vRow?.video_filename || null,
+          music_url: mRow?.music_url || null,
+          music_name: mRow?.music_name || null,
+        };
         if (config.display_mode === 'images') {
-          const albumId = rows[0].current_album_id;
+          const albumId = playback.current_album_id;
           let imgSql = 'SELECT url, duration_seconds FROM cctv_images WHERE user_id = ?';
           const imgParams = [userId];
           if (albumId) { imgSql += ' AND album_id = ?'; imgParams.push(albumId); }
@@ -13186,6 +13243,110 @@ async function startServer() {
           if (!mRows.length) return res.status(404).json({ error: 'Música no encontrada' });
         }
         await pool.execute('UPDATE cctv_screens SET current_music_id = ? WHERE id = ? AND user_id = ?', [music_id || null, req.params.id, req.user.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // ── TV Groups ─────────────────────────────────────────────────────────────
+    // Un grupo agrupa varias pantallas para que reproduzcan lo mismo. La config de
+    // reproducción (video, música, modo, álbum, mute) vive en el grupo y las
+    // pantallas asignadas la heredan (ver /api/cctv/device-config).
+
+    // Admin: list groups
+    app.get('/api/cctv/groups', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const [rows] = await pool.execute(`
+          SELECT g.*, v.original_name AS video_name, m.original_name AS music_name,
+            alb.name AS album_name,
+            (SELECT COUNT(*) FROM cctv_screens s WHERE s.group_id = g.id) AS screen_count
+          FROM cctv_groups g
+          LEFT JOIN cctv_videos v ON v.id = g.current_video_id
+          LEFT JOIN cctv_music m ON m.id = g.current_music_id
+          LEFT JOIN cctv_albums alb ON alb.id = g.current_album_id
+          WHERE g.user_id = ?
+          ORDER BY g.created_at ASC
+        `, [req.user.id]);
+        res.json(rows.map(r => ({ ...r, video_muted: !!r.video_muted })));
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: create group
+    app.post('/api/cctv/groups', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { name } = req.body;
+        if (!name?.trim()) return res.status(400).json({ error: 'Nombre requerido' });
+        const [result] = await pool.execute('INSERT INTO cctv_groups (user_id, name) VALUES (?, ?)', [req.user.id, name.trim()]);
+        res.json({ id: result.insertId, name: name.trim(), screen_count: 0 });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: update group (name and/or playback config — partial)
+    app.put('/api/cctv/groups/:id', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const [gRows] = await pool.execute('SELECT id FROM cctv_groups WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        if (!gRows.length) return res.status(404).json({ error: 'Grupo no encontrado' });
+        const { name, video_id, music_id, display_mode, album_id, video_muted } = req.body;
+        const fields = []; const vals = [];
+        if (name !== undefined) {
+          if (!name?.trim()) return res.status(400).json({ error: 'Nombre requerido' });
+          fields.push('name = ?'); vals.push(name.trim());
+        }
+        if (video_id !== undefined) {
+          if (video_id) {
+            const [v] = await pool.execute('SELECT id FROM cctv_videos WHERE id = ? AND user_id = ?', [video_id, req.user.id]);
+            if (!v.length) return res.status(404).json({ error: 'Video no encontrado' });
+          }
+          fields.push('current_video_id = ?'); vals.push(video_id || null);
+        }
+        if (music_id !== undefined) {
+          if (music_id) {
+            const [m] = await pool.execute('SELECT id FROM cctv_music WHERE id = ? AND user_id = ?', [music_id, req.user.id]);
+            if (!m.length) return res.status(404).json({ error: 'Música no encontrada' });
+          }
+          fields.push('current_music_id = ?'); vals.push(music_id || null);
+        }
+        if (album_id !== undefined) {
+          if (album_id) {
+            const [a] = await pool.execute('SELECT id FROM cctv_albums WHERE id = ? AND user_id = ?', [album_id, req.user.id]);
+            if (!a.length) return res.status(404).json({ error: 'Álbum no encontrado' });
+          }
+          fields.push('current_album_id = ?'); vals.push(album_id || null);
+        }
+        if (display_mode !== undefined) {
+          if (!['video', 'images'].includes(display_mode)) return res.status(400).json({ error: 'Modo inválido' });
+          fields.push('display_mode = ?'); vals.push(display_mode);
+        }
+        if (video_muted !== undefined) { fields.push('video_muted = ?'); vals.push(video_muted ? 1 : 0); }
+        if (!fields.length) return res.status(400).json({ error: 'Nada que actualizar' });
+        vals.push(req.params.id, req.user.id);
+        await pool.execute(`UPDATE cctv_groups SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`, vals);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: delete group (member screens are detached)
+    app.delete('/api/cctv/groups/:id', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        await pool.execute('UPDATE cctv_screens SET group_id = NULL WHERE group_id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        await pool.execute('DELETE FROM cctv_groups WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: assign a screen to a group (null = remove from group)
+    app.put('/api/cctv/screens/:id/group', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { group_id } = req.body;
+        if (group_id) {
+          const [g] = await pool.execute('SELECT id FROM cctv_groups WHERE id = ? AND user_id = ?', [group_id, req.user.id]);
+          if (!g.length) return res.status(404).json({ error: 'Grupo no encontrado' });
+        }
+        await pool.execute('UPDATE cctv_screens SET group_id = ? WHERE id = ? AND user_id = ?', [group_id || null, req.params.id, req.user.id]);
         res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
