@@ -1034,6 +1034,29 @@ function Layout() {
         </main>
       </div>
 
+      {/* Botón flotante de León IA — acceso destacado al asistente */}
+      {!isSubAccount && !isLeonIA && (
+        <button
+          onClick={() => navigate('/admin/leon-ia')}
+          title="Preguntá a León IA"
+          style={{
+            position: 'fixed', bottom: 24, right: 24, zIndex: 480,
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '12px 18px 12px 14px', borderRadius: 999, border: 'none', cursor: 'pointer',
+            background: 'linear-gradient(135deg, #D4AF37, #b8912a)', color: '#0a0a0a',
+            fontWeight: 800, fontSize: 14, boxShadow: '0 8px 24px rgba(212,175,55,0.45)',
+          }}
+        >
+          <span style={{
+            width: 30, height: 30, borderRadius: '50%', background: '#0a0a0a',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <FontAwesomeIcon icon={faRobot} style={{ color: '#D4AF37', fontSize: 15 }} />
+          </span>
+          León IA
+        </button>
+      )}
+
 
       {/* Phone required modal */}
       {phoneModal && (

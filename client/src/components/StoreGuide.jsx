@@ -118,10 +118,18 @@ function cleanForSpeech(text) {
     .trim();
 }
 
-// Elige la mejor voz en español disponible (prioriza es-CL/es-MX/es-ES).
+// Elige la voz a usar. Respeta la preferida guardada por el dueño en el tótem
+// (localStorage 'srservi_tts_voice' = voiceURI); si no, la mejor voz en español.
 function pickSpanishVoice() {
   if (!TTS_SUPPORTED) return null;
   const voices = window.speechSynthesis.getVoices() || [];
+  try {
+    const pref = localStorage.getItem('srservi_tts_voice');
+    if (pref) {
+      const chosen = voices.find((x) => x.voiceURI === pref || x.name === pref);
+      if (chosen) return chosen;
+    }
+  } catch { /* noop */ }
   const prefs = ['es-cl', 'es-419', 'es-mx', 'es-us', 'es-es', 'es'];
   for (const p of prefs) {
     const v = voices.find((x) => (x.lang || '').toLowerCase().startsWith(p));
@@ -285,8 +293,8 @@ const StoreGuide = forwardRef(function StoreGuide({
       const u = new SpeechSynthesisUtterance(clean);
       u.lang = (voiceRef.current && voiceRef.current.lang) || 'es-ES';
       if (voiceRef.current) u.voice = voiceRef.current;
-      u.rate = 1;
-      u.pitch = 1;
+      u.rate = parseFloat(localStorage.getItem('srservi_tts_rate')) || 1;
+      u.pitch = parseFloat(localStorage.getItem('srservi_tts_pitch')) || 1;
       window.speechSynthesis.speak(u);
     } catch { /* noop */ }
   }, []);

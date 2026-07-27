@@ -5579,7 +5579,7 @@ export async function getProductSalesReport(storeId, range = 'yesterday') {
 
 export async function getAllStoresWithOwnerEmail() {
   const [rows] = await pool.execute(`
-    SELECT s.id, s.name, s.code, s.currency_code, u.email as owner_email
+    SELECT s.id, s.name, s.code, s.currency_code, s.user_id, u.email as owner_email
     FROM stores s
     JOIN users u ON s.user_id = u.id
     WHERE u.is_banned = FALSE

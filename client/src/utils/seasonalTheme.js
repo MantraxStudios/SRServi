@@ -32,7 +32,7 @@ function inRange(now, from, to) {
 }
 
 // Definición de cada temporada. El orden importa: gana la primera que coincida.
-function buildThemes(now, country) {
+function buildThemes(now, country, forceId = null) {
   const y = now.getFullYear();
   const isChile = !country || /chile/i.test(country);
 
@@ -106,6 +106,8 @@ function buildThemes(now, country) {
     },
   ];
 
+  // forceId permite previsualizar un tema puntual sin importar la fecha.
+  if (forceId) return themes.find(t => t.id === forceId) || null;
   return themes.find(t => t.active) || null;
 }
 
@@ -113,11 +115,22 @@ function buildThemes(now, country) {
  * Devuelve el tema estacional activo para la fecha dada, o null si no hay ninguno.
  * @param {Date} now  fecha actual (por defecto new Date())
  * @param {string} country  país de la tienda (para fechas nacionales)
+ * @param {string} forceId  id de tema a forzar (previsualización), opcional
  */
-export function getSeasonalTheme(now = new Date(), country = 'Chile') {
+export function getSeasonalTheme(now = new Date(), country = 'Chile', forceId = null) {
   try {
-    return buildThemes(now, country);
+    return buildThemes(now, country, forceId);
   } catch {
     return null;
   }
 }
+
+// Lista de temas disponibles para armar un selector de previsualización.
+export const SEASONAL_THEME_OPTIONS = [
+  { id: 'navidad', name: 'Navidad', emoji: '🎄' },
+  { id: 'anio-nuevo', name: 'Año Nuevo', emoji: '🎉' },
+  { id: 'san-valentin', name: 'San Valentín', emoji: '❤️' },
+  { id: 'dia-madre', name: 'Día de la Madre', emoji: '💐' },
+  { id: 'fiestas-patrias', name: 'Fiestas Patrias', emoji: '🇨🇱' },
+  { id: 'halloween', name: 'Halloween', emoji: '🎃' },
+];

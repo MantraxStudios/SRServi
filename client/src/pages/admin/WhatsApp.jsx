@@ -9,6 +9,8 @@ import {
   faChevronDown, faChevronUp, faMapMarkerAlt, faStore
 } from '@fortawesome/free-solid-svg-icons';
 
+import { useCan } from '../../components/PlanLock';
+
 function WaIcon({ size = 24, color = '#25D366' }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill={color}>
@@ -51,6 +53,7 @@ function localDatetimeValue() {
 }
 
 function WhatsApp() {
+  const canAI = useCan('aiFeatures');
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -1110,7 +1113,7 @@ function WhatsApp() {
             </div>
             <button
               onClick={runBrainNow}
-              disabled={brainRunning || !selectedStore}
+              disabled={brainRunning || !selectedStore || !canAI}
               style={{
                 padding: '8px 16px', borderRadius: 8, border: 'none', background: GOLD,
                 color: '#000', fontWeight: 700, fontSize: 13,
@@ -1123,7 +1126,12 @@ function WhatsApp() {
             </button>
           </div>
 
-          {brainConfigLoading ? (
+          {!canAI ? (
+            <div style={{ padding: '18px', borderRadius: 12, background: '#2a2416', border: `1px solid ${GOLD}`, color: GOLD, fontSize: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <FontAwesomeIcon icon={faRobot} />
+              <span>León IA Autónomo está disponible en los planes de pago. Actualizá tu plan para que la IA opere sola cada mañana.</span>
+            </div>
+          ) : brainConfigLoading ? (
             <div style={{ textAlign: 'center', padding: '20px 0', color: '#aaa' }}>
               <FontAwesomeIcon icon={faSpinner} spin /> Cargando León IA...
             </div>

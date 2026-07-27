@@ -13812,6 +13812,11 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
           const hour = cfg.send_hour ?? 8;
           const days = (cfg.send_days || '1,2,3,4,5,6,7').split(',').map(Number);
           if (hour === currentHour && days.includes(currentDay)) {
+            // Revalidar plan: la IA autónoma solo corre en planes de pago
+            const store = await getStoreById(cfg.store_id).catch(() => null);
+            if (!store) continue;
+            const caps = await getUserCapabilities(store.user_id);
+            if (!caps.aiFeatures) continue;
             runSrBrainForStore(cfg.store_id).catch(e => console.error(`[SRBrain] Error tienda ${cfg.store_id}:`, e.message));
           }
         }
@@ -13896,6 +13901,9 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
         for (const cfg of configs) {
           const store = storeMap.get(cfg.store_id);
           if (!store?.owner_email) continue;
+          // Revalidar plan: el reporte de IA solo se envía en planes de pago
+          const caps = await getUserCapabilities(store.user_id);
+          if (!caps.aiFeatures) continue;
           try {
             const report = await runWeeklySalesReport(cfg.store_id);
             if (!report) continue;

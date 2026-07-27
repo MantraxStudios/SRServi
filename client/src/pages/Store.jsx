@@ -1200,6 +1200,21 @@ function Store() {
   const [restartingSending, setRestartingSending] = useState(false);
   const [pinOptionsModalOpen, setPinOptionsModalOpen] = useState(false);
   const [totemZoom, setTotemZoom] = useState(() => parseFloat(localStorage.getItem('srservi_totem_zoom') || '1'));
+  // Voz del asistente (TTS) — por dispositivo (las voces disponibles dependen del equipo)
+  const [ttsVoices, setTtsVoices] = useState([]);
+  const [ttsVoice, setTtsVoice] = useState(() => localStorage.getItem('srservi_tts_voice') || '');
+  const [ttsRate, setTtsRate] = useState(() => parseFloat(localStorage.getItem('srservi_tts_rate')) || 1);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const load = () => {
+      const all = window.speechSynthesis.getVoices() || [];
+      const es = all.filter(v => (v.lang || '').toLowerCase().startsWith('es'));
+      setTtsVoices(es.length ? es : all);
+    };
+    load();
+    window.speechSynthesis.onvoiceschanged = load;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
+  }, []);
   const [localAcceptCash, setLocalAcceptCash] = useState(() => {
     const v = localStorage.getItem('srservi_accept_cash');
     return v === null ? null : v === 'true';
@@ -2427,9 +2442,14 @@ function Store() {
   // (Navidad, Fiestas Patrias, Halloween, San Valentín, Día de la Madre, Año Nuevo).
   // Solo se aplica en el tótem del cliente (no en el editor del dueño) y si la
   // tienda no lo desactivó (store.auto_seasonal_theme === false).
-  const seasonalTheme = (store?.store?.auto_seasonal_theme !== false && !adminEditToken)
-    ? getSeasonalTheme(new Date(), store?.store?.country)
-    : null;
+  // ?preview_season=<id> fuerza un tema para previsualizarlo en cualquier fecha
+  // (ej: /store/CODE?preview_season=navidad). Útil para demos fuera de temporada.
+  const previewSeason = searchParams.get('preview_season');
+  const seasonalTheme = previewSeason
+    ? getSeasonalTheme(new Date(), store?.store?.country, previewSeason)
+    : (store?.store?.auto_seasonal_theme !== false && !adminEditToken)
+      ? getSeasonalTheme(new Date(), store?.store?.country)
+      : null;
   if (seasonalTheme) {
     colors.primary = seasonalTheme.colors.primary;
     colors.secondary = seasonalTheme.colors.secondary;
@@ -9599,6 +9619,43 @@ function Store() {
                   <span>20%</span><span>100%</span><span>200%</span>
                 </div>
               </div>
+              {ttsVoices.length > 0 && (
+                <div style={{ padding: '14px', borderRadius: '10px', border: '1px solid #e0e0e0', background: '#fafafa' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--store-primary)', marginBottom: '10px' }}>Voz del asistente</div>
+                  <select
+                    value={ttsVoice}
+                    onChange={(e) => { setTtsVoice(e.target.value); localStorage.setItem('srservi_tts_voice', e.target.value); }}
+                    style={{ width: '100%', padding: '9px 10px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontSize: '13px', color: '#333', marginBottom: '10px' }}
+                  >
+                    <option value="">Automática (mejor voz en español)</option>
+                    {ttsVoices.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}
+                  </select>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '13px', color: '#555' }}>Velocidad</span>
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--store-accent)' }}>{ttsRate.toFixed(1)}x</span>
+                  </div>
+                  <input
+                    type="range" min="0.6" max="1.6" step="0.1" value={ttsRate}
+                    onChange={(e) => { const r = parseFloat(e.target.value); setTtsRate(r); localStorage.setItem('srservi_tts_rate', String(r)); }}
+                    style={{ width: '100%', accentColor: 'var(--store-accent)' }}
+                  />
+                  <button
+                    onClick={() => {
+                      try {
+                        window.speechSynthesis.cancel();
+                        const u = new SpeechSynthesisUtterance('Hola, soy tu asistente. Así sueno con esta voz.');
+                        const chosen = ttsVoices.find(v => v.voiceURI === ttsVoice);
+                        if (chosen) { u.voice = chosen; u.lang = chosen.lang; } else { u.lang = 'es-ES'; }
+                        u.rate = ttsRate; u.pitch = 1;
+                        window.speechSynthesis.speak(u);
+                      } catch { /* noop */ }
+                    }}
+                    style={{ width: '100%', marginTop: '10px', padding: '9px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: 'var(--store-primary)', color: '#fff', fontSize: '13px', fontWeight: '600' }}
+                  >
+                    ▶ Probar voz
+                  </button>
+                </div>
+              )}
               <div style={{ padding: '14px', borderRadius: '10px', border: '1px solid #e0e0e0', background: '#fafafa' }}>
                 <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--store-primary)', marginBottom: '10px' }}>Métodos de pago</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
