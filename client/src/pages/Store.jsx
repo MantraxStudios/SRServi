@@ -149,6 +149,31 @@ function SortableCategoryTab({ catObj, activeCategory, onEdit, onDelete }) {
   );
 }
 
+// Tarjeta "+" al final de cada categoría en el editor: mismo tamaño que las
+// tarjetas de producto, agrega un producto nuevo a esa categoría.
+function AddProductCard({ onClick }) {
+  return (
+    <div className="store-product-wrapper" style={{ position: 'relative' }}>
+      <div
+        className="store-product-card"
+        onClick={onClick}
+        title="Agregar producto a esta categoría"
+        style={{
+          height: '100%', minHeight: 140, cursor: 'pointer',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+          border: '2px dashed var(--store-accent, #D4AF37)',
+          background: '#fafafa',
+          color: 'var(--store-accent, #D4AF37)',
+          boxShadow: 'none',
+        }}
+      >
+        <FontAwesomeIcon icon={faPlus} style={{ fontSize: 30 }} />
+        <span style={{ fontSize: 13, fontWeight: 700 }}>Agregar producto</span>
+      </div>
+    </div>
+  );
+}
+
 function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymbol, hideDecimals, selectionMode, isSelected, onToggleSelect }) {
   const {
     attributes,
@@ -4576,6 +4601,14 @@ function Store() {
     setProdModalOpen(true);
   };
 
+  // Abre el modal de producto nuevo con una categoría ya preseleccionada
+  // (usado por la tarjeta "+" al final de cada categoría en el editor).
+  const openNewProdInCategory = (categoryName) => {
+    const cat = (store?.categories || []).find(c => c.name === categoryName);
+    openProdModal(null);
+    if (cat) setProdForm(f => ({ ...f, category_id: String(cat.id) }));
+  };
+
   const loadEditorCombos = async () => {
     if (!store?.store?.id || !adminToken) return;
     try {
@@ -5973,6 +6006,9 @@ function Store() {
                     {products.map(product => (
                       <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} onRecipe={setProdRecipeModal} currencySymbol={colors.currency.symbol} hideDecimals={!!(selectedConfiguration?.hide_decimals || store?.store?.hide_decimals)} selectionMode={selectionMode} isSelected={selectedProductIds.has(product.id)} onToggleSelect={(id) => setSelectedProductIds(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; })} />
                     ))}
+                    {!selectionMode && (
+                      <AddProductCard onClick={() => openNewProdInCategory(category)} />
+                    )}
                   </div>
                 </div>
               ))}
