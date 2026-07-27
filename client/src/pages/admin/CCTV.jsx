@@ -625,7 +625,7 @@ export default function CCTV() {
 
   return (
     <PlanLock feature="cctv" title="Cartelería Digital" description="El módulo de Cartelería/CCTV para controlar tus pantallas TV está disponible en los planes de pago. Actualizá tu plan para desbloquearlo.">
-    <div style={{ padding: '20px 12px', fontFamily: 'inherit', maxWidth: '100%', boxSizing: 'border-box' }}>
+    <div style={{ padding: '20px 12px', fontFamily: 'inherit', maxWidth: 1180, margin: '0 auto', boxSizing: 'border-box' }}>
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
@@ -651,7 +651,7 @@ export default function CCTV() {
           <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>Vinculá una TV con el código de abajo.</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(440px, 1fr))', gap: 20, marginBottom: 28 }}>
           {screens.map(s => {
             const mode = s.display_mode || 'video';
             const grouped = !!s.group_id;
@@ -667,6 +667,10 @@ export default function CCTV() {
                     <FontAwesomeIcon icon={faDesktop} style={{ fontSize: 12, color: s.is_online ? '#16a34a' : '#a1a1aa' }} />
                   </div>
                   <span style={{ fontWeight: 700, fontSize: 15, color: '#09090b' }}>{s.device_name}</span>
+                  <button onClick={() => { setRenameModal(s); setRenameName(s.device_name); }} title="Editar nombre"
+                    style={{ width: 24, height: 24, borderRadius: 6, background: '#f4f4f5', border: '1px solid #e4e4e7', cursor: 'pointer', color: '#71717a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}>
+                    <FontAwesomeIcon icon={faPen} style={{ fontSize: 10 }} />
+                  </button>
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: s.is_online ? '#f0fdf4' : '#f4f4f5', color: s.is_online ? '#15803d' : '#71717a', border: `1px solid ${s.is_online ? '#bbf7d0' : '#e4e4e7'}` }}>
                     {s.is_online ? '● En vivo' : '○ Offline'}
                   </span>
