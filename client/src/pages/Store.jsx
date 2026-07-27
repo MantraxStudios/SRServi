@@ -7889,7 +7889,7 @@ function Store() {
             </div>
 
             <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, margin: 0, letterSpacing: 1 }}>
-              Powered by SRServi.cl
+              Powered by SRServi.com
             </p>
           </div>
 
@@ -9876,7 +9876,7 @@ function Store() {
                   Auto Servicio
                 </span>
                 <span style={{ fontSize: 'clamp(10px,1.3vw,13px)', color: 'rgba(255,255,255,0.35)', letterSpacing: '3px', textTransform: 'uppercase', fontWeight: 500 }}>
-                  Desarrollado por SRServi.cl
+                  Desarrollado por SRServi.com
                 </span>
               </div>
             </div>

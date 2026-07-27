@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useContext } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StoreContext } from '../../components/Layout';
+import PlanLock from '../../components/PlanLock';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faVideo, faUpload, faTrash, faDesktop, faKey, faCopy, faCheck,
@@ -573,6 +574,7 @@ export default function CCTV() {
   );
 
   return (
+    <PlanLock feature="cctv" title="Cartelería Digital" description="El módulo de Cartelería/CCTV para controlar tus pantallas TV está disponible en los planes de pago. Actualizá tu plan para desbloquearlo.">
     <div style={{ padding: '20px 12px', fontFamily: 'inherit', maxWidth: '100%', boxSizing: 'border-box' }}>
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
@@ -1547,5 +1549,6 @@ export default function CCTV() {
         </div>
       )}
     </div>
+    </PlanLock>
   );
 }

@@ -5178,6 +5178,30 @@ export async function canUserCreateStore(userId) {
   };
 }
 
+// ─── Capacidades por plan ─────────────────────────────────────────────────────
+// Fuente única de verdad de qué puede hacer cada plan. Lo que antes eran solo
+// bullets de marketing en la tabla `plans`, acá se vuelve exigible en el código.
+export const FREE_MAX_PRODUCTS_PER_STORE = 30;
+
+export function planCapabilities(planName) {
+  const isFree = !planName || planName === 'Gratis';
+  return {
+    planName: planName || 'Gratis',
+    isFree,
+    customBranding: !isFree,                                  // colores + logo del tótem/tienda
+    aiFeatures: !isFree,                                      // SRBrain (León IA) + marketing con IA
+    cctv: !isFree,                                            // Cartelería / CCTV
+    maxProductsPerStore: isFree ? FREE_MAX_PRODUCTS_PER_STORE : null, // null = ilimitado
+    maxPrinters: planName === 'Personalizado' ? 10 : planName === 'Empresas' ? 5 : 1,
+  };
+}
+
+// Devuelve las capacidades del plan activo de un usuario (Gratis si no tiene).
+export async function getUserCapabilities(userId) {
+  const plan = await getUserPlan(userId);
+  return planCapabilities(plan?.plan_name);
+}
+
 export async function assignPlanToUser(userId, planId, billingCycle = 'monthly') {
   const [plans] = await pool.execute('SELECT * FROM plans WHERE id = ?', [planId]);
   if (plans.length === 0) {

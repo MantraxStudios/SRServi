@@ -121,6 +121,7 @@ function Layout() {
   const { user, token, logout } = useAuth();
   const { can, isSubAccount } = useRole() || { can: () => true, isSubAccount: false };
   const [isPremiumUser, setIsPremiumUser] = useState(false);
+  const [planCaps, setPlanCaps] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const isEditorMode = location.pathname.startsWith('/admin/editor');
@@ -270,6 +271,7 @@ function Layout() {
         .then(data => {
           const planName = data?.plan?.plan_name || data?.plan?.name || '';
           setIsPremiumUser(!!planName && planName !== 'Gratis');
+          setPlanCaps(data?.capabilities || null);
         })
         .catch(() => {});
     }
@@ -523,7 +525,7 @@ function Layout() {
   }
 
   return (
-    <StoreContext.Provider value={{ selectedStore, stores, selectStore, fetchStores, colors, menuOpen: settingsOpen, setMenuOpen: setSettingsOpen, storeLoading: loading }}>
+    <StoreContext.Provider value={{ selectedStore, stores, selectStore, fetchStores, colors, menuOpen: settingsOpen, setMenuOpen: setSettingsOpen, storeLoading: loading, isPremiumUser, planCaps }}>
 
       {/* Backdrop para paneles y store dropdown */}
       {(settingsOpen || accountOpen || storeDropdownOpen) && (

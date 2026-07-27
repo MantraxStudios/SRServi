@@ -79,6 +79,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsConditions from './pages/TermsConditions';
 import CashRegisters from './pages/admin/CashRegisters';
 import CCTV from './pages/admin/CCTV';
+import PlanLock from './components/PlanLock';
 import WhatsApp from './pages/admin/WhatsApp';
 import AttendanceAdmin from './pages/admin/AttendanceAdmin';
 import LoyaltyConfig from './pages/admin/LoyaltyConfig';
@@ -315,8 +316,8 @@ function App() {
             <Route path="tickets" element={<Tickets />} />
             <Route path="tutoriales" element={<Tutoriales />} />
             <Route path="settings" element={<PermissionGate section="settings"><Settings /></PermissionGate>} />
-            <Route path="leon-ia" element={<LeonIA />} />
-            <Route path="ai-images" element={<AiImageGenerator />} />
+            <Route path="leon-ia" element={<PlanLock feature="aiFeatures" title="León IA" description="El asistente de inteligencia artificial está disponible en los planes de pago. Actualizá tu plan para conversar con León IA."><LeonIA /></PlanLock>} />
+            <Route path="ai-images" element={<PlanLock feature="aiFeatures" title="Imágenes y videos con IA" description="La generación de imágenes y videos con IA para redes sociales está disponible en los planes de pago."><AiImageGenerator /></PlanLock>} />
             <Route path="fudo" element={<PermissionGate section="canales"><FudoIntegration /></PermissionGate>} />
             <Route path="tasks" element={<PermissionGate section="tasks"><Tasks /></PermissionGate>} />
             <Route path="inventory" element={<PermissionGate section="inventory"><Inventory /></PermissionGate>} />
@@ -333,8 +334,8 @@ function App() {
             <Route path="pedidosya" element={<PermissionGate section="canales"><PedidosYaIntegration /></PermissionGate>} />
             <Route path="ubereats" element={<PermissionGate section="canales"><UberEatsIntegration /></PermissionGate>} />
             <Route path="novedades" element={<Novedades />} />
-            <Route path="instagram" element={<PermissionGate section="canales"><InstagramAuto /></PermissionGate>} />
-            <Route path="tiktok" element={<PermissionGate section="canales"><TikTokAuto /></PermissionGate>} />
+            <Route path="instagram" element={<PlanLock feature="aiFeatures" title="Instagram automático" description="La publicación automática con IA en Instagram está disponible en los planes de pago."><PermissionGate section="canales"><InstagramAuto /></PermissionGate></PlanLock>} />
+            <Route path="tiktok" element={<PlanLock feature="aiFeatures" title="TikTok automático" description="La publicación automática con IA en TikTok está disponible en los planes de pago."><PermissionGate section="canales"><TikTokAuto /></PermissionGate></PlanLock>} />
             <Route path="cash-registers" element={<PermissionGate section="cash_registers"><CashRegisters /></PermissionGate>} />
             <Route path="cctv" element={<CCTV />} />
             <Route path="whatsapp" element={<PermissionGate section="whatsapp"><WhatsApp /></PermissionGate>} />

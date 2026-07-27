@@ -162,6 +162,9 @@ import {
   getAllSubscriptions,
   getSubscriptionHistory,
   getUserPlan,
+  getUserCapabilities,
+  planCapabilities,
+  FREE_MAX_PRODUCTS_PER_STORE,
   canUserCreateStore,
   assignPlanToUser,
   assignPremiumByAdmin,
@@ -686,6 +689,26 @@ const authenticateToken = (req, res, next) => {
     req.user = user;
     next();
   });
+};
+
+// Middleware: exige que el plan del usuario tenga cierta capacidad
+// (customBranding | aiFeatures | cctv). Debe usarse DESPUÉS de authenticateToken.
+const requirePlanFeature = (feature) => async (req, res, next) => {
+  try {
+    const caps = await getUserCapabilities(req.user.id);
+    if (!caps[feature]) {
+      return res.status(403).json({
+        error: 'Esta función no está disponible en el plan Gratis. Actualizá tu plan para usarla.',
+        code: 'PLAN_FEATURE_LOCKED',
+        feature,
+        currentPlan: caps.planName,
+      });
+    }
+    req.planCaps = caps;
+    next();
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 };
 
 app.post('/api/auth/register', async (req, res) => {
@@ -1288,10 +1311,11 @@ app.get('/api/public/:code', async (req, res) => {
         id: store.id,
         code: store.code,
         name: store.name,
-        primary_color: store.primary_color || '#000000',
-        secondary_color: store.secondary_color || '#FFFFFF',
-        accent_color: store.accent_color || '#D4AF37',
-        header_color: store.header_color || '#000000',
+        // Personalización visual solo en planes de pago; en Gratis se usa el branding por defecto.
+        primary_color: isPremium ? (store.primary_color || '#000000') : '#000000',
+        secondary_color: isPremium ? (store.secondary_color || '#FFFFFF') : '#FFFFFF',
+        accent_color: isPremium ? (store.accent_color || '#D4AF37') : '#D4AF37',
+        header_color: isPremium ? (store.header_color || '#000000') : '#000000',
         logo_url: isPremium ? (store.logo_url || null) : null,
         currency_code: store.currency_code || 'USD',
         currency_symbol: store.currency_symbol || '$',
@@ -2538,6 +2562,7 @@ app.get('/api/my-plan', authenticateToken, async (req, res) => {
     res.json({
       plan,
       has_claimed_trial: hasTrial,
+      capabilities: planCapabilities(plan?.plan_name),
       ...storeInfo
     });
   } catch (error) {
@@ -4100,6 +4125,11 @@ const _leonCheckInterval = setInterval(() => {
     setInterval(checkLeonPython, 120000);
   }
 }, 30000);
+
+// Gate de plan: el chat de León IA (LLM) solo en planes de pago.
+app.use('/api/leon-ia', (req, res, next) => {
+  authenticateToken(req, res, () => requirePlanFeature('aiFeatures')(req, res, next));
+});
 
 app.post('/api/leon-ia/chat', authenticateToken, async (req, res) => {
   try {
@@ -6549,14 +6579,30 @@ app.post('/api/products/excel-import', authenticateToken, async (req, res) => {
     if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: 'No hay productos para importar' });
 
+    // Límite de productos por tienda en el plan Gratis
+    const caps = await getUserCapabilities(req.user.id);
+    let remaining = Infinity;
+    if (caps.maxProductsPerStore != null) {
+      const [[{ cnt }]] = await pool.execute('SELECT COUNT(*) AS cnt FROM products WHERE store_id = ?', [parseInt(store_id)]);
+      remaining = Math.max(0, caps.maxProductsPerStore - cnt);
+      if (remaining === 0) {
+        return res.status(403).json({
+          error: `El plan Gratis permite hasta ${caps.maxProductsPerStore} productos por tienda. Actualizá tu plan para importar más.`,
+          code: 'PLAN_PRODUCT_LIMIT',
+          limit: caps.maxProductsPerStore,
+        });
+      }
+    }
+
     const [cats] = await pool.execute('SELECT id, name FROM categories WHERE store_id = ?', [parseInt(store_id)]);
     const catMap = {};
     cats.forEach(c => { catMap[c.name.trim().toLowerCase()] = c.id; });
 
-    const results = { created: 0, skipped: 0, errors: [] };
+    const results = { created: 0, skipped: 0, errors: [], limited: false };
 
     for (const row of rows) {
       try {
+        if (results.created >= remaining) { results.limited = true; results.skipped++; continue; }
         if (!row.name || row.price === undefined) { results.skipped++; continue; }
         const catId = row.category ? (catMap[row.category.toLowerCase()] ?? null) : null;
         await createProduct(parseInt(store_id), {
@@ -6599,6 +6645,19 @@ app.post('/api/products', authenticateToken, upload.single('image'), async (req,
     }
     if (!name || price === undefined) {
       return res.status(400).json({ error: 'Nombre y precio son requeridos' });
+    }
+
+    // Límite de productos por tienda en el plan Gratis
+    const caps = await getUserCapabilities(req.user.id);
+    if (caps.maxProductsPerStore != null) {
+      const [[{ cnt }]] = await pool.execute('SELECT COUNT(*) AS cnt FROM products WHERE store_id = ?', [parseInt(store_id)]);
+      if (cnt >= caps.maxProductsPerStore) {
+        return res.status(403).json({
+          error: `El plan Gratis permite hasta ${caps.maxProductsPerStore} productos por tienda. Actualizá tu plan para agregar más.`,
+          code: 'PLAN_PRODUCT_LIMIT',
+          limit: caps.maxProductsPerStore,
+        });
+      }
     }
 
     if (req.file) await processProductImage(req.file);
@@ -11917,6 +11976,14 @@ async function startServer() {
 
     // ─── Instagram Auto-Post ────────────────────────────────────────────────
 
+    // Gate de plan: marketing con IA (Instagram / TikTok / generación de imágenes-video)
+    // solo en planes de pago. Todas estas rutas son de administración (con token).
+    for (const prefix of ['/api/instagram', '/api/tiktok', '/api/ai-image']) {
+      app.use(prefix, (req, res, next) => {
+        authenticateToken(req, res, () => requirePlanFeature('aiFeatures')(req, res, next));
+      });
+    }
+
     app.get('/api/instagram/:storeId', authenticateToken, async (req, res) => {
       try {
         const store = await getStoreById(req.params.storeId);
@@ -12699,6 +12766,15 @@ async function startServer() {
       _cctvReady = true;
     }
 
+    // Gate de plan para Cartelería/CCTV: las rutas de administración requieren un
+    // plan de pago. Las rutas públicas del dispositivo TV (pair / device-config /
+    // power-event) quedan siempre abiertas para que las pantallas sigan operando.
+    app.use('/api/cctv', (req, res, next) => {
+      const openPaths = ['/pair', '/device-config', '/power-event'];
+      if (openPaths.includes(req.path)) return next();
+      authenticateToken(req, res, () => requirePlanFeature('cctv')(req, res, next));
+    });
+
     // Admin: list videos
     app.get('/api/cctv/videos', authenticateToken, async (req, res) => {
       try {
@@ -13456,7 +13532,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    app.post('/api/brain/config', authenticateToken, async (req, res) => {
+    app.post('/api/brain/config', authenticateToken, requirePlanFeature('aiFeatures'), async (req, res) => {
       try {
         const storeId = parseInt(req.body.store_id);
         if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
@@ -13478,7 +13554,7 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    app.post('/api/brain/run', authenticateToken, async (req, res) => {
+    app.post('/api/brain/run', authenticateToken, requirePlanFeature('aiFeatures'), async (req, res) => {
       try {
         const storeId = parseInt(req.body.store_id);
         if (!storeId) return res.status(400).json({ error: 'store_id requerido' });

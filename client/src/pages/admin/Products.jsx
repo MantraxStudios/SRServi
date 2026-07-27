@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faBox, faGripVertical, faCamera, faFileExcel, faDownload, faUpload, faCheckCircle, faTimesCircle, faSearch, faFire } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faBox, faGripVertical, faCamera, faFileExcel, faDownload, faUpload, faCheckCircle, faTimesCircle, faSearch, faFire, faLock } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { getImageUrl } from '../../config.js';
 import CameraModal from '../../components/CameraModal';
@@ -27,7 +27,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 function Products() {
-  const { selectedStore, fetchStores } = useStore();
+  const { selectedStore, fetchStores, planCaps } = useStore();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [extras, setExtras] = useState([]);
@@ -238,7 +238,8 @@ function Products() {
       });
 
       if (!response.ok) {
-        throw new Error('Error al guardar el producto');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Error al guardar el producto');
       }
 
       const productData = await response.json();
@@ -741,7 +742,9 @@ function Products() {
             <FontAwesomeIcon icon={faFileExcel} />
             Importar Excel
           </button>
-          <button className="btn btn-primary" onClick={openModal}>
+          <button className="btn btn-primary" onClick={openModal}
+            disabled={planCaps?.maxProductsPerStore != null && products.length >= planCaps.maxProductsPerStore}
+            title={planCaps?.maxProductsPerStore != null && products.length >= planCaps.maxProductsPerStore ? 'Alcanzaste el límite del plan Gratis' : ''}>
             <FontAwesomeIcon icon={faPlus} />
             Nuevo Producto
           </button>
@@ -749,6 +752,24 @@ function Products() {
       </header>
       <div className="admin-main">
         {error && <div className="error">{error}</div>}
+
+        {planCaps?.maxProductsPerStore != null && (
+          <div style={{
+            marginBottom: 16, padding: '10px 14px', borderRadius: 8, fontSize: 14,
+            display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+            background: products.length >= planCaps.maxProductsPerStore ? '#3a1a1a' : '#2a2416',
+            border: `1px solid ${products.length >= planCaps.maxProductsPerStore ? '#7f1d1d' : '#D4AF37'}`,
+            color: products.length >= planCaps.maxProductsPerStore ? '#fca5a5' : '#D4AF37',
+          }}>
+            <FontAwesomeIcon icon={faLock} />
+            <span>
+              Plan Gratis: <strong>{products.length}/{planCaps.maxProductsPerStore}</strong> productos.
+              {products.length >= planCaps.maxProductsPerStore
+                ? ' Alcanzaste el límite — actualizá tu plan para agregar más.'
+                : ` Podés agregar ${planCaps.maxProductsPerStore - products.length} más.`}
+            </span>
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ position: 'relative', flex: '1', minWidth: '200px' }}>
