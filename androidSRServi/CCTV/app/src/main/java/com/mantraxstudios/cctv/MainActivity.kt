@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.foundation.Image
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -1298,6 +1299,7 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
     }
 
     var displayMode by remember { mutableStateOf("video") }
+    var rotation by remember { mutableIntStateOf(0) }
     var slideshowImages by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
 
     val exoPlayer = remember {
@@ -1411,6 +1413,7 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                 // ── Modo display (video / imágenes) ────────────────────────────
                 val mode = config.optString("display_mode", "video").ifEmpty { "video" }
                 displayMode = mode
+                rotation = config.optInt("rotation", 0)
 
                 if (mode == "images") {
                     exoPlayer.pause()
@@ -1507,7 +1510,7 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
             .background(Color.Black)
     ) {
         if (displayMode == "images") {
-            ImageSlideshowScreen(images = slideshowImages)
+            ImageSlideshowScreen(images = slideshowImages, rotation = rotation)
         } else {
             AndroidView(
                 factory = { ctx ->
@@ -1517,7 +1520,7 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                         resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                     }
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize().rotate(rotation.toFloat())
             )
 
             // Pantalla de espera cuando no hay video
@@ -1632,7 +1635,7 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
 // ─── Image Slideshow ─────────────────────────────────────────────────────────
 
 @Composable
-fun ImageSlideshowScreen(images: List<Pair<String, Int>>) {
+fun ImageSlideshowScreen(images: List<Pair<String, Int>>, rotation: Int = 0) {
     if (images.isEmpty()) {
         WaitingSignalScreen()
         return
@@ -1671,7 +1674,7 @@ fun ImageSlideshowScreen(images: List<Pair<String, Int>>) {
                 Image(
                     bitmap = bitmap,
                     contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().rotate(rotation.toFloat()),
                     contentScale = ContentScale.Fit
                 )
             }

@@ -1552,6 +1552,7 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
     }
 
     var displayMode by remember { mutableStateOf("video") }
+    var serverRotation by remember { mutableIntStateOf(0) }
     var slideshowImages by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
 
     val exoPlayer = remember {
@@ -1695,6 +1696,7 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                 // ── Modo display (video / imágenes) ────────────────────────────
                 val mode = config.optString("display_mode", "video").ifEmpty { "video" }
                 displayMode = mode
+                serverRotation = config.optInt("rotation", 0)
 
                 if (mode == "images") {
                     exoPlayer.pause()
@@ -1795,7 +1797,7 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        RotatingContent(rotation = rotation) {
+        RotatingContent(rotation = (rotation + serverRotation) % 360) {
             if (displayMode == "images") {
                 ImageSlideshowScreen(images = slideshowImages)
             } else {

@@ -12782,6 +12782,8 @@ async function startServer() {
         'ALTER TABLE cctv_screens ADD COLUMN volume_level TINYINT(3) UNSIGNED NOT NULL DEFAULT 100',
         'ALTER TABLE cctv_screens ADD COLUMN device_uid VARCHAR(128) DEFAULT NULL',
         'ALTER TABLE cctv_screens ADD COLUMN group_id INT DEFAULT NULL',
+        'ALTER TABLE cctv_screens ADD COLUMN rotation SMALLINT NOT NULL DEFAULT 0',
+        'ALTER TABLE cctv_screens ADD COLUMN image_interval INT NOT NULL DEFAULT 5',
         'ALTER TABLE cctv_images ADD COLUMN album_id INT DEFAULT NULL'
       ]) {
         try { await pool.execute(sql); } catch (_) { /* columna ya existe */ }
@@ -12973,7 +12975,8 @@ async function startServer() {
         const [rows] = await pool.execute(`
           SELECT s.id, s.user_id, s.device_name, s.group_id,
             s.current_video_id, s.current_music_id, s.current_album_id, s.video_muted, s.display_mode,
-            COALESCE(s.volume_level, 100) AS volume_level
+            COALESCE(s.volume_level, 100) AS volume_level,
+            COALESCE(s.rotation, 0) AS rotation, COALESCE(s.image_interval, 5) AS image_interval
           FROM cctv_screens s
           WHERE s.device_token = ?
         `, [device_token]);
@@ -13019,6 +13022,8 @@ async function startServer() {
           id: screenId,
           device_name: screen.device_name,
           volume_level: screen.volume_level,
+          rotation: screen.rotation || 0,
+          image_interval: screen.image_interval || 5,
           current_video_id: playback.current_video_id,
           display_mode: playback.display_mode,
           video_muted: !!playback.video_muted,
@@ -13035,7 +13040,9 @@ async function startServer() {
           if (albumId) { imgSql += ' AND album_id = ?'; imgParams.push(albumId); }
           imgSql += ' ORDER BY sort_order ASC, created_at ASC';
           const [imgs] = await pool.execute(imgSql, imgParams);
-          config.images = imgs;
+          // El intervalo por pantalla controla cuántos segundos dura cada imagen.
+          const iv = screen.image_interval || 5;
+          config.images = imgs.map(i => ({ ...i, duration_seconds: iv }));
         }
         const [schedRows] = await pool.execute(`
           SELECT cs.id, cs.video_id, cs.name, cs.start_time, cs.end_time, cs.days,
@@ -13136,6 +13143,28 @@ async function startServer() {
         const vol = Math.max(0, Math.min(100, parseInt(req.body.volume_level) || 100));
         await pool.execute('UPDATE cctv_screens SET volume_level = ? WHERE id = ? AND user_id = ?', [vol, req.params.id, req.user.id]);
         res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: rotate screen image/video (0, 90, 180, 270)
+    app.put('/api/cctv/screens/:id/rotation', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        let rot = parseInt(req.body.rotation) || 0;
+        rot = ((rot % 360) + 360) % 360;
+        if (![0, 90, 180, 270].includes(rot)) rot = 0;
+        await pool.execute('UPDATE cctv_screens SET rotation = ? WHERE id = ? AND user_id = ?', [rot, req.params.id, req.user.id]);
+        res.json({ ok: true, rotation: rot });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: set image/video interval for a screen (seconds)
+    app.put('/api/cctv/screens/:id/interval', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const iv = Math.max(1, Math.min(3600, parseInt(req.body.image_interval) || 5));
+        await pool.execute('UPDATE cctv_screens SET image_interval = ? WHERE id = ? AND user_id = ?', [iv, req.params.id, req.user.id]);
+        res.json({ ok: true, image_interval: iv });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
