@@ -678,68 +678,79 @@ export default function CCTV() {
                 </div>
 
                 {/* Vista previa + Girar imagen */}
-                <div style={{ textAlign: 'center', fontSize: 13, color: '#71717a', marginBottom: 8 }}>Video o imagen en reproducción</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ fontSize: 12, color: '#a1a1aa', marginBottom: 6, fontWeight: 600 }}>REPRODUCIENDO AHORA</div>
+                <div style={{ display: 'flex', alignItems: 'stretch', gap: 12 }}>
                   <button
                     onClick={() => { if (grouped) return; mode === 'images' ? setAssignAlbumModal(s) : setAssignModal(s); }}
-                    title={grouped ? 'Reproducción controlada por el grupo' : 'Cambiar contenido'}
-                    style={{ position: 'relative', flex: 1, minWidth: 0, aspectRatio: '16 / 10', background: '#000', borderRadius: 16, overflow: 'hidden', border: 'none', cursor: grouped ? 'default' : 'pointer', padding: 0 }}>
+                    title={grouped ? 'Reproducción controlada por el grupo' : 'Tocá para cambiar el contenido'}
+                    style={{ position: 'relative', flex: 1, minWidth: 0, aspectRatio: '16 / 10', background: '#0a0a0a', borderRadius: 14, overflow: 'hidden', border: '1px solid #e4e4e7', cursor: grouped ? 'default' : 'pointer', padding: 0 }}>
                     {prev.empty ? (
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#71717a', fontSize: 13, fontWeight: 600 }}>Sin contenido</div>
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', justifyContent: 'center', color: '#a1a1aa', fontSize: 13, fontWeight: 600 }}>
+                        <FontAwesomeIcon icon={mode === 'images' ? faImage : faVideo} style={{ fontSize: 20 }} />
+                        Sin contenido
+                      </div>
                     ) : prev.type === 'video' ? (
                       <video src={`${prev.src}#t=0.5`} muted playsInline preload="metadata"
                         style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `rotate(${rot}deg)` }} />
                     ) : (
                       <img src={prev.src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `rotate(${rot}deg)` }} />
                     )}
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                      <div style={{ minWidth: 60, height: 60, padding: '0 16px', borderRadius: 30, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                        <FontAwesomeIcon icon={faPlay} style={{ color: '#fff', fontSize: 18 }} />
-                        <FontAwesomeIcon icon={faPause} style={{ color: '#fff', fontSize: 18 }} />
-                      </div>
+                    {/* Etiqueta del contenido + acción de cambiar */}
+                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '20px 8px 7px', display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(transparent, rgba(0,0,0,0.75))', pointerEvents: 'none' }}>
+                      <span style={{ flex: 1, minWidth: 0, color: '#fff', fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {grouped ? `Grupo: ${s.group_name}` : mode === 'images' ? (s.album_name || 'Todas las imágenes') : (s.video_name || 'Sin video')}
+                      </span>
+                      {!grouped && (
+                        <span style={{ background: GOLD, color: '#0a0a0a', fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                          <FontAwesomeIcon icon={faPen} style={{ fontSize: 9 }} />Cambiar
+                        </span>
+                      )}
                     </div>
                   </button>
 
                   {/* Girar imagen */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, width: 74, flexShrink: 0 }}>
-                    <span style={{ fontSize: 13, color: '#71717a', textAlign: 'center', lineHeight: 1.2 }}>Girar imagen</span>
-                    <button onClick={() => rotateScreen(s)} title={`Rotar contenido (${rot}°)`}
-                      style={{ width: 52, height: 52, borderRadius: '50%', border: `2px dashed ${GOLD}`, background: '#fffdf5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: GOLD }}>
-                      <FontAwesomeIcon icon={faRotate} style={{ fontSize: 20 }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, width: 70, flexShrink: 0, background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 14, padding: '8px 4px' }}>
+                    <button onClick={() => rotateScreen(s)} title={`Girar (actual ${rot}°)`}
+                      style={{ width: 46, height: 46, borderRadius: '50%', border: `2px solid ${GOLD}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: GOLD }}>
+                      <FontAwesomeIcon icon={faRotate} style={{ fontSize: 18 }} />
                     </button>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#a1a1aa' }}>{rot}°</span>
+                    <span style={{ fontSize: 11, color: '#71717a', textAlign: 'center', lineHeight: 1.15, fontWeight: 600 }}>Girar<br />{rot}°</span>
                   </div>
                 </div>
 
-                {/* Horario (línea de tiempo) */}
-                <div style={{ textAlign: 'center', fontSize: 13, color: '#71717a', margin: '16px 0 6px' }}>Horario</div>
-                <div style={{ position: 'relative', background: '#000', borderRadius: 10, height: 62, padding: '0 2px' }}>
-                  {/* marcas de hora */}
-                  {[['00:00', 0], ['06:00', 25], ['12:00', 50], ['18:00', 75], ['24:00', 100]].map(([lbl, pct]) => (
-                    <span key={lbl} style={{ position: 'absolute', top: 5, left: `${pct}%`, transform: pct === 0 ? 'none' : pct === 100 ? 'translateX(-100%)' : 'translateX(-50%)', color: '#a1a1aa', fontSize: 10 }}>{lbl}</span>
-                  ))}
-                  {/* línea dorada */}
-                  <div style={{ position: 'absolute', left: 0, right: 0, top: 26, height: 2, background: GOLD, opacity: 0.6 }} />
-                  {/* tiles de horarios */}
+                {/* Horario */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '18px 0 8px' }}>
+                  <FontAwesomeIcon icon={faClock} style={{ fontSize: 13, color: GOLD }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#09090b' }}>Horario</span>
+                  <span style={{ fontSize: 12, color: '#a1a1aa' }}>· qué se ve a cada hora del día</span>
+                  <button onClick={() => setScheduleModal(s)} style={{ marginLeft: 'auto', background: '#fffdf5', border: `1px solid ${GOLD}`, borderRadius: 20, color: '#92400e', fontSize: 12, fontWeight: 700, padding: '4px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10 }} />Agregar
+                  </button>
+                </div>
+                <div style={{ position: 'relative', background: '#0a0a0a', borderRadius: 10, height: 54, padding: '0 4px', marginBottom: 8 }}>
+                  <div style={{ position: 'absolute', left: 6, right: 6, top: 20, height: 2, background: GOLD, opacity: 0.4, borderRadius: 2 }} />
                   {scheds.filter(sc => sc.active).map(sc => (
-                    <button key={sc.id} onClick={() => setScheduleModal(s)} title={`${sc.name || sc.video_name} · ${sc.start_time}`}
-                      style={{ position: 'absolute', top: 30, left: `${timeToPct(sc.start_time) * 100}%`, transform: 'translateX(-50%)', width: 40, height: 26, borderRadius: 5, border: `1px solid ${GOLD}`, background: '#1a1a1a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                      <FontAwesomeIcon icon={faPlay} style={{ color: GOLD, fontSize: 9 }} />
+                    <button key={sc.id} onClick={() => setScheduleModal(s)} title={`${sc.name || sc.video_name}`}
+                      style={{ position: 'absolute', top: 11, left: `calc(6px + ${timeToPct(sc.start_time)} * (100% - 12px))`, transform: 'translateX(-50%)', minWidth: 42, borderRadius: 6, border: `1px solid ${GOLD}`, background: '#26210f', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2px 4px' }}>
+                      <FontAwesomeIcon icon={faPlay} style={{ color: GOLD, fontSize: 8 }} />
+                      <span style={{ color: GOLD, fontSize: 9, fontWeight: 700 }}>{sc.start_time}</span>
                     </button>
+                  ))}
+                  {/* marcas de hora (abajo) */}
+                  {[['00:00', 0], ['06', 25], ['12', 50], ['18', 75], ['24:00', 100]].map(([lbl, pct]) => (
+                    <span key={lbl} style={{ position: 'absolute', bottom: 4, left: `calc(6px + ${pct / 100} * (100% - 12px))`, transform: pct === 0 ? 'none' : pct === 100 ? 'translateX(-100%)' : 'translateX(-50%)', color: '#71717a', fontSize: 9 }}>{lbl}</span>
                   ))}
                   {scheds.filter(sc => sc.active).length === 0 && (
-                    <button onClick={() => setScheduleModal(s)}
-                      style={{ position: 'absolute', top: 34, left: '50%', transform: 'translateX(-50%)', background: 'transparent', border: `1px dashed ${GOLD}`, borderRadius: 6, color: GOLD, fontSize: 11, fontWeight: 600, padding: '3px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
-                      <FontAwesomeIcon icon={faPlus} style={{ fontSize: 9 }} /> Programar horario
-                    </button>
+                    <span style={{ position: 'absolute', top: 18, left: '50%', transform: 'translateX(-50%)', color: '#71717a', fontSize: 11, fontStyle: 'italic', whiteSpace: 'nowrap' }}>
+                      Siempre el mismo contenido (sin horarios)
+                    </span>
                   )}
                 </div>
                 {scheds.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
                     {scheds.map(sc => (
                       <div key={sc.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: sc.active ? '#fffdf5' : '#f4f4f5', border: `1px solid ${sc.active ? '#fde68a' : '#e4e4e7'}`, borderRadius: 20, padding: '3px 6px 3px 10px', fontSize: 11 }}>
-                        <FontAwesomeIcon icon={faClock} style={{ fontSize: 9, color: GOLD }} />
-                        <span style={{ fontWeight: 600, color: '#09090b' }}>{sc.start_time}{sc.end_time ? `–${sc.end_time}` : ''}</span>
+                        <span style={{ fontWeight: 700, color: '#09090b' }}>{sc.start_time}{sc.end_time ? `–${sc.end_time}` : ''}</span>
                         <span style={{ color: '#71717a', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sc.name || sc.video_name}</span>
                         <button onClick={() => toggleScheduleActive(sc, s.id)} title={sc.active ? 'Desactivar' : 'Activar'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: sc.active ? '#16a34a' : '#a1a1aa', fontSize: 13, padding: 0 }}>
                           <FontAwesomeIcon icon={sc.active ? faToggleOn : faToggleOff} />
@@ -749,21 +760,19 @@ export default function CCTV() {
                         </button>
                       </div>
                     ))}
-                    <button onClick={() => setScheduleModal(s)} style={{ background: 'transparent', border: `1px dashed ${GOLD}`, borderRadius: 20, color: '#92400e', fontSize: 11, fontWeight: 600, padding: '3px 10px', cursor: 'pointer' }}>
-                      <FontAwesomeIcon icon={faPlus} style={{ fontSize: 9, marginRight: 4 }} />Agregar
-                    </button>
                   </div>
                 )}
 
                 {/* Intervalo */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 13, color: '#52525b' }}>Intervalo de videos o imágenes:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 10, padding: '10px 12px', flexWrap: 'wrap' }}>
+                  <FontAwesomeIcon icon={faClock} style={{ fontSize: 13, color: GOLD }} />
+                  <span style={{ fontSize: 13, color: '#09090b', fontWeight: 600 }}>Cada video/imagen dura</span>
                   <input type="number" min={1} max={3600}
                     value={localIntervals[s.id] ?? 5}
                     onChange={e => setLocalIntervals(v => ({ ...v, [s.id]: e.target.value }))}
                     onBlur={e => saveInterval(s.id, e.target.value)}
-                    style={{ width: 58, padding: '6px 8px', border: '1px solid #e4e4e7', borderRadius: 8, fontSize: 13, fontWeight: 700, textAlign: 'center', outline: 'none', background: '#fafafa' }} />
-                  <span style={{ fontSize: 13, color: '#71717a' }}>seg</span>
+                    style={{ width: 56, padding: '6px 8px', border: '1px solid #d4d4d8', borderRadius: 8, fontSize: 14, fontWeight: 700, textAlign: 'center', outline: 'none', background: '#fff' }} />
+                  <span style={{ fontSize: 13, color: '#71717a' }}>segundos</span>
                 </div>
 
                 {/* Más ajustes (colapsable) */}
