@@ -36,6 +36,7 @@ export default function CCTV() {
   const { token } = useAuth();
   const { selectedStore } = useContext(StoreContext);
   const [tab, setTab] = useState('videos');
+  const [showHelp, setShowHelp] = useState(() => localStorage.getItem('cctv_help_dismissed') !== '1');
 
   const [videos, setVideos] = useState([]);
   const [screens, setScreens] = useState([]);
@@ -586,6 +587,46 @@ export default function CCTV() {
         </div>
         <p style={{ margin: 0, fontSize: 12, color: '#71717a' }}>Control remoto de pantallas TV</p>
       </div>
+
+      {/* Guía de uso — pasos simples */}
+      {showHelp ? (
+        <div style={{ background: '#fffdf5', border: `1px solid ${GOLD}`, borderRadius: 12, padding: '16px 18px', marginBottom: 18, position: 'relative' }}>
+          <button onClick={() => { setShowHelp(false); localStorage.setItem('cctv_help_dismissed', '1'); }}
+            style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: '#a1a1aa', fontSize: 15 }} title="Ocultar guía">
+            <FontAwesomeIcon icon={faTimes} />
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: 18 }}>👋</span>
+            <span style={{ fontWeight: 800, fontSize: 15, color: '#09090b' }}>Cómo usar la Cartelería en 3 pasos</span>
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {[
+              { n: 1, icon: faUpload, t: 'Subí tu contenido', d: 'Videos, imágenes o música en sus pestañas.', go: 'videos' },
+              { n: 2, icon: faLayerGroup, t: 'Creá un grupo', d: 'Agrupá las TV que muestran lo mismo (ej: "Salón").', go: 'groups' },
+              { n: 3, icon: faDesktop, t: 'Asigná y listo', d: 'Elegí el video/imágenes del grupo. ¡Todas las TV lo reproducen!', go: 'screens' },
+            ].map(step => (
+              <button key={step.n} onClick={() => setTab(step.go)}
+                style={{ flex: '1 1 180px', textAlign: 'left', background: '#fff', border: '1px solid #f0e6c8', borderRadius: 10, padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ width: 26, height: 26, borderRadius: '50%', background: GOLD, color: '#0a0a0a', fontWeight: 900, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{step.n}</span>
+                <span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: '#09090b' }}>
+                    <FontAwesomeIcon icon={step.icon} style={{ color: GOLD, fontSize: 12 }} />{step.t}
+                  </span>
+                  <span style={{ display: 'block', fontSize: 12, color: '#71717a', marginTop: 3 }}>{step.d}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 12, color: '#92400e' }}>
+            💡 <strong>Tip:</strong> usá <strong>Grupos</strong> para no configurar TV por TV. Si es una sola TV, asignale el contenido directo en <strong>Pantallas</strong>.
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => { setShowHelp(true); localStorage.removeItem('cctv_help_dismissed'); }}
+          style={{ background: 'none', border: 'none', color: GOLD, cursor: 'pointer', fontSize: 12, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
+          <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: 11 }} /> ¿Cómo funciona la Cartelería?
+        </button>
+      )}
 
       {/* Alerts */}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '11px 16px', color: '#991b1b', marginBottom: 16, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}><FontAwesomeIcon icon={faExclamationTriangle} />{error}</div>}
