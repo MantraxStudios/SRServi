@@ -36,8 +36,7 @@ function formatSeconds(s) {
 export default function CCTV() {
   const { token } = useAuth();
   const { selectedStore } = useContext(StoreContext);
-  const [libOpen, setLibOpen] = useState(null); // secciÃ³n de biblioteca abierta (acordeÃ³n)
-  const [showHelp, setShowHelp] = useState(() => localStorage.getItem('cctv_help_dismissed') !== '1');
+  const [libOpen, setLibOpen] = useState(null); // sección de biblioteca abierta (acordeón)
 
   const [videos, setVideos] = useState([]);
   const [screens, setScreens] = useState([]);
@@ -59,7 +58,7 @@ export default function CCTV() {
   const [screenGroupModal, setScreenGroupModal] = useState(null);
   const [localVolumes, setLocalVolumes] = useState({});
   const [localIntervals, setLocalIntervals] = useState({});
-  const [advancedOpen, setAdvancedOpen] = useState({}); // "MÃ¡s ajustes" por pantalla
+  const [advancedOpen, setAdvancedOpen] = useState({}); // "Más ajustes" por pantalla
 
   const [loadingVideos, setLoadingVideos] = useState(true);
   const [loadingScreens, setLoadingScreens] = useState(true);
@@ -114,7 +113,7 @@ export default function CCTV() {
         data.forEach(s => { vols[s.id] = s.volume_level ?? 100; ivs[s.id] = s.image_interval ?? 5; });
         setLocalVolumes(vols);
         setLocalIntervals(ivs);
-        // Cargar los horarios de cada pantalla para dibujar la lÃ­nea de tiempo
+        // Cargar los horarios de cada pantalla para dibujar la línea de tiempo
         data.forEach(s => { fetchScreenSchedules(s.id); });
       }
     } catch { } finally { setLoadingScreens(false); }
@@ -216,7 +215,7 @@ export default function CCTV() {
   const showSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3000); };
   const showError = (msg) => { setError(msg); setTimeout(() => setError(''), 5000); };
 
-  // â”€â”€ Upload helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Upload helpers ──────────────────────────────────────────────────────────
   const handleUpload = async (file) => {
     if (!file) return;
     const allowed = ['.mp4', '.webm', '.avi', '.mov', '.mkv', '.mpeg', '.mpg'];
@@ -254,7 +253,7 @@ export default function CCTV() {
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         xhr.send(formData);
       });
-      await fetchMusic(); showSuccess('MÃºsica subida correctamente');
+      await fetchMusic(); showSuccess('Música subida correctamente');
     } catch (e) { showError(e.message); }
     finally { setUploadingMusic(false); setUploadMusicProgress(0); if (musicInputRef.current) musicInputRef.current.value = ''; }
   };
@@ -263,7 +262,7 @@ export default function CCTV() {
     if (!files?.length) return;
     const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
     const valid = Array.from(files).filter(f => allowed.includes('.' + f.name.split('.').pop().toLowerCase()));
-    if (!valid.length) { showError('Solo se permiten imÃ¡genes (jpg, png, gif, webp)'); return; }
+    if (!valid.length) { showError('Solo se permiten imágenes (jpg, png, gif, webp)'); return; }
     setUploadingImages(true); setUploadImagesProgress(0);
     const formData = new FormData();
     valid.forEach(f => formData.append('images', f));
@@ -283,7 +282,7 @@ export default function CCTV() {
     finally { setUploadingImages(false); setUploadImagesProgress(0); if (imageInputRef.current) imageInputRef.current.value = ''; }
   };
 
-  // â”€â”€ Screen volume â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Screen volume ───────────────────────────────────────────────────────────
   const setScreenVolume = async (screenId, level) => {
     try {
       await fetch(`${API}/api/cctv/screens/${screenId}/volume`, {
@@ -294,7 +293,7 @@ export default function CCTV() {
     } catch (e) { showError(e.message); }
   };
 
-  // â”€â”€ RotaciÃ³n de la pantalla (0/90/180/270) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Rotación de la pantalla (0/90/180/270) ────────────────────────────────────
   const rotateScreen = async (screen) => {
     const next = (((screen.rotation || 0) + 90) % 360);
     setScreens(s => s.map(x => x.id === screen.id ? { ...x, rotation: next } : x));
@@ -306,7 +305,7 @@ export default function CCTV() {
     } catch (e) { showError(e.message); }
   };
 
-  // â”€â”€ Intervalo de imÃ¡genes/videos por pantalla (segundos) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Intervalo de imágenes/videos por pantalla (segundos) ──────────────────────
   const saveInterval = async (screenId, seconds) => {
     const iv = Math.max(1, Math.min(3600, parseInt(seconds) || 5));
     setLocalIntervals(v => ({ ...v, [screenId]: iv }));
@@ -319,7 +318,7 @@ export default function CCTV() {
     } catch (e) { showError(e.message); }
   };
 
-  // â”€â”€ Image management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Image management ────────────────────────────────────────────────────────
   const saveDuration = async (id, seconds) => {
     const parsed = parseInt(seconds);
     const dur = parsed === 0 ? 0 : Math.max(1, Math.min(300, parsed || 5));
@@ -359,7 +358,7 @@ export default function CCTV() {
     setDeleteConfirm(null);
   };
 
-  // â”€â”€ Album management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Album management ────────────────────────────────────────────────────────
   const createAlbum = async () => {
     if (!newAlbumName.trim()) return;
     try {
@@ -371,7 +370,7 @@ export default function CCTV() {
       const album = await r.json();
       setAlbums(a => [...a, album]);
       setNewAlbumName('');
-      showSuccess('Ãlbum creado');
+      showSuccess('Álbum creado');
     } catch (e) { showError(e.message); }
   };
 
@@ -382,7 +381,7 @@ export default function CCTV() {
       setAlbums(a => a.filter(x => x.id !== id));
       if (albumFilter === id) setAlbumFilter(null);
       setImages(imgs => imgs.map(i => i.album_id === id ? { ...i, album_id: null } : i));
-      showSuccess('Ãlbum eliminado');
+      showSuccess('Álbum eliminado');
     } catch (e) { showError(e.message); }
     setDeleteConfirm(null);
   };
@@ -406,12 +405,12 @@ export default function CCTV() {
       });
       if (!r.ok) throw new Error((await r.json()).error);
       await fetchScreens();
-      showSuccess(albumId ? 'Ãlbum asignado a la pantalla' : 'Pantalla configurada para mostrar todas las imÃ¡genes');
+      showSuccess(albumId ? 'Álbum asignado a la pantalla' : 'Pantalla configurada para mostrar todas las imágenes');
       setAssignAlbumModal(null);
     } catch (e) { showError(e.message); }
   };
 
-  // â”€â”€ Group management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Group management ──────────────────────────────────────────────────────────
   const createGroup = async () => {
     if (!newGroupName.trim()) return;
     try {
@@ -467,7 +466,7 @@ export default function CCTV() {
     } catch (e) { showError(e.message); }
   };
 
-  // â”€â”€ Screen controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Screen controls ─────────────────────────────────────────────────────────
   const setScreenMode = async (screen, mode) => {
     try {
       const r = await fetch(`${API}/api/cctv/screens/${screen.id}/mode`, {
@@ -476,7 +475,7 @@ export default function CCTV() {
       });
       if (!r.ok) throw new Error((await r.json()).error);
       setScreens(s => s.map(x => x.id === screen.id ? { ...x, display_mode: mode } : x));
-      showSuccess(`Pantalla cambiada a ${mode === 'images' ? 'modo imÃ¡genes' : 'modo video'}`);
+      showSuccess(`Pantalla cambiada a ${mode === 'images' ? 'modo imágenes' : 'modo video'}`);
     } catch (e) { showError(e.message); }
   };
 
@@ -511,7 +510,7 @@ export default function CCTV() {
         body: JSON.stringify({ music_id: musicId || null })
       });
       if (!r.ok) throw new Error((await r.json()).error);
-      await fetchScreens(); showSuccess(musicId ? 'MÃºsica asignada' : 'MÃºsica removida'); setAssignMusicModal(null);
+      await fetchScreens(); showSuccess(musicId ? 'Música asignada' : 'Música removida'); setAssignMusicModal(null);
     } catch (e) { showError(e.message); }
   };
 
@@ -548,7 +547,7 @@ export default function CCTV() {
     try {
       const r = await fetch(`${API}/api/cctv/music/${id}`, { method: 'DELETE', headers });
       if (!r.ok) throw new Error((await r.json()).error);
-      setMusic(m => m.filter(x => x.id !== id)); await fetchScreens(); showSuccess('MÃºsica eliminada');
+      setMusic(m => m.filter(x => x.id !== id)); await fetchScreens(); showSuccess('Música eliminada');
     } catch (e) { showError(e.message); }
     setDeleteConfirm(null);
   };
@@ -571,7 +570,7 @@ export default function CCTV() {
   const totalLoopTime = images.reduce((s, i) => s + (localDurations[i.id] ?? i.duration_seconds), 0);
   const filteredImages = albumFilter !== null ? images.filter(i => i.album_id === albumFilter) : images;
 
-  // Devuelve la miniatura/preview del contenido que la pantalla estÃ¡ reproduciendo.
+  // Devuelve la miniatura/preview del contenido que la pantalla está reproduciendo.
   const screenPreview = (s) => {
     const mode = s.display_mode || 'video';
     if (mode === 'images') {
@@ -583,14 +582,14 @@ export default function CCTV() {
     return { type: 'video', src: null, empty: true };
   };
 
-  // Convierte "HH:MM" a fracciÃ³n del dÃ­a (0..1) para posicionar en la lÃ­nea de tiempo.
+  // Convierte "HH:MM" a fracción del día (0..1) para posicionar en la línea de tiempo.
   const timeToPct = (t) => {
     if (!t) return 0;
     const [h, m] = t.split(':').map(Number);
     return Math.min(1, Math.max(0, ((h * 60 + (m || 0)) / 1440)));
   };
 
-  // â”€â”€ Upload zone helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Upload zone helper ──────────────────────────────────────────────────────
   const UploadZone = ({ onUpload, uploading, progress, accept, icon, label, hint, dragOverState, setDragOverState, inputRef, multiple }) => (
     <div
       onDragOver={e => { e.preventDefault(); setDragOverState(true); }}
@@ -625,7 +624,7 @@ export default function CCTV() {
   );
 
   return (
-    <PlanLock feature="cctv" title="CartelerÃ­a Digital" description="El mÃ³dulo de CartelerÃ­a/CCTV para controlar tus pantallas TV estÃ¡ disponible en los planes de pago. ActualizÃ¡ tu plan para desbloquearlo.">
+    <PlanLock feature="cctv" title="Cartelería Digital" description="El módulo de Cartelería/CCTV para controlar tus pantallas TV está disponible en los planes de pago. Actualizá tu plan para desbloquearlo.">
     <div style={{ padding: '20px 12px', fontFamily: 'inherit', maxWidth: '100%', boxSizing: 'border-box' }}>
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
@@ -633,63 +632,23 @@ export default function CCTV() {
           <div style={{ width: 36, height: 36, background: GOLD, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <FontAwesomeIcon icon={faVideo} style={{ color: '#0a0a0a', fontSize: 15 }} />
           </div>
-          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#09090b' }}>CartelerÃ­a Digital</h1>
+          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#09090b' }}>Cartelería Digital</h1>
         </div>
         <p style={{ margin: 0, fontSize: 12, color: '#71717a' }}>Control remoto de pantallas TV</p>
       </div>
-
-      {/* GuÃ­a de uso â€” pasos simples */}
-      {showHelp ? (
-        <div style={{ background: '#fffdf5', border: `1px solid ${GOLD}`, borderRadius: 12, padding: '16px 18px', marginBottom: 18, position: 'relative' }}>
-          <button onClick={() => { setShowHelp(false); localStorage.setItem('cctv_help_dismissed', '1'); }}
-            style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', cursor: 'pointer', color: '#a1a1aa', fontSize: 15 }} title="Ocultar guÃ­a">
-            <FontAwesomeIcon icon={faTimes} />
-          </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <span style={{ fontSize: 18 }}>ðŸ‘‹</span>
-            <span style={{ fontWeight: 800, fontSize: 15, color: '#09090b' }}>CÃ³mo usar la CartelerÃ­a en 3 pasos</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {[
-              { n: 1, icon: faDesktop, t: 'ElegÃ­ la pantalla', d: 'Cada TV vinculada aparece arriba con su vista en vivo.', go: null },
-              { n: 2, icon: faVideo, t: 'TocÃ¡ la vista previa', d: 'ElegÃ­ el video o las imÃ¡genes que se van a reproducir.', go: null },
-              { n: 3, icon: faUpload, t: 'SubÃ­ mÃ¡s contenido', d: 'Videos, imÃ¡genes, mÃºsica y grupos en la Biblioteca de abajo.', go: 'videos' },
-            ].map(step => (
-              <button key={step.n} onClick={() => { setLibOpen(step.go); }}
-                style={{ flex: '1 1 180px', textAlign: 'left', background: '#fff', border: '1px solid #f0e6c8', borderRadius: 10, padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <span style={{ width: 26, height: 26, borderRadius: '50%', background: GOLD, color: '#0a0a0a', fontWeight: 900, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{step.n}</span>
-                <span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 13, color: '#09090b' }}>
-                    <FontAwesomeIcon icon={step.icon} style={{ color: GOLD, fontSize: 12 }} />{step.t}
-                  </span>
-                  <span style={{ display: 'block', fontSize: 12, color: '#71717a', marginTop: 3 }}>{step.d}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-          <div style={{ marginTop: 10, fontSize: 12, color: '#92400e' }}>
-            ðŸ’¡ <strong>Tip:</strong> usÃ¡ <strong>Grupos</strong> para no configurar TV por TV. Si es una sola TV, asignale el contenido directo en <strong>Pantallas</strong>.
-          </div>
-        </div>
-      ) : (
-        <button onClick={() => { setShowHelp(true); localStorage.removeItem('cctv_help_dismissed'); }}
-          style={{ background: 'none', border: 'none', color: GOLD, cursor: 'pointer', fontSize: 12, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
-          <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: 11 }} /> Â¿CÃ³mo funciona la CartelerÃ­a?
-        </button>
-      )}
 
       {/* Alerts */}
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '11px 16px', color: '#991b1b', marginBottom: 16, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}><FontAwesomeIcon icon={faExclamationTriangle} />{error}</div>}
       {success && <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '11px 16px', color: '#15803d', marginBottom: 16, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}><FontAwesomeIcon icon={faCheck} />{success}</div>}
 
-      {/* â•â•â•â•â•â•â•â•â•â• VISTA PRINCIPAL: PANTALLAS (estilo control remoto) â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════ VISTA PRINCIPAL: PANTALLAS (estilo control remoto) ══════════ */}
       {loadingScreens ? (
         <div style={{ textAlign: 'center', color: '#71717a', padding: 40 }}>Cargando pantallas...</div>
       ) : screens.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', background: '#fff', border: '1px solid #e4e4e7', borderRadius: 14, marginBottom: 24 }}>
           <FontAwesomeIcon icon={faDesktop} style={{ fontSize: 30, color: '#a1a1aa', marginBottom: 10 }} />
           <div style={{ color: '#09090b', fontSize: 15, fontWeight: 600 }}>No hay pantallas vinculadas</div>
-          <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>VinculÃ¡ una TV con el cÃ³digo de abajo.</div>
+          <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>Vinculá una TV con el código de abajo.</div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginBottom: 28 }}>
@@ -709,7 +668,7 @@ export default function CCTV() {
                   </div>
                   <span style={{ fontWeight: 700, fontSize: 15, color: '#09090b' }}>{s.device_name}</span>
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: s.is_online ? '#f0fdf4' : '#f4f4f5', color: s.is_online ? '#15803d' : '#71717a', border: `1px solid ${s.is_online ? '#bbf7d0' : '#e4e4e7'}` }}>
-                    {s.is_online ? 'â— En vivo' : 'â—‹ Offline'}
+                    {s.is_online ? '● En vivo' : '○ Offline'}
                   </span>
                   {grouped && (
                     <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: '#eef2ff', color: '#4338ca', border: '1px solid #c7d2fe', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -719,16 +678,16 @@ export default function CCTV() {
                 </div>
 
                 {/* Vista previa + Girar imagen */}
-                <div style={{ textAlign: 'center', fontSize: 13, color: '#71717a', marginBottom: 8 }}>Video o imagen en reproducciÃ³n</div>
+                <div style={{ textAlign: 'center', fontSize: 13, color: '#71717a', marginBottom: 8 }}>Video o imagen en reproducción</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <button
                     onClick={() => { if (grouped) return; mode === 'images' ? setAssignAlbumModal(s) : setAssignModal(s); }}
-                    title={grouped ? 'ReproducciÃ³n controlada por el grupo' : 'Cambiar contenido'}
+                    title={grouped ? 'Reproducción controlada por el grupo' : 'Cambiar contenido'}
                     style={{ position: 'relative', flex: 1, minWidth: 0, aspectRatio: '16 / 10', background: '#000', borderRadius: 16, overflow: 'hidden', border: 'none', cursor: grouped ? 'default' : 'pointer', padding: 0 }}>
                     {prev.empty ? (
                       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#71717a', fontSize: 13, fontWeight: 600 }}>Sin contenido</div>
                     ) : prev.type === 'video' ? (
-                      <video src={prev.src} muted playsInline preload="metadata"
+                      <video src={`${prev.src}#t=0.5`} muted playsInline preload="metadata"
                         style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `rotate(${rot}deg)` }} />
                     ) : (
                       <img src={prev.src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `rotate(${rot}deg)` }} />
@@ -744,26 +703,26 @@ export default function CCTV() {
                   {/* Girar imagen */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, width: 74, flexShrink: 0 }}>
                     <span style={{ fontSize: 13, color: '#71717a', textAlign: 'center', lineHeight: 1.2 }}>Girar imagen</span>
-                    <button onClick={() => rotateScreen(s)} title={`Rotar contenido (${rot}Â°)`}
+                    <button onClick={() => rotateScreen(s)} title={`Rotar contenido (${rot}°)`}
                       style={{ width: 52, height: 52, borderRadius: '50%', border: `2px dashed ${GOLD}`, background: '#fffdf5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: GOLD }}>
                       <FontAwesomeIcon icon={faRotate} style={{ fontSize: 20 }} />
                     </button>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#a1a1aa' }}>{rot}Â°</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#a1a1aa' }}>{rot}°</span>
                   </div>
                 </div>
 
-                {/* Horario (lÃ­nea de tiempo) */}
+                {/* Horario (línea de tiempo) */}
                 <div style={{ textAlign: 'center', fontSize: 13, color: '#71717a', margin: '16px 0 6px' }}>Horario</div>
                 <div style={{ position: 'relative', background: '#000', borderRadius: 10, height: 62, padding: '0 2px' }}>
                   {/* marcas de hora */}
                   {[['00:00', 0], ['06:00', 25], ['12:00', 50], ['18:00', 75], ['24:00', 100]].map(([lbl, pct]) => (
                     <span key={lbl} style={{ position: 'absolute', top: 5, left: `${pct}%`, transform: pct === 0 ? 'none' : pct === 100 ? 'translateX(-100%)' : 'translateX(-50%)', color: '#a1a1aa', fontSize: 10 }}>{lbl}</span>
                   ))}
-                  {/* lÃ­nea dorada */}
+                  {/* línea dorada */}
                   <div style={{ position: 'absolute', left: 0, right: 0, top: 26, height: 2, background: GOLD, opacity: 0.6 }} />
                   {/* tiles de horarios */}
                   {scheds.filter(sc => sc.active).map(sc => (
-                    <button key={sc.id} onClick={() => setScheduleModal(s)} title={`${sc.name || sc.video_name} Â· ${sc.start_time}`}
+                    <button key={sc.id} onClick={() => setScheduleModal(s)} title={`${sc.name || sc.video_name} · ${sc.start_time}`}
                       style={{ position: 'absolute', top: 30, left: `${timeToPct(sc.start_time) * 100}%`, transform: 'translateX(-50%)', width: 40, height: 26, borderRadius: 5, border: `1px solid ${GOLD}`, background: '#1a1a1a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
                       <FontAwesomeIcon icon={faPlay} style={{ color: GOLD, fontSize: 9 }} />
                     </button>
@@ -780,7 +739,7 @@ export default function CCTV() {
                     {scheds.map(sc => (
                       <div key={sc.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: sc.active ? '#fffdf5' : '#f4f4f5', border: `1px solid ${sc.active ? '#fde68a' : '#e4e4e7'}`, borderRadius: 20, padding: '3px 6px 3px 10px', fontSize: 11 }}>
                         <FontAwesomeIcon icon={faClock} style={{ fontSize: 9, color: GOLD }} />
-                        <span style={{ fontWeight: 600, color: '#09090b' }}>{sc.start_time}{sc.end_time ? `â€“${sc.end_time}` : ''}</span>
+                        <span style={{ fontWeight: 600, color: '#09090b' }}>{sc.start_time}{sc.end_time ? `–${sc.end_time}` : ''}</span>
                         <span style={{ color: '#71717a', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sc.name || sc.video_name}</span>
                         <button onClick={() => toggleScheduleActive(sc, s.id)} title={sc.active ? 'Desactivar' : 'Activar'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: sc.active ? '#16a34a' : '#a1a1aa', fontSize: 13, padding: 0 }}>
                           <FontAwesomeIcon icon={sc.active ? faToggleOn : faToggleOff} />
@@ -798,7 +757,7 @@ export default function CCTV() {
 
                 {/* Intervalo */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 13, color: '#52525b' }}>Intervalo de videos o imÃ¡genes:</span>
+                  <span style={{ fontSize: 13, color: '#52525b' }}>Intervalo de videos o imágenes:</span>
                   <input type="number" min={1} max={3600}
                     value={localIntervals[s.id] ?? 5}
                     onChange={e => setLocalIntervals(v => ({ ...v, [s.id]: e.target.value }))}
@@ -807,11 +766,11 @@ export default function CCTV() {
                   <span style={{ fontSize: 13, color: '#71717a' }}>seg</span>
                 </div>
 
-                {/* MÃ¡s ajustes (colapsable) */}
+                {/* Más ajustes (colapsable) */}
                 <button onClick={() => setAdvancedOpen(o => ({ ...o, [s.id]: !o[s.id] }))}
                   style={{ marginTop: 14, background: 'none', border: 'none', cursor: 'pointer', color: '#71717a', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
                   <FontAwesomeIcon icon={faSlidersH} style={{ fontSize: 12, color: GOLD }} />
-                  MÃ¡s ajustes
+                  Más ajustes
                   <FontAwesomeIcon icon={adv ? faChevronUp : faChevronDown} style={{ fontSize: 10 }} />
                 </button>
 
@@ -822,7 +781,7 @@ export default function CCTV() {
                         <button onClick={() => setScreenMode(s, mode === 'images' ? 'video' : 'images')}
                           style={{ background: mode === 'images' ? '#fdf4ff' : '#f4f4f5', border: `1px solid ${mode === 'images' ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 10px', cursor: 'pointer', color: mode === 'images' ? '#7e22ce' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
                           <FontAwesomeIcon icon={mode === 'images' ? faVideo : faImage} style={{ fontSize: 11 }} />
-                          {mode === 'images' ? 'Cambiar a video' : 'Cambiar a imÃ¡genes'}
+                          {mode === 'images' ? 'Cambiar a video' : 'Cambiar a imágenes'}
                         </button>
                         {mode === 'video' && (
                           <button onClick={() => toggleMute(s)}
@@ -834,7 +793,7 @@ export default function CCTV() {
                         <button onClick={() => setAssignMusicModal(s)}
                           style={{ background: s.music_name ? '#f0f9ff' : '#f4f4f5', border: `1px solid ${s.music_name ? '#bae6fd' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 10px', cursor: 'pointer', color: s.music_name ? '#0369a1' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
                           <FontAwesomeIcon icon={faMusic} style={{ fontSize: 11 }} />
-                          {s.music_name || 'MÃºsica'}
+                          {s.music_name || 'Música'}
                         </button>
                       </>)}
                       <button onClick={() => setScreenGroupModal(s)}
@@ -870,19 +829,19 @@ export default function CCTV() {
         </div>
       )}
 
-      {/* â•â•â•â•â•â•â•â•â•â• BIBLIOTECA DE CONTENIDO (subida abajo) â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════ BIBLIOTECA DE CONTENIDO (subida abajo) ══════════ */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0 14px' }}>
         <FontAwesomeIcon icon={faFolder} style={{ color: GOLD, fontSize: 14 }} />
         <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#09090b' }}>Biblioteca de contenido</h2>
       </div>
 
-      {/* CÃ³digo de vinculaciÃ³n */}
+      {/* Código de vinculación */}
       <div style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '16px 18px', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <FontAwesomeIcon icon={faKey} style={{ color: GOLD, fontSize: 14 }} />
           <span style={{ color: '#09090b', fontWeight: 700, fontSize: 14 }}>Vincular una nueva pantalla</span>
         </div>
-        <div style={{ color: '#71717a', fontSize: 12, marginBottom: 12 }}>IngresÃ¡ este cÃ³digo en la app de CartelerÃ­a TV.</div>
+        <div style={{ color: '#71717a', fontSize: 12, marginBottom: 12 }}>Ingresá este código en la app de Cartelería TV.</div>
         {selectedStore?.code ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ background: '#09090b', borderRadius: 8, padding: '8px 20px', letterSpacing: 6, fontSize: 22, fontWeight: 900, color: GOLD, fontFamily: 'monospace' }}>{selectedStore.code}</div>
@@ -890,15 +849,15 @@ export default function CCTV() {
               <FontAwesomeIcon icon={copiedCode ? faCheck : faCopy} style={{ marginRight: 6 }} />{copiedCode ? 'Copiado' : 'Copiar'}
             </button>
           </div>
-        ) : <div style={{ color: '#a1a1aa', fontSize: 13 }}>SeleccionÃ¡ una tienda para ver el cÃ³digo.</div>}
+        ) : <div style={{ color: '#a1a1aa', fontSize: 13 }}>Seleccioná una tienda para ver el código.</div>}
       </div>
 
-      {/* AcordeÃ³n de biblioteca */}
+      {/* Acordeón de biblioteca */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
         {[
           ['videos', faVideo, 'Videos', videos.length],
-          ['images', faImage, 'ImÃ¡genes', images.length],
-          ['music', faMusic, 'MÃºsica', music.length],
+          ['images', faImage, 'Imágenes', images.length],
+          ['music', faMusic, 'Música', music.length],
           ['groups', faLayerGroup, 'Grupos', groups.length],
         ].map(([key, icon, label, count]) => (
           <button key={key} onClick={() => setLibOpen(o => o === key ? null : key)}
@@ -915,11 +874,11 @@ export default function CCTV() {
       {libOpen === 'videos' && (
         <div>
           <UploadZone onUpload={handleUpload} uploading={uploading} progress={uploadProgress} accept="video/*"
-            icon={faUpload} label="Arrastra un video aquÃ­ o haz clic para seleccionar"
-            hint="MP4, WebM, AVI, MOV, MKV â€” hasta 4 GB"
+            icon={faUpload} label="Arrastra un video aquí o haz clic para seleccionar"
+            hint="MP4, WebM, AVI, MOV, MKV — hasta 4 GB"
             dragOverState={dragOver} setDragOverState={setDragOver} inputRef={fileInputRef} multiple={false} />
           {loadingVideos ? <div style={{ textAlign: 'center', color: '#71717a', padding: 40 }}>Cargando...</div>
-            : videos.length === 0 ? <div style={{ textAlign: 'center', padding: 48, color: '#71717a' }}>No hay videos subidos aÃºn</div>
+            : videos.length === 0 ? <div style={{ textAlign: 'center', padding: 48, color: '#71717a' }}>No hay videos subidos aún</div>
             : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {videos.map(v => (
                 <div key={v.id} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -928,7 +887,7 @@ export default function CCTV() {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.original_name}</div>
-                    <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{formatBytes(v.file_size)} Â· {formatDate(v.created_at)}</div>
+                    <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{formatBytes(v.file_size)} · {formatDate(v.created_at)}</div>
                   </div>
                   <button onClick={() => setDeleteConfirm({ type: 'video', id: v.id, name: v.original_name })}
                     style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', color: '#dc2626' }}>
@@ -944,22 +903,22 @@ export default function CCTV() {
       {libOpen === 'images' && (
         <div>
           <UploadZone onUpload={handleUploadImages} uploading={uploadingImages} progress={uploadImagesProgress} accept="image/*"
-            icon={faImage} label="Arrastra imÃ¡genes aquÃ­ o haz clic para seleccionar (mÃºltiples)"
-            hint="JPG, PNG, GIF, WebP â€” hasta 20 MB por imagen"
+            icon={faImage} label="Arrastra imágenes aquí o haz clic para seleccionar (múltiples)"
+            hint="JPG, PNG, GIF, WebP — hasta 20 MB por imagen"
             dragOverState={dragOverImages} setDragOverState={setDragOverImages} inputRef={imageInputRef} multiple={true} />
 
           {/* Albums section */}
           <div style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <FontAwesomeIcon icon={faFolder} style={{ color: GOLD, fontSize: 14 }} />
-              <span style={{ fontWeight: 700, fontSize: 14, color: '#09090b' }}>Ãlbumes</span>
+              <span style={{ fontWeight: 700, fontSize: 14, color: '#09090b' }}>Álbumes</span>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: albums.length > 0 ? 12 : 0 }}>
               <input
                 value={newAlbumName}
                 onChange={e => setNewAlbumName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && createAlbum()}
-                placeholder="Nuevo Ã¡lbum..."
+                placeholder="Nuevo álbum..."
                 style={{ padding: '7px 12px', border: '1px solid #e4e4e7', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fafafa', flex: '1 1 160px', minWidth: 120 }}
               />
               <button onClick={createAlbum} disabled={!newAlbumName.trim()}
@@ -985,7 +944,7 @@ export default function CCTV() {
                 ))}
               </div>
             ) : (
-              <div style={{ color: '#a1a1aa', fontSize: 13 }}>Crea Ã¡lbumes para agrupar imÃ¡genes y asignarlas por pantalla.</div>
+              <div style={{ color: '#a1a1aa', fontSize: 13 }}>Crea álbumes para agrupar imágenes y asignarlas por pantalla.</div>
             )}
           </div>
 
@@ -993,7 +952,7 @@ export default function CCTV() {
           {albumFilter !== null && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, padding: '8px 14px', background: '#fff8e1', border: '1px solid #fde68a', borderRadius: 8, fontSize: 13, color: '#92400e' }}>
               <FontAwesomeIcon icon={faFolder} style={{ fontSize: 12 }} />
-              Ãlbum: <strong>{albums.find(a => a.id === albumFilter)?.name}</strong>
+              Álbum: <strong>{albums.find(a => a.id === albumFilter)?.name}</strong>
               <button onClick={() => setAlbumFilter(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <FontAwesomeIcon icon={faTimes} /> Ver todas
               </button>
@@ -1003,14 +962,14 @@ export default function CCTV() {
           {filteredImages.length > 0 && (
             <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '10px 16px', marginBottom: 20, fontSize: 13, color: '#0369a1', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
               <span><strong>{filteredImages.length}</strong> imagen{filteredImages.length !== 1 ? 'es' : ''}</span>
-              <span>Â·</span>
+              <span>·</span>
               <span>Loop: <strong>
                 {filteredImages.some(i => parseInt(localDurations[i.id] ?? i.duration_seconds) === 0)
-                  ? 'âˆž'
+                  ? '∞'
                   : formatSeconds(filteredImages.reduce((s, i) => s + (parseInt(localDurations[i.id] ?? i.duration_seconds) || 0), 0))
                 }
               </strong></span>
-              {albumFilter === null && <><span>Â·</span><span>AsignÃ¡ el modo imÃ¡genes en la pestaÃ±a <strong>Pantallas</strong></span></>}
+              {albumFilter === null && <><span>·</span><span>Asigná el modo imágenes en la pestaña <strong>Pantallas</strong></span></>}
             </div>
           )}
 
@@ -1020,8 +979,8 @@ export default function CCTV() {
                 <div style={{ width: 56, height: 56, background: '#f4f4f5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
                   <FontAwesomeIcon icon={faImage} style={{ fontSize: 22, color: '#a1a1aa' }} />
                 </div>
-                <div style={{ color: '#71717a', fontSize: 14, fontWeight: 500 }}>{albumFilter !== null ? 'No hay imÃ¡genes en este Ã¡lbum' : 'No hay imÃ¡genes subidas aÃºn'}</div>
-                <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>{albumFilter !== null ? 'AsignÃ¡ imÃ¡genes a este Ã¡lbum con el selector en cada fila' : 'SubÃ­ imÃ¡genes para crear un slideshow en tus pantallas'}</div>
+                <div style={{ color: '#71717a', fontSize: 14, fontWeight: 500 }}>{albumFilter !== null ? 'No hay imágenes en este álbum' : 'No hay imágenes subidas aún'}</div>
+                <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>{albumFilter !== null ? 'Asigná imágenes a este álbum con el selector en cada fila' : 'Subí imágenes para crear un slideshow en tus pantallas'}</div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1050,7 +1009,7 @@ export default function CCTV() {
                       {albums.length > 0 && (
                         <select value={img.album_id ? String(img.album_id) : ''} onChange={e => assignImageAlbum(img.id, e.target.value || null)}
                           style={{ padding: '5px 8px', border: '1px solid #e4e4e7', borderRadius: 7, fontSize: 12, color: img.album_id ? '#7e22ce' : '#a1a1aa', background: img.album_id ? '#fdf4ff' : '#fafafa', cursor: 'pointer', flexShrink: 0, maxWidth: 130 }}>
-                          <option value="">Sin Ã¡lbum</option>
+                          <option value="">Sin álbum</option>
                           {albums.map(a => <option key={a.id} value={String(a.id)}>{a.name}</option>)}
                         </select>
                       )}
@@ -1068,16 +1027,16 @@ export default function CCTV() {
                             <span style={{ color: '#71717a', fontSize: 13 }}>s</span>
                           </>
                         ) : (
-                          <span style={{ fontSize: 20, fontWeight: 800, color: '#7e22ce', lineHeight: 1, padding: '0 6px' }}>âˆž</span>
+                          <span style={{ fontSize: 20, fontWeight: 800, color: '#7e22ce', lineHeight: 1, padding: '0 6px' }}>∞</span>
                         )}
                         <button title={isInfinite ? 'Cambiar a tiempo fijo' : 'Imagen permanente (no cambia)'}
                           onClick={() => { const d = isInfinite ? 5 : 0; setLocalDurations(v => ({ ...v, [img.id]: d })); saveDuration(img.id, d); }}
                           style={{ background: isInfinite ? '#fdf4ff' : '#f4f4f5', border: `1px solid ${isInfinite ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 7, padding: '4px 8px', cursor: 'pointer', color: isInfinite ? '#7e22ce' : '#71717a', fontSize: 15, fontWeight: 800, lineHeight: 1 }}>
-                          âˆž
+                          ∞
                         </button>
                       </div>
 
-                      {/* Order buttons â€” hidden when filtering */}
+                      {/* Order buttons — hidden when filtering */}
                       {albumFilter === null && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
                           <button onClick={() => moveImage(img.id, 'up')} disabled={globalIdx === 0}
@@ -1108,14 +1067,14 @@ export default function CCTV() {
       {libOpen === 'music' && (
         <div>
           <UploadZone onUpload={handleUploadMusic} uploading={uploadingMusic} progress={uploadMusicProgress} accept="audio/*"
-            icon={faMusic} label="Arrastra un archivo de audio aquÃ­ o haz clic para seleccionar"
-            hint="MP3, M4A, AAC, WAV, OGG, FLAC â€” hasta 200 MB"
+            icon={faMusic} label="Arrastra un archivo de audio aquí o haz clic para seleccionar"
+            hint="MP3, M4A, AAC, WAV, OGG, FLAC — hasta 200 MB"
             dragOverState={dragOverMusic} setDragOverState={setDragOverMusic} inputRef={musicInputRef} multiple={false} />
           <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '10px 16px', marginBottom: 20, fontSize: 13, color: '#0369a1' }}>
-            La mÃºsica se reproduce en loop. Asignala desde la pestaÃ±a <strong>Pantallas</strong> â†’ botÃ³n <strong>MÃºsica</strong>.
+            La música se reproduce en loop. Asignala desde la pestaña <strong>Pantallas</strong> → botón <strong>Música</strong>.
           </div>
           {loadingMusic ? <div style={{ textAlign: 'center', color: '#71717a', padding: 40 }}>Cargando...</div>
-            : music.length === 0 ? <div style={{ textAlign: 'center', padding: 48, color: '#71717a' }}>No hay mÃºsica subida aÃºn</div>
+            : music.length === 0 ? <div style={{ textAlign: 'center', padding: 48, color: '#71717a' }}>No hay música subida aún</div>
             : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {music.map(m => (
                 <div key={m.id} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1124,7 +1083,7 @@ export default function CCTV() {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.original_name}</div>
-                    <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{formatBytes(m.file_size)} Â· {formatDate(m.created_at)}</div>
+                    <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{formatBytes(m.file_size)} · {formatDate(m.created_at)}</div>
                   </div>
                   <button onClick={() => setDeleteConfirm({ type: 'music', id: m.id, name: m.original_name })}
                     style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', color: '#dc2626' }}>
@@ -1150,7 +1109,7 @@ export default function CCTV() {
                 value={newGroupName}
                 onChange={e => setNewGroupName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && createGroup()}
-                placeholder="Nuevo grupo... (ej: SalÃ³n principal)"
+                placeholder="Nuevo grupo... (ej: Salón principal)"
                 style={{ padding: '7px 12px', border: '1px solid #e4e4e7', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fafafa', flex: '1 1 200px', minWidth: 140 }}
               />
               <button onClick={createGroup} disabled={!newGroupName.trim()}
@@ -1161,7 +1120,7 @@ export default function CCTV() {
           </div>
 
           <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '10px 16px', marginBottom: 20, fontSize: 13, color: '#0369a1' }}>
-            AsignÃ¡ un video (o mÃºsica / modo imÃ¡genes) al grupo y <strong>todas las pantallas del grupo reproducen lo mismo</strong>. AgregÃ¡ pantallas a un grupo desde la pestaÃ±a <strong>Pantallas</strong> â†’ botÃ³n <strong>Grupo</strong>.
+            Asigná un video (o música / modo imágenes) al grupo y <strong>todas las pantallas del grupo reproducen lo mismo</strong>. Agregá pantallas a un grupo desde la pestaña <strong>Pantallas</strong> → botón <strong>Grupo</strong>.
           </div>
 
           {loadingGroups ? <div style={{ textAlign: 'center', color: '#71717a', padding: 40 }}>Cargando...</div>
@@ -1169,7 +1128,7 @@ export default function CCTV() {
               <div style={{ textAlign: 'center', padding: 48 }}>
                 <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: 32, color: '#a1a1aa', marginBottom: 12 }} />
                 <div style={{ color: '#71717a', fontSize: 14, fontWeight: 500 }}>No hay grupos creados</div>
-                <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>CreÃ¡ un grupo para sincronizar el contenido de varias pantallas</div>
+                <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>Creá un grupo para sincronizar el contenido de varias pantallas</div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1190,13 +1149,13 @@ export default function CCTV() {
                               {g.screen_count} pantalla{g.screen_count !== 1 ? 's' : ''}
                             </span>
                             <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: mode === 'images' ? '#fdf4ff' : '#fff8e1', color: mode === 'images' ? '#7e22ce' : '#92400e', border: `1px solid ${mode === 'images' ? '#e9d5ff' : '#fde68a'}`, whiteSpace: 'nowrap' }}>
-                              {mode === 'images' ? 'ðŸ–¼ Imgs' : 'â–¶ Video'}
+                              {mode === 'images' ? '🖼 Imgs' : '▶ Video'}
                             </span>
                           </div>
                           <div style={{ marginTop: 3, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            {mode === 'video' && g.video_name && <span style={{ color: '#92400e', fontSize: 12 }}>â–¶ {g.video_name}</span>}
-                            {mode === 'images' && <span style={{ color: '#7e22ce', fontSize: 12 }}>{g.album_name ? <><FontAwesomeIcon icon={faFolder} style={{ fontSize: 10, marginRight: 4 }} />{g.album_name}</> : 'ðŸ–¼ Todas las imÃ¡genes'}</span>}
-                            {g.music_name && <span style={{ color: '#0369a1', fontSize: 12 }}>â™ª {g.music_name}</span>}
+                            {mode === 'video' && g.video_name && <span style={{ color: '#92400e', fontSize: 12 }}>▶ {g.video_name}</span>}
+                            {mode === 'images' && <span style={{ color: '#7e22ce', fontSize: 12 }}>{g.album_name ? <><FontAwesomeIcon icon={faFolder} style={{ fontSize: 10, marginRight: 4 }} />{g.album_name}</> : '🖼 Todas las imágenes'}</span>}
+                            {g.music_name && <span style={{ color: '#0369a1', fontSize: 12 }}>♪ {g.music_name}</span>}
                           </div>
                         </div>
                         <button onClick={() => { setRenameGroupModal(g); setRenameGroupName(g.name); }} style={{ background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#71717a' }} title="Renombrar">
@@ -1232,13 +1191,13 @@ export default function CCTV() {
                           <button onClick={() => setGroupAlbumModal(g)}
                             style={{ background: g.album_name ? '#fdf4ff' : '#f4f4f5', border: `1px solid ${g.album_name ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: g.album_name ? '#7e22ce' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, maxWidth: 130, overflow: 'hidden' }}>
                             <FontAwesomeIcon icon={faFolder} style={{ fontSize: 11, flexShrink: 0 }} />
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.album_name || 'Ãlbum'}</span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.album_name || 'Álbum'}</span>
                           </button>
                         )}
                         <button onClick={() => setGroupMusicModal(g)}
                           style={{ background: g.music_name ? '#f0f9ff' : '#f4f4f5', border: `1px solid ${g.music_name ? '#bae6fd' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: g.music_name ? '#0369a1' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                           <FontAwesomeIcon icon={faMusic} style={{ fontSize: 11 }} />
-                          MÃºsica
+                          Música
                         </button>
                       </div>
 
@@ -1258,7 +1217,7 @@ export default function CCTV() {
                       )}
                       {members.length === 0 && (
                         <div style={{ color: '#a1a1aa', fontSize: 12, marginTop: 10, fontStyle: 'italic' }}>
-                          Sin pantallas. Agregalas desde la pestaÃ±a Pantallas â†’ botÃ³n Grupo.
+                          Sin pantallas. Agregalas desde la pestaña Pantallas → botón Grupo.
                         </div>
                       )}
                     </div>
@@ -1295,7 +1254,7 @@ export default function CCTV() {
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>Nombre del horario (opcional)</label>
                 <input type="text" value={newSched.name} onChange={e => setNewSched(p => ({ ...p, name: e.target.value }))}
-                  placeholder="Ej: Promo mediodÃ­a"
+                  placeholder="Ej: Promo mediodía"
                   style={{ width: '100%', padding: '9px 12px', border: '1px solid #e4e4e7', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
               </div>
 
@@ -1313,8 +1272,8 @@ export default function CCTV() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>DÃ­as</label>
-                <p style={{ margin: '0 0 8px', fontSize: 11, color: '#a1a1aa' }}>Sin selecciÃ³n = todos los dÃ­as</p>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Días</label>
+                <p style={{ margin: '0 0 8px', fontSize: 11, color: '#a1a1aa' }}>Sin selección = todos los días</p>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {ALL_DAYS.map(day => (
                     <button key={day} onClick={() => toggleSchedDay(day)}
@@ -1364,11 +1323,11 @@ export default function CCTV() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>MÃºsica para <span style={{ color: GOLD }}>{assignMusicModal.device_name}</span></h3>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Música para <span style={{ color: GOLD }}>{assignMusicModal.device_name}</span></h3>
               <button onClick={() => setAssignMusicModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#a1a1aa' }}><FontAwesomeIcon icon={faTimes} /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
-              <button onClick={() => assignMusic(assignMusicModal.id, null)} style={{ background: '#fafafa', border: '1px solid #e4e4e7', borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', color: '#71717a', fontStyle: 'italic', fontSize: 14 }}>Sin mÃºsica</button>
+              <button onClick={() => assignMusic(assignMusicModal.id, null)} style={{ background: '#fafafa', border: '1px solid #e4e4e7', borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', color: '#71717a', fontStyle: 'italic', fontSize: 14 }}>Sin música</button>
               {music.map(m => (
                 <button key={m.id} onClick={() => assignMusic(assignMusicModal.id, m.id)} style={{ background: assignMusicModal.music_id === m.id ? '#f0f9ff' : '#fafafa', border: `1px solid ${assignMusicModal.music_id === m.id ? '#bae6fd' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <FontAwesomeIcon icon={faMusic} style={{ color: '#0369a1', fontSize: 14, flexShrink: 0 }} />
@@ -1404,8 +1363,8 @@ export default function CCTV() {
           <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Historial â€” <span style={{ color: GOLD }}>{powerLogModal.screen.device_name}</span></h3>
-                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#71717a' }}>Ãšltimos 100 eventos</p>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Historial — <span style={{ color: GOLD }}>{powerLogModal.screen.device_name}</span></h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#71717a' }}>Últimos 100 eventos</p>
               </div>
               <button onClick={() => setPowerLogModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#a1a1aa' }}><FontAwesomeIcon icon={faTimes} /></button>
             </div>
@@ -1431,14 +1390,14 @@ export default function CCTV() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>ImÃ¡genes para <span style={{ color: GOLD }}>{assignAlbumModal.device_name}</span></h3>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Imágenes para <span style={{ color: GOLD }}>{assignAlbumModal.device_name}</span></h3>
               <button onClick={() => setAssignAlbumModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#a1a1aa' }}><FontAwesomeIcon icon={faTimes} /></button>
             </div>
-            <p style={{ color: '#71717a', fontSize: 13, margin: '0 0 16px' }}>ElegÃ­ quÃ© imÃ¡genes se muestran en esta pantalla.</p>
+            <p style={{ color: '#71717a', fontSize: 13, margin: '0 0 16px' }}>Elegí qué imágenes se muestran en esta pantalla.</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 340, overflowY: 'auto' }}>
               <button onClick={() => assignScreenAlbum(assignAlbumModal.id, null)}
                 style={{ background: !assignAlbumModal.current_album_id ? '#fff8e1' : '#fafafa', border: `1px solid ${!assignAlbumModal.current_album_id ? '#fde68a' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left' }}>
-                <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>ðŸ–¼ Todas las imÃ¡genes</div>
+                <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>🖼 Todas las imágenes</div>
                 <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{images.length} imagen{images.length !== 1 ? 'es' : ''}</div>
               </button>
               {albums.map(a => {
@@ -1456,7 +1415,7 @@ export default function CCTV() {
               })}
               {albums.length === 0 && (
                 <div style={{ color: '#a1a1aa', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>
-                  No hay Ã¡lbumes. CreÃ¡ uno en la pestaÃ±a <strong>ImÃ¡genes</strong>.
+                  No hay álbumes. Creá uno en la pestaña <strong>Imágenes</strong>.
                 </div>
               )}
             </div>
@@ -1490,13 +1449,13 @@ export default function CCTV() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>MÃºsica para grupo <span style={{ color: GOLD }}>{groupMusicModal.name}</span></h3>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Música para grupo <span style={{ color: GOLD }}>{groupMusicModal.name}</span></h3>
               <button onClick={() => setGroupMusicModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#a1a1aa' }}><FontAwesomeIcon icon={faTimes} /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
-              <button onClick={() => { updateGroup(groupMusicModal.id, { music_id: null }, 'MÃºsica removida'); setGroupMusicModal(null); }} style={{ background: '#fafafa', border: '1px solid #e4e4e7', borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', color: '#71717a', fontStyle: 'italic', fontSize: 14 }}>Sin mÃºsica</button>
+              <button onClick={() => { updateGroup(groupMusicModal.id, { music_id: null }, 'Música removida'); setGroupMusicModal(null); }} style={{ background: '#fafafa', border: '1px solid #e4e4e7', borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', color: '#71717a', fontStyle: 'italic', fontSize: 14 }}>Sin música</button>
               {music.map(m => (
-                <button key={m.id} onClick={() => { updateGroup(groupMusicModal.id, { music_id: m.id }, 'MÃºsica asignada al grupo'); setGroupMusicModal(null); }} style={{ background: groupMusicModal.current_music_id === m.id ? '#f0f9ff' : '#fafafa', border: `1px solid ${groupMusicModal.current_music_id === m.id ? '#bae6fd' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button key={m.id} onClick={() => { updateGroup(groupMusicModal.id, { music_id: m.id }, 'Música asignada al grupo'); setGroupMusicModal(null); }} style={{ background: groupMusicModal.current_music_id === m.id ? '#f0f9ff' : '#fafafa', border: `1px solid ${groupMusicModal.current_music_id === m.id ? '#bae6fd' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <FontAwesomeIcon icon={faMusic} style={{ color: '#0369a1', fontSize: 14, flexShrink: 0 }} />
                   <div>
                     <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>{m.original_name}</div>
@@ -1514,20 +1473,20 @@ export default function CCTV() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>ImÃ¡genes para grupo <span style={{ color: GOLD }}>{groupAlbumModal.name}</span></h3>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Imágenes para grupo <span style={{ color: GOLD }}>{groupAlbumModal.name}</span></h3>
               <button onClick={() => setGroupAlbumModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#a1a1aa' }}><FontAwesomeIcon icon={faTimes} /></button>
             </div>
-            <p style={{ color: '#71717a', fontSize: 13, margin: '0 0 16px' }}>ElegÃ­ quÃ© imÃ¡genes se muestran en las pantallas del grupo.</p>
+            <p style={{ color: '#71717a', fontSize: 13, margin: '0 0 16px' }}>Elegí qué imágenes se muestran en las pantallas del grupo.</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 340, overflowY: 'auto' }}>
-              <button onClick={() => { updateGroup(groupAlbumModal.id, { album_id: null }, 'Grupo mostrarÃ¡ todas las imÃ¡genes'); setGroupAlbumModal(null); }}
+              <button onClick={() => { updateGroup(groupAlbumModal.id, { album_id: null }, 'Grupo mostrará todas las imágenes'); setGroupAlbumModal(null); }}
                 style={{ background: !groupAlbumModal.current_album_id ? '#fff8e1' : '#fafafa', border: `1px solid ${!groupAlbumModal.current_album_id ? '#fde68a' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left' }}>
-                <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>ðŸ–¼ Todas las imÃ¡genes</div>
+                <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>🖼 Todas las imágenes</div>
                 <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{images.length} imagen{images.length !== 1 ? 'es' : ''}</div>
               </button>
               {albums.map(a => {
                 const count = images.filter(i => i.album_id === a.id).length;
                 return (
-                  <button key={a.id} onClick={() => { updateGroup(groupAlbumModal.id, { album_id: a.id }, 'Ãlbum asignado al grupo'); setGroupAlbumModal(null); }}
+                  <button key={a.id} onClick={() => { updateGroup(groupAlbumModal.id, { album_id: a.id }, 'Álbum asignado al grupo'); setGroupAlbumModal(null); }}
                     style={{ background: groupAlbumModal.current_album_id === a.id ? '#fdf4ff' : '#fafafa', border: `1px solid ${groupAlbumModal.current_album_id === a.id ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <FontAwesomeIcon icon={faFolder} style={{ color: GOLD, fontSize: 18, flexShrink: 0 }} />
                     <div>
@@ -1539,7 +1498,7 @@ export default function CCTV() {
               })}
               {albums.length === 0 && (
                 <div style={{ color: '#a1a1aa', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>
-                  No hay Ã¡lbumes. CreÃ¡ uno en la pestaÃ±a <strong>ImÃ¡genes</strong>.
+                  No hay álbumes. Creá uno en la pestaña <strong>Imágenes</strong>.
                 </div>
               )}
             </div>
@@ -1582,13 +1541,13 @@ export default function CCTV() {
                   <FontAwesomeIcon icon={faLayerGroup} style={{ color: GOLD, fontSize: 18, flexShrink: 0 }} />
                   <div>
                     <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>{g.name}</div>
-                    <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{g.screen_count} pantalla{g.screen_count !== 1 ? 's' : ''} Â· {(g.display_mode || 'video') === 'images' ? 'imÃ¡genes' : (g.video_name || 'sin video')}</div>
+                    <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{g.screen_count} pantalla{g.screen_count !== 1 ? 's' : ''} · {(g.display_mode || 'video') === 'images' ? 'imágenes' : (g.video_name || 'sin video')}</div>
                   </div>
                 </button>
               ))}
               {groups.length === 0 && (
                 <div style={{ color: '#a1a1aa', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>
-                  No hay grupos. CreÃ¡ uno en la pestaÃ±a <strong>Grupos</strong>.
+                  No hay grupos. Creá uno en la pestaña <strong>Grupos</strong>.
                 </div>
               )}
             </div>
@@ -1604,9 +1563,9 @@ export default function CCTV() {
               <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: 20, color: '#dc2626' }} />
             </div>
             <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700 }}>
-              Â¿Eliminar {deleteConfirm.type === 'video' ? 'video' : deleteConfirm.type === 'music' ? 'mÃºsica' : deleteConfirm.type === 'image' ? 'imagen' : deleteConfirm.type === 'album' ? 'Ã¡lbum' : deleteConfirm.type === 'group' ? 'grupo' : 'pantalla'}?
+              ¿Eliminar {deleteConfirm.type === 'video' ? 'video' : deleteConfirm.type === 'music' ? 'música' : deleteConfirm.type === 'image' ? 'imagen' : deleteConfirm.type === 'album' ? 'álbum' : deleteConfirm.type === 'group' ? 'grupo' : 'pantalla'}?
             </h3>
-            <p style={{ color: '#71717a', fontSize: 14, margin: '0 0 20px' }}><strong style={{ color: '#09090b' }}>{deleteConfirm.name}</strong> serÃ¡ eliminado permanentemente.</p>
+            <p style={{ color: '#71717a', fontSize: 14, margin: '0 0 20px' }}><strong style={{ color: '#09090b' }}>{deleteConfirm.name}</strong> será eliminado permanentemente.</p>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setDeleteConfirm(null)} style={{ flex: 1, padding: '11px', background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 8, color: '#71717a', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
               <button
