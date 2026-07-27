@@ -352,6 +352,9 @@ app.use(express.urlencoded({ limit: '1gb', extended: true }));
 
 const userSockets = new Map();
 
+// Último carrito en vivo por tienda (String(storeId) → cart[]) para la pantalla /tv-cart
+const lastTvCart = new Map();
+
 // ── Presence tracking ──────────────────────────────────────────────────────
 // socketId → { store_code, panel, connected_at, store_name? }
 const presenceMap = new Map();
@@ -372,6 +375,24 @@ io.on('connection', (socket) => {
     socket.storeId = storeId;
     socket.join(`store_${storeId}`);
     console.log(`Socket ${socket.id} registrado para tienda ${storeId} (room: store_${storeId})`);
+  });
+
+  // Viewer de solo lectura (pantalla TV con carrito en vivo): se une a la sala de
+  // la tienda SIN pisar userSockets (que apunta al tótem para push de inventario).
+  socket.on('join_store_room', (storeId) => {
+    if (storeId == null) return;
+    socket.join(`store_${storeId}`);
+    // Enviar el último carrito conocido para que la TV no arranque vacía
+    const cached = lastTvCart.get(String(storeId));
+    if (cached) socket.emit('tv_cart_update', { store_id: storeId, cart: cached });
+  });
+
+  // El tótem transmite su carrito actual; lo retransmitimos a la sala de la tienda
+  // para que la pantalla /tv-cart lo muestre en vivo.
+  socket.on('tv_cart_update', ({ store_id, cart }) => {
+    if (store_id == null) return;
+    lastTvCart.set(String(store_id), cart || []);
+    io.to(`store_${store_id}`).emit('tv_cart_update', { store_id, cart });
   });
 
   socket.on('presence_join', ({ store_code, panel, store_name }) => {

@@ -2153,6 +2153,26 @@ function Store() {
     }
   }, [store?.store?.id]);
 
+  // Transmite el carrito en vivo a la pantalla TV (/tv-cart/:code). Se envía en
+  // cada cambio del carrito; el servidor lo cachea para las TV que entren tarde.
+  useEffect(() => {
+    const socket = socketRef.current;
+    const storeId = store?.store?.id;
+    if (!socket || !storeId || editMode) return;
+    socket.emit('tv_cart_update', {
+      store_id: storeId,
+      cart: cart.map(i => ({
+        product_name: i.product_name,
+        product_image: i.product_image,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        total: i.total,
+        selected_ingredients: i.selected_ingredients || [],
+        selected_extras: i.selected_extras || [],
+      })),
+    });
+  }, [cart, store?.store?.id, editMode]);
+
   // Poll pending_restart every 10 seconds so clients restart in real-time even if the socket event is missed
   useEffect(() => {
     if (!store?.store?.id) return;

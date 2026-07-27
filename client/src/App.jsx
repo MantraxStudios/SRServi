@@ -62,6 +62,7 @@ import Index from './pages/Index';
 import SalesAssistant from './pages/SalesAssistant';
 import Store from './pages/Store';
 import TvDisplay from './pages/TvDisplay';
+import TvCart from './pages/TvCart';
 import Docs from './pages/Docs';
 import Rate from './pages/Rate';
 import ClientSurvey from './pages/ClientSurvey';
@@ -277,6 +278,7 @@ function App() {
           <Route path="/delivery/account" element={<DeliveryAccount />} />
           <Route path="/tv" element={<TvEntry />} />
           <Route path="/tv/:code" element={<TvDisplay />} />
+          <Route path="/tv-cart/:code" element={<TvCart />} />
           <Route path="/market/:code" element={<Minimarket />} />
           <Route path="/docs" element={<Docs />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
