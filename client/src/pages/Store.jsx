@@ -5988,6 +5988,9 @@ function Store() {
                     {uncategorized.map(product => (
                       <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} onRecipe={setProdRecipeModal} currencySymbol={colors.currency.symbol} hideDecimals={!!(selectedConfiguration?.hide_decimals || store?.store?.hide_decimals)} selectionMode={selectionMode} isSelected={selectedProductIds.has(product.id)} onToggleSelect={(id) => setSelectedProductIds(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; })} />
                     ))}
+                    {!selectionMode && (
+                      <AddProductCard onClick={() => openProdModal(null)} />
+                    )}
                   </div>
                 ) : null;
               })()}
