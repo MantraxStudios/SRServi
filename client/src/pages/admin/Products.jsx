@@ -52,6 +52,7 @@ function Products() {
     max_ingredients: '',
     show_description: true,
     show_prep_time: true,
+    is_featured: false,
     complement_group_ids: []
   });
   const [error, setError] = useState('');
@@ -221,6 +222,7 @@ function Products() {
       formDataToSend.append('max_ingredients', formData.has_ingredients ? (parseInt(formData.max_ingredients) || 0) : 0);
       formDataToSend.append('show_description', formData.show_description);
       formDataToSend.append('show_prep_time', formData.show_prep_time);
+      formDataToSend.append('is_featured', formData.is_featured);
       formDataToSend.append('complement_group_ids', JSON.stringify(formData.complement_group_ids || []));
 
       if (formData.imageFile) {
@@ -307,6 +309,7 @@ function Products() {
       max_ingredients: product.max_ingredients?.toString() || '',
       show_description: product.show_description !== false,
       show_prep_time: product.show_prep_time !== false,
+      is_featured: product.is_featured === true || product.is_featured === 1,
       complement_group_ids: Array.isArray(product.complement_groups)
         ? product.complement_groups.map(g => g.id)
         : (Array.isArray(product.complement_group_ids) ? product.complement_group_ids : [])
@@ -351,6 +354,7 @@ function Products() {
       max_ingredients: '',
       show_description: true,
       show_prep_time: true,
+      is_featured: false,
       complement_group_ids: []
     });
   };
@@ -1075,6 +1079,17 @@ function Products() {
                         onChange={(e) => setFormData({ ...formData, show_prep_time: e.target.checked })}
                       />
                       <span className="toggle-card-title">Mostrar tiempo de preparación en la tienda</span>
+                    </label>
+                  </div>
+
+                  <div className="form-toggle-card" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <label style={{ flex: 1, margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={formData.is_featured}
+                        onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })}
+                      />
+                      <span className="toggle-card-title">⭐ Destacado — aparece arriba del menú en todas las categorías</span>
                     </label>
                   </div>
                 </div>

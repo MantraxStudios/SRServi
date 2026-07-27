@@ -1216,6 +1216,10 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE products ADD COLUMN show_prep_time BOOLEAN NOT NULL DEFAULT TRUE');
         console.log('✅ Columna show_prep_time agregada a products');
       }
+      if (!prodColNames.includes('is_featured')) {
+        await pool.execute('ALTER TABLE products ADD COLUMN is_featured BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna is_featured agregada a products');
+      }
     } catch (err) {
       console.error('❌ Error migrando lista única (owner_product_id):', err.message);
     }
@@ -3477,14 +3481,15 @@ export async function getProducts(storeId) {
 }
 
 export async function createProduct(storeId, data) {
-  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time } = data;
+  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time, is_featured } = data;
   const showDescription = show_description !== false;
   const showPrepTime = show_prep_time !== false;
+  const isFeatured = is_featured === true || is_featured === 'true' || is_featured === 1;
 
   const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO products (store_id, user_id, category_id, name, barcode, description, price, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, category_id || null, name, barcode || null, description || null, price, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, showDescription ? 1 : 0, showPrepTime ? 1 : 0]
+    'INSERT INTO products (store_id, user_id, category_id, name, barcode, description, price, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time, is_featured) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, category_id || null, name, barcode || null, description || null, price, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, showDescription ? 1 : 0, showPrepTime ? 1 : 0, isFeatured ? 1 : 0]
   );
   const productId = result.insertId;
 
@@ -3503,6 +3508,7 @@ export async function createProduct(storeId, data) {
     max_ingredients: parseInt(max_ingredients) || 0,
     show_description: showDescription,
     show_prep_time: showPrepTime,
+    is_featured: isFeatured,
     stock: 0,
     unlimited_stock: true,
     ingredients: await getProductIngredients(productId, category_id),
@@ -3512,13 +3518,14 @@ export async function createProduct(storeId, data) {
 }
 
 export async function updateProduct(productId, storeId, data) {
-  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time } = data;
+  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time, is_featured } = data;
   const showDescription = show_description !== false;
   const showPrepTime = show_prep_time !== false;
+  const isFeatured = is_featured === true || is_featured === 'true' || is_featured === 1;
 
   await pool.execute(
-    'UPDATE products SET name = ?, barcode = ?, description = ?, price = ?, category_id = ?, image = ?, has_extras = ?, has_ingredients = ?, max_extras = ?, max_ingredients = ?, show_description = ?, show_prep_time = ? WHERE id = ? AND store_id = ?',
-    [name, barcode || null, description || null, price, category_id || null, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, showDescription ? 1 : 0, showPrepTime ? 1 : 0, productId, storeId]
+    'UPDATE products SET name = ?, barcode = ?, description = ?, price = ?, category_id = ?, image = ?, has_extras = ?, has_ingredients = ?, max_extras = ?, max_ingredients = ?, show_description = ?, show_prep_time = ?, is_featured = ? WHERE id = ? AND store_id = ?',
+    [name, barcode || null, description || null, price, category_id || null, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, showDescription ? 1 : 0, showPrepTime ? 1 : 0, isFeatured ? 1 : 0, productId, storeId]
   );
 
   // Get current stock from inventory
@@ -3543,6 +3550,7 @@ export async function updateProduct(productId, storeId, data) {
     max_ingredients: parseInt(max_ingredients) || 0,
     show_description: showDescription,
     show_prep_time: showPrepTime,
+    is_featured: isFeatured,
     stock: parseInt(stock) || 0,
     unlimited_stock: !!unlimited_stock,
     ingredients: await getProductIngredients(productId, category_id),
@@ -3695,6 +3703,7 @@ export async function getPublicProducts(storeId) {
       max_ingredients: parseInt(product.max_ingredients) || 0,
       show_description: product.show_description !== 0 && product.show_description !== false,
       show_prep_time: product.show_prep_time !== 0 && product.show_prep_time !== false,
+      is_featured: product.is_featured !== 0 && product.is_featured !== false,
       ingredients: await getProductIngredients(product.id, product.category_id),
       extras: await getProductExtras(product.id, product.category_id),
       complement_groups: await getProductComplementGroups(product.id)

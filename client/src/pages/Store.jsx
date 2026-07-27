@@ -5727,6 +5727,22 @@ function Store() {
       )}
 
 
+      {/* Destacados — productos universales que aparecen arriba del menú en todas las categorías */}
+      {(!editMode || previewMode) && !(restaurantView && !activeTable) && searchedProducts === null && (store?.products || []).some(p => p.is_featured) && (
+        <div className="category-section">
+          <div className="category-section-header">
+            <div className="flex items-center gap-3">
+              <FontAwesomeIcon icon={faFire} className="category-section-icon" />
+              <h3 className="category-section-title">⭐ Destacados</h3>
+            </div>
+            <div className="category-section-line" />
+          </div>
+          <div className="products-grid">
+            {(store?.products || []).filter(p => p.is_featured).map(product => renderProductCard(product))}
+          </div>
+        </div>
+      )}
+
       {(!editMode || previewMode) && !(restaurantView && !activeTable) && searchedProducts === null && activeCategory === 'all' && (store?.combos || []).filter(c => c.is_active && c.items?.length > 0).length > 0 && (
         <div className="category-section">
           <div className="category-section-header">

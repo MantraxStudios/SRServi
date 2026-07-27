@@ -6675,7 +6675,8 @@ app.post('/api/products', authenticateToken, upload.single('image'), async (req,
       max_extras: parseInt(max_extras) || 0,
       max_ingredients: parseInt(max_ingredients) || 0,
       show_description: show_description !== 'false' && show_description !== false,
-      show_prep_time: show_prep_time !== 'false' && show_prep_time !== false
+      show_prep_time: show_prep_time !== 'false' && show_prep_time !== false,
+      is_featured: req.body.is_featured === 'true' || req.body.is_featured === true
     });
 
     // Secciones dinámicas asignadas
@@ -6732,7 +6733,8 @@ app.put('/api/products/:id', authenticateToken, upload.single('image'), async (r
       max_extras: parseInt(max_extras) || 0,
       max_ingredients: parseInt(max_ingredients) || 0,
       show_description: show_description !== 'false' && show_description !== false,
-      show_prep_time: show_prep_time !== 'false' && show_prep_time !== false
+      show_prep_time: show_prep_time !== 'false' && show_prep_time !== false,
+      is_featured: req.body.is_featured === 'true' || req.body.is_featured === true
     });
 
     // Secciones dinámicas asignadas
