@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useStore } from '../../components/Layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPaperPlane, faRobot, faUser, faTrash,
-  faChartLine, faBox, faClock, faLightbulb, faTags, faBars
+  faChartLine, faBox, faClock, faLightbulb, faTags, faBars, faTimes
 } from '@fortawesome/free-solid-svg-icons';
 
 const SUGGESTIONS = [
@@ -161,6 +162,7 @@ function TypingIndicator() {
 // ── Main page ──────────────────────────────────────────────────────────────
 export default function LeonIA() {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const { selectedStore, setMenuOpen } = useStore();
   const [messages, setMessages] = useState([{
     role: 'leon',
@@ -256,6 +258,13 @@ export default function LeonIA() {
         </div>
         <button className="leon-clear-btn" onClick={clearChat} title="Limpiar chat">
           <FontAwesomeIcon icon={faTrash} /><span>Limpiar</span>
+        </button>
+        <button
+          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/admin'))}
+          title="Cerrar León IA"
+          style={{ marginLeft: 8, width: 36, height: 36, borderRadius: 10, border: 'none', cursor: 'pointer', background: 'rgba(0,0,0,0.06)', color: '#71717a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}
+        >
+          <FontAwesomeIcon icon={faTimes} />
         </button>
       </div>
 

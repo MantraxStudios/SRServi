@@ -1040,7 +1040,9 @@ function Layout() {
           onClick={() => navigate('/admin/leon-ia')}
           title="Preguntá a León IA"
           style={{
-            position: 'fixed', bottom: 24, right: 24, zIndex: 480,
+            position: 'fixed',
+            bottom: 'calc(var(--isb-bottom-h, 62px) + 16px + env(safe-area-inset-bottom, 0px))',
+            right: 18, zIndex: 601,
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '12px 18px 12px 14px', borderRadius: 999, border: 'none', cursor: 'pointer',
             background: 'linear-gradient(135deg, #D4AF37, #b8912a)', color: '#0a0a0a',
