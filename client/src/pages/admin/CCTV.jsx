@@ -12,6 +12,10 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
+// Las subidas grandes van por un host SIN Cloudflare (DNS only), porque el plan
+// free de Cloudflare corta las subidas en 100 MB. Este host pega directo a nginx
+// (client_max_body_size 1G). El resto de la app sigue por API (con Cloudflare).
+const UPLOAD_API = 'https://upload.srautomatic.com';
 const GOLD = '#D4AF37';
 
 function formatBytes(bytes) {
@@ -240,7 +244,7 @@ export default function CCTV() {
         xhr.upload.onprogress = e => { if (e.lengthComputable) setUploadProgress(Math.round(e.loaded / e.total * 100)); };
         xhr.onload = () => xhr.status === 200 ? res() : rej(new Error(xhrError(xhr)));
         xhr.onerror = () => rej(new Error('Error de red'));
-        xhr.open('POST', `${API}/api/cctv/videos`);
+        xhr.open('POST', `${UPLOAD_API}/api/cctv/videos`);
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         xhr.send(formData);
       });
@@ -261,7 +265,7 @@ export default function CCTV() {
         xhr.upload.onprogress = e => { if (e.lengthComputable) setUploadMusicProgress(Math.round(e.loaded / e.total * 100)); };
         xhr.onload = () => xhr.status === 200 ? res() : rej(new Error(xhrError(xhr)));
         xhr.onerror = () => rej(new Error('Error de red'));
-        xhr.open('POST', `${API}/api/cctv/music`);
+        xhr.open('POST', `${UPLOAD_API}/api/cctv/music`);
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         xhr.send(formData);
       });
@@ -284,7 +288,7 @@ export default function CCTV() {
         xhr.upload.onprogress = e => { if (e.lengthComputable) setUploadImagesProgress(Math.round(e.loaded / e.total * 100)); };
         xhr.onload = () => xhr.status === 200 ? res() : rej(new Error(xhrError(xhr)));
         xhr.onerror = () => rej(new Error('Error de red'));
-        xhr.open('POST', `${API}/api/cctv/images`);
+        xhr.open('POST', `${UPLOAD_API}/api/cctv/images`);
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         xhr.send(formData);
       });

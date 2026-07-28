@@ -146,7 +146,7 @@ if [ "$MODE" = "prod" ]; then
         # Mismo formato que la config manual de sites-available
         nginx_locations() {
             cat <<LOCS
-    client_max_body_size 50m;
+    client_max_body_size 1024m;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
