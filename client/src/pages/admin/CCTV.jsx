@@ -520,6 +520,18 @@ export default function CCTV() {
     } catch (e) { showError(e.message); }
   };
 
+  // Reproducir TODOS los videos en loop (playlist).
+  const assignScreenVideoAll = async (screenId) => {
+    try {
+      const r = await fetch(`${API}/api/cctv/screens/${screenId}/video-all`, {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ play_all: true })
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      await fetchScreens(); showSuccess('Reproduciendo todos los videos');
+    } catch (e) { showError(e.message); }
+  };
+
   const assignMusic = async (screenId, musicId) => {
     try {
       const r = await fetch(`${API}/api/cctv/screens/${screenId}/music`, {
@@ -600,6 +612,7 @@ export default function CCTV() {
       return { type: 'image', src: null, empty: true };
     }
     if (s.video_url) return { type: 'video', src: `${API}${s.video_url}`, empty: false };
+    if (s.video_play_all && videos[0]?.url) return { type: 'video', src: `${API}${videos[0].url}`, empty: false };
     return { type: 'video', src: null, empty: true };
   };
 
@@ -693,7 +706,7 @@ export default function CCTV() {
           <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>Vinculá una TV con el código de arriba.</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(440px, 1fr))', gap: 20, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 440px), 1fr))', gap: 20, marginBottom: 28 }}>
           {screens.map(s => {
             const mode = s.display_mode || 'video';
             const grouped = !!s.group_id;
@@ -745,7 +758,7 @@ export default function CCTV() {
                   {/* Etiqueta del contenido + acción de cambiar */}
                   <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '18px 8px 7px', display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(transparent, rgba(0,0,0,0.78))', pointerEvents: 'none' }}>
                     <span style={{ flex: 1, minWidth: 0, color: '#fff', fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {grouped ? `Grupo: ${s.group_name}` : mode === 'images' ? (s.image_name || s.album_name || 'Todas las imágenes') : (s.video_name || 'Sin video')}
+                      {grouped ? `Grupo: ${s.group_name}` : mode === 'images' ? (s.image_name || s.album_name || 'Todas las imágenes') : (s.video_play_all ? 'Todos los videos' : (s.video_name || 'Sin video'))}
                     </span>
                     {!grouped && (
                       <span style={{ background: GOLD, color: '#0a0a0a', fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
@@ -1596,8 +1609,12 @@ export default function CCTV() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto', marginBottom: 18 }}>
                     {smMode === 'video' ? (<>
-                      {rowBtn(!sm.current_video_id, '#fff8e1', '#fde68a', () => assignVideo(sm.id, null),
+                      {rowBtn(!sm.current_video_id && !sm.video_play_all, '#fff8e1', '#fde68a', () => assignVideo(sm.id, null),
                         <span style={{ color: '#71717a', fontStyle: 'italic', fontSize: 13 }}>Sin video</span>)}
+                      {videos.length > 1 && rowBtn(!!sm.video_play_all, '#fff8e1', '#fde68a', () => assignScreenVideoAll(sm.id),
+                        <><FontAwesomeIcon icon={faPlay} style={{ color: GOLD, fontSize: 12, flexShrink: 0 }} />
+                          <div style={{ minWidth: 0 }}><div style={{ color: '#09090b', fontWeight: 700, fontSize: 13 }}>Reproducir todos</div>
+                            <div style={{ color: '#71717a', fontSize: 11 }}>{videos.length} videos en loop</div></div></>)}
                       {videos.map(v => (
                         <Fragment key={v.id}>{rowBtn(sm.current_video_id === v.id, '#fff8e1', '#fde68a', () => assignVideo(sm.id, v.id),
                           <><video src={`${API}${v.url}#t=0.5`} muted playsInline preload="metadata"

@@ -87,6 +87,7 @@ private const val KEY_TOKEN = "device_token"
 private const val KEY_DEVICE_UID = "device_uid"
 private const val KEY_VIDEO_PATH = "current_video_path"
 private const val KEY_VIDEO_URL = "current_video_url"
+private const val KEY_VIDEO_PLAYLIST = "current_video_playlist"
 private const val KEY_MUSIC_URL = "current_music_url"
 private const val KEY_MUSIC_PATH = "current_music_path"
 private const val KEY_LAUNCHER_CONFIRMED = "launcher_confirmed"
@@ -1642,55 +1643,100 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
 
                 // ── Video (con evaluación de programación) ─────────────────────
                 val activeSchedule = getActiveSchedule(config.optJSONArray("schedules"))
-                val videoUrl = (activeSchedule?.optString("video_url")?.takeIf { it.isNotEmpty() && it != "null" }
-                    ?: config.optString("video_url").takeIf { it.isNotEmpty() && it != "null" && !config.isNull("video_url") })
-                val savedUrl = prefs.getString(KEY_VIDEO_URL, null)
+                val scheduleVideoUrl = activeSchedule?.optString("video_url")?.takeIf { it.isNotEmpty() && it != "null" }
+                val videosArray = config.optJSONArray("videos")
+                // Reproducir TODOS: solo si no hay un horario activo forzando un video puntual.
+                val playAll = scheduleVideoUrl == null && videosArray != null && videosArray.length() > 0
 
-                if (videoUrl != null && videoUrl != savedUrl) {
-                    val fullUrl = if (videoUrl.startsWith("http")) videoUrl else "$BASE_URL$videoUrl"
-                    val urlHash = videoUrl.hashCode().toString().replace("-", "n")
-                    val originalName = Uri.parse(videoUrl).lastPathSegment ?: "video.mp4"
-                    val safeFilename = "${urlHash}_${originalName}"
-                    val destFile = File(getVideoStorageDir(context), safeFilename)
-
-                    if (!destFile.exists()) {
-                        downloadingName = config.optString("video_name", originalName)
-                        downloadProgress = 0f
-
-                        var success = false
-                        withContext(Dispatchers.IO) {
-                            try {
-                                downloadVideoFile(fullUrl, destFile) { p ->
-                                    downloadProgress = p
+                if (playAll) {
+                    val playlistKey = (0 until videosArray!!.length()).joinToString(",") {
+                        videosArray.getJSONObject(it).optString("url")
+                    }
+                    if (playlistKey != prefs.getString(KEY_VIDEO_PLAYLIST, null)) {
+                        val mediaFiles = mutableListOf<File>()
+                        for (i in 0 until videosArray.length()) {
+                            val vUrl = videosArray.getJSONObject(i).optString("url").takeIf { it.isNotEmpty() } ?: continue
+                            val fullUrl = if (vUrl.startsWith("http")) vUrl else "$BASE_URL$vUrl"
+                            val urlHash = vUrl.hashCode().toString().replace("-", "n")
+                            val originalName = Uri.parse(vUrl).lastPathSegment ?: "video.mp4"
+                            val destFile = File(getVideoStorageDir(context), "${urlHash}_${originalName}")
+                            if (!destFile.exists()) {
+                                downloadingName = "Videos…"
+                                downloadProgress = 0f
+                                withContext(Dispatchers.IO) {
+                                    try { downloadVideoFile(fullUrl, destFile) { p -> downloadProgress = p } }
+                                    catch (e: Exception) { Log.e(TAG, "Playlist dl error: ${e.message}"); destFile.delete() }
                                 }
-                                success = true
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Download error: ${e.message}")
-                                destFile.delete()
                             }
+                            if (destFile.exists()) mediaFiles.add(destFile)
                         }
-
-                        if (success) {
-                            prefs.edit()
-                                .putString(KEY_VIDEO_PATH, destFile.absolutePath)
-                                .putString(KEY_VIDEO_URL, videoUrl)
-                                .apply()
-
-                            exoPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(destFile)))
+                        downloadProgress = -1f
+                        if (mediaFiles.isNotEmpty()) {
+                            prefs.edit().putString(KEY_VIDEO_PLAYLIST, playlistKey).remove(KEY_VIDEO_URL).remove(KEY_VIDEO_PATH).apply()
+                            exoPlayer.repeatMode = Player.REPEAT_MODE_ALL
+                            exoPlayer.setMediaItems(mediaFiles.map { MediaItem.fromUri(Uri.fromFile(it)) })
                             exoPlayer.prepare()
                             hasVideo = true
                         }
                     } else {
-                        prefs.edit().putString(KEY_VIDEO_URL, videoUrl).apply()
-                        val currentPath = prefs.getString(KEY_VIDEO_PATH, null)
-                        if (currentPath != destFile.absolutePath) {
-                            prefs.edit().putString(KEY_VIDEO_PATH, destFile.absolutePath).apply()
-                            exoPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(destFile)))
-                            exoPlayer.prepare()
-                        }
                         hasVideo = true
                     }
-                    downloadProgress = -1f
+                } else {
+                    // Un solo video (asignado o el del horario activo). Volver a loop de 1.
+                    if (prefs.getString(KEY_VIDEO_PLAYLIST, null) != null) {
+                        prefs.edit().remove(KEY_VIDEO_PLAYLIST).apply()
+                        exoPlayer.repeatMode = Player.REPEAT_MODE_ONE
+                    }
+                    val videoUrl = (scheduleVideoUrl
+                        ?: config.optString("video_url").takeIf { it.isNotEmpty() && it != "null" && !config.isNull("video_url") })
+                    val savedUrl = prefs.getString(KEY_VIDEO_URL, null)
+
+                    if (videoUrl != null && videoUrl != savedUrl) {
+                        val fullUrl = if (videoUrl.startsWith("http")) videoUrl else "$BASE_URL$videoUrl"
+                        val urlHash = videoUrl.hashCode().toString().replace("-", "n")
+                        val originalName = Uri.parse(videoUrl).lastPathSegment ?: "video.mp4"
+                        val safeFilename = "${urlHash}_${originalName}"
+                        val destFile = File(getVideoStorageDir(context), safeFilename)
+
+                        if (!destFile.exists()) {
+                            downloadingName = config.optString("video_name", originalName)
+                            downloadProgress = 0f
+
+                            var success = false
+                            withContext(Dispatchers.IO) {
+                                try {
+                                    downloadVideoFile(fullUrl, destFile) { p ->
+                                        downloadProgress = p
+                                    }
+                                    success = true
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Download error: ${e.message}")
+                                    destFile.delete()
+                                }
+                            }
+
+                            if (success) {
+                                prefs.edit()
+                                    .putString(KEY_VIDEO_PATH, destFile.absolutePath)
+                                    .putString(KEY_VIDEO_URL, videoUrl)
+                                    .apply()
+
+                                exoPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(destFile)))
+                                exoPlayer.prepare()
+                                hasVideo = true
+                            }
+                        } else {
+                            prefs.edit().putString(KEY_VIDEO_URL, videoUrl).apply()
+                            val currentPath = prefs.getString(KEY_VIDEO_PATH, null)
+                            if (currentPath != destFile.absolutePath) {
+                                prefs.edit().putString(KEY_VIDEO_PATH, destFile.absolutePath).apply()
+                                exoPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(destFile)))
+                                exoPlayer.prepare()
+                            }
+                            hasVideo = true
+                        }
+                        downloadProgress = -1f
+                    }
                 }
 
                 // ── Modo display (video / imágenes) ────────────────────────────
