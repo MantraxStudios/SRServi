@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useContext } from 'react';
+import { useState, useEffect, useRef, useContext, Fragment } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StoreContext } from '../../components/Layout';
 import PlanLock from '../../components/PlanLock';
@@ -83,6 +83,7 @@ export default function CCTV() {
 
   const [assignModal, setAssignModal] = useState(null);
   const [assignMusicModal, setAssignMusicModal] = useState(null);
+  const [screenModal, setScreenModal] = useState(null); // id de la pantalla: modal unificado de contenido
   const [renameModal, setRenameModal] = useState(null);
   const [screenSchedules, setScreenSchedules] = useState({}); // { [screenId]: { data, loading } }
   const [expandedSchedules, setExpandedSchedules] = useState({});
@@ -96,6 +97,9 @@ export default function CCTV() {
   const fileInputRef = useRef();
   const musicInputRef = useRef();
   const imageInputRef = useRef();
+  const mVideoRef = useRef();   // subir video desde el modal de pantalla
+  const mImageRef = useRef();   // subir imágenes desde el modal de pantalla
+  const mMusicRef = useRef();   // subir música desde el modal de pantalla
 
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -685,9 +689,9 @@ export default function CCTV() {
                 <div style={{ fontSize: 12, color: '#a1a1aa', marginBottom: 6, fontWeight: 600 }}>REPRODUCIENDO AHORA</div>
                 <div style={{ display: 'flex', alignItems: 'stretch', gap: 12 }}>
                   <button
-                    onClick={() => { if (grouped) return; mode === 'images' ? setAssignAlbumModal(s) : setAssignModal(s); }}
-                    title={grouped ? 'Reproducción controlada por el grupo' : 'Tocá para cambiar el contenido'}
-                    style={{ position: 'relative', flex: 1, minWidth: 0, aspectRatio: '16 / 10', background: '#0a0a0a', borderRadius: 14, overflow: 'hidden', border: '1px solid #e4e4e7', cursor: grouped ? 'default' : 'pointer', padding: 0 }}>
+                    onClick={() => setScreenModal(s.id)}
+                    title={grouped ? 'Controlada por el grupo — tocá para configurar' : 'Tocá para cambiar el contenido'}
+                    style={{ position: 'relative', flex: 1, minWidth: 0, aspectRatio: '16 / 10', background: '#0a0a0a', borderRadius: 14, overflow: 'hidden', border: '1px solid #e4e4e7', cursor: 'pointer', padding: 0 }}>
                     {prev.empty ? (
                       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', justifyContent: 'center', color: '#a1a1aa', fontSize: 13, fontWeight: 600 }}>
                         <FontAwesomeIcon icon={mode === 'images' ? faImage : faVideo} style={{ fontSize: 20 }} />
@@ -1548,6 +1552,113 @@ export default function CCTV() {
           </div>
         </div>
       )}
+
+      {/* ══════════ MODAL UNIFICADO DE PANTALLA (clic en la vista previa) ══════════ */}
+      {screenModal != null && (() => {
+        const sm = screens.find(x => x.id === screenModal);
+        if (!sm) return null;
+        const smMode = sm.display_mode || 'video';
+        const smGrouped = !!sm.group_id;
+        const selStyle = { width: '100%', padding: '9px 11px', border: '1px solid #e4e4e7', borderRadius: 9, fontSize: 13, outline: 'none', background: '#fff', cursor: 'pointer', boxSizing: 'border-box' };
+        const secLabel = { fontSize: 11, fontWeight: 800, color: '#a1a1aa', letterSpacing: 0.4, textTransform: 'uppercase' };
+        const upBtn = (onClick, label, busy) => (
+          <button onClick={onClick} disabled={busy}
+            style={{ background: '#fffdf5', border: `1px solid ${GOLD}`, borderRadius: 20, color: '#92400e', fontSize: 11, fontWeight: 700, padding: '4px 11px', cursor: busy ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0, opacity: busy ? 0.6 : 1 }}>
+            <FontAwesomeIcon icon={faUpload} style={{ fontSize: 10 }} />{busy ? 'Subiendo…' : label}
+          </button>
+        );
+        const rowBtn = (active, activeBg, activeBorder, onClick, children) => (
+          <button onClick={onClick}
+            style={{ background: active ? activeBg : '#fafafa', border: `1px solid ${active ? activeBorder : '#e4e4e7'}`, borderRadius: 9, padding: '9px 12px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 9, width: '100%' }}>
+            {children}
+          </button>
+        );
+        return (
+          <div onClick={() => setScreenModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 18, padding: '20px 20px', width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', maxHeight: '90vh', overflowY: 'auto' }}>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>Configurar <span style={{ color: GOLD }}>{sm.device_name}</span></h3>
+                <button onClick={() => setScreenModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#a1a1aa' }}><FontAwesomeIcon icon={faTimes} /></button>
+              </div>
+
+              {/* Inputs ocultos para subir desde el modal */}
+              <input ref={mVideoRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={e => handleUpload(e.target.files[0])} />
+              <input ref={mImageRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => handleUploadImages(e.target.files)} />
+              <input ref={mMusicRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={e => handleUploadMusic(e.target.files[0])} />
+
+              {smGrouped ? (
+                <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 10, padding: '11px 14px', fontSize: 13, color: '#4338ca', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <FontAwesomeIcon icon={faLayerGroup} />
+                  El contenido lo controla el grupo <strong>{sm.group_name}</strong>. Quitala del grupo abajo para controlarla sola.
+                </div>
+              ) : (
+                <>
+                  {/* Modo: Video / Imágenes */}
+                  <div style={{ display: 'flex', gap: 6, background: '#f4f4f5', borderRadius: 11, padding: 4, marginBottom: 16 }}>
+                    {[['video', faVideo, 'Video'], ['images', faImage, 'Imágenes']].map(([m, ic, lbl]) => (
+                      <button key={m} onClick={() => smMode !== m && setScreenMode(sm, m)}
+                        style={{ flex: 1, background: smMode === m ? '#fff' : 'transparent', border: smMode === m ? `1px solid ${GOLD}` : '1px solid transparent', borderRadius: 8, padding: '8px 0', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: smMode === m ? '#09090b' : '#71717a', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                        <FontAwesomeIcon icon={ic} style={{ fontSize: 12, color: smMode === m ? GOLD : '#a1a1aa' }} />{lbl}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Contenido */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={secLabel}>{smMode === 'video' ? 'Video en pantalla' : 'Imágenes en pantalla'}</span>
+                    {smMode === 'video'
+                      ? upBtn(() => mVideoRef.current?.click(), 'Subir video', uploading)
+                      : upBtn(() => mImageRef.current?.click(), 'Subir imágenes', uploadingImages)}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto', marginBottom: 18 }}>
+                    {smMode === 'video' ? (<>
+                      {rowBtn(!sm.current_video_id, '#fff8e1', '#fde68a', () => assignVideo(sm.id, null),
+                        <span style={{ color: '#71717a', fontStyle: 'italic', fontSize: 13 }}>Sin video</span>)}
+                      {videos.map(v => (
+                        <Fragment key={v.id}>{rowBtn(sm.current_video_id === v.id, '#fff8e1', '#fde68a', () => assignVideo(sm.id, v.id),
+                          <><FontAwesomeIcon icon={faPlay} style={{ color: GOLD, fontSize: 12, flexShrink: 0 }} />
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ color: '#09090b', fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.original_name}</div>
+                              <div style={{ color: '#71717a', fontSize: 11 }}>{formatBytes(v.file_size)}</div>
+                            </div></>)}</Fragment>))}
+                      {videos.length === 0 && <div style={{ color: '#a1a1aa', fontSize: 12, textAlign: 'center', padding: '10px 0' }}>No hay videos. Subí uno arriba.</div>}
+                    </>) : (<>
+                      {rowBtn(!sm.current_album_id, '#fdf4ff', '#e9d5ff', () => assignScreenAlbum(sm.id, null),
+                        <><FontAwesomeIcon icon={faImage} style={{ color: '#7e22ce', fontSize: 13, flexShrink: 0 }} />
+                          <div><div style={{ color: '#09090b', fontWeight: 600, fontSize: 13 }}>Todas las imágenes</div>
+                            <div style={{ color: '#71717a', fontSize: 11 }}>{images.length} imagen{images.length !== 1 ? 'es' : ''}</div></div></>)}
+                      {albums.map(a => { const count = images.filter(i => i.album_id === a.id).length; return (
+                        <Fragment key={a.id}>{rowBtn(sm.current_album_id === a.id, '#fdf4ff', '#e9d5ff', () => assignScreenAlbum(sm.id, a.id),
+                          <><FontAwesomeIcon icon={faFolder} style={{ color: GOLD, fontSize: 15, flexShrink: 0 }} />
+                            <div><div style={{ color: '#09090b', fontWeight: 600, fontSize: 13 }}>{a.name}</div>
+                              <div style={{ color: '#71717a', fontSize: 11 }}>{count} imagen{count !== 1 ? 'es' : ''}</div></div></>)}</Fragment>); })}
+                      {images.length === 0 && <div style={{ color: '#a1a1aa', fontSize: 12, textAlign: 'center', padding: '10px 0' }}>No hay imágenes. Subí arriba.</div>}
+                    </>)}
+                  </div>
+                </>
+              )}
+
+              {/* Música */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={secLabel}>Música de fondo</span>
+                {upBtn(() => mMusicRef.current?.click(), 'Subir música', uploadingMusic)}
+              </div>
+              <select value={sm.music_id || ''} onChange={e => assignMusic(sm.id, e.target.value || null)} style={{ ...selStyle, marginBottom: 18 }}>
+                <option value="">Sin música</option>
+                {music.map(m => <option key={m.id} value={m.id}>{m.original_name}</option>)}
+              </select>
+
+              {/* Grupo */}
+              <div style={{ marginBottom: 8 }}><span style={secLabel}>Grupo (sincronizar con otras pantallas)</span></div>
+              <select value={sm.group_id || ''} onChange={e => assignScreenGroup(sm.id, e.target.value || null)} style={selStyle}>
+                <option value="">Sin grupo (control individual)</option>
+                {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Delete Confirm Modal */}
       {deleteConfirm && (

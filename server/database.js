@@ -3990,11 +3990,19 @@ export async function generateUniqueOrderNumber(storeId) {
 // receta (product_recipes → raw_materials), multiplicado por la cantidad.
 // Reutilizable por ventas normales, componentes de combos y pedidos externos.
 export async function deductProductInventory(storeId, productId, quantity, { orderId = null, productName = '' } = {}) {
-  if (!productId || !quantity) return;
+  if (!productId || !quantity) {
+    console.log(`[deduct] SKIP producto=${productId} cantidad=${quantity} (falta product_id o cantidad)`);
+    return;
+  }
   const [invRows] = await pool.execute(
     'SELECT stock, unlimited_stock FROM inventory WHERE product_id = ?',
     [productId]
   );
+  const [recipeCount] = await pool.execute(
+    'SELECT COUNT(*) AS n FROM product_recipes WHERE item_type = ? AND item_id = ?',
+    ['product', productId]
+  );
+  console.log(`[deduct] producto=${productId} "${productName}" x${quantity} · inventoryRow=${invRows.length ? 'sí' : 'NO'} unlimited=${invRows[0]?.unlimited_stock ?? '-'} recetas=${recipeCount[0]?.n ?? 0}`);
   if (invRows.length > 0 && !invRows[0].unlimited_stock) {
     const prevStock = invRows[0].stock;
     const newStock = Math.max(0, prevStock - quantity);
