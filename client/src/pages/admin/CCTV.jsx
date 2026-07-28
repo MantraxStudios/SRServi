@@ -785,18 +785,6 @@ export default function CCTV() {
                   </div>
                 </div>
 
-                {/* Intervalo (compacto) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 10 }}>
-                  <FontAwesomeIcon icon={faClock} style={{ fontSize: 12, color: GOLD, flexShrink: 0 }} />
-                  <span style={{ fontSize: 12.5, color: '#52525b' }}>Cada imagen/video dura</span>
-                  <input type="number" min={1} max={3600}
-                    value={localIntervals[s.id] ?? 5}
-                    onChange={e => setLocalIntervals(v => ({ ...v, [s.id]: e.target.value }))}
-                    onBlur={e => saveInterval(s.id, e.target.value)}
-                    style={{ width: 50, padding: '5px 6px', border: '1px solid #d4d4d8', borderRadius: 7, fontSize: 13, fontWeight: 700, textAlign: 'center', outline: 'none', background: '#fff' }} />
-                  <span style={{ fontSize: 12.5, color: '#a1a1aa' }}>seg</span>
-                </div>
-
                 {/* Horario */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, margin: '14px 0 6px' }}>
                   <FontAwesomeIcon icon={faClock} style={{ fontSize: 12, color: GOLD }} />
@@ -1697,12 +1685,6 @@ export default function CCTV() {
                 {music.map(m => <option key={m.id} value={m.id}>{m.original_name}</option>)}
               </select>
 
-              {/* Grupo */}
-              <div style={{ marginBottom: 8 }}><span style={secLabel}>Grupo (sincronizar con otras pantallas)</span></div>
-              <select value={sm.group_id || ''} onChange={e => assignScreenGroup(sm.id, e.target.value || null)} style={selStyle}>
-                <option value="">Sin grupo (control individual)</option>
-                {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
             </div>
           </div>
         );
