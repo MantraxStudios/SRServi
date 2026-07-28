@@ -532,6 +532,18 @@ export default function CCTV() {
     } catch (e) { showError(e.message); }
   };
 
+  // Reproducir TODA la música en secuencia (playlist).
+  const assignScreenMusicAll = async (screenId) => {
+    try {
+      const r = await fetch(`${API}/api/cctv/screens/${screenId}/music-all`, {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ play_all: true })
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      await fetchScreens(); showSuccess('Reproduciendo toda la música');
+    } catch (e) { showError(e.message); }
+  };
+
   const assignMusic = async (screenId, musicId) => {
     try {
       const r = await fetch(`${API}/api/cctv/screens/${screenId}/music`, {
@@ -1597,7 +1609,7 @@ export default function CCTV() {
                 <>
                   {/* Modo: Video / Imágenes */}
                   <div style={{ display: 'flex', gap: 6, background: '#f4f4f5', borderRadius: 11, padding: 4, marginBottom: 16 }}>
-                    {[['video', faVideo, 'Video'], ['images', faImage, 'Imágenes'], ['all', faLayerGroup, 'Todo']].map(([m, ic, lbl]) => (
+                    {[['video', faVideo, 'Video'], ['images', faImage, 'Imágenes']].map(([m, ic, lbl]) => (
                       <button key={m} onClick={() => smMode !== m && setScreenMode(sm, m)}
                         style={{ flex: 1, background: smMode === m ? '#fff' : 'transparent', border: smMode === m ? `1px solid ${GOLD}` : '1px solid transparent', borderRadius: 8, padding: '8px 0', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: smMode === m ? '#09090b' : '#71717a', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                         <FontAwesomeIcon icon={ic} style={{ fontSize: 12, color: smMode === m ? GOLD : '#a1a1aa' }} />{lbl}
@@ -1676,8 +1688,12 @@ export default function CCTV() {
                 <span style={secLabel}>Música de fondo</span>
                 {upBtn(() => mMusicRef.current?.click(), 'Subir música', uploadingMusic)}
               </div>
-              <select value={sm.music_id || ''} onChange={e => assignMusic(sm.id, e.target.value || null)} style={{ ...selStyle, marginBottom: 18 }}>
+              <select
+                value={sm.music_play_all ? '__all__' : (sm.music_id || '')}
+                onChange={e => { const v = e.target.value; if (v === '__all__') assignScreenMusicAll(sm.id); else assignMusic(sm.id, v || null); }}
+                style={{ ...selStyle, marginBottom: 18 }}>
                 <option value="">Sin música</option>
+                {music.length > 1 && <option value="__all__">▶ Reproducir toda la música ({music.length} pistas)</option>}
                 {music.map(m => <option key={m.id} value={m.id}>{m.original_name}</option>)}
               </select>
 

@@ -12788,6 +12788,7 @@ async function startServer() {
         'ALTER TABLE cctv_screens ADD COLUMN image_interval INT NOT NULL DEFAULT 5',
         'ALTER TABLE cctv_screens ADD COLUMN current_image_id INT DEFAULT NULL',
         'ALTER TABLE cctv_screens ADD COLUMN video_play_all TINYINT(1) DEFAULT 0',
+        'ALTER TABLE cctv_screens ADD COLUMN music_play_all TINYINT(1) DEFAULT 0',
         'ALTER TABLE cctv_images ADD COLUMN album_id INT DEFAULT NULL'
       ]) {
         try { await pool.execute(sql); } catch (_) { /* columna ya existe */ }
@@ -12910,6 +12911,19 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
+    // Admin: reproducir TODA la música en secuencia (playlist). null = desactivar.
+    app.put('/api/cctv/screens/:id/music-all', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const on = req.body.play_all ? 1 : 0;
+        await pool.execute(
+          'UPDATE cctv_screens SET music_play_all = ?, current_music_id = NULL WHERE id = ? AND user_id = ?',
+          [on, req.params.id, req.user.id]
+        );
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
     // Admin: rename screen
     app.put('/api/cctv/screens/:id/name', authenticateToken, async (req, res) => {
       try {
@@ -12993,7 +13007,7 @@ async function startServer() {
         if (!device_token) return res.status(400).json({ error: 'device_token requerido' });
         const [rows] = await pool.execute(`
           SELECT s.id, s.user_id, s.device_name, s.group_id,
-            s.current_video_id, s.current_music_id, s.current_album_id, s.current_image_id, s.video_play_all, s.video_muted, s.display_mode,
+            s.current_video_id, s.current_music_id, s.current_album_id, s.current_image_id, s.video_play_all, s.music_play_all, s.video_muted, s.display_mode,
             COALESCE(s.volume_level, 100) AS volume_level,
             COALESCE(s.rotation, 0) AS rotation, COALESCE(s.image_interval, 5) AS image_interval
           FROM cctv_screens s
@@ -13013,6 +13027,7 @@ async function startServer() {
           current_album_id: screen.current_album_id,
           current_image_id: screen.current_image_id,
           video_play_all: screen.video_play_all,
+          music_play_all: screen.music_play_all,
           video_muted: screen.video_muted,
           display_mode: screen.display_mode || 'video',
         };
@@ -13028,6 +13043,7 @@ async function startServer() {
               current_album_id: gRows[0].current_album_id,
               current_image_id: null, // los grupos no soportan imagen única
               video_play_all: 0,      // ni playlist de todos los videos
+              music_play_all: 0,      // ni playlist de toda la música
               video_muted: gRows[0].video_muted,
               display_mode: gRows[0].display_mode || 'video',
             };
@@ -13055,7 +13071,17 @@ async function startServer() {
           video_filename: vRow?.video_filename || null,
           music_url: mRow?.music_url || null,
           music_name: mRow?.music_name || null,
+          music_play_all: !!playback.music_play_all,
         };
+        if (playback.music_play_all) {
+          // Reproducir TODA la música en secuencia (playlist en loop).
+          const [tracks] = await pool.execute(
+            'SELECT url, original_name AS name FROM cctv_music WHERE user_id = ? ORDER BY created_at ASC',
+            [userId]
+          );
+          config.musics = tracks;
+          if (!config.music_url && tracks.length) { config.music_url = tracks[0].url; config.music_name = tracks[0].name; }
+        }
         if (config.display_mode === 'all') {
           // Modo mixto: reproducir TODOS los videos Y TODAS las imágenes en un solo loop.
           const iv = screen.image_interval || 5;
@@ -13435,7 +13461,7 @@ async function startServer() {
           const [mRows] = await pool.execute('SELECT id FROM cctv_music WHERE id = ? AND user_id = ?', [music_id, req.user.id]);
           if (!mRows.length) return res.status(404).json({ error: 'Música no encontrada' });
         }
-        await pool.execute('UPDATE cctv_screens SET current_music_id = ? WHERE id = ? AND user_id = ?', [music_id || null, req.params.id, req.user.id]);
+        await pool.execute('UPDATE cctv_screens SET current_music_id = ?, music_play_all = 0 WHERE id = ? AND user_id = ?', [music_id || null, req.params.id, req.user.id]);
         res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });

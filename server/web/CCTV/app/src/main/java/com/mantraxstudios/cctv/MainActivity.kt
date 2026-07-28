@@ -90,6 +90,7 @@ private const val KEY_VIDEO_URL = "current_video_url"
 private const val KEY_VIDEO_PLAYLIST = "current_video_playlist"
 private const val KEY_MUSIC_URL = "current_music_url"
 private const val KEY_MUSIC_PATH = "current_music_path"
+private const val KEY_MUSIC_PLAYLIST = "current_music_playlist"
 private const val KEY_LAUNCHER_CONFIRMED = "launcher_confirmed"
 private const val KEY_OFFLINE_MODE = "offline_mode"
 private const val KEY_AUTO_OFFLINE = "auto_offline"
@@ -1849,7 +1850,40 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                 musicPlayer.volume = effectiveVolume
                 mediaVolume = effectiveVolume
 
-                if (musicUrl == null) {
+                // ── Reproducir TODA la música: playlist en loop ────────────
+                val musicsArray = config.optJSONArray("musics")
+                val musicPlayAll = config.optBoolean("music_play_all", false) &&
+                    musicsArray != null && musicsArray.length() > 0
+
+                if (musicPlayAll) {
+                    val playlistKey = (0 until musicsArray!!.length()).joinToString(",") {
+                        musicsArray.getJSONObject(it).optString("url")
+                    }
+                    if (playlistKey != prefs.getString(KEY_MUSIC_PLAYLIST, null)) {
+                        val mediaFiles = mutableListOf<File>()
+                        for (i in 0 until musicsArray.length()) {
+                            val mUrl = musicsArray.getJSONObject(i).optString("url").takeIf { it.isNotEmpty() } ?: continue
+                            val fullUrl = if (mUrl.startsWith("http")) mUrl else "$BASE_URL$mUrl"
+                            val urlHash = mUrl.hashCode().toString().replace("-", "n")
+                            val originalName = Uri.parse(mUrl).lastPathSegment ?: "music.mp3"
+                            val destFile = File(getMusicStorageDir(context), "${urlHash}_${originalName}")
+                            if (!destFile.exists()) {
+                                withContext(Dispatchers.IO) {
+                                    try { downloadVideoFile(fullUrl, destFile) { _ -> } }
+                                    catch (e: Exception) { Log.e(TAG, "Music playlist dl error: ${e.message}"); destFile.delete() }
+                                }
+                            }
+                            if (destFile.exists()) mediaFiles.add(destFile)
+                        }
+                        if (mediaFiles.isNotEmpty()) {
+                            prefs.edit().putString(KEY_MUSIC_PLAYLIST, playlistKey).remove(KEY_MUSIC_URL).remove(KEY_MUSIC_PATH).apply()
+                            musicPlayer.repeatMode = Player.REPEAT_MODE_ALL
+                            musicPlayer.setMediaItems(mediaFiles.map { MediaItem.fromUri(Uri.fromFile(it)) })
+                            musicPlayer.prepare()
+                        }
+                    }
+                } else if (musicUrl == null) {
+                    if (prefs.getString(KEY_MUSIC_PLAYLIST, null) != null) prefs.edit().remove(KEY_MUSIC_PLAYLIST).apply()
                     if (savedMusicUrl != null || musicPlayer.playbackState != Player.STATE_IDLE) {
                         musicPlayer.pause()
                         musicPlayer.stop()
@@ -1857,6 +1891,7 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                         prefs.edit().remove(KEY_MUSIC_URL).remove(KEY_MUSIC_PATH).apply()
                     }
                 } else if (musicUrl != savedMusicUrl) {
+                    if (prefs.getString(KEY_MUSIC_PLAYLIST, null) != null) prefs.edit().remove(KEY_MUSIC_PLAYLIST).apply()
                     val fullMusicUrl = if (musicUrl.startsWith("http")) musicUrl else "$BASE_URL$musicUrl"
                     val urlHash = musicUrl.hashCode().toString().replace("-", "n")
                     val originalName = Uri.parse(musicUrl).lastPathSegment ?: "music.mp3"
