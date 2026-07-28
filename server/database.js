@@ -5386,10 +5386,10 @@ export async function getAnalytics(storeId, dateRange = 'week', startDate = null
 
   const totalOrdersQuery = `
     SELECT COUNT(*) as total,
-           SUM(CASE WHEN status IN ('paid', 'processed', 'completed', 'approved') THEN 1 ELSE 0 END) as completed,
-           SUM(CASE WHEN status IN ('pending', 'waiting') THEN 1 ELSE 0 END) as pending,
-           SUM(CASE WHEN status IN ('cancelled') THEN 1 ELSE 0 END) as cancelled,
-           SUM(CASE WHEN status IN ('paid', 'processed', 'completed', 'approved') THEN total ELSE 0 END) as revenue
+           SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') THEN 1 ELSE 0 END) as completed,
+           SUM(CASE WHEN status IN ('pending', 'waiting') AND payment_process = 0 THEN 1 ELSE 0 END) as pending,
+           SUM(CASE WHEN status IN ('cancelled', 'canceled') THEN 1 ELSE 0 END) as cancelled,
+           SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') THEN total ELSE 0 END) as revenue
     FROM orders o
     WHERE store_id = ? ${dateFilterO}
   `;
@@ -5399,7 +5399,7 @@ export async function getAnalytics(storeId, dateRange = 'week', startDate = null
   const avgOrderQuery = `
     SELECT AVG(total) as avg_order
     FROM orders
-    WHERE store_id = ? AND status IN ('paid', 'processed', 'completed', 'approved') ${dateFilterPlain}
+    WHERE store_id = ? AND payment_process = 1 AND status NOT IN ('cancelled', 'canceled') ${dateFilterPlain}
   `;
 
   const [avgResult] = await pool.execute(avgOrderQuery, [storeId, ...dateParams]);
@@ -5434,7 +5434,7 @@ export async function getSalesByDay(storeId, dateRange = 'week', startDate = nul
   const query = `
     SELECT DATE(created_at) as date,
            COUNT(*) as orders,
-           SUM(CASE WHEN status IN ('paid', 'processed', 'completed', 'approved') THEN total ELSE 0 END) as revenue
+           SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') THEN total ELSE 0 END) as revenue
     FROM orders
     WHERE store_id = ? ${condition}
     GROUP BY DATE(created_at)
@@ -5484,7 +5484,7 @@ export async function getTopProducts(storeId, limit = 10, dateRange = 'week', { 
     JOIN products p ON oi.product_id = p.id
     LEFT JOIN categories c ON p.category_id = c.id
     WHERE o.store_id = ?
-      AND o.status IN ('paid', 'processed', 'completed', 'approved')
+      AND o.payment_process = 1 AND o.status NOT IN ('cancelled', 'canceled')
       ${dateCondition}
       ${categoryFilter}
     GROUP BY p.id, p.name, p.image, p.category_id, c.name
@@ -5535,7 +5535,7 @@ export async function getBottomProducts(storeId, limit = 10, dateRange = 'week',
     JOIN products p ON oi.product_id = p.id
     LEFT JOIN categories c ON p.category_id = c.id
     WHERE o.store_id = ?
-      AND o.status IN ('paid', 'processed', 'completed', 'approved')
+      AND o.payment_process = 1 AND o.status NOT IN ('cancelled', 'canceled')
       ${dateCondition}
       ${categoryFilter}
     GROUP BY p.id, p.name, p.image, p.category_id, c.name
@@ -5565,7 +5565,7 @@ export async function getProductSalesReport(storeId, range = 'yesterday') {
     JOIN products p ON oi.product_id = p.id
     LEFT JOIN categories c ON p.category_id = c.id
     WHERE o.store_id = ?
-      AND o.status IN ('paid', 'processed', 'completed', 'approved')
+      AND o.payment_process = 1 AND o.status NOT IN ('cancelled', 'canceled')
       ${dateFilter}
     GROUP BY p.id, p.name, c.name
     ORDER BY total_sold DESC
@@ -5580,7 +5580,7 @@ export async function getProductSalesReport(storeId, range = 'yesterday') {
       AND p.id NOT IN (
         SELECT DISTINCT oi.product_id FROM order_items oi
         JOIN orders o ON oi.order_id = o.id
-        WHERE o.store_id = ? AND o.status IN ('paid', 'processed', 'completed', 'approved')
+        WHERE o.store_id = ? AND o.payment_process = 1 AND o.status NOT IN ('cancelled', 'canceled')
           ${dateFilter}
       )
     ORDER BY p.name ASC

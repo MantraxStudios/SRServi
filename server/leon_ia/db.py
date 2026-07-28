@@ -47,8 +47,8 @@ def get_store_data(store_id: int) -> dict:
         for label, interval in [("hoy", "1 DAY"), ("semana", "7 DAY"), ("mes", "30 DAY")]:
             row = fetch_one(cur, f"""
                 SELECT COUNT(*) AS pedidos,
-                       COALESCE(SUM(CASE WHEN status IN ('paid','processed','completed','approved') THEN total END), 0) AS ingresos,
-                       COALESCE(AVG(CASE WHEN status IN ('paid','processed','completed','approved') THEN total END), 0) AS ticket_promedio,
+                       COALESCE(SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled','canceled') THEN total END), 0) AS ingresos,
+                       COALESCE(AVG(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled','canceled') THEN total END), 0) AS ticket_promedio,
                        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pendientes
                 FROM orders
                 WHERE store_id = %s AND created_at >= DATE_SUB(NOW(), INTERVAL {interval})
@@ -66,7 +66,7 @@ def get_store_data(store_id: int) -> dict:
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
             JOIN products p ON oi.product_id = p.id
-            WHERE o.store_id = %s AND o.status IN ('paid','processed','completed','approved')
+            WHERE o.store_id = %s AND o.payment_process = 1 AND o.status NOT IN ('cancelled','canceled')
               AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
             GROUP BY p.id, p.name ORDER BY unidades DESC LIMIT 8
         """, (store_id,))
@@ -77,7 +77,7 @@ def get_store_data(store_id: int) -> dict:
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
             JOIN products p ON oi.product_id = p.id
-            WHERE o.store_id = %s AND o.status IN ('paid','processed','completed','approved')
+            WHERE o.store_id = %s AND o.payment_process = 1 AND o.status NOT IN ('cancelled','canceled')
               AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             GROUP BY p.id, p.name ORDER BY unidades DESC LIMIT 8
         """, (store_id,))
@@ -88,7 +88,7 @@ def get_store_data(store_id: int) -> dict:
             FROM products p
             LEFT JOIN order_items oi ON oi.product_id = p.id
             LEFT JOIN orders o ON oi.order_id = o.id
-              AND o.store_id = %s AND o.status IN ('paid','processed','completed','approved')
+              AND o.store_id = %s AND o.payment_process = 1 AND o.status NOT IN ('cancelled','canceled')
               AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
             WHERE p.store_id = %s
             GROUP BY p.id, p.name, p.price ORDER BY unidades ASC LIMIT 8
@@ -99,7 +99,7 @@ def get_store_data(store_id: int) -> dict:
             SELECT DAYOFWEEK(created_at) AS dia_num, COUNT(*) AS pedidos,
                    SUM(total) AS ingresos
             FROM orders
-            WHERE store_id = %s AND status IN ('paid','processed','completed','approved')
+            WHERE store_id = %s AND payment_process = 1 AND status NOT IN ('cancelled','canceled')
               AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             GROUP BY DAYOFWEEK(created_at) ORDER BY pedidos DESC
         """, (store_id,))
@@ -114,7 +114,7 @@ def get_store_data(store_id: int) -> dict:
         data["ventas_por_hora"] = fetch_all(cur, """
             SELECT HOUR(created_at) AS hora, COUNT(*) AS pedidos
             FROM orders
-            WHERE store_id = %s AND status IN ('paid','processed','completed','approved')
+            WHERE store_id = %s AND payment_process = 1 AND status NOT IN ('cancelled','canceled')
               AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
             GROUP BY HOUR(created_at) ORDER BY pedidos DESC LIMIT 8
         """, (store_id,))
@@ -136,7 +136,7 @@ def get_store_data(store_id: int) -> dict:
             FROM order_items oi JOIN orders o ON oi.order_id = o.id
             JOIN products p ON oi.product_id = p.id
             LEFT JOIN categories c ON p.category_id = c.id
-            WHERE o.store_id = %s AND o.status IN ('paid','processed','completed','approved')
+            WHERE o.store_id = %s AND o.payment_process = 1 AND o.status NOT IN ('cancelled','canceled')
               AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
             GROUP BY c.id, c.name ORDER BY ingresos DESC LIMIT 8
         """, (store_id,))
@@ -157,7 +157,7 @@ def get_store_data(store_id: int) -> dict:
         rows = fetch_all(cur, """
             SELECT selected_extras FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
-            WHERE o.store_id = %s AND o.status IN ('paid','processed','completed','approved')
+            WHERE o.store_id = %s AND o.payment_process = 1 AND o.status NOT IN ('cancelled','canceled')
               AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
               AND oi.selected_extras IS NOT NULL AND oi.selected_extras != '[]'
         """, (store_id,))
@@ -178,7 +178,7 @@ def get_store_data(store_id: int) -> dict:
         rows2 = fetch_all(cur, """
             SELECT selected_ingredients FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
-            WHERE o.store_id = %s AND o.status IN ('paid','processed','completed','approved')
+            WHERE o.store_id = %s AND o.payment_process = 1 AND o.status NOT IN ('cancelled','canceled')
               AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
               AND oi.selected_ingredients IS NOT NULL AND oi.selected_ingredients != '[]'
         """, (store_id,))

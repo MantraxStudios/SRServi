@@ -370,7 +370,7 @@ function Analytics() {
                       </div>
                       <div className="text-right">
                         <div className="analytics-order-amount">
-                          {formatCurrency(order.total_amount)}
+                          {formatCurrency(order.total)}
                         </div>
                         <span className="badge" style={{ color: status.color, backgroundColor: `${status.color}15` }}>
                           {status.label}

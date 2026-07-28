@@ -3472,7 +3472,7 @@ async function leonGetWorstProducts(storeId, range) {
      LEFT JOIN order_items oi ON oi.product_id = p.id
      LEFT JOIN orders o ON oi.order_id = o.id
        AND o.store_id = ?
-       AND o.status IN ('paid','processed','completed','approved')
+       AND o.payment_process = 1 AND o.status NOT IN ('cancelled','canceled')
        AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
      WHERE p.store_id = ?
      GROUP BY p.id, p.name, p.price
@@ -3497,7 +3497,7 @@ async function leonGetTopProductsWithRevenue(storeId, range, limit = 5) {
      JOIN orders o ON oi.order_id = o.id
      JOIN products p ON oi.product_id = p.id
      WHERE o.store_id = ?
-       AND o.status IN ('paid','processed','completed','approved')
+       AND o.payment_process = 1 AND o.status NOT IN ('cancelled','canceled')
        AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
      GROUP BY p.id, p.name
      ORDER BY total_sold DESC
@@ -3522,7 +3522,7 @@ async function leonGetCategoryRevenue(storeId, range) {
      JOIN orders o ON oi.order_id=o.id
      JOIN products p ON oi.product_id=p.id
      LEFT JOIN categories c ON p.category_id=c.id
-     WHERE o.store_id=? AND o.status IN ('paid','processed','completed','approved')
+     WHERE o.store_id=? AND o.payment_process = 1 AND o.status NOT IN ('cancelled','canceled')
        AND o.created_at>=DATE_SUB(NOW(),INTERVAL ${interval})
      GROUP BY c.id, c.name
      ORDER BY revenue DESC`,
@@ -3558,7 +3558,7 @@ async function leonGetTopExtras(storeId, range) {
      FROM order_items oi
      JOIN orders o ON oi.order_id = o.id
      WHERE o.store_id = ?
-       AND o.status IN ('paid','processed','completed','approved')
+       AND o.payment_process = 1 AND o.status NOT IN ('cancelled','canceled')
        AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
        AND oi.selected_extras IS NOT NULL AND oi.selected_extras != '[]'`,
     [storeId]
@@ -3600,7 +3600,7 @@ async function leonGetSalesByDayOfWeek(storeId, range, startDate = null, endDate
             SUM(o.total) AS revenue
      FROM orders o
      WHERE o.store_id = ?
-       AND o.status IN ('paid','processed','completed','approved')
+       AND o.payment_process = 1 AND o.status NOT IN ('cancelled','canceled')
        ${dateCondition}
      GROUP BY DAYOFWEEK(o.created_at)
      ORDER BY orders DESC`,
@@ -3620,7 +3620,7 @@ async function leonGetTopIngredients(storeId, range) {
      FROM order_items oi
      JOIN orders o ON oi.order_id = o.id
      WHERE o.store_id = ?
-       AND o.status IN ('paid','processed','completed','approved')
+       AND o.payment_process = 1 AND o.status NOT IN ('cancelled','canceled')
        AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
        AND oi.selected_ingredients IS NOT NULL AND oi.selected_ingredients != '[]'`,
     [storeId]
@@ -3670,7 +3670,7 @@ async function leonGetProductAnalysis(storeId, productName) {
        FROM order_items oi
        JOIN orders o ON oi.order_id = o.id
        WHERE oi.product_id = ? AND o.store_id = ?
-         AND o.status IN ('paid','processed','completed','approved')
+         AND o.payment_process = 1 AND o.status NOT IN ('cancelled','canceled')
          AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})`,
       [prod.id, storeId]
     );
@@ -3683,7 +3683,7 @@ async function leonGetProductAnalysis(storeId, productName) {
      FROM products p
      LEFT JOIN order_items oi ON oi.product_id = p.id
      LEFT JOIN orders o ON oi.order_id = o.id
-       AND o.store_id = ? AND o.status IN ('paid','processed','completed','approved')
+       AND o.store_id = ? AND o.payment_process = 1 AND o.status NOT IN ('cancelled','canceled')
        AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
      WHERE p.store_id = ?
      GROUP BY p.id
@@ -3699,7 +3699,7 @@ async function leonGetProductAnalysis(storeId, productName) {
      FROM order_items oi
      JOIN orders o ON oi.order_id = o.id
      WHERE oi.product_id = ? AND o.store_id = ?
-       AND o.status IN ('paid','processed','completed','approved')
+       AND o.payment_process = 1 AND o.status NOT IN ('cancelled','canceled')
        AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
      GROUP BY DATE(o.created_at)
      ORDER BY date ASC`,
