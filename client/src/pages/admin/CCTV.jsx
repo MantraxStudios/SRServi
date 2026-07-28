@@ -702,93 +702,95 @@ export default function CCTV() {
             const scheds = screenSchedules[s.id]?.data || [];
             const adv = !!advancedOpen[s.id];
             return (
-              <div key={s.id} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 16, padding: '16px 16px 18px' }}>
+              <div key={s.id} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 16, padding: 14 }}>
                 {/* Nombre + estado */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-                  <div style={{ width: 30, height: 30, borderRadius: 8, background: s.is_online ? '#f0fdf4' : '#f4f4f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <FontAwesomeIcon icon={faDesktop} style={{ fontSize: 12, color: s.is_online ? '#16a34a' : '#a1a1aa' }} />
-                  </div>
-                  <span style={{ fontWeight: 700, fontSize: 15, color: '#09090b' }}>{s.device_name}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <FontAwesomeIcon icon={faDesktop} style={{ fontSize: 14, color: s.is_online ? '#16a34a' : '#a1a1aa', flexShrink: 0 }} />
+                  <span style={{ fontWeight: 700, fontSize: 15, color: '#09090b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.device_name}</span>
                   <button onClick={() => { setRenameModal(s); setRenameName(s.device_name); }} title="Editar nombre"
-                    style={{ width: 24, height: 24, borderRadius: 6, background: '#f4f4f5', border: '1px solid #e4e4e7', cursor: 'pointer', color: '#71717a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}>
-                    <FontAwesomeIcon icon={faPen} style={{ fontSize: 10 }} />
+                    style={{ width: 22, height: 22, borderRadius: 6, background: '#f4f4f5', border: '1px solid #e4e4e7', cursor: 'pointer', color: '#71717a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}>
+                    <FontAwesomeIcon icon={faPen} style={{ fontSize: 9 }} />
                   </button>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: s.is_online ? '#f0fdf4' : '#f4f4f5', color: s.is_online ? '#15803d' : '#71717a', border: `1px solid ${s.is_online ? '#bbf7d0' : '#e4e4e7'}` }}>
-                    {s.is_online ? '● En vivo' : '○ Offline'}
-                  </span>
                   {grouped && (
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: '#eef2ff', color: '#4338ca', border: '1px solid #c7d2fe', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: '#eef2ff', color: '#4338ca', border: '1px solid #c7d2fe', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
                       <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: 9 }} />{s.group_name}
                     </span>
                   )}
+                  <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: s.is_online ? '#f0fdf4' : '#f4f4f5', color: s.is_online ? '#15803d' : '#71717a', border: `1px solid ${s.is_online ? '#bbf7d0' : '#e4e4e7'}`, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                    {s.is_online ? '● En vivo' : '○ Offline'}
+                  </span>
                 </div>
 
-                {/* Vista previa + Girar imagen */}
-                <div style={{ fontSize: 12, color: '#a1a1aa', marginBottom: 6, fontWeight: 600 }}>REPRODUCIENDO AHORA</div>
-                <div style={{ display: 'flex', alignItems: 'stretch', gap: 12 }}>
-                  <button
-                    onClick={() => setScreenModal(s.id)}
-                    title={grouped ? 'Controlada por el grupo — tocá para configurar' : 'Tocá para cambiar el contenido'}
-                    style={{ position: 'relative', flex: 1, minWidth: 0, aspectRatio: '16 / 10', background: '#0a0a0a', borderRadius: 14, overflow: 'hidden', border: '1px solid #e4e4e7', cursor: 'pointer', padding: 0 }}>
-                    {prev.empty ? (
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', justifyContent: 'center', color: '#a1a1aa', fontSize: 13, fontWeight: 600 }}>
-                        <FontAwesomeIcon icon={mode === 'images' ? faImage : faVideo} style={{ fontSize: 20 }} />
-                        Sin contenido
-                      </div>
-                    ) : prev.type === 'video' ? (
-                      <video src={`${prev.src}#t=0.5`} muted playsInline preload="metadata"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `rotate(${rot}deg)` }} />
-                    ) : (
-                      <img src={prev.src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `rotate(${rot}deg)` }} />
-                    )}
-                    {/* Etiqueta del contenido + acción de cambiar */}
-                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '20px 8px 7px', display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(transparent, rgba(0,0,0,0.75))', pointerEvents: 'none' }}>
-                      <span style={{ flex: 1, minWidth: 0, color: '#fff', fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {grouped ? `Grupo: ${s.group_name}` : mode === 'images' ? (s.image_name || s.album_name || 'Todas las imágenes') : (s.video_name || 'Sin video')}
-                      </span>
-                      {!grouped && (
-                        <span style={{ background: GOLD, color: '#0a0a0a', fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                          <FontAwesomeIcon icon={faPen} style={{ fontSize: 9 }} />Cambiar
-                        </span>
-                      )}
+                {/* Vista previa (clic para configurar) con Girar en overlay */}
+                <div
+                  onClick={() => setScreenModal(s.id)}
+                  title={grouped ? 'Controlada por el grupo — tocá para configurar' : 'Tocá para cambiar el contenido'}
+                  style={{ position: 'relative', aspectRatio: '16 / 9', background: '#0a0a0a', borderRadius: 12, overflow: 'hidden', border: '1px solid #e4e4e7', cursor: 'pointer' }}>
+                  {prev.empty ? (
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', justifyContent: 'center', color: '#a1a1aa', fontSize: 13, fontWeight: 600 }}>
+                      <FontAwesomeIcon icon={mode === 'images' ? faImage : faVideo} style={{ fontSize: 20 }} />
+                      Sin contenido
                     </div>
+                  ) : prev.type === 'video' ? (
+                    <video src={`${prev.src}#t=0.5`} muted playsInline preload="metadata"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `rotate(${rot}deg)` }} />
+                  ) : (
+                    <img src={prev.src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `rotate(${rot}deg)` }} />
+                  )}
+                  {/* Girar (overlay arriba-derecha) */}
+                  <button onClick={e => { e.stopPropagation(); rotateScreen(s); }} title={`Girar (actual ${rot}°)`}
+                    style={{ position: 'absolute', top: 8, right: 8, width: 32, height: 32, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <FontAwesomeIcon icon={faRotate} style={{ fontSize: 13 }} />
                   </button>
-
-                  {/* Girar imagen */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, width: 70, flexShrink: 0, background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 14, padding: '8px 4px' }}>
-                    <button onClick={() => rotateScreen(s)} title={`Girar (actual ${rot}°)`}
-                      style={{ width: 46, height: 46, borderRadius: '50%', border: `2px solid ${GOLD}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: GOLD }}>
-                      <FontAwesomeIcon icon={faRotate} style={{ fontSize: 18 }} />
-                    </button>
-                    <span style={{ fontSize: 11, color: '#71717a', textAlign: 'center', lineHeight: 1.15, fontWeight: 600 }}>Girar<br />{rot}°</span>
+                  {/* Etiqueta del contenido + acción de cambiar */}
+                  <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '18px 8px 7px', display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(transparent, rgba(0,0,0,0.78))', pointerEvents: 'none' }}>
+                    <span style={{ flex: 1, minWidth: 0, color: '#fff', fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {grouped ? `Grupo: ${s.group_name}` : mode === 'images' ? (s.image_name || s.album_name || 'Todas las imágenes') : (s.video_name || 'Sin video')}
+                    </span>
+                    {!grouped && (
+                      <span style={{ background: GOLD, color: '#0a0a0a', fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                        <FontAwesomeIcon icon={faPen} style={{ fontSize: 9 }} />Cambiar
+                      </span>
+                    )}
                   </div>
                 </div>
 
+                {/* Intervalo (compacto) */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 10 }}>
+                  <FontAwesomeIcon icon={faClock} style={{ fontSize: 12, color: GOLD, flexShrink: 0 }} />
+                  <span style={{ fontSize: 12.5, color: '#52525b' }}>Cada imagen/video dura</span>
+                  <input type="number" min={1} max={3600}
+                    value={localIntervals[s.id] ?? 5}
+                    onChange={e => setLocalIntervals(v => ({ ...v, [s.id]: e.target.value }))}
+                    onBlur={e => saveInterval(s.id, e.target.value)}
+                    style={{ width: 50, padding: '5px 6px', border: '1px solid #d4d4d8', borderRadius: 7, fontSize: 13, fontWeight: 700, textAlign: 'center', outline: 'none', background: '#fff' }} />
+                  <span style={{ fontSize: 12.5, color: '#a1a1aa' }}>seg</span>
+                </div>
+
                 {/* Horario */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '18px 0 8px' }}>
-                  <FontAwesomeIcon icon={faClock} style={{ fontSize: 13, color: GOLD }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, margin: '14px 0 6px' }}>
+                  <FontAwesomeIcon icon={faClock} style={{ fontSize: 12, color: GOLD }} />
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#09090b' }}>Horario</span>
-                  <span style={{ fontSize: 12, color: '#a1a1aa' }}>· qué se ve a cada hora del día</span>
-                  <button onClick={() => setScheduleModal(s)} style={{ marginLeft: 'auto', background: '#fffdf5', border: `1px solid ${GOLD}`, borderRadius: 20, color: '#92400e', fontSize: 12, fontWeight: 700, padding: '4px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <button onClick={() => setScheduleModal(s)} style={{ marginLeft: 'auto', background: '#fffdf5', border: `1px solid ${GOLD}`, borderRadius: 20, color: '#92400e', fontSize: 12, fontWeight: 700, padding: '3px 11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
                     <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10 }} />Agregar
                   </button>
                 </div>
-                <div style={{ position: 'relative', background: '#0a0a0a', borderRadius: 10, height: 54, padding: '0 4px', marginBottom: 8 }}>
-                  <div style={{ position: 'absolute', left: 6, right: 6, top: 20, height: 2, background: GOLD, opacity: 0.4, borderRadius: 2 }} />
+                <div style={{ position: 'relative', background: '#0a0a0a', borderRadius: 9, height: 46, padding: '0 4px', marginBottom: scheds.length > 0 ? 8 : 0 }}>
+                  <div style={{ position: 'absolute', left: 6, right: 6, top: 17, height: 2, background: GOLD, opacity: 0.4, borderRadius: 2 }} />
                   {scheds.filter(sc => sc.active).map(sc => (
                     <button key={sc.id} onClick={() => setScheduleModal(s)} title={`${sc.name || sc.video_name}`}
-                      style={{ position: 'absolute', top: 11, left: `calc(6px + ${timeToPct(sc.start_time)} * (100% - 12px))`, transform: 'translateX(-50%)', minWidth: 42, borderRadius: 6, border: `1px solid ${GOLD}`, background: '#26210f', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2px 4px' }}>
-                      <FontAwesomeIcon icon={faPlay} style={{ color: GOLD, fontSize: 8 }} />
+                      style={{ position: 'absolute', top: 8, left: `calc(6px + ${timeToPct(sc.start_time)} * (100% - 12px))`, transform: 'translateX(-50%)', minWidth: 40, borderRadius: 6, border: `1px solid ${GOLD}`, background: '#26210f', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1px 4px' }}>
+                      <FontAwesomeIcon icon={faPlay} style={{ color: GOLD, fontSize: 7 }} />
                       <span style={{ color: GOLD, fontSize: 9, fontWeight: 700 }}>{sc.start_time}</span>
                     </button>
                   ))}
                   {/* marcas de hora (abajo) */}
                   {[['00:00', 0], ['06', 25], ['12', 50], ['18', 75], ['24:00', 100]].map(([lbl, pct]) => (
-                    <span key={lbl} style={{ position: 'absolute', bottom: 4, left: `calc(6px + ${pct / 100} * (100% - 12px))`, transform: pct === 0 ? 'none' : pct === 100 ? 'translateX(-100%)' : 'translateX(-50%)', color: '#71717a', fontSize: 9 }}>{lbl}</span>
+                    <span key={lbl} style={{ position: 'absolute', bottom: 3, left: `calc(6px + ${pct / 100} * (100% - 12px))`, transform: pct === 0 ? 'none' : pct === 100 ? 'translateX(-100%)' : 'translateX(-50%)', color: '#71717a', fontSize: 9 }}>{lbl}</span>
                   ))}
                   {scheds.filter(sc => sc.active).length === 0 && (
-                    <span style={{ position: 'absolute', top: 18, left: '50%', transform: 'translateX(-50%)', color: '#71717a', fontSize: 11, fontStyle: 'italic', whiteSpace: 'nowrap' }}>
-                      Siempre el mismo contenido (sin horarios)
+                    <span style={{ position: 'absolute', top: 15, left: '50%', transform: 'translateX(-50%)', color: '#71717a', fontSize: 11, fontStyle: 'italic', whiteSpace: 'nowrap' }}>
+                      Sin horarios (siempre lo mismo)
                     </span>
                   )}
                 </div>
@@ -809,21 +811,9 @@ export default function CCTV() {
                   </div>
                 )}
 
-                {/* Intervalo */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 10, padding: '10px 12px', flexWrap: 'wrap' }}>
-                  <FontAwesomeIcon icon={faClock} style={{ fontSize: 13, color: GOLD }} />
-                  <span style={{ fontSize: 13, color: '#09090b', fontWeight: 600 }}>Cada video/imagen dura</span>
-                  <input type="number" min={1} max={3600}
-                    value={localIntervals[s.id] ?? 5}
-                    onChange={e => setLocalIntervals(v => ({ ...v, [s.id]: e.target.value }))}
-                    onBlur={e => saveInterval(s.id, e.target.value)}
-                    style={{ width: 56, padding: '6px 8px', border: '1px solid #d4d4d8', borderRadius: 8, fontSize: 14, fontWeight: 700, textAlign: 'center', outline: 'none', background: '#fff' }} />
-                  <span style={{ fontSize: 13, color: '#71717a' }}>segundos</span>
-                </div>
-
                 {/* Más ajustes (colapsable) */}
                 <button onClick={() => setAdvancedOpen(o => ({ ...o, [s.id]: !o[s.id] }))}
-                  style={{ marginTop: 14, background: 'none', border: 'none', cursor: 'pointer', color: '#71717a', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
+                  style={{ marginTop: 12, background: 'none', border: 'none', cursor: 'pointer', color: '#71717a', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
                   <FontAwesomeIcon icon={faSlidersH} style={{ fontSize: 12, color: GOLD }} />
                   Más ajustes
                   <FontAwesomeIcon icon={adv ? faChevronUp : faChevronDown} style={{ fontSize: 10 }} />
