@@ -662,6 +662,27 @@ export default function CCTV() {
       {error && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '11px 16px', color: '#991b1b', marginBottom: 16, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}><FontAwesomeIcon icon={faExclamationTriangle} />{error}</div>}
       {success && <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '11px 16px', color: '#15803d', marginBottom: 16, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}><FontAwesomeIcon icon={faCheck} />{success}</div>}
 
+      {/* ══════════ VINCULAR PANTALLA (arriba, junto al código) ══════════ */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0 14px' }}>
+        <FontAwesomeIcon icon={faKey} style={{ color: GOLD, fontSize: 14 }} />
+        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#09090b' }}>Vincular pantalla</h2>
+      </div>
+      <div style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <FontAwesomeIcon icon={faKey} style={{ color: GOLD, fontSize: 14 }} />
+          <span style={{ color: '#09090b', fontWeight: 700, fontSize: 14 }}>Vincular una nueva pantalla</span>
+        </div>
+        <div style={{ color: '#71717a', fontSize: 12, marginBottom: 12 }}>Ingresá este código en la app de Cartelería TV.</div>
+        {selectedStore?.code ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ background: '#09090b', borderRadius: 8, padding: '8px 20px', letterSpacing: 6, fontSize: 22, fontWeight: 900, color: GOLD, fontFamily: 'monospace' }}>{selectedStore.code}</div>
+            <button onClick={copyStoreCode} style={{ background: copiedCode ? '#f0fdf4' : '#f4f4f5', border: `1px solid ${copiedCode ? '#bbf7d0' : '#e4e4e7'}`, borderRadius: 7, padding: '8px 14px', cursor: 'pointer', color: copiedCode ? '#15803d' : '#09090b', fontWeight: 600, fontSize: 13 }}>
+              <FontAwesomeIcon icon={copiedCode ? faCheck : faCopy} style={{ marginRight: 6 }} />{copiedCode ? 'Copiado' : 'Copiar'}
+            </button>
+          </div>
+        ) : <div style={{ color: '#a1a1aa', fontSize: 13 }}>Seleccioná una tienda para ver el código.</div>}
+      </div>
+
       {/* ══════════ VISTA PRINCIPAL: PANTALLAS (estilo control remoto) ══════════ */}
       {loadingScreens ? (
         <div style={{ textAlign: 'center', color: '#71717a', padding: 40 }}>Cargando pantallas...</div>
@@ -669,7 +690,7 @@ export default function CCTV() {
         <div style={{ textAlign: 'center', padding: '40px 20px', background: '#fff', border: '1px solid #e4e4e7', borderRadius: 14, marginBottom: 24 }}>
           <FontAwesomeIcon icon={faDesktop} style={{ fontSize: 30, color: '#a1a1aa', marginBottom: 10 }} />
           <div style={{ color: '#09090b', fontSize: 15, fontWeight: 600 }}>No hay pantallas vinculadas</div>
-          <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>Vinculá una TV con el código de abajo.</div>
+          <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>Vinculá una TV con el código de arriba.</div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(440px, 1fr))', gap: 20, marginBottom: 28 }}>
@@ -836,29 +857,6 @@ export default function CCTV() {
           })}
         </div>
       )}
-
-      {/* ══════════ VINCULAR PANTALLA ══════════ */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0 14px' }}>
-        <FontAwesomeIcon icon={faKey} style={{ color: GOLD, fontSize: 14 }} />
-        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#09090b' }}>Vincular pantalla</h2>
-      </div>
-
-      {/* Código de vinculación */}
-      <div style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '16px 18px', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <FontAwesomeIcon icon={faKey} style={{ color: GOLD, fontSize: 14 }} />
-          <span style={{ color: '#09090b', fontWeight: 700, fontSize: 14 }}>Vincular una nueva pantalla</span>
-        </div>
-        <div style={{ color: '#71717a', fontSize: 12, marginBottom: 12 }}>Ingresá este código en la app de Cartelería TV.</div>
-        {selectedStore?.code ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <div style={{ background: '#09090b', borderRadius: 8, padding: '8px 20px', letterSpacing: 6, fontSize: 22, fontWeight: 900, color: GOLD, fontFamily: 'monospace' }}>{selectedStore.code}</div>
-            <button onClick={copyStoreCode} style={{ background: copiedCode ? '#f0fdf4' : '#f4f4f5', border: `1px solid ${copiedCode ? '#bbf7d0' : '#e4e4e7'}`, borderRadius: 7, padding: '8px 14px', cursor: 'pointer', color: copiedCode ? '#15803d' : '#09090b', fontWeight: 600, fontSize: 13 }}>
-              <FontAwesomeIcon icon={copiedCode ? faCheck : faCopy} style={{ marginRight: 6 }} />{copiedCode ? 'Copiado' : 'Copiar'}
-            </button>
-          </div>
-        ) : <div style={{ color: '#a1a1aa', fontSize: 13 }}>Seleccioná una tienda para ver el código.</div>}
-      </div>
 
       {/* Biblioteca (videos/imágenes/música/grupos) oculta: todo se gestiona desde el
           modal de cada pantalla al tocar la vista previa. */}
