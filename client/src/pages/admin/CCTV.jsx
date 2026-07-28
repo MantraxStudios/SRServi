@@ -827,10 +827,10 @@ export default function CCTV() {
         </div>
       )}
 
-      {/* ══════════ BIBLIOTECA DE CONTENIDO (subida abajo) ══════════ */}
+      {/* ══════════ VINCULAR PANTALLA ══════════ */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0 14px' }}>
-        <FontAwesomeIcon icon={faFolder} style={{ color: GOLD, fontSize: 14 }} />
-        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#09090b' }}>Biblioteca de contenido</h2>
+        <FontAwesomeIcon icon={faKey} style={{ color: GOLD, fontSize: 14 }} />
+        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#09090b' }}>Vincular pantalla</h2>
       </div>
 
       {/* Código de vinculación */}
@@ -850,23 +850,8 @@ export default function CCTV() {
         ) : <div style={{ color: '#a1a1aa', fontSize: 13 }}>Seleccioná una tienda para ver el código.</div>}
       </div>
 
-      {/* Acordeón de biblioteca */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-        {[
-          ['videos', faVideo, 'Videos', videos.length],
-          ['images', faImage, 'Imágenes', images.length],
-          ['music', faMusic, 'Música', music.length],
-          ['groups', faLayerGroup, 'Grupos', groups.length],
-        ].map(([key, icon, label, count]) => (
-          <button key={key} onClick={() => setLibOpen(o => o === key ? null : key)}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: libOpen === key ? '#fffdf5' : '#fff', border: `1px solid ${libOpen === key ? GOLD : '#e4e4e7'}`, borderRadius: 10, padding: '11px 14px', cursor: 'pointer' }}>
-            <FontAwesomeIcon icon={icon} style={{ fontSize: 14, color: GOLD, width: 18 }} />
-            <span style={{ fontWeight: 700, fontSize: 14, color: '#09090b' }}>{label}</span>
-            {count > 0 && <span style={{ background: '#f4f4f5', color: '#71717a', borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>{count}</span>}
-            <FontAwesomeIcon icon={libOpen === key ? faChevronUp : faChevronDown} style={{ fontSize: 11, color: '#a1a1aa', marginLeft: 'auto' }} />
-          </button>
-        ))}
-      </div>
+      {/* Biblioteca (videos/imágenes/música/grupos) oculta: todo se gestiona desde el
+          modal de cada pantalla al tocar la vista previa. */}
 
       {/* VIDEOS */}
       {libOpen === 'videos' && (
@@ -1617,20 +1602,25 @@ export default function CCTV() {
                         <span style={{ color: '#71717a', fontStyle: 'italic', fontSize: 13 }}>Sin video</span>)}
                       {videos.map(v => (
                         <Fragment key={v.id}>{rowBtn(sm.current_video_id === v.id, '#fff8e1', '#fde68a', () => assignVideo(sm.id, v.id),
-                          <><FontAwesomeIcon icon={faPlay} style={{ color: GOLD, fontSize: 12, flexShrink: 0 }} />
+                          <><video src={`${API}${v.url}#t=0.5`} muted playsInline preload="metadata"
+                              style={{ width: 56, height: 38, objectFit: 'cover', borderRadius: 6, flexShrink: 0, background: '#0a0a0a', border: '1px solid #e4e4e7' }} />
                             <div style={{ minWidth: 0 }}>
                               <div style={{ color: '#09090b', fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.original_name}</div>
                               <div style={{ color: '#71717a', fontSize: 11 }}>{formatBytes(v.file_size)}</div>
                             </div></>)}</Fragment>))}
                       {videos.length === 0 && <div style={{ color: '#a1a1aa', fontSize: 12, textAlign: 'center', padding: '10px 0' }}>No hay videos. Subí uno arriba.</div>}
                     </>) : (<>
-                      {rowBtn(!sm.current_album_id, '#fdf4ff', '#e9d5ff', () => assignScreenAlbum(sm.id, null),
-                        <><FontAwesomeIcon icon={faImage} style={{ color: '#7e22ce', fontSize: 13, flexShrink: 0 }} />
+                      {(() => { const thumb = images[0]; return rowBtn(!sm.current_album_id, '#fdf4ff', '#e9d5ff', () => assignScreenAlbum(sm.id, null),
+                        <>{thumb
+                            ? <img src={`${API}${thumb.url}`} alt="" style={{ width: 56, height: 38, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid #e4e4e7' }} />
+                            : <div style={{ width: 56, height: 38, borderRadius: 6, flexShrink: 0, background: '#faf5ff', border: '1px solid #e9d5ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FontAwesomeIcon icon={faImage} style={{ color: '#7e22ce', fontSize: 13 }} /></div>}
                           <div><div style={{ color: '#09090b', fontWeight: 600, fontSize: 13 }}>Todas las imágenes</div>
-                            <div style={{ color: '#71717a', fontSize: 11 }}>{images.length} imagen{images.length !== 1 ? 'es' : ''}</div></div></>)}
-                      {albums.map(a => { const count = images.filter(i => i.album_id === a.id).length; return (
+                            <div style={{ color: '#71717a', fontSize: 11 }}>{images.length} imagen{images.length !== 1 ? 'es' : ''}</div></div></>); })()}
+                      {albums.map(a => { const albImgs = images.filter(i => i.album_id === a.id); const count = albImgs.length; const thumb = albImgs[0]; return (
                         <Fragment key={a.id}>{rowBtn(sm.current_album_id === a.id, '#fdf4ff', '#e9d5ff', () => assignScreenAlbum(sm.id, a.id),
-                          <><FontAwesomeIcon icon={faFolder} style={{ color: GOLD, fontSize: 15, flexShrink: 0 }} />
+                          <>{thumb
+                              ? <img src={`${API}${thumb.url}`} alt="" style={{ width: 56, height: 38, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid #e4e4e7' }} />
+                              : <div style={{ width: 56, height: 38, borderRadius: 6, flexShrink: 0, background: '#faf5ff', border: '1px solid #e9d5ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FontAwesomeIcon icon={faFolder} style={{ color: GOLD, fontSize: 15 }} /></div>}
                             <div><div style={{ color: '#09090b', fontWeight: 600, fontSize: 13 }}>{a.name}</div>
                               <div style={{ color: '#71717a', fontSize: 11 }}>{count} imagen{count !== 1 ? 'es' : ''}</div></div></>)}</Fragment>); })}
                       {images.length === 0 && <div style={{ color: '#a1a1aa', fontSize: 12, textAlign: 'center', padding: '10px 0' }}>No hay imágenes. Subí arriba.</div>}
