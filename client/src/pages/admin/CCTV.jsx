@@ -790,34 +790,15 @@ export default function CCTV() {
                 {adv && (
                   <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f4f4f5', display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {!grouped && (<>
+                      {!grouped && (
                         <button onClick={() => setScreenMode(s, mode === 'images' ? 'video' : 'images')}
                           style={{ background: mode === 'images' ? '#fdf4ff' : '#f4f4f5', border: `1px solid ${mode === 'images' ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 10px', cursor: 'pointer', color: mode === 'images' ? '#7e22ce' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
                           <FontAwesomeIcon icon={mode === 'images' ? faVideo : faImage} style={{ fontSize: 11 }} />
                           {mode === 'images' ? 'Cambiar a video' : 'Cambiar a imágenes'}
                         </button>
-                        {mode === 'video' && (
-                          <button onClick={() => toggleMute(s)}
-                            style={{ background: s.video_muted ? '#fef2f2' : '#f0fdf4', border: `1px solid ${s.video_muted ? '#fca5a5' : '#bbf7d0'}`, borderRadius: 7, padding: '7px 10px', cursor: 'pointer', color: s.video_muted ? '#dc2626' : '#15803d', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <FontAwesomeIcon icon={s.video_muted ? faVolumeMute : faVolumeUp} style={{ fontSize: 11 }} />
-                            {s.video_muted ? 'Mute' : 'Audio'}
-                          </button>
-                        )}
-                        <button onClick={() => setAssignMusicModal(s)}
-                          style={{ background: s.music_name ? '#f0f9ff' : '#f4f4f5', border: `1px solid ${s.music_name ? '#bae6fd' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 10px', cursor: 'pointer', color: s.music_name ? '#0369a1' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <FontAwesomeIcon icon={faMusic} style={{ fontSize: 11 }} />
-                          {s.music_name || 'Música'}
-                        </button>
-                      </>)}
-                      <button onClick={() => setScreenGroupModal(s)}
-                        style={{ background: grouped ? '#eef2ff' : '#f4f4f5', border: `1px solid ${grouped ? '#c7d2fe' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 10px', cursor: 'pointer', color: grouped ? '#4338ca' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: 11 }} />{grouped ? s.group_name : 'Grupo'}
-                      </button>
+                      )}
                       <button onClick={() => openPowerLog(s)} style={{ background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 7, padding: '7px 10px', cursor: 'pointer', color: '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }} title="Historial de encendido">
                         <FontAwesomeIcon icon={faHistory} style={{ fontSize: 11 }} />Historial
-                      </button>
-                      <button onClick={() => { setRenameModal(s); setRenameName(s.device_name); }} style={{ background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 7, padding: '7px 10px', cursor: 'pointer', color: '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <FontAwesomeIcon icon={faPen} style={{ fontSize: 11 }} />Renombrar
                       </button>
                       <button onClick={() => setDeleteConfirm({ type: 'screen', id: s.id, name: s.device_name })} style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '7px 10px', cursor: 'pointer', color: '#dc2626', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
                         <FontAwesomeIcon icon={faTrash} style={{ fontSize: 11 }} />Eliminar
