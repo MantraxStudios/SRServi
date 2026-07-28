@@ -414,6 +414,19 @@ export default function CCTV() {
     } catch (e) { showError(e.message); }
   };
 
+  // Asigna UNA sola imagen a la pantalla (imageId null = volver a álbum/todas).
+  const assignScreenImage = async (screenId, imageId) => {
+    try {
+      const r = await fetch(`${API}/api/cctv/screens/${screenId}/image`, {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_id: imageId || null })
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      await fetchScreens();
+      showSuccess(imageId ? 'Imagen asignada a la pantalla' : 'Volviste a mostrar el álbum/todas');
+    } catch (e) { showError(e.message); }
+  };
+
   // ── Group management ──────────────────────────────────────────────────────────
   const createGroup = async () => {
     if (!newGroupName.trim()) return;
@@ -578,6 +591,10 @@ export default function CCTV() {
   const screenPreview = (s) => {
     const mode = s.display_mode || 'video';
     if (mode === 'images') {
+      if (s.current_image_id) {
+        const one = images.find(i => i.id === s.current_image_id);
+        if (one) return { type: 'image', src: `${API}${one.url}`, empty: false };
+      }
       const pool = s.current_album_id ? images.filter(i => i.album_id === s.current_album_id) : images;
       if (pool.length) return { type: 'image', src: `${API}${pool[0].url}`, empty: false };
       return { type: 'image', src: null, empty: true };
@@ -706,7 +723,7 @@ export default function CCTV() {
                     {/* Etiqueta del contenido + acción de cambiar */}
                     <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '20px 8px 7px', display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(transparent, rgba(0,0,0,0.75))', pointerEvents: 'none' }}>
                       <span style={{ flex: 1, minWidth: 0, color: '#fff', fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {grouped ? `Grupo: ${s.group_name}` : mode === 'images' ? (s.album_name || 'Todas las imágenes') : (s.video_name || 'Sin video')}
+                        {grouped ? `Grupo: ${s.group_name}` : mode === 'images' ? (s.image_name || s.album_name || 'Todas las imágenes') : (s.video_name || 'Sin video')}
                       </span>
                       {!grouped && (
                         <span style={{ background: GOLD, color: '#0a0a0a', fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
@@ -1610,7 +1627,7 @@ export default function CCTV() {
                             </div></>)}</Fragment>))}
                       {videos.length === 0 && <div style={{ color: '#a1a1aa', fontSize: 12, textAlign: 'center', padding: '10px 0' }}>No hay videos. Subí uno arriba.</div>}
                     </>) : (<>
-                      {(() => { const thumb = images[0]; return rowBtn(!sm.current_album_id, '#fdf4ff', '#e9d5ff', () => assignScreenAlbum(sm.id, null),
+                      {(() => { const thumb = images[0]; return rowBtn(!sm.current_album_id && !sm.current_image_id, '#fdf4ff', '#e9d5ff', () => assignScreenAlbum(sm.id, null),
                         <>{thumb
                             ? <img src={`${API}${thumb.url}`} alt="" style={{ width: 56, height: 38, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid #e4e4e7' }} />
                             : <div style={{ width: 56, height: 38, borderRadius: 6, flexShrink: 0, background: '#faf5ff', border: '1px solid #e9d5ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FontAwesomeIcon icon={faImage} style={{ color: '#7e22ce', fontSize: 13 }} /></div>}
@@ -1623,6 +1640,14 @@ export default function CCTV() {
                               : <div style={{ width: 56, height: 38, borderRadius: 6, flexShrink: 0, background: '#faf5ff', border: '1px solid #e9d5ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FontAwesomeIcon icon={faFolder} style={{ color: GOLD, fontSize: 15 }} /></div>}
                             <div><div style={{ color: '#09090b', fontWeight: 600, fontSize: 13 }}>{a.name}</div>
                               <div style={{ color: '#71717a', fontSize: 11 }}>{count} imagen{count !== 1 ? 'es' : ''}</div></div></>)}</Fragment>); })}
+                      {images.length > 0 && (
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#a1a1aa', letterSpacing: 0.4, textTransform: 'uppercase', margin: '8px 0 2px' }}>O una sola imagen</div>
+                      )}
+                      {images.map(img => (
+                        <Fragment key={img.id}>{rowBtn(sm.current_image_id === img.id, '#fdf4ff', '#e9d5ff', () => assignScreenImage(sm.id, img.id),
+                          <><img src={`${API}${img.url}`} alt="" style={{ width: 56, height: 38, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid #e4e4e7' }} />
+                            <div style={{ minWidth: 0 }}><div style={{ color: '#09090b', fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{img.original_name}</div>
+                              <div style={{ color: '#71717a', fontSize: 11 }}>Imagen sola</div></div></>)}</Fragment>))}
                       {images.length === 0 && <div style={{ color: '#a1a1aa', fontSize: 12, textAlign: 'center', padding: '10px 0' }}>No hay imágenes. Subí arriba.</div>}
                     </>)}
                   </div>

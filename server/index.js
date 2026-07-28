@@ -12784,6 +12784,7 @@ async function startServer() {
         'ALTER TABLE cctv_screens ADD COLUMN group_id INT DEFAULT NULL',
         'ALTER TABLE cctv_screens ADD COLUMN rotation SMALLINT NOT NULL DEFAULT 0',
         'ALTER TABLE cctv_screens ADD COLUMN image_interval INT NOT NULL DEFAULT 5',
+        'ALTER TABLE cctv_screens ADD COLUMN current_image_id INT DEFAULT NULL',
         'ALTER TABLE cctv_images ADD COLUMN album_id INT DEFAULT NULL'
       ]) {
         try { await pool.execute(sql); } catch (_) { /* columna ya existe */ }
@@ -12846,12 +12847,14 @@ async function startServer() {
           SELECT s.*, v.original_name AS video_name, v.url AS video_url,
             m.original_name AS music_name, m.id AS music_id,
             alb.name AS album_name,
+            img.original_name AS image_name, img.url AS image_url,
             g.name AS group_name,
             (CASE WHEN s.last_seen IS NOT NULL AND TIMESTAMPDIFF(SECOND, s.last_seen, NOW()) < 90 THEN 1 ELSE 0 END) AS is_online
           FROM cctv_screens s
           LEFT JOIN cctv_videos v ON v.id = s.current_video_id
           LEFT JOIN cctv_music m ON m.id = s.current_music_id
           LEFT JOIN cctv_albums alb ON alb.id = s.current_album_id
+          LEFT JOIN cctv_images img ON img.id = s.current_image_id
           LEFT JOIN cctv_groups g ON g.id = s.group_id
           WHERE s.user_id = ? AND s.device_token IS NOT NULL
           ORDER BY s.created_at DESC
@@ -12974,7 +12977,7 @@ async function startServer() {
         if (!device_token) return res.status(400).json({ error: 'device_token requerido' });
         const [rows] = await pool.execute(`
           SELECT s.id, s.user_id, s.device_name, s.group_id,
-            s.current_video_id, s.current_music_id, s.current_album_id, s.video_muted, s.display_mode,
+            s.current_video_id, s.current_music_id, s.current_album_id, s.current_image_id, s.video_muted, s.display_mode,
             COALESCE(s.volume_level, 100) AS volume_level,
             COALESCE(s.rotation, 0) AS rotation, COALESCE(s.image_interval, 5) AS image_interval
           FROM cctv_screens s
@@ -12992,6 +12995,7 @@ async function startServer() {
           current_video_id: screen.current_video_id,
           current_music_id: screen.current_music_id,
           current_album_id: screen.current_album_id,
+          current_image_id: screen.current_image_id,
           video_muted: screen.video_muted,
           display_mode: screen.display_mode || 'video',
         };
@@ -13005,6 +13009,7 @@ async function startServer() {
               current_video_id: gRows[0].current_video_id,
               current_music_id: gRows[0].current_music_id,
               current_album_id: gRows[0].current_album_id,
+              current_image_id: null, // los grupos no soportan imagen única
               video_muted: gRows[0].video_muted,
               display_mode: gRows[0].display_mode || 'video',
             };
@@ -13034,15 +13039,24 @@ async function startServer() {
           music_name: mRow?.music_name || null,
         };
         if (config.display_mode === 'images') {
-          const albumId = playback.current_album_id;
-          let imgSql = 'SELECT url, duration_seconds FROM cctv_images WHERE user_id = ?';
-          const imgParams = [userId];
-          if (albumId) { imgSql += ' AND album_id = ?'; imgParams.push(albumId); }
-          imgSql += ' ORDER BY sort_order ASC, created_at ASC';
-          const [imgs] = await pool.execute(imgSql, imgParams);
-          // El intervalo por pantalla controla cuántos segundos dura cada imagen.
           const iv = screen.image_interval || 5;
-          config.images = imgs.map(i => ({ ...i, duration_seconds: iv }));
+          if (playback.current_image_id) {
+            // Imagen única seleccionada: la TV muestra solo esa.
+            const [imgs] = await pool.execute(
+              'SELECT url, duration_seconds FROM cctv_images WHERE id = ? AND user_id = ?',
+              [playback.current_image_id, userId]
+            );
+            config.images = imgs.map(i => ({ ...i, duration_seconds: iv }));
+          } else {
+            const albumId = playback.current_album_id;
+            let imgSql = 'SELECT url, duration_seconds FROM cctv_images WHERE user_id = ?';
+            const imgParams = [userId];
+            if (albumId) { imgSql += ' AND album_id = ?'; imgParams.push(albumId); }
+            imgSql += ' ORDER BY sort_order ASC, created_at ASC';
+            const [imgs] = await pool.execute(imgSql, imgParams);
+            // El intervalo por pantalla controla cuántos segundos dura cada imagen.
+            config.images = imgs.map(i => ({ ...i, duration_seconds: iv }));
+          }
         }
         const [schedRows] = await pool.execute(`
           SELECT cs.id, cs.video_id, cs.name, cs.start_time, cs.end_time, cs.days,
@@ -13278,12 +13292,22 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // Admin: assign album to screen (null = show all images)
+    // Admin: assign album to screen (null = show all images). Limpia la imagen única.
     app.put('/api/cctv/screens/:id/album', authenticateToken, async (req, res) => {
       try {
         await ensureCctvTables();
         const { album_id } = req.body;
-        await pool.execute('UPDATE cctv_screens SET current_album_id = ? WHERE id = ? AND user_id = ?', [album_id || null, req.params.id, req.user.id]);
+        await pool.execute('UPDATE cctv_screens SET current_album_id = ?, current_image_id = NULL WHERE id = ? AND user_id = ?', [album_id || null, req.params.id, req.user.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: assign a single image to screen (null = volver a álbum/todas). Limpia el álbum.
+    app.put('/api/cctv/screens/:id/image', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { image_id } = req.body;
+        await pool.execute('UPDATE cctv_screens SET current_image_id = ?, current_album_id = NULL WHERE id = ? AND user_id = ?', [image_id || null, req.params.id, req.user.id]);
         res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
