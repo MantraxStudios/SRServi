@@ -220,6 +220,14 @@ export default function CCTV() {
   const showError = (msg) => { setError(msg); setTimeout(() => setError(''), 5000); };
 
   // ── Upload helpers ──────────────────────────────────────────────────────────
+  // El proxy/Cloudflare puede rechazar la subida con un 413 y devolver HTML,
+  // por eso NO se puede hacer JSON.parse a ciegas (rompía con "Unexpected token '<'").
+  const xhrError = (xhr) => {
+    if (xhr.status === 413) return 'El archivo es demasiado grande y el servidor lo rechazó. Probá con uno más liviano.';
+    try { return JSON.parse(xhr.responseText)?.error || 'Error al subir'; }
+    catch { return `Error al subir el archivo (${xhr.status || 'sin conexión'})`; }
+  };
+
   const handleUpload = async (file) => {
     if (!file) return;
     const allowed = ['.mp4', '.webm', '.avi', '.mov', '.mkv', '.mpeg', '.mpg'];
@@ -230,7 +238,7 @@ export default function CCTV() {
       const xhr = new XMLHttpRequest();
       await new Promise((res, rej) => {
         xhr.upload.onprogress = e => { if (e.lengthComputable) setUploadProgress(Math.round(e.loaded / e.total * 100)); };
-        xhr.onload = () => xhr.status === 200 ? res() : rej(new Error(JSON.parse(xhr.responseText)?.error || 'Error'));
+        xhr.onload = () => xhr.status === 200 ? res() : rej(new Error(xhrError(xhr)));
         xhr.onerror = () => rej(new Error('Error de red'));
         xhr.open('POST', `${API}/api/cctv/videos`);
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
@@ -251,7 +259,7 @@ export default function CCTV() {
       const xhr = new XMLHttpRequest();
       await new Promise((res, rej) => {
         xhr.upload.onprogress = e => { if (e.lengthComputable) setUploadMusicProgress(Math.round(e.loaded / e.total * 100)); };
-        xhr.onload = () => xhr.status === 200 ? res() : rej(new Error(JSON.parse(xhr.responseText)?.error || 'Error'));
+        xhr.onload = () => xhr.status === 200 ? res() : rej(new Error(xhrError(xhr)));
         xhr.onerror = () => rej(new Error('Error de red'));
         xhr.open('POST', `${API}/api/cctv/music`);
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
@@ -274,7 +282,7 @@ export default function CCTV() {
       const xhr = new XMLHttpRequest();
       await new Promise((res, rej) => {
         xhr.upload.onprogress = e => { if (e.lengthComputable) setUploadImagesProgress(Math.round(e.loaded / e.total * 100)); };
-        xhr.onload = () => xhr.status === 200 ? res() : rej(new Error(JSON.parse(xhr.responseText)?.error || 'Error'));
+        xhr.onload = () => xhr.status === 200 ? res() : rej(new Error(xhrError(xhr)));
         xhr.onerror = () => rej(new Error('Error de red'));
         xhr.open('POST', `${API}/api/cctv/images`);
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
@@ -1587,6 +1595,22 @@ export default function CCTV() {
               <input ref={mVideoRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={e => handleUpload(e.target.files[0])} />
               <input ref={mImageRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => handleUploadImages(e.target.files)} />
               <input ref={mMusicRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={e => handleUploadMusic(e.target.files[0])} />
+
+              {/* Barra de progreso de subida (video / imágenes / música) */}
+              {(uploading || uploadingImages || uploadingMusic) && (() => {
+                const pct = uploading ? uploadProgress : uploadingImages ? uploadImagesProgress : uploadMusicProgress;
+                const lbl = uploading ? 'Subiendo video' : uploadingImages ? 'Subiendo imágenes' : 'Subiendo música';
+                return (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 700, color: '#92400e', marginBottom: 5 }}>
+                      <span>{lbl}…</span><span>{pct}%</span>
+                    </div>
+                    <div style={{ height: 8, background: '#f4f4f5', borderRadius: 20, overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: GOLD, borderRadius: 20, transition: 'width .2s' }} />
+                    </div>
+                  </div>
+                );
+              })()}
 
               {smGrouped ? (
                 <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: 10, padding: '11px 14px', fontSize: 13, color: '#4338ca', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
