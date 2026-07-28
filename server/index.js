@@ -305,7 +305,7 @@ import {
   cancelInventoryTransfer,
   getInventoryAlertReport
 } from './database.js';
-import { registerSubdomain, unregisterSubdomain } from './nginx-manager.js';
+import { registerSubdomain, unregisterSubdomain, ensureUploadSizeConfig } from './nginx-manager.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -14481,6 +14481,10 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     server.listen(PORT, HOST, () => {
       console.log(`Servidor corriendo en http://${HOST}:${PORT}`);
     });
+
+    // Límite global de subida en nginx (evita 413 al subir archivos grandes en CCTV).
+    // Idempotente: solo escribe/recarga si cambió. En dev/no-linux no hace nada.
+    ensureUploadSizeConfig().catch(e => console.warn('[nginx-manager] upload-size:', e.message));
 
     // Instagram Python service — se inicia automáticamente con el servidor
     initInstagramService().catch(e => console.warn('[IG-Service] Error autostart:', e.message));

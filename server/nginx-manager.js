@@ -197,6 +197,39 @@ async function certbotObtain(fqdn) {
   }
 }
 
+// Instala (idempotente) el límite global de subida en /etc/nginx/conf.d/.
+// Se llama al arrancar el servidor, así el 413 en subidas grandes (CCTV)
+// queda resuelto sin tener que tocar nada a mano.
+const UPLOAD_SIZE_LIMIT = process.env.NGINX_MAX_UPLOAD || '100M';
+const UPLOAD_SIZE_CONF = `# SRServi — auto-generado. Límite global de tamaño de subida.
+# Aplica a TODOS los server blocks (contexto http). Editá NGINX_MAX_UPLOAD en el .env.
+client_max_body_size ${UPLOAD_SIZE_LIMIT};
+client_body_timeout 600s;
+`;
+
+export async function ensureUploadSizeConfig() {
+  if (!isProduction()) {
+    console.log('[nginx-manager] dev — skipping upload-size config');
+    return { ok: true, dev: true };
+  }
+  try {
+    const confDir = '/etc/nginx/conf.d';
+    if (!fs.existsSync(confDir)) return { ok: false, error: 'nginx conf.d no encontrado' };
+    const target = path.join(confDir, 'srservi-upload-size.conf');
+    // Solo escribe/recarga si cambió, para no recargar nginx en cada arranque.
+    const current = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : '';
+    if (current === UPLOAD_SIZE_CONF) return { ok: true, unchanged: true };
+    fs.writeFileSync(target, UPLOAD_SIZE_CONF, 'utf8');
+    const ok = await reloadNginx();
+    if (!ok) return { ok: false, error: 'nginx -t falló con upload-size config' };
+    console.log(`[nginx-manager] upload-size configurado (${UPLOAD_SIZE_LIMIT})`);
+    return { ok: true };
+  } catch (e) {
+    console.error('[nginx-manager] ensureUploadSizeConfig error:', e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 export async function registerSubdomain(subdomain) {
   if (!isProduction()) {
     console.log(`[nginx-manager] dev — skipping nginx for "${subdomain}"`);
