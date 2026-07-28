@@ -146,6 +146,13 @@ private fun getImageStorageDir(context: Context): File {
     return dir
 }
 
+/**
+ * Un elemento del loop mixto (modo "all"): puede ser un video o una imagen ya
+ * descargados en disco. Para videos [durationMs] es 0 (se reproduce completo);
+ * para imágenes es cuántos milisegundos permanece en pantalla.
+ */
+data class MixedItem(val type: String, val path: String, val durationMs: Int)
+
 class MainActivity : ComponentActivity() {
 
     private var appScreen by mutableStateOf("init")
@@ -1555,6 +1562,11 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
     var displayMode by remember { mutableStateOf("video") }
     var serverRotation by remember { mutableIntStateOf(0) }
     var slideshowImages by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
+    // Modo mixto: lista combinada de videos + imágenes en un solo loop.
+    var mixedItems by remember { mutableStateOf<List<MixedItem>>(emptyList()) }
+    var mixedKey by remember { mutableStateOf("") }
+    // Volumen efectivo (video_muted + volume_level) para el reproductor mixto.
+    var mediaVolume by remember { mutableFloatStateOf(0f) }
 
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
@@ -1640,6 +1652,58 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
         while (true) {
             try {
                 val config = fetchDeviceConfig(deviceToken)
+                val mode = config.optString("display_mode", "video").ifEmpty { "video" }
+                serverRotation = config.optInt("rotation", 0)
+                displayMode = mode
+
+                if (mode == "all") {
+                    // ── Modo mixto: descargar TODOS los videos e imágenes y armar un solo loop ──
+                    exoPlayer.pause()
+                    val entries = mutableListOf<MixedItem>()
+                    val vArr = config.optJSONArray("videos")
+                    if (vArr != null) {
+                        for (i in 0 until vArr.length()) {
+                            val vUrl = vArr.getJSONObject(i).optString("url").takeIf { it.isNotEmpty() } ?: continue
+                            val fullUrl = if (vUrl.startsWith("http")) vUrl else "$BASE_URL$vUrl"
+                            val urlHash = vUrl.hashCode().toString().replace("-", "n")
+                            val originalName = Uri.parse(vUrl).lastPathSegment ?: "video.mp4"
+                            val destFile = File(getVideoStorageDir(context), "${urlHash}_${originalName}")
+                            if (!destFile.exists()) {
+                                downloadingName = "Contenido…"; downloadProgress = 0f
+                                withContext(Dispatchers.IO) {
+                                    try { downloadVideoFile(fullUrl, destFile) { p -> downloadProgress = p } }
+                                    catch (e: Exception) { Log.e(TAG, "Mix vid dl error: ${e.message}"); destFile.delete() }
+                                }
+                            }
+                            if (destFile.exists()) entries.add(MixedItem("video", destFile.absolutePath, 0))
+                        }
+                    }
+                    val iArr = config.optJSONArray("images")
+                    if (iArr != null) {
+                        for (i in 0 until iArr.length()) {
+                            val obj = iArr.getJSONObject(i)
+                            val imgUrl = obj.optString("url").takeIf { it.isNotEmpty() } ?: continue
+                            val durationMs = obj.optInt("duration_seconds", 5) * 1000
+                            val fullImgUrl = if (imgUrl.startsWith("http")) imgUrl else "$BASE_URL$imgUrl"
+                            val ext = "." + (Uri.parse(imgUrl).lastPathSegment?.substringAfterLast('.', "jpg") ?: "jpg")
+                            val urlHash = imgUrl.hashCode().toString().replace("-", "n")
+                            val destFile = File(getImageStorageDir(context), "${urlHash}${ext}")
+                            if (!destFile.exists()) {
+                                withContext(Dispatchers.IO) {
+                                    try { downloadVideoFile(fullImgUrl, destFile) { _ -> } }
+                                    catch (e: Exception) { Log.e(TAG, "Mix img dl error: ${e.message}"); destFile.delete() }
+                                }
+                            }
+                            if (destFile.exists()) entries.add(MixedItem("image", destFile.absolutePath, durationMs))
+                        }
+                    }
+                    downloadProgress = -1f
+                    val newKey = entries.joinToString(",") { "${it.type}:${it.path}:${it.durationMs}" }
+                    if (entries.isNotEmpty() && newKey != mixedKey) {
+                        mixedKey = newKey
+                        mixedItems = entries
+                    }
+                } else {
 
                 // ── Video (con evaluación de programación) ─────────────────────
                 val activeSchedule = getActiveSchedule(config.optJSONArray("schedules"))
@@ -1740,10 +1804,6 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                 }
 
                 // ── Modo display (video / imágenes) ────────────────────────────
-                val mode = config.optString("display_mode", "video").ifEmpty { "video" }
-                displayMode = mode
-                serverRotation = config.optInt("rotation", 0)
-
                 if (mode == "images") {
                     exoPlayer.pause()
                     val imagesArray = config.optJSONArray("images")
@@ -1770,6 +1830,7 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                 } else {
                     if (exoPlayer.playbackState != Player.STATE_IDLE) exoPlayer.play()
                 }
+                } // fin del else de mode != "all"
 
                 // ── Música en loop ─────────────────────────────────────────────
                 // optString() devuelve el literal "null" cuando el JSON trae null,
@@ -1786,6 +1847,7 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                 val effectiveVolume = if (videoMuted) 0f else volumeLevel
                 exoPlayer.volume = effectiveVolume
                 musicPlayer.volume = effectiveVolume
+                mediaVolume = effectiveVolume
 
                 if (musicUrl == null) {
                     if (savedMusicUrl != null || musicPlayer.playbackState != Player.STATE_IDLE) {
@@ -1844,7 +1906,9 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
             .background(Color.Black)
     ) {
         RotatingContent(rotation = (rotation + serverRotation) % 360) {
-            if (displayMode == "images") {
+            if (displayMode == "all") {
+                MixedPlaylistScreen(items = mixedItems, volume = mediaVolume)
+            } else if (displayMode == "images") {
                 ImageSlideshowScreen(images = slideshowImages)
             } else {
                 AndroidView(
@@ -2019,6 +2083,95 @@ fun ImageSlideshowScreen(images: List<Pair<String, Int>>) {
 
     // Watermark
     Box(modifier = Modifier.fillMaxSize()) {
+        Text(
+            "Powered By SRAutomatic.cl",
+            color = Color.White.copy(alpha = 0.12f),
+            fontSize = 11.sp,
+            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp)
+        )
+    }
+}
+
+// ─── Mixed Playlist (modo "all": videos + imágenes en un solo loop) ───────────
+
+@OptIn(UnstableApi::class)
+@Composable
+fun MixedPlaylistScreen(items: List<MixedItem>, volume: Float) {
+    if (items.isEmpty()) {
+        WaitingSignalScreen()
+        return
+    }
+    val context = LocalContext.current
+    var index by remember(items) { mutableIntStateOf(0) }
+    val current = items.getOrNull(index) ?: items.first()
+
+    val player = remember {
+        ExoPlayer.Builder(context).build().apply {
+            repeatMode = Player.REPEAT_MODE_OFF
+            playWhenReady = true
+        }
+    }
+    LaunchedEffect(volume) { player.volume = volume }
+    DisposableEffect(Unit) { onDispose { player.release() } }
+
+    // Al terminar un video, avanzar al siguiente elemento (o repetir si es el único).
+    DisposableEffect(items) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_ENDED) {
+                    if (items.size <= 1) { player.seekTo(0); player.play() }
+                    else index = (index + 1) % items.size
+                }
+            }
+        }
+        player.addListener(listener)
+        onDispose { player.removeListener(listener) }
+    }
+
+    // Reproducir el elemento actual: video por ExoPlayer; imagen por tiempo fijo.
+    LaunchedEffect(index, items) {
+        val item = items.getOrNull(index) ?: return@LaunchedEffect
+        if (item.type == "video") {
+            player.setMediaItem(MediaItem.fromUri(Uri.fromFile(File(item.path))))
+            player.prepare()
+            player.playWhenReady = true
+        } else {
+            player.playWhenReady = false
+            val dur = item.durationMs.toLong().coerceAtLeast(1000L)
+            delay(dur)
+            if (items.size > 1) index = (index + 1) % items.size
+        }
+    }
+
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color.Black),
+        contentAlignment = Alignment.Center
+    ) {
+        if (current.type == "video") {
+            AndroidView(
+                factory = { ctx ->
+                    PlayerView(ctx).apply {
+                        this.player = player
+                        useController = false
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            val bitmap = remember(current.path) {
+                runCatching { BitmapFactory.decodeFile(current.path)?.asImageBitmap() }.getOrNull()
+            }
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            }
+        }
+
         Text(
             "Powered By SRAutomatic.cl",
             color = Color.White.copy(alpha = 0.12f),

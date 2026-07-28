@@ -12778,6 +12778,8 @@ async function startServer() {
         'ALTER TABLE cctv_screens ADD COLUMN video_muted TINYINT(1) DEFAULT 0',
         'ALTER TABLE cctv_screens ADD COLUMN current_music_id INT DEFAULT NULL',
         "ALTER TABLE cctv_screens ADD COLUMN display_mode ENUM('video','images') DEFAULT 'video'",
+        // Modo mixto "all" (videos + imágenes en un solo loop): amplía el ENUM en instalaciones previas.
+        "ALTER TABLE cctv_screens MODIFY COLUMN display_mode ENUM('video','images','all') DEFAULT 'video'",
         'ALTER TABLE cctv_screens ADD COLUMN current_album_id INT DEFAULT NULL',
         'ALTER TABLE cctv_screens ADD COLUMN volume_level TINYINT(3) UNSIGNED NOT NULL DEFAULT 100',
         'ALTER TABLE cctv_screens ADD COLUMN device_uid VARCHAR(128) DEFAULT NULL',
@@ -13054,7 +13056,22 @@ async function startServer() {
           music_url: mRow?.music_url || null,
           music_name: mRow?.music_name || null,
         };
-        if (config.display_mode === 'images') {
+        if (config.display_mode === 'all') {
+          // Modo mixto: reproducir TODOS los videos Y TODAS las imágenes en un solo loop.
+          const iv = screen.image_interval || 5;
+          const [vids] = await pool.execute(
+            'SELECT url, original_name AS name FROM cctv_videos WHERE user_id = ? ORDER BY created_at DESC',
+            [userId]
+          );
+          config.videos = vids;
+          if (!config.video_url && vids.length) { config.video_url = vids[0].url; config.video_name = vids[0].name; }
+          const [imgs] = await pool.execute(
+            'SELECT url, duration_seconds FROM cctv_images WHERE user_id = ? ORDER BY sort_order ASC, created_at ASC',
+            [userId]
+          );
+          // El intervalo por pantalla controla cuántos segundos dura cada imagen.
+          config.images = imgs.map(i => ({ ...i, duration_seconds: iv }));
+        } else if (config.display_mode === 'images') {
           const iv = screen.image_interval || 5;
           if (playback.current_image_id) {
             // Imagen única seleccionada: la TV muestra solo esa.
@@ -13403,7 +13420,7 @@ async function startServer() {
       try {
         await ensureCctvTables();
         const { mode } = req.body;
-        if (!['video', 'images'].includes(mode)) return res.status(400).json({ error: 'Modo inválido' });
+        if (!['video', 'images', 'all'].includes(mode)) return res.status(400).json({ error: 'Modo inválido' });
         await pool.execute('UPDATE cctv_screens SET display_mode = ? WHERE id = ? AND user_id = ?', [mode, req.params.id, req.user.id]);
         res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }

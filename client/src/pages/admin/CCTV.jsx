@@ -492,7 +492,7 @@ export default function CCTV() {
       });
       if (!r.ok) throw new Error((await r.json()).error);
       setScreens(s => s.map(x => x.id === screen.id ? { ...x, display_mode: mode } : x));
-      showSuccess(`Pantalla cambiada a ${mode === 'images' ? 'modo imágenes' : 'modo video'}`);
+      showSuccess(`Pantalla cambiada a ${mode === 'images' ? 'modo imágenes' : mode === 'all' ? 'modo todo (videos + imágenes)' : 'modo video'}`);
     } catch (e) { showError(e.message); }
   };
 
@@ -602,6 +602,11 @@ export default function CCTV() {
   // Devuelve la miniatura/preview del contenido que la pantalla está reproduciendo.
   const screenPreview = (s) => {
     const mode = s.display_mode || 'video';
+    if (mode === 'all') {
+      if (videos[0]?.url) return { type: 'video', src: `${API}${videos[0].url}`, empty: false };
+      if (images[0]?.url) return { type: 'image', src: `${API}${images[0].url}`, empty: false };
+      return { type: 'video', src: null, empty: true };
+    }
     if (mode === 'images') {
       if (s.current_image_id) {
         const one = images.find(i => i.id === s.current_image_id);
@@ -758,7 +763,7 @@ export default function CCTV() {
                   {/* Etiqueta del contenido + acción de cambiar */}
                   <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '18px 8px 7px', display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(transparent, rgba(0,0,0,0.78))', pointerEvents: 'none' }}>
                     <span style={{ flex: 1, minWidth: 0, color: '#fff', fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {grouped ? `Grupo: ${s.group_name}` : mode === 'images' ? (s.image_name || s.album_name || 'Todas las imágenes') : (s.video_play_all ? 'Todos los videos' : (s.video_name || 'Sin video'))}
+                      {grouped ? `Grupo: ${s.group_name}` : mode === 'all' ? 'Todo (videos + imágenes)' : mode === 'images' ? (s.image_name || s.album_name || 'Todas las imágenes') : (s.video_play_all ? 'Todos los videos' : (s.video_name || 'Sin video'))}
                     </span>
                     {!grouped && (
                       <span style={{ background: GOLD, color: '#0a0a0a', fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
@@ -1592,7 +1597,7 @@ export default function CCTV() {
                 <>
                   {/* Modo: Video / Imágenes */}
                   <div style={{ display: 'flex', gap: 6, background: '#f4f4f5', borderRadius: 11, padding: 4, marginBottom: 16 }}>
-                    {[['video', faVideo, 'Video'], ['images', faImage, 'Imágenes']].map(([m, ic, lbl]) => (
+                    {[['video', faVideo, 'Video'], ['images', faImage, 'Imágenes'], ['all', faLayerGroup, 'Todo']].map(([m, ic, lbl]) => (
                       <button key={m} onClick={() => smMode !== m && setScreenMode(sm, m)}
                         style={{ flex: 1, background: smMode === m ? '#fff' : 'transparent', border: smMode === m ? `1px solid ${GOLD}` : '1px solid transparent', borderRadius: 8, padding: '8px 0', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: smMode === m ? '#09090b' : '#71717a', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                         <FontAwesomeIcon icon={ic} style={{ fontSize: 12, color: smMode === m ? GOLD : '#a1a1aa' }} />{lbl}
@@ -1601,6 +1606,19 @@ export default function CCTV() {
                   </div>
 
                   {/* Contenido */}
+                  {smMode === 'all' ? (
+                    <div style={{ background: '#fffdf5', border: `1px solid ${GOLD}`, borderRadius: 10, padding: '12px 14px', marginBottom: 18 }}>
+                      <div style={{ fontSize: 13, color: '#92400e', fontWeight: 700, marginBottom: 4 }}>Reproduce todo en un solo loop</div>
+                      <div style={{ fontSize: 12, color: '#a16207', lineHeight: 1.5, marginBottom: 10 }}>
+                        Esta pantalla muestra <strong>todos los videos y todas las imágenes</strong>, uno tras otro, y vuelve a empezar. Cada imagen dura el intervalo configurado; cada video se reproduce completo.
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {upBtn(() => mVideoRef.current?.click(), 'Subir video', uploading)}
+                        {upBtn(() => mImageRef.current?.click(), 'Subir imágenes', uploadingImages)}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#a1a1aa', marginTop: 8 }}>{videos.length} video{videos.length !== 1 ? 's' : ''} · {images.length} imagen{images.length !== 1 ? 'es' : ''}</div>
+                    </div>
+                  ) : (<>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <span style={secLabel}>{smMode === 'video' ? 'Video en pantalla' : 'Imágenes en pantalla'}</span>
                     {smMode === 'video'
@@ -1649,6 +1667,7 @@ export default function CCTV() {
                       {images.length === 0 && <div style={{ color: '#a1a1aa', fontSize: 12, textAlign: 'center', padding: '10px 0' }}>No hay imágenes. Subí arriba.</div>}
                     </>)}
                   </div>
+                  </>)}
                 </>
               )}
 
