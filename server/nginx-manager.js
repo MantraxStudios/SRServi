@@ -216,6 +216,29 @@ export async function ensureUploadSizeConfig() {
     const confDir = '/etc/nginx/conf.d';
     if (!fs.existsSync(confDir)) return { ok: false, error: 'nginx conf.d no encontrado' };
     const target = path.join(confDir, 'srservi-upload-size.conf');
+
+    // nginx NO admite client_max_body_size duplicado en el mismo contexto http.
+    // Si ya está definido en nginx.conf o en otro conf.d, NO creamos el drop-in
+    // (si no, "nginx -t" falla con "directive is duplicate"). Si dejamos uno viejo
+    // que ahora choca, lo quitamos.
+    const re = /^\s*client_max_body_size\s/m;
+    const definedElsewhere = () => {
+      const files = [];
+      if (fs.existsSync('/etc/nginx/nginx.conf')) files.push('/etc/nginx/nginx.conf');
+      try {
+        for (const f of fs.readdirSync(confDir)) {
+          if (f === 'srservi-upload-size.conf' || !f.endsWith('.conf')) continue;
+          files.push(path.join(confDir, f));
+        }
+      } catch {}
+      return files.some(f => { try { return re.test(fs.readFileSync(f, 'utf8')); } catch { return false; } });
+    };
+    if (definedElsewhere()) {
+      if (fs.existsSync(target)) { fs.unlinkSync(target); await reloadNginx(); }
+      console.log('[nginx-manager] upload-size ya definido en otro conf — no se crea drop-in');
+      return { ok: true, skipped: 'already-defined' };
+    }
+
     // Solo escribe/recarga si cambió, para no recargar nginx en cada arranque.
     const current = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : '';
     if (current === UPLOAD_SIZE_CONF) return { ok: true, unchanged: true };
