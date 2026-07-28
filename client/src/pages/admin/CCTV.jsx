@@ -811,13 +811,6 @@ export default function CCTV() {
                 {adv && (
                   <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f4f4f5', display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {!grouped && (
-                        <button onClick={() => setScreenMode(s, mode === 'images' ? 'video' : 'images')}
-                          style={{ background: mode === 'images' ? '#fdf4ff' : '#f4f4f5', border: `1px solid ${mode === 'images' ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 10px', cursor: 'pointer', color: mode === 'images' ? '#7e22ce' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <FontAwesomeIcon icon={mode === 'images' ? faVideo : faImage} style={{ fontSize: 11 }} />
-                          {mode === 'images' ? 'Cambiar a video' : 'Cambiar a imágenes'}
-                        </button>
-                      )}
                       <button onClick={() => openPowerLog(s)} style={{ background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 7, padding: '7px 10px', cursor: 'pointer', color: '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }} title="Historial de encendido">
                         <FontAwesomeIcon icon={faHistory} style={{ fontSize: 11 }} />Historial
                       </button>
