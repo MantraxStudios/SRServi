@@ -5629,16 +5629,16 @@ function Store() {
             <button className="store-editor-tab" onClick={openExcelModal}>
               <FontAwesomeIcon icon={faFileExcel} style={{ color: '#4ade80' }} /><span className="editor-tab-label">Excel</span>
             </button>
-            <button className={`store-editor-tab${editorTab === 'combos' ? ' active' : ''}`} onClick={() => { setEditorTab('combos'); if (!editorCombosLoaded) loadEditorCombos(); }}>
-              <FontAwesomeIcon icon={faLayerGroup} /><span className="editor-tab-label">Combos</span>
-            </button>
-          </div>
-          <div className="store-editor-actions">
             <HelpVideoLink
               url="https://www.youtube.com/watch?v=s-bfH4G7RUA"
               label="Tutorial"
               style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)', color: '#fff', padding: '8px 12px' }}
             />
+            <button className={`store-editor-tab${editorTab === 'combos' ? ' active' : ''}`} onClick={() => { setEditorTab('combos'); if (!editorCombosLoaded) loadEditorCombos(); }}>
+              <FontAwesomeIcon icon={faLayerGroup} /><span className="editor-tab-label">Combos</span>
+            </button>
+          </div>
+          <div className="store-editor-actions">
             {!previewMode && editorTab === 'products' && (
               <button className="store-editor-done store-editor-add" onClick={() => openProdModal()}>
                 <FontAwesomeIcon icon={faPlus} />
