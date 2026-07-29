@@ -2151,6 +2151,21 @@ export async function updateUserPassword(userId, hashedPassword) {
   await pool.execute('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
 }
 
+// Elimina permanentemente la cuenta del usuario tras verificar su contraseña.
+// Las tiendas y datos asociados se borran en cascada (FK ON DELETE CASCADE).
+export async function deleteUserAccount(userId, password) {
+  const [rows] = await pool.execute('SELECT id, password FROM users WHERE id = ?', [userId]);
+  if (rows.length === 0) {
+    throw new Error('Cuenta no encontrada');
+  }
+  const isValid = await bcrypt.compare(password, rows[0].password);
+  if (!isValid) {
+    throw new Error('Contraseña incorrecta');
+  }
+  await pool.execute('DELETE FROM users WHERE id = ?', [userId]);
+  return { id: userId };
+}
+
 export async function getUserByEmail(email) {
   const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
   return rows[0] || null;

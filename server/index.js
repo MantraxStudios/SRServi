@@ -36,6 +36,7 @@ import {
   initDatabase,
   createUser,
   authenticateUser,
+  deleteUserAccount,
   getUserByCode,
   getUserById,
   getStores,
@@ -985,6 +986,24 @@ app.get('/api/auth/2fa/status', authenticateToken, async (req, res) => {
     res.json({ enabled: Boolean(user?.totp_enabled) });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Eliminar permanentemente la cuenta del usuario (requiere contraseña).
+app.delete('/api/account', authenticateToken, async (req, res) => {
+  try {
+    const { password } = req.body || {};
+    if (!password) {
+      return res.status(400).json({ error: 'Debes ingresar tu contraseña para eliminar la cuenta' });
+    }
+    if (req.user.is_sub_account || req.user.sub_account_id) {
+      return res.status(403).json({ error: 'Las subcuentas no pueden eliminar la cuenta principal' });
+    }
+    await deleteUserAccount(req.user.id, password);
+    res.json({ success: true });
+  } catch (error) {
+    const status = error.message === 'Contraseña incorrecta' ? 401 : 500;
+    res.status(status).json({ error: error.message });
   }
 });
 

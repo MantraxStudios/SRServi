@@ -16,6 +16,7 @@ import {
   faPlus,
   faShoppingBag,
   faSignOutAlt,
+  faTrashAlt,
   faPalette,
   faStore,
   faChevronDown,
@@ -145,6 +146,10 @@ function Layout() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [fpStoreOpen, setFpStoreOpen] = useState(false);
+  const [deleteAccountModal, setDeleteAccountModal] = useState(false);
+  const [deleteAccountPassword, setDeleteAccountPassword] = useState('');
+  const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState('');
   const [phoneModal, setPhoneModal] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState(false);
   const [phoneInput, setPhoneInput] = useState('');
@@ -380,6 +385,36 @@ function Layout() {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deleteAccountPassword) {
+      setDeleteAccountError('Ingresa tu contraseña para confirmar');
+      return;
+    }
+    setDeleteAccountLoading(true);
+    setDeleteAccountError('');
+    try {
+      const res = await fetch('/api/account', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ password: deleteAccountPassword })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'No se pudo eliminar la cuenta');
+      }
+      setDeleteAccountModal(false);
+      logout();
+      navigate('/login');
+    } catch (err) {
+      setDeleteAccountError(err.message);
+    } finally {
+      setDeleteAccountLoading(false);
+    }
   };
 
   const toggleDropdown = (key) => {
@@ -1023,6 +1058,73 @@ function Layout() {
                 <FontAwesomeIcon icon={faSignOutAlt} />
                 Cerrar Sesión
               </button>
+
+              {/* Eliminar cuenta (solo cuenta principal) */}
+              {!isSubAccount && (
+                <button
+                  onClick={() => { setDeleteAccountModal(true); setDeleteAccountPassword(''); setDeleteAccountError(''); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    width: '100%', padding: '10px 14px', marginTop: 4,
+                    background: 'transparent', color: '#dc2626',
+                    border: '1px solid rgba(220,38,38,0.35)', borderRadius: 10,
+                    fontSize: 13, fontWeight: 600, cursor: 'pointer'
+                  }}
+                >
+                  <FontAwesomeIcon icon={faTrashAlt} />
+                  Eliminar mi cuenta
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Modal confirmación eliminar cuenta */}
+        {deleteAccountModal && (
+          <div
+            onClick={() => !deleteAccountLoading && setDeleteAccountModal(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{ background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, color: '#dc2626' }}>
+                <FontAwesomeIcon icon={faTrashAlt} style={{ fontSize: 20 }} />
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#111' }}>Eliminar mi cuenta</h3>
+              </div>
+              <p style={{ fontSize: 13.5, color: '#555', lineHeight: 1.5, margin: '0 0 16px' }}>
+                Esta acción es <b>permanente</b> y no se puede deshacer. Se eliminarán tus tiendas,
+                productos, pedidos y todos los datos asociados. Ingresa tu contraseña para confirmar.
+              </p>
+              <input
+                type="password"
+                autoFocus
+                value={deleteAccountPassword}
+                onChange={e => setDeleteAccountPassword(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleDeleteAccount(); }}
+                placeholder="Tu contraseña"
+                style={{ width: '100%', padding: '11px 13px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 14, boxSizing: 'border-box' }}
+              />
+              {deleteAccountError && (
+                <div style={{ color: '#dc2626', fontSize: 12.5, marginTop: 8 }}>{deleteAccountError}</div>
+              )}
+              <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+                <button
+                  onClick={() => setDeleteAccountModal(false)}
+                  disabled={deleteAccountLoading}
+                  style={{ flex: 1, padding: '11px', borderRadius: 10, border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleteAccountLoading}
+                  style={{ flex: 1, padding: '11px', borderRadius: 10, border: 'none', background: '#dc2626', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: deleteAccountLoading ? 'default' : 'pointer', opacity: deleteAccountLoading ? 0.7 : 1 }}
+                >
+                  {deleteAccountLoading ? 'Eliminando…' : 'Eliminar cuenta'}
+                </button>
+              </div>
             </div>
           </div>
         )}
