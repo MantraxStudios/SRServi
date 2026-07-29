@@ -5214,7 +5214,9 @@ function Store() {
       </header>
 
       <div style={{ background: 'transparent', textAlign: 'center', padding: '3px 0', fontSize: 10, color: '#c3bbaa', letterSpacing: '0.4px', lineHeight: 1 }}>
-        {t('poweredBy', lang)}
+        <a href="https://srservi.cl/" target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
+          {t('poweredBy', lang)}
+        </a>
       </div>
 
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />

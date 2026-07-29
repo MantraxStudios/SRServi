@@ -104,6 +104,83 @@ function buildThemes(now, country, forceId = null) {
       decorations: ['🎃', '👻', '🦇', '🕷️', '🕸️', '💀'],
       animation: 'fall',
     },
+    {
+      id: 'vacaciones-verano',
+      name: 'Vacaciones de Verano',
+      emoji: '🌞',
+      banner: '🌞 ¡Vacaciones de Verano! 🍦',
+      // Tras Año Nuevo (que termina el 6-ene) y hasta principios de febrero.
+      active: inRange(now, { m: 0, d: 7 }, { m: 1, d: 7 }),
+      colors: { primary: '#0096c7', secondary: '#ffffff', accent: '#ffb703', header: '#0096c7' },
+      decorations: ['🌞', '🏖️', '🍦', '🌊', '🕶️', '🐚'],
+      animation: 'fall',
+    },
+    {
+      id: 'dia-trabajador',
+      name: 'Día del Trabajador',
+      emoji: '🛠️',
+      banner: '👷 ¡Feliz Día del Trabajador! 🛠️',
+      active: inRange(now, { m: 3, d: 28 }, { m: 4, d: 1 }),
+      colors: { primary: '#2b2d42', secondary: '#ffffff', accent: '#ef233c', header: '#2b2d42' },
+      decorations: ['👷', '🛠️', '⚙️', '💪', '🏭', '📋'],
+      animation: 'fall',
+    },
+    // Día del Padre — Chile: tercer domingo de junio (± esa semana)
+    (() => {
+      const md = nthSunday(y, 5, 3);
+      const from = new Date(y, 5, md.getDate() - 3);
+      const to = new Date(y, 5, md.getDate());
+      return {
+        id: 'dia-padre',
+        name: 'Día del Padre',
+        emoji: '👔',
+        banner: '👔 ¡Feliz Día del Padre! 💙',
+        active: now >= new Date(from.getFullYear(), from.getMonth(), from.getDate(), 0, 0, 0) &&
+                now <= new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59),
+        colors: { primary: '#1d3557', secondary: '#ffffff', accent: '#457b9d', header: '#1d3557' },
+        decorations: ['👔', '🎁', '⚽', '🧔', '💙', '🍺'],
+        animation: 'fall',
+      };
+    })(),
+    {
+      id: 'vacaciones-invierno',
+      name: 'Vacaciones de Invierno',
+      emoji: '❄️',
+      banner: '❄️ ¡Vacaciones de Invierno! ☕',
+      // Julio completo: receso escolar de invierno en Chile.
+      active: inRange(now, { m: 6, d: 1 }, { m: 6, d: 31 }),
+      colors: { primary: '#1e3a8a', secondary: '#ffffff', accent: '#38bdf8', header: '#1e3a8a' },
+      decorations: ['❄️', '☃️', '🧣', '☕', '🧤', '⛄'],
+      animation: 'fall',
+    },
+    // Día del Niño — Chile: segundo domingo de agosto (± esa semana)
+    (() => {
+      const md = nthSunday(y, 7, 2);
+      const from = new Date(y, 7, md.getDate() - 3);
+      const to = new Date(y, 7, md.getDate());
+      return {
+        id: 'dia-nino',
+        name: 'Día del Niño',
+        emoji: '🎈',
+        banner: '🎈 ¡Feliz Día del Niño! 🧸',
+        active: now >= new Date(from.getFullYear(), from.getMonth(), from.getDate(), 0, 0, 0) &&
+                now <= new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59),
+        colors: { primary: '#7209b7', secondary: '#ffffff', accent: '#f72585', header: '#7209b7' },
+        decorations: ['🎈', '🧸', '🎠', '🍭', '🎮', '🎨'],
+        animation: 'fall',
+      };
+    })(),
+    {
+      id: 'primavera',
+      name: 'Primavera',
+      emoji: '🌸',
+      banner: '🌸 ¡Bienvenida la Primavera! 🌷',
+      // Después de Fiestas Patrias, entrada de la primavera.
+      active: inRange(now, { m: 8, d: 21 }, { m: 8, d: 30 }),
+      colors: { primary: '#2d6a4f', secondary: '#ffffff', accent: '#ff70a6', header: '#2d6a4f' },
+      decorations: ['🌸', '🌷', '🌼', '🐝', '🦋', '🌻'],
+      animation: 'fall',
+    },
   ];
 
   // forceId permite previsualizar un tema puntual sin importar la fecha.
@@ -129,8 +206,14 @@ export function getSeasonalTheme(now = new Date(), country = 'Chile', forceId = 
 export const SEASONAL_THEME_OPTIONS = [
   { id: 'navidad', name: 'Navidad', emoji: '🎄' },
   { id: 'anio-nuevo', name: 'Año Nuevo', emoji: '🎉' },
+  { id: 'vacaciones-verano', name: 'Vacaciones de Verano', emoji: '🌞' },
   { id: 'san-valentin', name: 'San Valentín', emoji: '❤️' },
+  { id: 'dia-trabajador', name: 'Día del Trabajador', emoji: '🛠️' },
   { id: 'dia-madre', name: 'Día de la Madre', emoji: '💐' },
+  { id: 'dia-padre', name: 'Día del Padre', emoji: '👔' },
+  { id: 'vacaciones-invierno', name: 'Vacaciones de Invierno', emoji: '❄️' },
+  { id: 'dia-nino', name: 'Día del Niño', emoji: '🎈' },
   { id: 'fiestas-patrias', name: 'Fiestas Patrias', emoji: '🇨🇱' },
+  { id: 'primavera', name: 'Primavera', emoji: '🌸' },
   { id: 'halloween', name: 'Halloween', emoji: '🎃' },
 ];
