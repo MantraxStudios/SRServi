@@ -5639,23 +5639,6 @@ function Store() {
             </button>
           </div>
           <div className="store-editor-actions">
-            {!previewMode && editorTab === 'products' && (
-              <button className="store-editor-done store-editor-add" onClick={() => openProdModal()}>
-                <FontAwesomeIcon icon={faPlus} />
-                <span className="editor-btn-label">Nuevo producto</span>
-              </button>
-            )}
-            <button
-              className="store-editor-done"
-              style={{ background: previewMode ? '#28a745' : 'rgba(255,255,255,0.1)', color: previewMode ? '#fff' : 'rgba(255,255,255,0.8)' }}
-              onClick={() => setPreviewMode(p => !p)}
-            >
-              <FontAwesomeIcon icon={previewMode ? faEyeSlash : faEye} />
-              <span className="editor-btn-label">{previewMode ? 'Salir' : 'Preview'}</span>
-            </button>
-            <button className="store-editor-done" onClick={() => setShowRestartConfirm(true)}>
-              <span className="editor-btn-label">Guardar</span>
-            </button>
           </div>
         </div>
       )}

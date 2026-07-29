@@ -2728,40 +2728,92 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* =========================================================
-   Tótem "en vivo" enmarcado como tablet vertical.
-   En PC / monitores anchos (>820px) el tótem NO se estira:
-   se congela al ancho de una tablet en retrato (3 columnas)
-   y se centra, con márgenes neutros a los lados. Así se ve
-   idéntico a como se ve en la tablet.
+   Tótem "en vivo" enmarcado como TELÉFONO vertical.
+   Un solo diseño para todas las pantallas: en cualquier
+   monitor / tablet más ancho que un teléfono, la tienda del
+   cliente NO se estira ni cambia de layout — se congela al
+   ancho de un teléfono en retrato (grilla de 3 columnas,
+   categorías en píldoras horizontales arriba, sin sidebar) y
+   se centra, con márgenes neutros a los lados. Así se ve
+   idéntico a como se ve en el teléfono.
    Solo aplica a la vista del cliente (.store-framed); el
    editor del admin sigue usando todo el ancho.
    ========================================================= */
-@media (min-width: 821px) {
+@media (min-width: 481px) {
   .store-container.store-framed {
-    max-width: 820px;
+    max-width: 440px;
     margin-left: auto;
     margin-right: auto;
     /* Letterbox: rellena los costados con gris neutro sin
        necesitar un wrapper extra ni tocar el fondo del body. */
     box-shadow: 0 0 0 100vmax #e5e7eb;
   }
+
+  /* Layout apilado de teléfono: sin sidebar de categorías
+     (anula el layout de escritorio de min-width:900px). */
+  .store-container.store-framed .store-body {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    width: 100%;
+  }
+
+  /* Categorías como píldoras horizontales arriba (no sidebar). */
+  .store-container.store-framed .category-tabs {
+    width: auto;
+    flex-shrink: 0;
+    padding: 10px 10px 6px;
+    max-height: none;
+    display: block;
+  }
+  .store-container.store-framed .category-tabs-list {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 8px;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: visible;
+  }
+  .store-container.store-framed .category-tab {
+    width: auto;
+    padding: 11px 18px;
+    font-size: 14px;
+    text-align: center;
+  }
+
+  /* Promos en fila horizontal (no columna de sidebar). */
+  .store-container.store-framed .store-promos {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: visible;
+    flex: none;
+    margin-top: 0;
+  }
+  .store-container.store-framed .store-promos .store-promo-card {
+    width: 240px;
+  }
+
   /* Grilla fija en 3 columnas (anula 900/1200/1700px). */
   .store-container.store-framed .products-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    padding: 8px 10px;
+    gap: 6px;
+    padding: 6px 8px;
   }
-  /* Cabecera al tamaño de tablet (anula el agrandado de 1024px). */
+  /* Cabecera compacta de teléfono (anula el agrandado de 768/1024px). */
   .store-container.store-framed .store-header {
-    padding: 12px 20px;
+    padding: 11px 18px;
   }
   .store-container.store-framed .store-header-logo {
-    width: 52px;
-    height: 52px;
-    border-radius: 12px;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
   }
   .store-container.store-framed .store-header-name {
-    font-size: 22px;
+    font-size: 17px;
+  }
+  .store-container.store-framed .store-header-brand {
+    gap: 10px;
   }
   .store-container.store-framed .category-section-title {
     font-size: 24px;
