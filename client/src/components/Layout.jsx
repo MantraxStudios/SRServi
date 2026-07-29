@@ -58,6 +58,7 @@ import {
   faCalendarDay,
   faCalendarAlt,
   faUser,
+  faPlayCircle,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -646,8 +647,19 @@ function Layout() {
 
           <div className="isb-spacer" />
 
-          {/* Botón inferior: solo Menú */}
+          {/* Botón inferior: Tutorial + Menú */}
           <div className="isb-bottom">
+            <a
+              className="isb-btn"
+              href="https://www.youtube.com/watch?v=wdX6WyXiStA"
+              target="_blank"
+              rel="noreferrer"
+              title="Tutorial"
+            >
+              <span className="isb-btn-icon"><FontAwesomeIcon icon={faPlayCircle} /></span>
+              <span className="isb-btn-label">Tutorial</span>
+              <span className="isb-tooltip">Ver tutorial</span>
+            </a>
             <button
               className={`isb-btn${settingsOpen ? ' active' : ''}`}
               onClick={() => { setSettingsOpen(p => !p); setAccountOpen(false); setWhatsappOpen(false); }}

@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserPlus, faTrash, faSignInAlt, faPhone, faSave, faPen, faUser, faWhiskeyGlass, faCakeCandles } from '@fortawesome/free-solid-svg-icons';
 import { StoreContext } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
+import HelpVideoLink from '../../components/HelpVideoLink';
 
 const API = 'https://srservi2.srautomatic.com';
 const GOLD = '#D4AF37';
@@ -213,10 +214,13 @@ function Workers() {
           <h1>Trabajadores</h1>
           <p className="text-sm text-muted">{selectedStore.name}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          <FontAwesomeIcon icon={faUserPlus} />
-          Agregar
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <HelpVideoLink url="https://www.youtube.com/watch?v=rtyjRxRryLc" />
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            <FontAwesomeIcon icon={faUserPlus} />
+            Agregar
+          </button>
+        </div>
       </header>
 
       <div className="admin-main">

@@ -120,6 +120,7 @@ import { PluginProvider } from '../context/PluginContext';
 import { useStore } from '../components/Layout';
 import VirtualKeyboard from '../components/VirtualKeyboard';
 import StoreGuide from '../components/StoreGuide';
+import HelpVideoLink from '../components/HelpVideoLink';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -5143,7 +5144,7 @@ function Store() {
     )}
     <div
       ref={storeContainerRef}
-      className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}`}
+      className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}`}
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom,
         ...(seasonalTheme ? { '--kiosk-accent': seasonalTheme.colors.accent, '--kiosk-orange': seasonalTheme.colors.primary, '--kiosk-accent-soft': seasonalTheme.colors.accent + '22' } : {}) }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
@@ -5631,6 +5632,11 @@ function Store() {
             </button>
           </div>
           <div className="store-editor-actions">
+            <HelpVideoLink
+              url="https://www.youtube.com/watch?v=s-bfH4G7RUA"
+              label="Tutorial"
+              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)', color: '#fff', padding: '8px 12px' }}
+            />
             {!previewMode && editorTab === 'products' && (
               <button className="store-editor-done store-editor-add" onClick={() => openProdModal()}>
                 <FontAwesomeIcon icon={faPlus} />

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import * as faceapi from '@vladmandic/face-api';
 import { io } from 'socket.io-client';
 
@@ -32,6 +32,9 @@ function normalizeRut(rut) {
 
 export default function Attendance() {
   const { storeCode } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const cameFromPanel = location.state?.fromWorkerPanel;
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -323,6 +326,14 @@ export default function Attendance() {
 
   return (
     <div style={s.screen}>
+      {cameFromPanel && (
+        <button
+          onClick={() => navigate(-1)}
+          style={{ position: 'fixed', top: 14, left: 14, zIndex: 50, display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', background: 'rgba(0,0,0,0.55)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 999, fontSize: 14, fontWeight: 700, cursor: 'pointer', backdropFilter: 'blur(4px)' }}
+        >
+          ← Volver
+        </button>
+      )}
       {/* Header */}
       <div style={s.header}>
         <div style={s.logoBox}><img src="/iconweb.png" alt="SR" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>

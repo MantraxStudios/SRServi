@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { usePlugins } from '../../context/PluginContext';
 import { useStore } from '../../components/Layout';
+import HelpVideoLink from '../../components/HelpVideoLink';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPlus, faEdit, faTrash, faCreditCard, faSync, faCheckCircle,
@@ -1011,13 +1012,16 @@ function MercadoPagoPoints({ view = 'pos' }) {
             </span>
           )}
         </div>
-        <button
-          onClick={() => setShowCountryModal(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: '#f5f5f5', border: '1px solid #e5e5e5', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: '#333' }}
-        >
-          <span style={{ fontSize: '16px' }}>{activeCountry.flag}</span>
-          {activeCountry.name}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {view === 'pos' && <HelpVideoLink url="https://www.youtube.com/watch?v=QxSTeuTvb5A" />}
+          <button
+            onClick={() => setShowCountryModal(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: '#f5f5f5', border: '1px solid #e5e5e5', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: '#333' }}
+          >
+            <span style={{ fontSize: '16px' }}>{activeCountry.flag}</span>
+            {activeCountry.name}
+          </button>
+        </div>
       </header>
 
       <div className="admin-main" style={{ maxWidth: '860px' }}>

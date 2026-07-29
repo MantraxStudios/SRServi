@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint, faClipboardList, faExclamationTriangle, faCashRegister, faLock, faBook, faChair, faFire, faPlay, faTrophy, faCommentDots } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint, faClipboardList, faExclamationTriangle, faCashRegister, faLock, faBook, faChair, faFire, faPlay, faTrophy, faCommentDots, faUserClock } from '@fortawesome/free-solid-svg-icons';
 import { SOCKET_URL } from '../config.js';
 import WorkerNewOrder from '../components/WorkerNewOrder';
 import WorkerTableMap from '../components/WorkerTableMap';
@@ -1405,6 +1405,11 @@ function WorkerPanel() {
               {storeCode && (
                 <button className="worker-header-icon-btn" onClick={() => window.open(`/store/${storeCode}`, '_blank')} title="Ver tienda">
                   <FontAwesomeIcon icon={faExternalLinkAlt} />
+                </button>
+              )}
+              {storeCode && (
+                <button className="worker-header-icon-btn" onClick={() => navigate(`/attendance/${storeCode}`, { state: { fromWorkerPanel: true } })} title="Asistencia">
+                  <FontAwesomeIcon icon={faUserClock} />
                 </button>
               )}
               <button className="worker-header-icon-btn" onClick={() => setShowWorkerSwitch(true)} title="Cambiar usuario">

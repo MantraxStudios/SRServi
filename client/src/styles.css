@@ -2727,6 +2727,47 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* =========================================================
+   Tótem "en vivo" enmarcado como tablet vertical.
+   En PC / monitores anchos (>820px) el tótem NO se estira:
+   se congela al ancho de una tablet en retrato (3 columnas)
+   y se centra, con márgenes neutros a los lados. Así se ve
+   idéntico a como se ve en la tablet.
+   Solo aplica a la vista del cliente (.store-framed); el
+   editor del admin sigue usando todo el ancho.
+   ========================================================= */
+@media (min-width: 821px) {
+  .store-container.store-framed {
+    max-width: 820px;
+    margin-left: auto;
+    margin-right: auto;
+    /* Letterbox: rellena los costados con gris neutro sin
+       necesitar un wrapper extra ni tocar el fondo del body. */
+    box-shadow: 0 0 0 100vmax #e5e7eb;
+  }
+  /* Grilla fija en 3 columnas (anula 900/1200/1700px). */
+  .store-container.store-framed .products-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  /* Cabecera al tamaño de tablet (anula el agrandado de 1024px). */
+  .store-container.store-framed .store-header {
+    padding: 12px 20px;
+  }
+  .store-container.store-framed .store-header-logo {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+  }
+  .store-container.store-framed .store-header-name {
+    font-size: 22px;
+  }
+  .store-container.store-framed .category-section-title {
+    font-size: 24px;
+  }
+}
+
 /* En modo edición usamos todo el ancho con tarjetas más chicas para que
    quepan muchas en pantalla (clave en PC). Auto-fill: 2 columnas en teléfono,
    más columnas a medida que crece la pantalla. */
