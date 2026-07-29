@@ -647,19 +647,8 @@ function Layout() {
 
           <div className="isb-spacer" />
 
-          {/* Botón inferior: Tutorial + Menú */}
+          {/* Botón inferior: Menú */}
           <div className="isb-bottom">
-            <a
-              className="isb-btn"
-              href="https://www.youtube.com/watch?v=wdX6WyXiStA"
-              target="_blank"
-              rel="noreferrer"
-              title="Tutorial"
-            >
-              <span className="isb-btn-icon"><FontAwesomeIcon icon={faPlayCircle} /></span>
-              <span className="isb-btn-label">Tutorial</span>
-              <span className="isb-tooltip">Ver tutorial</span>
-            </a>
             <button
               className={`isb-btn${settingsOpen ? ' active' : ''}`}
               onClick={() => { setSettingsOpen(p => !p); setAccountOpen(false); setWhatsappOpen(false); }}
@@ -741,6 +730,7 @@ function Layout() {
               {/* Accesos rápidos */}
               <div className="isb-fp-sec">
                 <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faShoppingBag} /> Accesos Rápidos</div>
+                <a href="https://www.youtube.com/watch?v=wdX6WyXiStA" className="isb-fp-link" target="_blank" rel="noreferrer" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faPlayCircle} /> Tutorial</a>
                 {can('products', 'view') && <NavLink to="/admin/products" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faBox} /> Productos</NavLink>}
                 {can('analytics', 'view') && <NavLink to="/admin/analytics" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faChartLine} /> Análisis</NavLink>}
                 <a href={`https://wa.me/56996876043?text=${encodeURIComponent('Hola, me contacto desde SRServi 👋')}`} className="isb-fp-link" target="_blank" rel="noopener noreferrer" onClick={() => setSettingsOpen(false)}>

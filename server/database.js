@@ -159,6 +159,10 @@ async function createTables() {
       min_order_total DECIMAL(10, 2) NOT NULL DEFAULT 0,
       usage_limit INT DEFAULT NULL,
       usage_count INT NOT NULL DEFAULT 0,
+      start_date DATE DEFAULT NULL,
+      end_date DATE DEFAULT NULL,
+      start_time TIME DEFAULT NULL,
+      end_time TIME DEFAULT NULL,
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,
@@ -980,6 +984,29 @@ async function migrateTables() {
       }
     } catch (orderMigrationError) {
       console.error('❌ Error migrando columnas de cupones en orders:', orderMigrationError.message);
+    }
+
+    try {
+      const [couponCols] = await pool.execute('SHOW COLUMNS FROM coupons');
+      const couponColNames = couponCols.map(c => c.Field);
+      if (!couponColNames.includes('start_date')) {
+        await pool.execute('ALTER TABLE coupons ADD COLUMN start_date DATE DEFAULT NULL AFTER usage_count');
+        console.log('✅ Columna start_date agregada a coupons');
+      }
+      if (!couponColNames.includes('end_date')) {
+        await pool.execute('ALTER TABLE coupons ADD COLUMN end_date DATE DEFAULT NULL AFTER start_date');
+        console.log('✅ Columna end_date agregada a coupons');
+      }
+      if (!couponColNames.includes('start_time')) {
+        await pool.execute('ALTER TABLE coupons ADD COLUMN start_time TIME DEFAULT NULL AFTER end_date');
+        console.log('✅ Columna start_time agregada a coupons');
+      }
+      if (!couponColNames.includes('end_time')) {
+        await pool.execute('ALTER TABLE coupons ADD COLUMN end_time TIME DEFAULT NULL AFTER start_time');
+        console.log('✅ Columna end_time agregada a coupons');
+      }
+    } catch (couponMigrationError) {
+      console.error('❌ Error migrando columnas de fecha/hora en coupons:', couponMigrationError.message);
     }
 
     for (const tableName of ['ingredients', 'extras']) {
@@ -3112,6 +3139,8 @@ export async function getCoupons(storeId) {
   return rows;
 }
 
+const emptyToNull = (v) => (v === null || v === undefined || v === '' ? null : v);
+
 export async function createCoupon(storeId, data) {
   const {
     code,
@@ -3120,6 +3149,10 @@ export async function createCoupon(storeId, data) {
     discount_value,
     min_order_total,
     usage_limit,
+    start_date,
+    end_date,
+    start_time,
+    end_time,
     is_active
   } = data;
 
@@ -3127,8 +3160,9 @@ export async function createCoupon(storeId, data) {
 
   const [result] = await pool.execute(
     `INSERT INTO coupons (
-      store_id, code, name, discount_type, discount_value, min_order_total, usage_limit, is_active
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      store_id, code, name, discount_type, discount_value, min_order_total, usage_limit,
+      start_date, end_date, start_time, end_time, is_active
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       storeId,
       normalizedCode,
@@ -3137,6 +3171,10 @@ export async function createCoupon(storeId, data) {
       Number(discount_value) || 0,
       Number(min_order_total) || 0,
       usage_limit === null || usage_limit === '' ? null : Number(usage_limit),
+      emptyToNull(start_date),
+      emptyToNull(end_date),
+      emptyToNull(start_time),
+      emptyToNull(end_time),
       is_active === false ? 0 : 1
     ]
   );
@@ -3153,6 +3191,10 @@ export async function updateCoupon(couponId, storeId, data) {
     discount_value,
     min_order_total,
     usage_limit,
+    start_date,
+    end_date,
+    start_time,
+    end_time,
     is_active
   } = data;
 
@@ -3166,6 +3208,10 @@ export async function updateCoupon(couponId, storeId, data) {
       discount_value = ?,
       min_order_total = ?,
       usage_limit = ?,
+      start_date = ?,
+      end_date = ?,
+      start_time = ?,
+      end_time = ?,
       is_active = ?
      WHERE id = ? AND store_id = ?`,
     [
@@ -3175,6 +3221,10 @@ export async function updateCoupon(couponId, storeId, data) {
       Number(discount_value) || 0,
       Number(min_order_total) || 0,
       usage_limit === null || usage_limit === '' ? null : Number(usage_limit),
+      emptyToNull(start_date),
+      emptyToNull(end_date),
+      emptyToNull(start_time),
+      emptyToNull(end_time),
       is_active === false ? 0 : 1,
       couponId,
       storeId
@@ -3934,6 +3984,52 @@ async function resolveCouponForOrder(storeId, couponCode, subtotal) {
   const coupon = rows[0];
   if (!coupon.is_active) {
     throw new Error('Cupón inactivo');
+  }
+
+  // Validación de vigencia por fecha y hora
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const toDateStr = (v) => {
+    if (!v) return null;
+    if (v instanceof Date) return `${v.getFullYear()}-${pad(v.getMonth() + 1)}-${pad(v.getDate())}`;
+    return String(v).slice(0, 10);
+  };
+  const timeToMinutes = (v) => {
+    if (!v) return null;
+    const s = v instanceof Date
+      ? `${pad(v.getHours())}:${pad(v.getMinutes())}`
+      : String(v);
+    const [h, m] = s.split(':');
+    const mins = Number(h) * 60 + Number(m || 0);
+    return Number.isFinite(mins) ? mins : null;
+  };
+
+  const startDate = toDateStr(coupon.start_date);
+  const endDate = toDateStr(coupon.end_date);
+  if (startDate && todayStr < startDate) {
+    throw new Error('Este cupón aún no está vigente');
+  }
+  if (endDate && todayStr > endDate) {
+    throw new Error('Este cupón ya expiró');
+  }
+
+  const startMin = timeToMinutes(coupon.start_time);
+  const endMin = timeToMinutes(coupon.end_time);
+  if (startMin !== null && endMin !== null) {
+    // Rango normal (ej: 12:00-15:00) o rango nocturno que cruza medianoche (ej: 22:00-02:00)
+    const inRange = startMin <= endMin
+      ? (nowMinutes >= startMin && nowMinutes <= endMin)
+      : (nowMinutes >= startMin || nowMinutes <= endMin);
+    if (!inRange) {
+      throw new Error('Este cupón solo es válido en un horario específico');
+    }
+  } else if (startMin !== null && nowMinutes < startMin) {
+    throw new Error('Este cupón solo es válido en un horario específico');
+  } else if (endMin !== null && nowMinutes > endMin) {
+    throw new Error('Este cupón solo es válido en un horario específico');
   }
 
   const minOrderTotal = Number(coupon.min_order_total || 0);

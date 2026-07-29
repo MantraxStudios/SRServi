@@ -17,6 +17,10 @@ function Coupons() {
     discount_value: '0',
     min_order_total: '0',
     usage_limit: '',
+    start_date: '',
+    end_date: '',
+    start_time: '',
+    end_time: '',
     is_active: true
   });
 
@@ -54,6 +58,10 @@ function Coupons() {
       discount_value: '0',
       min_order_total: '0',
       usage_limit: '',
+      start_date: '',
+      end_date: '',
+      start_time: '',
+      end_time: '',
       is_active: true
     });
     setEditingCoupon(null);
@@ -69,6 +77,10 @@ function Coupons() {
         discount_value: String(coupon.discount_value ?? 0),
         min_order_total: String(coupon.min_order_total ?? 0),
         usage_limit: coupon.usage_limit === null ? '' : String(coupon.usage_limit),
+        start_date: coupon.start_date ? String(coupon.start_date).slice(0, 10) : '',
+        end_date: coupon.end_date ? String(coupon.end_date).slice(0, 10) : '',
+        start_time: coupon.start_time ? String(coupon.start_time).slice(0, 5) : '',
+        end_time: coupon.end_time ? String(coupon.end_time).slice(0, 5) : '',
         is_active: !!coupon.is_active
       });
     } else {
@@ -98,6 +110,10 @@ function Coupons() {
           discount_value: parseFloat(formData.discount_value) || 0,
           min_order_total: parseFloat(formData.min_order_total) || 0,
           usage_limit: formData.usage_limit === '' ? null : parseInt(formData.usage_limit),
+          start_date: formData.start_date || null,
+          end_date: formData.end_date || null,
+          start_time: formData.start_time || null,
+          end_time: formData.end_time || null,
           is_active: formData.is_active
         })
       });
@@ -169,6 +185,7 @@ function Coupons() {
                     <th>Código</th>
                     <th>Nombre</th>
                     <th>Descuento</th>
+                    <th>Vigencia</th>
                     <th>Límite</th>
                     <th>Usados</th>
                     <th>Estado</th>
@@ -184,6 +201,18 @@ function Coupons() {
                       {coupon.discount_type === 'percent'
                         ? `${Number(coupon.discount_value).toFixed(2)}%`
                         : `$${Number(coupon.discount_value).toFixed(2)}`}
+                    </td>
+                    <td>
+                      {(() => {
+                        const d1 = coupon.start_date ? String(coupon.start_date).slice(0, 10) : '';
+                        const d2 = coupon.end_date ? String(coupon.end_date).slice(0, 10) : '';
+                        const t1 = coupon.start_time ? String(coupon.start_time).slice(0, 5) : '';
+                        const t2 = coupon.end_time ? String(coupon.end_time).slice(0, 5) : '';
+                        const parts = [];
+                        if (d1 || d2) parts.push(`${d1 || '…'} → ${d2 || '…'}`);
+                        if (t1 || t2) parts.push(`${t1 || '00:00'}–${t2 || '23:59'}`);
+                        return parts.length ? parts.join(' · ') : 'Siempre';
+                      })()}
                     </td>
                     <td>{coupon.usage_limit === null ? 'Sin límite' : coupon.usage_limit}</td>
                     <td>{coupon.usage_count}</td>
@@ -274,6 +303,42 @@ function Coupons() {
                   onChange={(e) => setFormData(prev => ({ ...prev, usage_limit: e.target.value }))}
                   placeholder="Vacío = sin límite"
                 />
+              </div>
+              <div className="form-group">
+                <label>Vigencia por fecha</label>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={formData.start_date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
+                    title="Desde"
+                  />
+                  <input
+                    type="date"
+                    value={formData.end_date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
+                    title="Hasta"
+                  />
+                </div>
+                <small className="text-muted">Vacío = sin límite de fecha</small>
+              </div>
+              <div className="form-group">
+                <label>Vigencia por hora</label>
+                <div className="flex gap-2">
+                  <input
+                    type="time"
+                    value={formData.start_time}
+                    onChange={(e) => setFormData(prev => ({ ...prev, start_time: e.target.value }))}
+                    title="Desde"
+                  />
+                  <input
+                    type="time"
+                    value={formData.end_time}
+                    onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value }))}
+                    title="Hasta"
+                  />
+                </div>
+                <small className="text-muted">Vacío = válido todo el día</small>
               </div>
               <div className="form-group">
                 <label className="checkbox-label">
