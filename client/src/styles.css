@@ -13294,7 +13294,10 @@ html body .store-container .store-product-card * {
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  z-index: 1;
+  /* Por encima de las tarjetas de producto y cabeceras sticky (z-index 2–100)
+     para que la lluvia se vea en TODAS las pantallas, no solo en teléfono donde
+     asomaba por los huecos del fondo. Debajo de modales y carrito (1000+). */
+  z-index: 900;
 }
 .store-seasonal-emoji {
   position: absolute;
