@@ -16,6 +16,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
+import android.view.LayoutInflater
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
@@ -1947,8 +1948,10 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                 ImageSlideshowScreen(images = slideshowImages)
             } else {
                 AndroidView(
+                    // Se infla desde XML con surface_type="texture_view" para que la
+                    // rotación de RotatingContent (graphicsLayer) también afecte al video.
                     factory = { ctx ->
-                        PlayerView(ctx).apply {
+                        (LayoutInflater.from(ctx).inflate(R.layout.cctv_player_view, null) as PlayerView).apply {
                             player = exoPlayer
                             useController = false
                             resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
@@ -2184,8 +2187,9 @@ fun MixedPlaylistScreen(items: List<MixedItem>, volume: Float) {
     ) {
         if (current.type == "video") {
             AndroidView(
+                // surface_type="texture_view" para que la rotación de RotatingContent aplique al video.
                 factory = { ctx ->
-                    PlayerView(ctx).apply {
+                    (LayoutInflater.from(ctx).inflate(R.layout.cctv_player_view, null) as PlayerView).apply {
                         this.player = player
                         useController = false
                         resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
