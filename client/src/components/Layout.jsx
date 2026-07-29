@@ -751,6 +751,7 @@ function Layout() {
 
               {/* Cuenta y Pedidos */}
               <div className="isb-fp-sec">
+                <a href="https://www.youtube.com/watch?v=wdX6WyXiStA" className="isb-fp-link" target="_blank" rel="noreferrer" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faPlayCircle} /> Tutorial</a>
                 <button className="isb-fp-link" onClick={() => { setAccountOpen(true); setSettingsOpen(false); }}>
                   <FontAwesomeIcon icon={faUser} /> Mi Cuenta
                   {unreadUpdates > 0 && <span style={{ marginLeft: 6, background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 8 }}>{unreadUpdates}</span>}
@@ -765,7 +766,6 @@ function Layout() {
               {/* Accesos rápidos */}
               <div className="isb-fp-sec">
                 <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faShoppingBag} /> Accesos Rápidos</div>
-                <a href="https://www.youtube.com/watch?v=wdX6WyXiStA" className="isb-fp-link" target="_blank" rel="noreferrer" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faPlayCircle} /> Tutorial</a>
                 {can('products', 'view') && <NavLink to="/admin/products" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faBox} /> Productos</NavLink>}
                 {can('analytics', 'view') && <NavLink to="/admin/analytics" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faChartLine} /> Análisis</NavLink>}
                 <a href={`https://wa.me/56996876043?text=${encodeURIComponent('Hola, me contacto desde SRServi 👋')}`} className="isb-fp-link" target="_blank" rel="noopener noreferrer" onClick={() => setSettingsOpen(false)}>

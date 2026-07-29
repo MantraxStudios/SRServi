@@ -1979,6 +1979,8 @@ function Store() {
 
   // Screensaver timer — independent from the inactivity-reload timer
   useEffect(() => {
+    // No activar el salvapantallas mientras se está editando la tienda (es molesto)
+    if (editMode) { clearTimeout(screensaverTimerRef.current); setScreensaverActive(false); return; }
     if (!screensaverCfg?.enabled || !screensaverCfg?.timeout_seconds) return;
     const timeout = screensaverCfg.timeout_seconds * 1000;
     const startTimer = () => {
@@ -2002,7 +2004,7 @@ function Store() {
       events.forEach(e => document.removeEventListener(e, onActivity));
       clearTimeout(screensaverTimerRef.current);
     };
-  }, [screensaverCfg, screensaverActive]);
+  }, [screensaverCfg, screensaverActive, editMode]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -5602,6 +5604,11 @@ function Store() {
       {editMode && (
         <div className="store-editor-bar">
           <div className="store-editor-tabs">
+            <HelpVideoLink
+              url="https://www.youtube.com/watch?v=s-bfH4G7RUA"
+              label="Tutorial"
+              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)', color: '#fff', padding: '8px 12px' }}
+            />
             <button className={`store-editor-tab${editorTab === 'products' ? ' active' : ''}`} onClick={() => setEditorTab('products')}>
               <FontAwesomeIcon icon={faBox} /><span className="editor-tab-label">Productos</span>
             </button>
@@ -5629,11 +5636,6 @@ function Store() {
             <button className="store-editor-tab" onClick={openExcelModal}>
               <FontAwesomeIcon icon={faFileExcel} style={{ color: '#4ade80' }} /><span className="editor-tab-label">Excel</span>
             </button>
-            <HelpVideoLink
-              url="https://www.youtube.com/watch?v=s-bfH4G7RUA"
-              label="Tutorial"
-              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)', color: '#fff', padding: '8px 12px' }}
-            />
             <button className={`store-editor-tab${editorTab === 'combos' ? ' active' : ''}`} onClick={() => { setEditorTab('combos'); if (!editorCombosLoaded) loadEditorCombos(); }}>
               <FontAwesomeIcon icon={faLayerGroup} /><span className="editor-tab-label">Combos</span>
             </button>
