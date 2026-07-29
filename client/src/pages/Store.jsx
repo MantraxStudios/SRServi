@@ -5641,6 +5641,14 @@ function Store() {
             </button>
           </div>
           <div className="store-editor-actions">
+            <button
+              className="store-editor-tab"
+              onClick={() => window.open(`/store/${code}`, '_blank', 'noopener')}
+              title="Abrir la tienda sin editor para previsualizar"
+              style={{ background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.35)', color: '#fff', padding: '8px 12px' }}
+            >
+              <FontAwesomeIcon icon={faEye} /><span className="editor-tab-label">Previsualizar</span>
+            </button>
           </div>
         </div>
       )}
