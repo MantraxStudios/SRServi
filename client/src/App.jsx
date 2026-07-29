@@ -43,6 +43,7 @@ import Tickets from './pages/admin/Tickets';
 import Screensaver from './pages/admin/Screensaver';
 import Tutoriales from './pages/admin/Tutoriales';
 import LeonIA from './pages/admin/LeonIA';
+import Autonomous from './pages/admin/Autonomous';
 import Tasks from './pages/admin/Tasks';
 import Inventory from './pages/admin/Inventory';
 import Procedures from './pages/admin/Procedures';
@@ -319,6 +320,7 @@ function App() {
             <Route path="tutoriales" element={<Tutoriales />} />
             <Route path="settings" element={<PermissionGate section="settings"><Settings /></PermissionGate>} />
             <Route path="leon-ia" element={<PlanLock feature="aiFeatures" title="León IA" description="El asistente de inteligencia artificial está disponible en los planes de pago. Actualizá tu plan para conversar con León IA."><LeonIA /></PlanLock>} />
+            <Route path="autonomous" element={<PlanLock feature="aiFeatures" title="IA Autónoma" description="La IA autónoma que crea promociones, felicita cumpleaños y motiva al equipo está disponible en los planes de pago."><Autonomous /></PlanLock>} />
             <Route path="ai-images" element={<PlanLock feature="aiFeatures" title="Imágenes y videos con IA" description="La generación de imágenes y videos con IA para redes sociales está disponible en los planes de pago."><AiImageGenerator /></PlanLock>} />
             <Route path="fudo" element={<PermissionGate section="canales"><FudoIntegration /></PermissionGate>} />
             <Route path="tasks" element={<PermissionGate section="tasks"><Tasks /></PermissionGate>} />
