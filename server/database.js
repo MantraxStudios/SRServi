@@ -4219,10 +4219,13 @@ export async function createOrder(storeId, orderData) {
 
   const isDeliveryApp = orderData.source === 'delivery_app';
   const isRestaurantPending = payment_method === 'pending';
+  // Pedido sin costo (producto a $0 o descuento del 100%): se registra como
+  // pagado automáticamente, sin cobrar en ninguna máquina de pago.
+  const isFree = payment_method === 'free';
   const deliveryStatus = isDeliveryApp ? 'waiting' : null;
-  const finalStatus = isDeliveryApp ? paidStatus : isRestaurantPending ? paidStatus : initialStatus;
-  const finalCashApproved = isDeliveryApp ? true : isRestaurantPending ? true : cashApproved;
-  const finalPaymentProcess = isDeliveryApp ? 1 : isRestaurantPending ? 1 : paymentProcess;
+  const finalStatus = isDeliveryApp ? paidStatus : (isRestaurantPending || isFree) ? paidStatus : initialStatus;
+  const finalCashApproved = isDeliveryApp ? true : (isRestaurantPending || isFree) ? true : cashApproved;
+  const finalPaymentProcess = isDeliveryApp ? 1 : (isRestaurantPending || isFree) ? 1 : paymentProcess;
 
   const [result] = await pool.execute(
     'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, pos_pin, payment_process, status, table_number, persons, source, customer_phone, customer_name, delivery_address, delivery_status, delivery_customer_id, customer_email, event_name, show_time, customer_comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -4253,9 +4256,9 @@ export async function createOrder(storeId, orderData) {
     discount_total: couponData.discount_total,
     coupon_code: couponData.coupon_code,
     total,
-    status: initialStatus,
+    status: finalStatus,
     payment_method,
-    cash_approved: cashApproved,
+    cash_approved: finalCashApproved,
     table_number: table_number || null,
     customer_comment: customer_comment || null,
     items

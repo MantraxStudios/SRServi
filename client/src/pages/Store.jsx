@@ -3235,8 +3235,79 @@ function Store() {
     }
   };
 
+  // Pedido sin costo (producto a $0 o descuento del 100%): no se envía a ninguna
+  // máquina de pago; se crea la orden ya marcada como pagada y se muestra el éxito.
+  const processFreeOrder = async (tableNum = null) => {
+    if (cart.length === 0) return;
+    setProcessingPayment(true);
+    setPaymentError(null);
+    setPaymentConfirmed(false);
+    setPaymentCancelled(false);
+    setLastTableNumber(tableNum ? parseInt(tableNum) : null);
+
+    const storeId = store.store.id;
+    const cartItems = cart.flatMap(item => {
+      if (item._isCombo) {
+        return (item._comboConfig || []).map(ci => ({
+          product_id: ci.product_id,
+          quantity: ci.quantity * item.quantity,
+          unit_price: ci.unit_price,
+          selected_ingredients: ci.selected_ingredients || [],
+          selected_extras: ci.selected_extras || [],
+          selected_complements: ci.selected_complements || [],
+          combo_id: item.combo_id,
+          combo_label: item.combo_label
+        }));
+      }
+      return [{
+        product_id: item.product_id ?? null,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        selected_ingredients: item.selected_ingredients,
+        selected_extras: item.selected_extras,
+        selected_complements: item.selected_complements || [],
+        ...(item._isPromo ? { promo_title: item.promo_title } : {})
+      }];
+    });
+
+    try {
+      const response = await fetch(API + '/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          store_id: storeId, order_type: orderType, payment_method: 'free',
+          items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
+          total: '0.00', delivery: deliveryMode,
+          table_number: tableNum ? parseInt(tableNum) : null,
+          terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
+          customer_comment: paymentComment || null
+        })
+      });
+      if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
+      const order = await response.json();
+      setPendingOrderData({ order, storeId });
+      setLastOrderNumber(order.order_number);
+      setCashPaymentSuccess(true);
+      setPaymentModalOpen(false);
+      if (billingTableId) { refreshTableOrders(); setBillingTableId(null); }
+      setCart([]);
+      setCartOpen(false);
+    } catch (err) {
+      setPaymentError(err.message);
+      alert(err.message);
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
   const processPayment = async (selectedMethod = paymentMethod, tableNum = null) => {
     if (cart.length === 0) return;
+
+    // Sin monto a cobrar → se registra como pagado automáticamente sin usar terminales.
+    if (getFinalTotal() <= 0) {
+      setPaymentMethod(selectedMethod);
+      return processFreeOrder(tableNum);
+    }
 
     const lastTerminalProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
     const isTuu = selectedMethod === 'card' && lastTerminalProvider === 'tuu';
@@ -3542,6 +3613,8 @@ function Store() {
   // method: 1 = crédito, 2 = débito
   const handleAndroidTuuPayment = async (method) => {
     if (!window.AndroidBridge || cart.length === 0) return;
+    // Sin monto a cobrar → no se envía al terminal TUU; se registra pagado.
+    if (getFinalTotal() <= 0) return processFreeOrder();
     setProcessingPayment(true);
     setPaymentError(null);
     const finalTotal = getFinalTotal();

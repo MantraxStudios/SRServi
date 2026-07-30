@@ -7199,8 +7199,8 @@ app.post('/api/orders', async (req, res) => {
 
     if (pluginManager) {
       pluginManager.hooks.emit('order_created', { store_id: parseInt(store_id), order });
-      if (payment_method === 'cash') {
-        pluginManager.hooks.emit('payment_completed', { store_id: parseInt(store_id), order, payment_method: 'cash' });
+      if (payment_method === 'cash' || payment_method === 'free') {
+        pluginManager.hooks.emit('payment_completed', { store_id: parseInt(store_id), order, payment_method });
       }
     }
 
