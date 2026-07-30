@@ -299,10 +299,11 @@ export default function CCTV() {
     finally { setUploadingImages(false); setUploadImagesProgress(0); if (imageInputRef.current) imageInputRef.current.value = ''; }
   };
 
-  // Genera una imagen del menú (catálogo) de la tienda y la agrega a la biblioteca.
-  const generateMenu = async (orientation) => {
+  // Genera una imagen del menú (catálogo) de la tienda, la agrega a la biblioteca y
+  // la asigna directamente a esta pantalla (la pasa a modo imágenes).
+  const generateMenuForScreen = async (screen, orientation) => {
     if (!selectedStore?.id) { showError('Seleccioná una tienda primero'); return; }
-    setGeneratingMenu(orientation);
+    setGeneratingMenu(`${screen.id}:${orientation}`);
     try {
       const r = await fetch(`${API}/api/cctv/generate-menu-image`, {
         method: 'POST',
@@ -310,8 +311,16 @@ export default function CCTV() {
         body: JSON.stringify({ storeId: selectedStore.id, orientation }),
       });
       if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'No se pudo generar la imagen'); }
-      setImages(await r.json());
-      showSuccess('Imagen de menú generada y agregada a la biblioteca');
+      const rows = await r.json();
+      setImages(rows);
+      const newImg = rows[rows.length - 1]; // la recién creada (mayor sort_order)
+      if (newImg && !screen.group_id) {
+        await setScreenMode(screen, 'images');
+        await assignScreenImage(screen.id, newImg.id);
+        showSuccess('Menú generado y enviado a esta pantalla');
+      } else {
+        showSuccess('Menú generado y agregado a la biblioteca');
+      }
     } catch (e) { showError(e.message); }
     finally { setGeneratingMenu(false); }
   };
@@ -877,6 +886,33 @@ export default function CCTV() {
                         <FontAwesomeIcon icon={faTrash} style={{ fontSize: 11 }} />Eliminar
                       </button>
                     </div>
+
+                    {/* Generar imagen del menú (catálogo de la tienda) para esta pantalla */}
+                    <div style={{ background: 'linear-gradient(135deg, #fffbeb 0%, #fff 100%)', border: '1px solid #fde68a', borderRadius: 10, padding: '10px 12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
+                        <FontAwesomeIcon icon={faImage} style={{ color: GOLD, fontSize: 12 }} />
+                        <span style={{ fontWeight: 700, fontSize: 12.5, color: '#09090b' }}>Imagen del menú</span>
+                      </div>
+                      <div style={{ color: '#71717a', fontSize: 11.5, marginBottom: 9, lineHeight: 1.4 }}>
+                        {grouped
+                          ? 'Genera una imagen con tus productos (se agrega a la biblioteca; esta pantalla la controla el grupo).'
+                          : 'Genera una imagen con tus productos y la envía a esta pantalla.'}
+                        {!selectedStore && <span style={{ color: '#b45309', fontWeight: 600 }}> Seleccioná una tienda.</span>}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button onClick={() => generateMenuForScreen(s, 'landscape')} disabled={!selectedStore || !!generatingMenu}
+                          style={{ padding: '7px 12px', background: GOLD, border: 'none', borderRadius: 7, cursor: (!selectedStore || generatingMenu) ? 'default' : 'pointer', color: '#0a0a0a', fontWeight: 700, fontSize: 12, opacity: (!selectedStore || generatingMenu) ? 0.55 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <FontAwesomeIcon icon={generatingMenu === `${s.id}:landscape` ? faRotate : faDesktop} spin={generatingMenu === `${s.id}:landscape`} style={{ fontSize: 11 }} />
+                          Horizontal 1920×1080
+                        </button>
+                        <button onClick={() => generateMenuForScreen(s, 'portrait')} disabled={!selectedStore || !!generatingMenu}
+                          style={{ padding: '7px 12px', background: '#fff', border: `1px solid ${GOLD}`, borderRadius: 7, cursor: (!selectedStore || generatingMenu) ? 'default' : 'pointer', color: '#92400e', fontWeight: 700, fontSize: 12, opacity: (!selectedStore || generatingMenu) ? 0.55 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <FontAwesomeIcon icon={generatingMenu === `${s.id}:portrait` ? faRotate : faImage} spin={generatingMenu === `${s.id}:portrait`} style={{ fontSize: 11 }} />
+                          Vertical 1080×1920
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Volumen */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <FontAwesomeIcon icon={localVolumes[s.id] === 0 ? faVolumeMute : faVolumeUp} style={{ color: localVolumes[s.id] === 0 ? '#dc2626' : '#71717a', fontSize: 12, flexShrink: 0 }} />
@@ -935,30 +971,6 @@ export default function CCTV() {
             icon={faImage} label="Arrastra imágenes aquí o haz clic para seleccionar (múltiples)"
             hint="JPG, PNG, GIF, WebP — hasta 20 MB por imagen"
             dragOverState={dragOverImages} setDragOverState={setDragOverImages} inputRef={imageInputRef} multiple={true} />
-
-          {/* Generar imagen del menú (catálogo de la tienda) */}
-          <div style={{ background: 'linear-gradient(135deg, #fffbeb 0%, #fff 100%)', border: '1px solid #fde68a', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <FontAwesomeIcon icon={faImage} style={{ color: GOLD, fontSize: 14 }} />
-              <span style={{ fontWeight: 700, fontSize: 14, color: '#09090b' }}>Imagen del menú automática</span>
-            </div>
-            <div style={{ color: '#71717a', fontSize: 13, marginBottom: 12 }}>
-              Genera una imagen con tus productos (nombre, foto y precio) lista para la TV. Se agrega a la biblioteca y podés asignarla a una pantalla.
-              {!selectedStore && <span style={{ color: '#b45309', fontWeight: 600 }}> Seleccioná una tienda primero.</span>}
-            </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button onClick={() => generateMenu('landscape')} disabled={!selectedStore || !!generatingMenu}
-                style={{ padding: '9px 16px', background: GOLD, border: 'none', borderRadius: 8, cursor: (!selectedStore || generatingMenu) ? 'default' : 'pointer', color: '#0a0a0a', fontWeight: 700, fontSize: 13, opacity: (!selectedStore || generatingMenu) ? 0.55 : 1, display: 'flex', alignItems: 'center', gap: 7 }}>
-                <FontAwesomeIcon icon={generatingMenu === 'landscape' ? faRotate : faDesktop} spin={generatingMenu === 'landscape'} />
-                Horizontal 1920×1080
-              </button>
-              <button onClick={() => generateMenu('portrait')} disabled={!selectedStore || !!generatingMenu}
-                style={{ padding: '9px 16px', background: '#fff', border: `1px solid ${GOLD}`, borderRadius: 8, cursor: (!selectedStore || generatingMenu) ? 'default' : 'pointer', color: '#92400e', fontWeight: 700, fontSize: 13, opacity: (!selectedStore || generatingMenu) ? 0.55 : 1, display: 'flex', alignItems: 'center', gap: 7 }}>
-                <FontAwesomeIcon icon={generatingMenu === 'portrait' ? faRotate : faImage} spin={generatingMenu === 'portrait'} />
-                Vertical 1080×1920
-              </button>
-            </div>
-          </div>
 
           {/* Albums section */}
           <div style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
