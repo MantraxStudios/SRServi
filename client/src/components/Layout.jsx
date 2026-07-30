@@ -867,6 +867,10 @@ function Layout() {
                     <FontAwesomeIcon icon={faRobot} /> León IA
                     <span style={{ marginLeft: 6, background: '#D4AF37', color: '#000', fontSize: 9, fontWeight: 800, padding: '1px 4px', borderRadius: 4, flexShrink: 0 }}>IA</span>
                   </NavLink>
+                  <NavLink to="/admin/autonomous" className="isb-fp-link" onClick={() => setSettingsOpen(false)}>
+                    <FontAwesomeIcon icon={faRobot} /> IA Autónoma
+                    <span style={{ marginLeft: 6, background: '#D4AF37', color: '#000', fontSize: 9, fontWeight: 800, padding: '1px 4px', borderRadius: 4, flexShrink: 0 }}>IA</span>
+                  </NavLink>
                   <NavLink to="/admin/ai-images" className="isb-fp-link" onClick={() => setSettingsOpen(false)}>
                     <FontAwesomeIcon icon={faMagicWandSparkles} /> Generador de Imágenes
                     <span style={{ marginLeft: 6, background: '#D4AF37', color: '#000', fontSize: 9, fontWeight: 800, padding: '1px 4px', borderRadius: 4, flexShrink: 0 }}>IA</span>
@@ -886,7 +890,6 @@ function Layout() {
                 {!isSubAccount && <NavLink to="/admin/store-pin" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faLock} /> PIN Tienda</NavLink>}
                 {!isSubAccount && <NavLink to="/admin/screensaver" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faTv} /> Salva Pantallas</NavLink>}
                 {!isSubAccount && <NavLink to="/admin/cctv" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faVideo} /> Cartelería Digital</NavLink>}
-                {!isSubAccount && selectedStore?.code && <a href={`/tv-menu/${selectedStore.code}`} target="_blank" rel="noopener noreferrer" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faTv} /> Menú en TV</a>}
               </div>
 
               {/* Mis Apps */}
