@@ -235,6 +235,7 @@ const StoreGuide = forwardRef(function StoreGuide({
   onAddItems,
   currencySymbol = '$',
   onListeningChange,
+  storeCode,
 }, ref) {
   const [openState, setOpenState] = useState(false);
   const controlled = openProp !== undefined;
@@ -260,6 +261,11 @@ const StoreGuide = forwardRef(function StoreGuide({
   const mutedRef = useRef(muted);
   const voiceRef = useRef(null);
   const greetedRef = useRef(false);
+  // Audio de la voz del servidor (voz dulce consistente en todos los dispositivos)
+  const audioRef = useRef(null);
+  const ttsCacheRef = useRef(new Map()); // texto -> objectURL del audio
+  // ¿El servidor tiene voz propia disponible? null = aún no se sabe, false = usar navegador
+  const serverVoiceRef = useRef(null);
   const recognitionRef = useRef(null);
   const productsRef = useRef(products);
   useEffect(() => { productsRef.current = products; }, [products]);
@@ -283,11 +289,19 @@ const StoreGuide = forwardRef(function StoreGuide({
     };
   }, []);
 
-  // Lee un texto en voz alta (cancela lo anterior para no encimar audios).
-  const speak = useCallback((text) => {
+  // Al desmontar, detiene el audio y libera los blobs de voz cacheados.
+  useEffect(() => {
+    const cache = ttsCacheRef.current;
+    return () => {
+      if (audioRef.current) { try { audioRef.current.pause(); } catch { /* noop */ } }
+      cache.forEach((url) => { try { URL.revokeObjectURL(url); } catch { /* noop */ } });
+      cache.clear();
+    };
+  }, []);
+
+  // Respaldo: voz del navegador (varía según el dispositivo/SO).
+  const speakBrowser = useCallback((clean) => {
     if (!TTS_SUPPORTED || mutedRef.current) return;
-    const clean = cleanForSpeech(text);
-    if (!clean) return;
     try {
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(clean);
@@ -299,15 +313,71 @@ const StoreGuide = forwardRef(function StoreGuide({
     } catch { /* noop */ }
   }, []);
 
+  // Detiene cualquier audio o síntesis en curso.
+  const stopSpeaking = useCallback(() => {
+    try { if (TTS_SUPPORTED) window.speechSynthesis.cancel(); } catch { /* noop */ }
+    if (audioRef.current) {
+      try { audioRef.current.pause(); } catch { /* noop */ }
+      audioRef.current = null;
+    }
+  }, []);
+
+  // Lee un texto en voz alta. Intenta primero la voz dulce del servidor (igual en
+  // todos los dispositivos); si no está disponible, usa la voz del navegador.
+  const speak = useCallback((text) => {
+    if (mutedRef.current) return;
+    const clean = cleanForSpeech(text);
+    if (!clean) return;
+
+    // Sin código de tienda o si ya sabemos que el servidor no tiene voz → navegador.
+    if (!storeCode || serverVoiceRef.current === false) {
+      speakBrowser(clean);
+      return;
+    }
+
+    const playFromUrl = (url) => {
+      stopSpeaking();
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.play().catch(() => { audioRef.current = null; speakBrowser(clean); });
+    };
+
+    // Reutiliza el audio ya generado para frases repetidas (saludos, etc.).
+    const cached = ttsCacheRef.current.get(clean);
+    if (cached) { playFromUrl(cached); return; }
+
+    stopSpeaking();
+    fetch(`/api/public/${encodeURIComponent(storeCode)}/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: clean }),
+    })
+      .then(async (res) => {
+        if (res.status === 204 || !res.ok) {
+          // El servidor no tiene voz propia: usar navegador de ahora en adelante.
+          serverVoiceRef.current = false;
+          speakBrowser(clean);
+          return;
+        }
+        serverVoiceRef.current = true;
+        if (mutedRef.current) return;
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        ttsCacheRef.current.set(clean, url);
+        playFromUrl(url);
+      })
+      .catch(() => { speakBrowser(clean); });
+  }, [storeCode, speakBrowser, stopSpeaking]);
+
   const toggleMute = useCallback(() => {
     setMuted((prev) => {
       const next = !prev;
       mutedRef.current = next;
       try { localStorage.setItem('sg_tts_muted', next ? '1' : '0'); } catch { /* noop */ }
-      if (next && TTS_SUPPORTED) { try { window.speechSynthesis.cancel(); } catch { /* noop */ } }
+      if (next) stopSpeaking();
       return next;
     });
-  }, []);
+  }, [stopSpeaking]);
 
   // Interpreta lo que dijo el cliente: busca productos parecidos y los agrega al carrito.
   const processTranscript = useCallback((text) => {

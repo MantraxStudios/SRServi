@@ -2575,6 +2575,9 @@ function Store() {
     const product = cartItemProduct(item);
     if (!product) return;
 
+    // Cerrar el carrito para que no quede abierto detrás del modal del producto
+    setCartOpen(false);
+
     selectedProductRef.current = product;
     setSelectedProduct(product);
     setEditingCartItemId(item.id);
@@ -10758,6 +10761,7 @@ function Store() {
           products={store?.products || []}
           onAddItems={addVoiceItems}
           currencySymbol={colors.currency.symbol}
+          storeCode={code}
         />
       )}
 

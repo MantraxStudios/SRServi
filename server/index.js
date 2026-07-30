@@ -1464,6 +1464,44 @@ app.post('/api/public/:code/coupons/validate', async (req, res) => {
   }
 });
 
+// Voz del asistente del tótem: genera audio con una voz dulce y consistente en
+// todos los dispositivos usando la TTS de OpenAI (si el dueño configuró su clave).
+// Sin clave devuelve 204 para que el cliente use la voz del navegador como respaldo.
+app.post('/api/public/:code/tts', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const text = String(req.body?.text || '').trim();
+    if (!text) return res.status(400).json({ error: 'text requerido' });
+
+    const store = await getStoreByCode(String(code).toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Código no encontrado' });
+
+    const key = await getChatGptKey(store.user_id);
+    if (!key) return res.status(204).end();
+
+    const ttsRes = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini-tts',
+        voice: 'shimmer', // voz dulce y cálida
+        input: text.slice(0, 600),
+        instructions: 'Habla con una voz dulce, cálida, amable y cercana, con un tono alegre y natural.',
+        response_format: 'mp3',
+      }),
+    });
+
+    if (!ttsRes.ok) return res.status(502).json({ error: 'TTS no disponible' });
+
+    const buf = Buffer.from(await ttsRes.arrayBuffer());
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(buf);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/user', authenticateToken, async (req, res) => {
   try {
     const user = await getUserById(req.user.id);
