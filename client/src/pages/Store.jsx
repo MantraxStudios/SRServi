@@ -1116,6 +1116,8 @@ function Store() {
   const [storeOpeningError, setStoreOpeningError] = useState('');
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
+  // Cuando se está editando un ítem existente del carrito (en vez de agregar uno nuevo)
+  const [editingCartItemId, setEditingCartItemId] = useState(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [voiceListening, setVoiceListening] = useState(false);
   const guideRef = useRef(null);
@@ -2553,7 +2555,54 @@ function Store() {
     setIngredientsModalOpen(false);
     setExtrasModalOpen(false);
     setComplementGroupsModalOpen(false);
+    setEditingCartItemId(null);
     setProductConfig({ selectedIngredients: [], selectedExtras: [], selectedComplements: [], quantity: 1, notes: '' });
+  };
+
+  // ¿El ítem del carrito tiene opciones editables (ingredientes/extras/secciones)?
+  const cartItemProduct = (item) => {
+    if (item._isCombo) return null;
+    const product = (store?.products || []).find(p => p.id === item.product_id);
+    if (!product) return null;
+    const hasIngredients = product.has_ingredients && product.ingredients && product.ingredients.length > 0;
+    const hasExtras = product.has_extras && product.extras && product.extras.length > 0;
+    const hasGroups = Array.isArray(product.complement_groups) && product.complement_groups.length > 0;
+    return (hasIngredients || hasExtras || hasGroups) ? product : null;
+  };
+
+  // Reabre el modal del producto pre-cargado con la selección guardada para editarla.
+  const editCartItem = (item) => {
+    const product = cartItemProduct(item);
+    if (!product) return;
+
+    selectedProductRef.current = product;
+    setSelectedProduct(product);
+    setEditingCartItemId(item.id);
+
+    // Restaurar la selección previa; si no hay config guardada, partir de los ingredientes base
+    const cfg = item._config || {};
+    setProductConfig({
+      selectedIngredients: cfg.selectedIngredients || (product.ingredients || []).filter(i => i.included_by_default),
+      selectedExtras: cfg.selectedExtras || [],
+      selectedComplements: cfg.selectedComplements || [],
+      quantity: cfg.quantity || item.quantity || 1,
+      notes: cfg.notes || ''
+    });
+
+    const hasIngredients = product.has_ingredients && product.ingredients && product.ingredients.length > 0;
+    const hasExtras = product.has_extras && product.extras && product.extras.length > 0;
+    const hasGroups = Array.isArray(product.complement_groups) && product.complement_groups.length > 0;
+
+    if (hasIngredients) {
+      setProductModalStep('complements');
+      setTimeout(() => setIngredientsModalOpen(true), 100);
+    } else if (hasExtras) {
+      setProductModalStep('extras');
+      setTimeout(() => setExtrasModalOpen(true), 100);
+    } else if (hasGroups) {
+      setProductModalStep('groups');
+      setTimeout(() => setComplementGroupsModalOpen(true), 100);
+    }
   };
 
   const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || complementGroupsModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal || !!labelEditModal || !!sectionGroupModal || !!sectionOptionModal || !!sectionEditingGroup || loyaltyModalOpen;
@@ -2743,7 +2792,7 @@ function Store() {
     const removed = baseIngredients.filter(i => !selectedIds.has(i.id)).map(i => `Sin ${i.name}`);
     const added = productConfig.selectedIngredients.filter(i => !i.included_by_default).map(i => i.name);
     const cartItem = {
-      id: Date.now(),
+      id: editingCartItemId || Date.now(),
       product_id: selectedProduct.id,
       product_name: selectedProduct.name,
       product_image: selectedProduct.image,
@@ -2752,14 +2801,26 @@ function Store() {
       total: unitPrice * productConfig.quantity,
       selected_ingredients: [...removed, ...added],
       selected_extras: productConfig.selectedExtras.map(e => e.name),
-      selected_complements: productConfig.selectedComplements || []
+      selected_complements: productConfig.selectedComplements || [],
+      // Config completa (objetos) para poder reeditar el ítem desde el carrito
+      _config: {
+        selectedIngredients: productConfig.selectedIngredients,
+        selectedExtras: productConfig.selectedExtras,
+        selectedComplements: productConfig.selectedComplements || [],
+        quantity: productConfig.quantity,
+        notes: productConfig.notes || ''
+      }
     };
 
-    setCart([...cart, cartItem]);
-    setNotification({ name: selectedProduct.name, image: selectedProduct.image });
+    if (editingCartItemId) {
+      setCart(prev => prev.map(it => (it.id === editingCartItemId ? cartItem : it)));
+    } else {
+      setCart(prev => [...prev, cartItem]);
+      setNotification({ name: selectedProduct.name, image: selectedProduct.image });
+      setTimeout(() => setNotification(null), 1500);
+    }
     setProductModalStep('main');
     closeProductModal();
-    setTimeout(() => setNotification(null), 1500);
   };
 
   // Agrega al carrito los productos pedidos por voz (asistente IA).
@@ -7146,9 +7207,20 @@ function Store() {
                   <div className="store-cart-item-content">
                     <div className="store-cart-item-top">
                       <h4 className="store-cart-item-name">{item.product_name}</h4>
-                      <button className="store-cart-item-remove" onClick={() => removeFromCart(item.id)}>
-                        <FontAwesomeIcon icon={faTimes} />
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        {cartItemProduct(item) && (
+                          <button
+                            className="store-cart-item-remove"
+                            title="Editar"
+                            onClick={() => editCartItem(item)}
+                          >
+                            <FontAwesomeIcon icon={faEdit} />
+                          </button>
+                        )}
+                        <button className="store-cart-item-remove" onClick={() => removeFromCart(item.id)}>
+                          <FontAwesomeIcon icon={faTimes} />
+                        </button>
+                      </div>
                     </div>
 
                     {item._isCombo && (item._comboConfig || []).map(ci => (

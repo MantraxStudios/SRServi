@@ -5971,7 +5971,7 @@ app.get('/api/coupons', authenticateToken, async (req, res) => {
 
 app.post('/api/coupons', authenticateToken, async (req, res) => {
   try {
-    const { store_id, code, name, discount_type, discount_value, min_order_total, usage_limit, start_date, end_date, start_time, end_time, is_active } = req.body;
+    const { store_id, code, name, discount_type, discount_value, min_order_total, usage_limit, start_date, end_date, start_time, end_time, days_of_week, is_active } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
@@ -5993,6 +5993,7 @@ app.post('/api/coupons', authenticateToken, async (req, res) => {
       end_date,
       start_time,
       end_time,
+      days_of_week,
       is_active
     });
     res.json(coupon);
@@ -6003,7 +6004,7 @@ app.post('/api/coupons', authenticateToken, async (req, res) => {
 
 app.put('/api/coupons/:id', authenticateToken, async (req, res) => {
   try {
-    const { store_id, code, name, discount_type, discount_value, min_order_total, usage_limit, start_date, end_date, start_time, end_time, is_active } = req.body;
+    const { store_id, code, name, discount_type, discount_value, min_order_total, usage_limit, start_date, end_date, start_time, end_time, days_of_week, is_active } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
@@ -6025,6 +6026,7 @@ app.put('/api/coupons/:id', authenticateToken, async (req, res) => {
       end_date,
       start_time,
       end_time,
+      days_of_week,
       is_active
     });
     res.json(coupon);

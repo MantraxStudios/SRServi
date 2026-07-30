@@ -163,6 +163,7 @@ async function createTables() {
       end_date DATE DEFAULT NULL,
       start_time TIME DEFAULT NULL,
       end_time TIME DEFAULT NULL,
+      days_of_week VARCHAR(20) DEFAULT NULL,
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,
@@ -1004,6 +1005,10 @@ async function migrateTables() {
       if (!couponColNames.includes('end_time')) {
         await pool.execute('ALTER TABLE coupons ADD COLUMN end_time TIME DEFAULT NULL AFTER start_time');
         console.log('✅ Columna end_time agregada a coupons');
+      }
+      if (!couponColNames.includes('days_of_week')) {
+        await pool.execute('ALTER TABLE coupons ADD COLUMN days_of_week VARCHAR(20) DEFAULT NULL AFTER end_time');
+        console.log('✅ Columna days_of_week agregada a coupons');
       }
     } catch (couponMigrationError) {
       console.error('❌ Error migrando columnas de fecha/hora en coupons:', couponMigrationError.message);
@@ -3156,6 +3161,18 @@ export async function getCoupons(storeId) {
 
 const emptyToNull = (v) => (v === null || v === undefined || v === '' ? null : v);
 
+// Normaliza los días de la semana a una cadena "0,1,2" (0=Domingo..6=Sábado).
+// Devuelve null si no hay restricción (válido todos los días).
+const normalizeDaysOfWeek = (v) => {
+  if (v === null || v === undefined || v === '') return null;
+  const arr = Array.isArray(v) ? v : String(v).split(',');
+  const days = arr
+    .map((d) => parseInt(d, 10))
+    .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
+  const unique = [...new Set(days)].sort((a, b) => a - b);
+  return unique.length ? unique.join(',') : null;
+};
+
 export async function createCoupon(storeId, data) {
   const {
     code,
@@ -3168,6 +3185,7 @@ export async function createCoupon(storeId, data) {
     end_date,
     start_time,
     end_time,
+    days_of_week,
     is_active
   } = data;
 
@@ -3176,8 +3194,8 @@ export async function createCoupon(storeId, data) {
   const [result] = await pool.execute(
     `INSERT INTO coupons (
       store_id, code, name, discount_type, discount_value, min_order_total, usage_limit,
-      start_date, end_date, start_time, end_time, is_active
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      start_date, end_date, start_time, end_time, days_of_week, is_active
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       storeId,
       normalizedCode,
@@ -3190,6 +3208,7 @@ export async function createCoupon(storeId, data) {
       emptyToNull(end_date),
       emptyToNull(start_time),
       emptyToNull(end_time),
+      normalizeDaysOfWeek(days_of_week),
       is_active === false ? 0 : 1
     ]
   );
@@ -3210,6 +3229,7 @@ export async function updateCoupon(couponId, storeId, data) {
     end_date,
     start_time,
     end_time,
+    days_of_week,
     is_active
   } = data;
 
@@ -3227,6 +3247,7 @@ export async function updateCoupon(couponId, storeId, data) {
       end_date = ?,
       start_time = ?,
       end_time = ?,
+      days_of_week = ?,
       is_active = ?
      WHERE id = ? AND store_id = ?`,
     [
@@ -3240,6 +3261,7 @@ export async function updateCoupon(couponId, storeId, data) {
       emptyToNull(end_date),
       emptyToNull(start_time),
       emptyToNull(end_time),
+      normalizeDaysOfWeek(days_of_week),
       is_active === false ? 0 : 1,
       couponId,
       storeId
@@ -4029,6 +4051,17 @@ async function resolveCouponForOrder(storeId, couponCode, subtotal) {
   }
   if (endDate && todayStr > endDate) {
     throw new Error('Este cupón ya expiró');
+  }
+
+  // Validación de días de la semana disponibles (0=Domingo..6=Sábado)
+  if (coupon.days_of_week) {
+    const allowedDays = String(coupon.days_of_week)
+      .split(',')
+      .map((d) => parseInt(d, 10))
+      .filter((d) => Number.isInteger(d));
+    if (allowedDays.length && !allowedDays.includes(now.getDay())) {
+      throw new Error('Este cupón no está disponible hoy');
+    }
   }
 
   const startMin = timeToMinutes(coupon.start_time);
