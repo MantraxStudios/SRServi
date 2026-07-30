@@ -30,6 +30,7 @@ import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, upd
 import { runSrBrain, runSrBrainForStore, runWeeklySalesReport } from './sr_brain.js';
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds, setBotEnabled, getBotEnabled, getBotPhone } from './whatsapp.js';
 import cron from 'node-cron';
+import { generateMenuImage } from './cctv-menu-image.js';
 
 const __serverDir = path.dirname(fileURLToPath(import.meta.url));
 import {
@@ -13431,6 +13432,47 @@ async function startServer() {
         const [rows] = await pool.execute('SELECT * FROM cctv_images WHERE user_id = ? ORDER BY sort_order ASC', [req.user.id]);
         res.json(rows);
       } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: generar imagen del menú (catálogo) y guardarla como imagen de cartelería
+    app.post('/api/cctv/generate-menu-image', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { storeId, orientation } = req.body || {};
+        if (!storeId) return res.status(400).json({ error: 'Falta la tienda (storeId)' });
+
+        const store = await getStoreById(parseInt(storeId));
+        if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+        if (store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado para esta tienda' });
+
+        const products = await getPublicProducts(store.id);
+        const available = (products || []).filter(p => p && p.name && (p.available === undefined || p.available));
+        if (!available.length) return res.status(400).json({ error: 'La tienda no tiene productos para generar el menú' });
+
+        const buffer = await generateMenuImage({
+          products: available,
+          store,
+          orientation: orientation === 'portrait' ? 'portrait' : 'landscape',
+          serverDir: __serverDir,
+        });
+
+        const filename = `menu-${Date.now()}-${Math.round(Math.random() * 1e9)}.png`;
+        fs.writeFileSync(path.join(cctvDir, filename), buffer);
+
+        const [[maxRow]] = await pool.execute('SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM cctv_images WHERE user_id = ?', [req.user.id]);
+        const nextOrder = (maxRow.max_order ?? -1) + 1;
+        const originalName = `Menú ${store.name || ''} (${orientation === 'portrait' ? 'vertical' : 'horizontal'}).png`;
+        await pool.execute(
+          'INSERT INTO cctv_images (user_id, filename, original_name, file_size, url, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
+          [req.user.id, filename, originalName, buffer.length, `/uploads/cctv/${filename}`, nextOrder]
+        );
+
+        const [rows] = await pool.execute('SELECT * FROM cctv_images WHERE user_id = ? ORDER BY sort_order ASC', [req.user.id]);
+        res.json(rows);
+      } catch (e) {
+        console.error('❌ Error generando imagen de menú CCTV:', e);
+        res.status(500).json({ error: e.message });
+      }
     });
 
     // Admin: update image order
