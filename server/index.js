@@ -13438,7 +13438,7 @@ async function startServer() {
     app.post('/api/cctv/generate-menu-image', authenticateToken, async (req, res) => {
       try {
         await ensureCctvTables();
-        const { storeId, orientation } = req.body || {};
+        const { storeId, orientation, productIds, random } = req.body || {};
         if (!storeId) return res.status(400).json({ error: 'Falta la tienda (storeId)' });
 
         const store = await getStoreById(parseInt(storeId));
@@ -13449,8 +13449,21 @@ async function startServer() {
         const available = (products || []).filter(p => p && p.name && (p.available === undefined || p.available));
         if (!available.length) return res.status(400).json({ error: 'La tienda no tiene productos para generar el menú' });
 
+        // Selección de productos: ids específicos (en ese orden), aleatorio, o los primeros.
+        let chosen;
+        if (Array.isArray(productIds) && productIds.length) {
+          const byId = new Map(available.map(p => [String(p.id), p]));
+          chosen = productIds.map(id => byId.get(String(id))).filter(Boolean);
+        } else if (random) {
+          chosen = [...available].sort(() => Math.random() - 0.5);
+        } else {
+          chosen = available;
+        }
+        chosen = chosen.slice(0, 12);
+        if (!chosen.length) return res.status(400).json({ error: 'No se seleccionaron productos válidos' });
+
         const buffer = await generateMenuImage({
-          products: available,
+          products: chosen,
           store,
           orientation: orientation === 'portrait' ? 'portrait' : 'landscape',
           serverDir: __serverDir,

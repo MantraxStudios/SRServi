@@ -75,7 +75,9 @@ export default function CCTV() {
   const [uploadMusicProgress, setUploadMusicProgress] = useState(0);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [uploadImagesProgress, setUploadImagesProgress] = useState(0);
-  const [generatingMenu, setGeneratingMenu] = useState(false); // orientación en curso o false
+  const [generatingMenu, setGeneratingMenu] = useState(false); // id de pantalla en curso o false
+  const [menuModal, setMenuModal] = useState(null); // { screen, orientation, random, selected:[] }
+  const [menuProducts, setMenuProducts] = useState(null); // productos de la tienda (o null cargando)
 
   const [localDurations, setLocalDurations] = useState({});
 
@@ -301,14 +303,14 @@ export default function CCTV() {
 
   // Genera una imagen del menú (catálogo) de la tienda, la agrega a la biblioteca y
   // la asigna directamente a esta pantalla (la pasa a modo imágenes).
-  const generateMenuForScreen = async (screen, orientation) => {
+  const generateMenuForScreen = async (screen, { orientation, productIds, random }) => {
     if (!selectedStore?.id) { showError('Seleccioná una tienda primero'); return; }
-    setGeneratingMenu(`${screen.id}:${orientation}`);
+    setGeneratingMenu(`${screen.id}`);
     try {
       const r = await fetch(`${API}/api/cctv/generate-menu-image`, {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storeId: selectedStore.id, orientation }),
+        body: JSON.stringify({ storeId: selectedStore.id, orientation, productIds, random }),
       });
       if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'No se pudo generar la imagen'); }
       const rows = await r.json();
@@ -321,8 +323,33 @@ export default function CCTV() {
       } else {
         showSuccess('Menú generado y agregado a la biblioteca');
       }
+      setMenuModal(null);
     } catch (e) { showError(e.message); }
     finally { setGeneratingMenu(false); }
+  };
+
+  // Abre el modal para elegir productos/orientación antes de generar el menú.
+  const openMenuModal = async (screen) => {
+    if (!selectedStore?.code) { showError('Seleccioná una tienda primero'); return; }
+    setMenuModal({ screen, orientation: 'landscape', random: false, selected: [] });
+    setMenuProducts(null);
+    try {
+      const r = await fetch(`${API}/api/public/${selectedStore.code}`);
+      if (!r.ok) throw new Error('No se pudieron cargar los productos');
+      const json = await r.json();
+      const list = (json.products || []).filter(p => p && p.name && (p.available === undefined || p.available));
+      setMenuProducts(list);
+    } catch (e) { showError(e.message); setMenuProducts([]); }
+  };
+
+  const toggleMenuProduct = (id) => {
+    setMenuModal(m => {
+      if (!m) return m;
+      const has = m.selected.includes(id);
+      if (has) return { ...m, selected: m.selected.filter(x => x !== id) };
+      if (m.selected.length >= 12) { showError('Máximo 12 productos'); return m; }
+      return { ...m, selected: [...m.selected, id] };
+    });
   };
 
   // ── Screen volume ───────────────────────────────────────────────────────────
@@ -896,21 +923,14 @@ export default function CCTV() {
                       <div style={{ color: '#71717a', fontSize: 11.5, marginBottom: 9, lineHeight: 1.4 }}>
                         {grouped
                           ? 'Genera una imagen con tus productos (se agrega a la biblioteca; esta pantalla la controla el grupo).'
-                          : 'Genera una imagen con tus productos y la envía a esta pantalla.'}
+                          : 'Elegí productos (o aleatorios) y orientación; se genera y se envía a esta pantalla.'}
                         {!selectedStore && <span style={{ color: '#b45309', fontWeight: 600 }}> Seleccioná una tienda.</span>}
                       </div>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button onClick={() => generateMenuForScreen(s, 'landscape')} disabled={!selectedStore || !!generatingMenu}
-                          style={{ padding: '7px 12px', background: GOLD, border: 'none', borderRadius: 7, cursor: (!selectedStore || generatingMenu) ? 'default' : 'pointer', color: '#0a0a0a', fontWeight: 700, fontSize: 12, opacity: (!selectedStore || generatingMenu) ? 0.55 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <FontAwesomeIcon icon={generatingMenu === `${s.id}:landscape` ? faRotate : faDesktop} spin={generatingMenu === `${s.id}:landscape`} style={{ fontSize: 11 }} />
-                          Horizontal 1920×1080
-                        </button>
-                        <button onClick={() => generateMenuForScreen(s, 'portrait')} disabled={!selectedStore || !!generatingMenu}
-                          style={{ padding: '7px 12px', background: '#fff', border: `1px solid ${GOLD}`, borderRadius: 7, cursor: (!selectedStore || generatingMenu) ? 'default' : 'pointer', color: '#92400e', fontWeight: 700, fontSize: 12, opacity: (!selectedStore || generatingMenu) ? 0.55 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <FontAwesomeIcon icon={generatingMenu === `${s.id}:portrait` ? faRotate : faImage} spin={generatingMenu === `${s.id}:portrait`} style={{ fontSize: 11 }} />
-                          Vertical 1080×1920
-                        </button>
-                      </div>
+                      <button onClick={() => openMenuModal(s)} disabled={!selectedStore || !!generatingMenu}
+                        style={{ padding: '8px 14px', background: GOLD, border: 'none', borderRadius: 7, cursor: (!selectedStore || generatingMenu) ? 'default' : 'pointer', color: '#0a0a0a', fontWeight: 700, fontSize: 12, opacity: (!selectedStore || generatingMenu) ? 0.55 : 1, display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <FontAwesomeIcon icon={generatingMenu === `${s.id}` ? faRotate : faImage} spin={generatingMenu === `${s.id}`} style={{ fontSize: 11 }} />
+                        Generar imagen del menú
+                      </button>
                     </div>
 
                     {/* Volumen */}
@@ -1417,6 +1437,93 @@ export default function CCTV() {
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setRenameModal(null)} style={{ flex: 1, padding: '10px', background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 8, color: '#71717a', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
               <button onClick={renameScreen} style={{ flex: 1, padding: '10px', background: GOLD, border: 'none', borderRadius: 8, color: '#0a0a0a', fontWeight: 700, cursor: 'pointer' }}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: generar imagen del menú (elegir productos / aleatorio / orientación) */}
+      {menuModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}
+          onClick={() => { if (!generatingMenu) setMenuModal(null); }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 560, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
+            {/* Header */}
+            <div style={{ padding: '18px 22px 12px', borderBottom: '1px solid #f4f4f5' }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#09090b' }}>Imagen del menú</h3>
+              <div style={{ color: '#71717a', fontSize: 12.5, marginTop: 3 }}>
+                Pantalla: <strong>{menuModal.screen.device_name}</strong> · hasta 12 productos
+              </div>
+            </div>
+
+            <div style={{ padding: '14px 22px', overflowY: 'auto', flex: 1 }}>
+              {/* Orientación */}
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: '#09090b', marginBottom: 6 }}>Orientación</div>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                {[['landscape', faDesktop, 'Horizontal 1920×1080'], ['portrait', faImage, 'Vertical 1080×1920']].map(([val, ic, lbl]) => (
+                  <button key={val} onClick={() => setMenuModal(m => ({ ...m, orientation: val }))}
+                    style={{ flex: 1, padding: '9px 10px', borderRadius: 9, cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                      border: `1px solid ${menuModal.orientation === val ? GOLD : '#e4e4e7'}`, background: menuModal.orientation === val ? '#fffdf5' : '#fff', color: menuModal.orientation === val ? '#92400e' : '#71717a' }}>
+                    <FontAwesomeIcon icon={ic} style={{ fontSize: 12 }} />{lbl}
+                  </button>
+                ))}
+              </div>
+
+              {/* Aleatorio */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 12px', background: '#fafafa', border: '1px solid #e4e4e7', borderRadius: 9, cursor: 'pointer', marginBottom: 14 }}>
+                <input type="checkbox" checked={menuModal.random} onChange={e => setMenuModal(m => ({ ...m, random: e.target.checked }))} style={{ accentColor: GOLD, width: 16, height: 16 }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#09090b' }}>Productos aleatorios</span>
+                <span style={{ fontSize: 11.5, color: '#71717a' }}>— elige 12 al azar cada vez</span>
+              </label>
+
+              {/* Lista de productos (deshabilitada si aleatorio) */}
+              {!menuModal.random && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: '#09090b' }}>Elegí los productos</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: menuModal.selected.length ? '#92400e' : '#a1a1aa' }}>{menuModal.selected.length}/12</span>
+                  </div>
+                  {menuProducts === null ? (
+                    <div style={{ textAlign: 'center', color: '#71717a', padding: 24, fontSize: 13 }}>Cargando productos...</div>
+                  ) : menuProducts.length === 0 ? (
+                    <div style={{ textAlign: 'center', color: '#71717a', padding: 24, fontSize: 13 }}>No hay productos disponibles.</div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 6 }}>
+                      {menuProducts.map(p => {
+                        const sel = menuModal.selected.includes(p.id);
+                        const order = menuModal.selected.indexOf(p.id) + 1;
+                        const src = p.image ? (String(p.image).startsWith('http') ? p.image : `${API}${p.image}`) : null;
+                        return (
+                          <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 9px', borderRadius: 9, cursor: 'pointer',
+                            border: `1px solid ${sel ? GOLD : '#e4e4e7'}`, background: sel ? '#fffdf5' : '#fff' }}>
+                            <input type="checkbox" checked={sel} onChange={() => toggleMenuProduct(p.id)} style={{ accentColor: GOLD, width: 15, height: 15, flexShrink: 0 }} />
+                            <div style={{ width: 34, height: 34, borderRadius: 7, background: '#f4f4f5', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {src ? <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FontAwesomeIcon icon={faImage} style={{ color: '#d4d4d8', fontSize: 12 }} />}
+                            </div>
+                            <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 600, color: '#09090b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                            {sel && <span style={{ fontSize: 11, fontWeight: 800, color: '#92400e', flexShrink: 0 }}>#{order}</span>}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '14px 22px', borderTop: '1px solid #f4f4f5', display: 'flex', gap: 8 }}>
+              <button onClick={() => setMenuModal(null)} disabled={!!generatingMenu}
+                style={{ flex: 1, padding: '11px', background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 9, color: '#71717a', cursor: generatingMenu ? 'default' : 'pointer', fontWeight: 700, fontSize: 13 }}>Cancelar</button>
+              <button
+                onClick={() => generateMenuForScreen(menuModal.screen, { orientation: menuModal.orientation, random: menuModal.random, productIds: menuModal.random ? undefined : menuModal.selected })}
+                disabled={!!generatingMenu || (!menuModal.random && menuModal.selected.length === 0)}
+                style={{ flex: 2, padding: '11px', background: GOLD, border: 'none', borderRadius: 9, color: '#0a0a0a', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  cursor: (generatingMenu || (!menuModal.random && !menuModal.selected.length)) ? 'default' : 'pointer',
+                  opacity: (generatingMenu || (!menuModal.random && !menuModal.selected.length)) ? 0.55 : 1 }}>
+                <FontAwesomeIcon icon={generatingMenu ? faRotate : faImage} spin={!!generatingMenu} style={{ fontSize: 12 }} />
+                {generatingMenu ? 'Generando...' : 'Generar y enviar'}
+              </button>
             </div>
           </div>
         </div>
