@@ -8333,6 +8333,12 @@ export async function getAdminFeedbackByUser(userId) {
   return rows[0] || null;
 }
 
+// Devuelve la fecha de creación de la cuenta (para diferir el feedback obligatorio)
+export async function getUserCreatedAt(userId) {
+  const [rows] = await pool.execute('SELECT created_at FROM users WHERE id = ?', [userId]);
+  return rows[0]?.created_at || null;
+}
+
 export async function saveAdminFeedback(userId, { rating, liked_most, improvement, would_recommend }) {
   await pool.execute(
     `INSERT INTO admin_feedback (user_id, rating, liked_most, improvement, would_recommend)

@@ -26,7 +26,7 @@ import { getAiImageStatus, generateAiImage, generateAiVideo } from './ai-image-c
 import { testFudoConnection, syncProductsToFudo } from './fudo-service.js';
 import { initInstagramService } from './instagram_autostart.js';
 
-import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings, createFeedbackCampaign, createFeedbackToken, getFeedbackToken, submitFeedbackResponse, updateCampaignSentCount, getFeedbackCampaigns, getFeedbackResponses, getAllActiveUsersForFeedback, getAdminFeedbackByUser, saveAdminFeedback, getAllAdminFeedback, createTotemRental, getTotemRentalByUser, updateTotemRentalMpPreference, updateTotemRentalPayment, markTotemRentalInstalled, updateTotemRentalStatus, updateTotemSubscriptionStatus, getAllTotemRentals, logTotemPayment, createSalesLead, findRecentSalesLead, updateSalesLead, getSalesLeads, getSalesLeadStats, updateSalesLeadStatus, deleteSalesLead, getFudoConfig, saveFudoConfig, updateFudoSyncStatus } from './database.js';
+import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings, createFeedbackCampaign, createFeedbackToken, getFeedbackToken, submitFeedbackResponse, updateCampaignSentCount, getFeedbackCampaigns, getFeedbackResponses, getAllActiveUsersForFeedback, getAdminFeedbackByUser, saveAdminFeedback, getAllAdminFeedback, getUserCreatedAt, createTotemRental, getTotemRentalByUser, updateTotemRentalMpPreference, updateTotemRentalPayment, markTotemRentalInstalled, updateTotemRentalStatus, updateTotemSubscriptionStatus, getAllTotemRentals, logTotemPayment, createSalesLead, findRecentSalesLead, updateSalesLead, getSalesLeads, getSalesLeadStats, updateSalesLeadStatus, deleteSalesLead, getFudoConfig, saveFudoConfig, updateFudoSyncStatus } from './database.js';
 import { runSrBrain, runSrBrainForStore, runWeeklySalesReport } from './sr_brain.js';
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds, setBotEnabled, getBotEnabled, getBotPhone } from './whatsapp.js';
 import cron from 'node-cron';
@@ -1571,7 +1571,15 @@ app.put('/api/user/phone', authenticateToken, async (req, res) => {
 app.get('/api/user/feedback-status', authenticateToken, async (req, res) => {
   try {
     const fb = await getAdminFeedbackByUser(req.user.id);
-    res.json({ submitted: !!fb });
+    // El feedback obligatorio solo se pide 10 días después de crear la cuenta.
+    // Antes de eso lo tratamos como "submitted" para que el modal no aparezca.
+    let eligible = true;
+    const createdAt = await getUserCreatedAt(req.user.id);
+    if (createdAt) {
+      const ageMs = Date.now() - new Date(createdAt).getTime();
+      eligible = ageMs >= 10 * 24 * 60 * 60 * 1000;
+    }
+    res.json({ submitted: !!fb || !eligible });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
