@@ -1,7 +1,9 @@
 package com.mantraxstudios.srservi.ui
 
+import android.Manifest
 import android.app.admin.DevicePolicyManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Message
@@ -10,6 +12,7 @@ import android.print.PrintManager
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -21,6 +24,7 @@ import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.google.android.material.appbar.MaterialToolbar
 import com.mantraxstudios.srservi.R
 import com.mantraxstudios.srservi.admin.SRServiDeviceAdminReceiver
@@ -104,6 +108,26 @@ class WorkerLoginActivity : AppCompatActivity() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 progressBar.progress = newProgress
                 progressBar.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
+            }
+
+            // Concede a la pagina web el acceso a la camara/microfono usando los
+            // permisos ya otorgados a la app (necesario para el reconocimiento
+            // facial del registro de asistencia).
+            override fun onPermissionRequest(request: PermissionRequest) {
+                val granted = request.resources.filter { res ->
+                    when (res) {
+                        PermissionRequest.RESOURCE_VIDEO_CAPTURE ->
+                            ContextCompat.checkSelfPermission(
+                                this@WorkerLoginActivity, Manifest.permission.CAMERA
+                            ) == PackageManager.PERMISSION_GRANTED
+                        PermissionRequest.RESOURCE_AUDIO_CAPTURE ->
+                            ContextCompat.checkSelfPermission(
+                                this@WorkerLoginActivity, Manifest.permission.RECORD_AUDIO
+                            ) == PackageManager.PERMISSION_GRANTED
+                        else -> true
+                    }
+                }.toTypedArray()
+                if (granted.isNotEmpty()) request.grant(granted) else request.deny()
             }
 
             override fun onShowFileChooser(
