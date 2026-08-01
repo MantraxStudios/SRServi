@@ -6746,6 +6746,151 @@ app.post('/api/products/excel-import', authenticateToken, async (req, res) => {
 
 // --- end Excel import ---
 
+// ─── Importar productos desde una URL (página web del cliente) ────────────────
+function _htmlDecode(s) {
+  return String(s || '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, n) => { try { return String.fromCodePoint(+n); } catch { return ''; } });
+}
+
+// Convierte un precio con formato variado ("$12.990", "1.299,00", "10.99") a número
+function _toPrice(v) {
+  if (v == null) return 0;
+  let s = String(v).replace(/[^\d.,]/g, '');
+  if (!s) return 0;
+  if (s.includes(',') && s.includes('.')) {
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '').replace(',', '.');
+    else s = s.replace(/,/g, '');
+  } else if (s.includes(',')) {
+    const parts = s.split(',');
+    s = parts[parts.length - 1].length === 2 ? s.replace(',', '.') : s.replace(/,/g, '');
+  }
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : Math.round(n * 100) / 100;
+}
+
+// Recorre estructuras JSON-LD (schema.org) buscando entidades Product
+function _collectLdProducts(node, add) {
+  if (!node) return;
+  if (Array.isArray(node)) { node.forEach(n => _collectLdProducts(n, add)); return; }
+  if (typeof node !== 'object') return;
+  const t = node['@type'];
+  const isProduct = t === 'Product' || (Array.isArray(t) && t.includes('Product'));
+  if (isProduct && node.name) {
+    let offers = node.offers;
+    if (Array.isArray(offers)) offers = offers[0];
+    const price = offers?.price ?? offers?.lowPrice ?? offers?.highPrice ?? node.price;
+    let image = node.image;
+    if (Array.isArray(image)) image = image[0];
+    if (image && typeof image === 'object') image = image.url || image.contentUrl;
+    add(node.name, price, image);
+  }
+  if (node['@graph']) _collectLdProducts(node['@graph'], add);
+  if (node.itemListElement) _collectLdProducts(node.itemListElement, add);
+  if (node.item) _collectLdProducts(node.item, add);
+}
+
+// Extrae productos {name, price, image_url} del HTML usando datos estructurados JSON-LD
+function extractProductsFromHtml(html, baseUrl) {
+  const rows = [];
+  const seen = new Set();
+  const add = (name, price, image) => {
+    name = _htmlDecode(String(name || '')).replace(/\s+/g, ' ').trim();
+    if (!name || name.length < 2) return;
+    const key = name.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    let img = _htmlDecode(String(image || '')).trim();
+    try { if (img && baseUrl) img = new URL(img, baseUrl).href; } catch { /* deja img tal cual */ }
+    rows.push({ name, description: '', price: _toPrice(price), category: '', barcode: '', image_url: img });
+  };
+  const ld = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m;
+  while ((m = ld.exec(html))) {
+    try { _collectLdProducts(JSON.parse(m[1].trim()), add); } catch { /* JSON inválido, ignorar bloque */ }
+  }
+  return rows;
+}
+
+// Fallback con IA (OpenAI) para páginas sin datos estructurados
+async function extractProductsWithAI(text, apiKey) {
+  const prompt = 'Extrae los productos que aparecen en el siguiente contenido de una página de tienda. ' +
+    'Devuelve ÚNICAMENTE un array JSON válido, sin explicaciones, con objetos { "name": string, "price": number }. ' +
+    'El precio debe ser un número (sin símbolo de moneda ni separadores de miles). Si no hay productos claros, devuelve [].\n\nCONTENIDO:\n' + text;
+  const r = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: 1500, temperature: 0 })
+  });
+  if (!r.ok) return [];
+  const data = await r.json();
+  let content = data.choices?.[0]?.message?.content || '';
+  content = content.replace(/```json/gi, '').replace(/```/g, '').trim();
+  const start = content.indexOf('['); const end = content.lastIndexOf(']');
+  if (start === -1 || end === -1) return [];
+  let arr;
+  try { arr = JSON.parse(content.slice(start, end + 1)); } catch { return []; }
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .filter(p => p && p.name)
+    .map(p => ({ name: String(p.name).trim(), description: '', price: _toPrice(p.price), category: '', barcode: '', image_url: '' }));
+}
+
+app.post('/api/products/web-preview', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, url } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    if (!url || !/^https?:\/\//i.test(String(url).trim())) {
+      return res.status(400).json({ error: 'Ingresa una URL válida que empiece con http:// o https://' });
+    }
+
+    let html;
+    try {
+      const resp = await fetch(String(url).trim(), {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'es-CL,es;q=0.9'
+        },
+        redirect: 'follow'
+      });
+      if (!resp.ok) return res.status(400).json({ error: `No se pudo acceder a la página (HTTP ${resp.status})` });
+      html = await resp.text();
+    } catch (e) {
+      return res.status(400).json({ error: 'No se pudo acceder a la página: ' + e.message });
+    }
+
+    let rows = extractProductsFromHtml(html, String(url).trim());
+    let usedAI = false;
+
+    if (rows.length === 0) {
+      const key = await getChatGptKey(req.user.id);
+      if (key) {
+        const text = html
+          .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+          .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ').trim().slice(0, 12000);
+        try { rows = await extractProductsWithAI(text, key); usedAI = rows.length > 0; } catch { /* ignora */ }
+      }
+    }
+
+    if (rows.length === 0) {
+      return res.status(422).json({
+        error: 'No pudimos detectar productos en esa página. Prueba con la URL de un producto o de un listado/categoría. Algunos sitios cargan sus productos con JavaScript y no se pueden leer.'
+      });
+    }
+
+    res.json({ rows: rows.slice(0, 200), total: Math.min(rows.length, 200), source: usedAI ? 'ai' : 'structured' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al leer la página: ' + error.message });
+  }
+});
+
 app.post('/api/products', authenticateToken, upload.single('image'), async (req, res) => {
   try {
     const { store_id, name, barcode, description, price, category_id, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time } = req.body;

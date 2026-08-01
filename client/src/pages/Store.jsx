@@ -1318,6 +1318,14 @@ function Store() {
   const [excelLoading, setExcelLoading] = useState(false);
   const [excelError, setExcelError] = useState('');
   const [excelResults, setExcelResults] = useState(null);
+  // Importar productos desde una URL (web del cliente)
+  const [showWebModal, setShowWebModal] = useState(false);
+  const [webStep, setWebStep] = useState('input'); // input | preview | results
+  const [webUrl, setWebUrl] = useState('');
+  const [webRows, setWebRows] = useState([]);
+  const [webLoading, setWebLoading] = useState(false);
+  const [webError, setWebError] = useState('');
+  const [webResults, setWebResults] = useState(null);
   const excelFileRef = useRef(null);
   const [styleTab, setStyleTab] = useState('plantillas');
   const [visualSettings, setVisualSettings] = useState({
@@ -4768,6 +4776,68 @@ function Store() {
     }
   };
 
+  // ── Importar productos desde la web del cliente ──
+  const openWebModal = () => {
+    setWebStep('input');
+    setWebUrl('');
+    setWebRows([]);
+    setWebError('');
+    setWebResults(null);
+    setShowWebModal(true);
+  };
+
+  const handleWebPreview = async () => {
+    if (!webUrl.trim()) return;
+    setWebError('');
+    setWebLoading(true);
+    try {
+      const res = await fetch('/api/products/web-preview', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: store?.store?.id, url: webUrl.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) { setWebError(data.error || 'No se pudieron leer los productos'); return; }
+      setWebRows(data.rows || []);
+      setWebStep('preview');
+    } catch {
+      setWebError('Error de conexión al leer la página');
+    } finally {
+      setWebLoading(false);
+    }
+  };
+
+  const toggleWebRow = (i) => {
+    setWebRows(rows => rows.map((r, idx) => idx === i ? { ...r, _skip: !r._skip } : r));
+  };
+
+  const updateWebRow = (i, field, value) => {
+    setWebRows(rows => rows.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
+  };
+
+  const handleWebImport = async () => {
+    const rows = webRows.filter(r => !r._skip && r.name);
+    if (rows.length === 0) { setWebError('Selecciona al menos un producto'); return; }
+    setWebLoading(true);
+    setWebError('');
+    try {
+      const res = await fetch('/api/products/excel-import', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: store?.store?.id, rows })
+      });
+      const data = await res.json();
+      if (!res.ok) { setWebError(data.error || 'Error al importar'); return; }
+      setWebResults(data);
+      setWebStep('results');
+      fetchStore();
+    } catch {
+      setWebError('Error de conexión al importar');
+    } finally {
+      setWebLoading(false);
+    }
+  };
+
   const openProdModal = (product = null) => {
     setEditingProd(product);
     setProdForm({
@@ -5863,6 +5933,9 @@ function Store() {
             </button>
             <button className="store-editor-tab" onClick={openExcelModal}>
               <FontAwesomeIcon icon={faFileExcel} style={{ color: '#4ade80' }} /><span className="editor-tab-label">Excel</span>
+            </button>
+            <button className="store-editor-tab" onClick={openWebModal}>
+              <FontAwesomeIcon icon={faGlobe} style={{ color: '#38bdf8' }} /><span className="editor-tab-label">Web</span>
             </button>
             <button className={`store-editor-tab${editorTab === 'combos' ? ' active' : ''}`} onClick={() => { setEditorTab('combos'); if (!editorCombosLoaded) loadEditorCombos(); }}>
               <FontAwesomeIcon icon={faLayerGroup} /><span className="editor-tab-label">Combos</span>
@@ -10733,6 +10806,123 @@ function Store() {
                 <button
                   onClick={() => setShowExcelModal(false)}
                   style={{ padding: '11px 32px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '700', fontSize: '14px', cursor: 'pointer' }}
+                >
+                  Listo
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showWebModal && (
+        <div className="modal-overlay" onClick={() => setShowWebModal(false)}>
+          <div className="modal" style={{ maxWidth: '720px', width: '95%' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">
+                <FontAwesomeIcon icon={faGlobe} style={{ marginRight: '8px', color: '#0ea5e9' }} />
+                Importar productos desde una web
+              </h2>
+              <button className="modal-close" onClick={() => setShowWebModal(false)}>&times;</button>
+            </div>
+
+            {webError && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', fontSize: '13px' }}>
+                {webError}
+              </div>
+            )}
+
+            {webStep === 'input' && (
+              <div>
+                <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '10px', padding: '14px 16px', marginBottom: '18px' }}>
+                  <p style={{ margin: '0 0 6px', fontSize: '13px', color: '#0369a1' }}>
+                    Pega el enlace de una página con productos (una tienda online, un catálogo o la página de una categoría). Extraeremos <strong>nombre, precio e imagen</strong>.
+                  </p>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#0891b2' }}>
+                    Funciona mejor con páginas de producto o listados. Algunos sitios cargan sus productos con JavaScript y no se pueden leer.
+                  </p>
+                </div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>URL de la página</label>
+                <input
+                  type="url"
+                  value={webUrl}
+                  onChange={e => { setWebUrl(e.target.value); setWebError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && handleWebPreview()}
+                  placeholder="https://www.ejemplo.cl/productos"
+                  style={{ width: '100%', padding: '11px 14px', border: '1.5px solid #d1d5db', borderRadius: '10px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', marginBottom: '16px' }}
+                />
+                <button
+                  onClick={handleWebPreview}
+                  disabled={webLoading || !webUrl.trim()}
+                  style={{ width: '100%', padding: '12px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '700', fontSize: '14px', cursor: (webLoading || !webUrl.trim()) ? 'default' : 'pointer', opacity: (webLoading || !webUrl.trim()) ? 0.6 : 1 }}
+                >
+                  {webLoading ? 'Leyendo la página...' : 'Buscar productos'}
+                </button>
+              </div>
+            )}
+
+            {webStep === 'preview' && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <p style={{ margin: 0, fontWeight: '600', color: '#374151' }}>
+                    {webRows.filter(r => !r._skip).length} de {webRows.length} seleccionado{webRows.length !== 1 ? 's' : ''}
+                  </p>
+                  <button onClick={() => { setWebStep('input'); setWebRows([]); }} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline' }}>
+                    Cambiar URL
+                  </button>
+                </div>
+                <div style={{ maxHeight: '340px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px', marginBottom: '16px' }}>
+                  {webRows.map((row, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderBottom: '1px solid #f3f4f6', background: row._skip ? '#fafafa' : '#fff', opacity: row._skip ? 0.5 : 1 }}>
+                      <input type="checkbox" checked={!row._skip} onChange={() => toggleWebRow(i)} style={{ width: 18, height: 18, flexShrink: 0, cursor: 'pointer' }} />
+                      {row.image_url
+                        ? <img src={row.image_url} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0, background: '#f3f4f6' }} onError={e => { e.target.style.visibility = 'hidden'; }} />
+                        : <div style={{ width: 40, height: 40, borderRadius: 6, background: '#f3f4f6', flexShrink: 0 }} />}
+                      <input
+                        value={row.name}
+                        onChange={e => updateWebRow(i, 'name', e.target.value)}
+                        style={{ flex: 1, minWidth: 0, padding: '6px 8px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, fontWeight: 600, color: '#111', outline: 'none' }}
+                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                        <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 700 }}>$</span>
+                        <input
+                          type="number" min="0" step="0.01" value={row.price}
+                          onChange={e => updateWebRow(i, 'price', parseFloat(e.target.value) || 0)}
+                          style={{ width: 80, padding: '6px 6px', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 13, fontWeight: 700, color: '#16a34a', textAlign: 'right', outline: 'none' }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={handleWebImport}
+                  disabled={webLoading || webRows.filter(r => !r._skip).length === 0}
+                  style={{ width: '100%', padding: '12px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '700', fontSize: '14px', cursor: webLoading ? 'default' : 'pointer', opacity: webLoading ? 0.6 : 1 }}
+                >
+                  {webLoading ? 'Importando...' : `Importar ${webRows.filter(r => !r._skip).length} producto${webRows.filter(r => !r._skip).length !== 1 ? 's' : ''}`}
+                </button>
+              </div>
+            )}
+
+            {webStep === 'results' && webResults && (
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginBottom: '24px', flexWrap: 'wrap' }}>
+                  <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '12px', padding: '20px 28px' }}>
+                    <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '28px', color: '#16a34a', marginBottom: '6px', display: 'block' }} />
+                    <div style={{ fontSize: '32px', fontWeight: '800', color: '#15803d' }}>{webResults.created}</div>
+                    <div style={{ fontSize: '13px', color: '#16a34a', fontWeight: '600' }}>Importados</div>
+                  </div>
+                  {webResults.skipped > 0 && (
+                    <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: '12px', padding: '20px 28px' }}>
+                      <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '28px', color: '#ca8a04', marginBottom: '6px', display: 'block' }} />
+                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#a16207' }}>{webResults.skipped}</div>
+                      <div style={{ fontSize: '13px', color: '#ca8a04', fontWeight: '600' }}>Omitidos</div>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowWebModal(false)}
+                  style={{ padding: '11px 32px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '700', fontSize: '14px', cursor: 'pointer' }}
                 >
                   Listo
                 </button>
