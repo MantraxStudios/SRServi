@@ -86,6 +86,7 @@ import PlanLock from './components/PlanLock';
 import WhatsApp from './pages/admin/WhatsApp';
 import AttendanceAdmin from './pages/admin/AttendanceAdmin';
 import LoyaltyConfig from './pages/admin/LoyaltyConfig';
+import StampCard from './pages/StampCard';
 import VentasDelMes from './pages/admin/VentasDelMes';
 import VentasDelDia from './pages/admin/VentasDelDia';
 import Attendance from './pages/Attendance';
@@ -274,6 +275,7 @@ function App() {
           <Route path="/pago-delivery/:code" element={<DeliveryPaymentResult />} />
           <Route path="/rate/:code" element={<Rate />} />
           <Route path="/survey/:code" element={<ClientSurvey />} />
+          <Route path="/tarjeta/:token" element={<StampCard />} />
           <Route path="/delivery" element={<DeliveryLanding />} />
           <Route path="/delivery/:code" element={<DeliveryStore />} />
           <Route path="/delivery/track/:orderId" element={<DeliveryTrack />} />

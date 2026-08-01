@@ -293,6 +293,14 @@ import {
   createLoyalCustomer,
   incrementLoyalCustomerPurchases,
   deleteLoyalCustomer,
+  getStampCardConfig,
+  saveStampCardConfig,
+  getOrCreateStampCard,
+  getStampCardByToken,
+  listStampCards,
+  deleteStampCard,
+  addStampToCard,
+  redeemStampCard,
   getInventorySections,
   createInventorySection,
   updateInventorySection,
@@ -16262,6 +16270,125 @@ app.delete('/api/loyalty/customers/:id', authenticateToken, async (req, res) => 
     if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
     await deleteLoyalCustomer(parseInt(req.params.id), storeId);
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Stamp Card (Tarjeta Virtual de Sellos) ──────────────────────────────────
+
+// Admin: obtener configuración de la tarjeta
+app.get('/api/stamp-card/config', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const config = await getStampCardConfig(storeId);
+    res.json(config);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: guardar configuración de la tarjeta
+app.put('/api/stamp-card/config', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, enabled, stamps_required, reward_type, reward_value, reward_label } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+    await saveStampCardConfig(parseInt(store_id), { enabled, stamps_required, reward_type, reward_value, reward_label });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: listar tarjetas registradas
+app.get('/api/stamp-card/cards', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const cards = await listStampCards(storeId);
+    res.json(cards);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: eliminar una tarjeta
+app.delete('/api/stamp-card/cards/:id', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.body.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    await deleteStampCard(parseInt(req.params.id), storeId);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Público: config de la tarjeta por código de tienda
+app.get('/api/public/:code/stamp-card', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const config = await getStampCardConfig(store.id);
+    res.json({ config });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Público: registrar/obtener tarjeta por teléfono (envía enlace por WhatsApp)
+app.post('/api/public/:code/stamp-card/register', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const { name, phone } = req.body;
+    if (!phone) return res.status(400).json({ error: 'phone es requerido' });
+    const config = await getStampCardConfig(store.id);
+    const card = await getOrCreateStampCard(store.id, phone, name);
+    const cardUrl = `${BASE_URL}/tarjeta/${card.token}`;
+    // Enviar el enlace por WhatsApp solo la primera vez (no bloqueante)
+    if (card._isNew) {
+      try {
+        const msg = `¡Hola${card.name ? ' ' + card.name : ''}! 🎉 Esta es tu tarjeta de sellos de *${store.name}*.\n` +
+          `Junta ${config.stamps_required} sellos y obtén: ${config.reward_label}.\n` +
+          `Guarda tu tarjeta aquí: ${cardUrl}`;
+        await sendWhatsAppMessage(store.id, phone, msg);
+      } catch (err) { console.error('stamp-card whatsapp:', err.message); }
+    }
+    res.json({
+      token: card.token,
+      stamps: card.stamps,
+      stamps_required: config.stamps_required,
+      reward_available: !!card.reward_available,
+      reward_type: config.reward_type,
+      reward_value: Number(config.reward_value) || 0,
+      reward_label: config.reward_label,
+      is_new: card._isNew,
+      url: cardUrl
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Público: sumar un sello (por teléfono) tras una compra
+app.post('/api/public/:code/stamp-card/stamp', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const { phone, name } = req.body;
+    if (!phone) return res.status(400).json({ error: 'phone es requerido' });
+    const result = await addStampToCard(store.id, phone, name);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Público: canjear recompensa (reinicia sellos)
+app.post('/api/public/:code/stamp-card/redeem', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: 'token es requerido' });
+    const card = await redeemStampCard({ token });
+    if (!card) return res.status(404).json({ error: 'Tarjeta no encontrada' });
+    res.json({ ok: true, card });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Público por token: datos de la tarjeta para la página del cliente
+app.get('/api/card/:token', async (req, res) => {
+  try {
+    const card = await getStampCardByToken(req.params.token);
+    if (!card) return res.status(404).json({ error: 'Tarjeta no encontrada' });
+    res.json(card);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

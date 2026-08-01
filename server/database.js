@@ -7737,6 +7737,169 @@ export async function deleteLoyalCustomer(id, storeId) {
   );
 }
 
+// ─── Stamp Card (Tarjeta Virtual de Sellos) ───────────────────────────────────
+// Sistema independiente del "Cliente Habitual" facial. Modelo de sellos:
+// cada compra suma 1 sello; al completar N, hay recompensa y la tarjeta se reinicia.
+
+let _stampCardReady = false;
+async function ensureStampCardTables() {
+  if (_stampCardReady) return;
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS stamp_card_config (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL UNIQUE,
+      enabled BOOLEAN DEFAULT FALSE,
+      stamps_required INT DEFAULT 10,
+      reward_type VARCHAR(20) DEFAULT 'free_item',
+      reward_value DECIMAL(5,2) DEFAULT 0,
+      reward_label VARCHAR(255) DEFAULT '1 producto gratis',
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_stampcfg_store (store_id),
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS stamp_cards (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      token VARCHAR(64) NOT NULL UNIQUE,
+      name VARCHAR(255),
+      phone VARCHAR(50),
+      stamps INT DEFAULT 0,
+      total_stamps INT DEFAULT 0,
+      redeemed_count INT DEFAULT 0,
+      reward_available BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      last_stamp_at TIMESTAMP NULL DEFAULT NULL,
+      UNIQUE KEY uniq_store_phone (store_id, phone),
+      INDEX idx_stampcard_store (store_id),
+      INDEX idx_stampcard_token (token),
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+  _stampCardReady = true;
+}
+
+export async function getStampCardConfig(storeId) {
+  await ensureStampCardTables();
+  const [rows] = await pool.execute(
+    'SELECT * FROM stamp_card_config WHERE store_id = ?',
+    [storeId]
+  );
+  if (rows[0]) return rows[0];
+  return { store_id: storeId, enabled: false, stamps_required: 10, reward_type: 'free_item', reward_value: 0, reward_label: '1 producto gratis' };
+}
+
+export async function saveStampCardConfig(storeId, { enabled, stamps_required, reward_type, reward_value, reward_label }) {
+  await ensureStampCardTables();
+  await pool.execute(`
+    INSERT INTO stamp_card_config (store_id, enabled, stamps_required, reward_type, reward_value, reward_label)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      enabled = VALUES(enabled),
+      stamps_required = VALUES(stamps_required),
+      reward_type = VALUES(reward_type),
+      reward_value = VALUES(reward_value),
+      reward_label = VALUES(reward_label)
+  `, [
+    storeId,
+    enabled ? 1 : 0,
+    Math.max(1, parseInt(stamps_required) || 10),
+    reward_type === 'discount' ? 'discount' : 'free_item',
+    parseFloat(reward_value) || 0,
+    reward_label || '1 producto gratis'
+  ]);
+}
+
+export async function getOrCreateStampCard(storeId, phone, name) {
+  await ensureStampCardTables();
+  const cleanPhone = (phone || '').replace(/\s+/g, '');
+  const [existing] = await pool.execute(
+    'SELECT * FROM stamp_cards WHERE store_id = ? AND phone = ?',
+    [storeId, cleanPhone]
+  );
+  if (existing[0]) {
+    if (name && !existing[0].name) {
+      await pool.execute('UPDATE stamp_cards SET name = ? WHERE id = ?', [name, existing[0].id]);
+      existing[0].name = name;
+    }
+    return { ...existing[0], _isNew: false };
+  }
+  const { randomBytes } = await import('crypto');
+  const token = randomBytes(16).toString('hex');
+  const [result] = await pool.execute(
+    'INSERT INTO stamp_cards (store_id, token, name, phone) VALUES (?, ?, ?, ?)',
+    [storeId, token, name || null, cleanPhone]
+  );
+  const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE id = ?', [result.insertId]);
+  return { ...rows[0], _isNew: true };
+}
+
+export async function getStampCardByToken(token) {
+  await ensureStampCardTables();
+  const [rows] = await pool.execute(
+    `SELECT c.*, s.name AS store_name, s.logo AS store_logo, s.code AS store_code
+     FROM stamp_cards c JOIN stores s ON c.store_id = s.id
+     WHERE c.token = ?`,
+    [token]
+  );
+  if (!rows[0]) return null;
+  const config = await getStampCardConfig(rows[0].store_id);
+  return { ...rows[0], config };
+}
+
+export async function listStampCards(storeId) {
+  await ensureStampCardTables();
+  const [rows] = await pool.execute(
+    'SELECT * FROM stamp_cards WHERE store_id = ? ORDER BY last_stamp_at IS NULL, last_stamp_at DESC, created_at DESC',
+    [storeId]
+  );
+  return rows;
+}
+
+export async function deleteStampCard(id, storeId) {
+  await ensureStampCardTables();
+  await pool.execute('DELETE FROM stamp_cards WHERE id = ? AND store_id = ?', [id, storeId]);
+}
+
+// Suma un sello a la tarjeta (por teléfono). Devuelve { card, rewardEarned }.
+export async function addStampToCard(storeId, phone, name) {
+  await ensureStampCardTables();
+  const config = await getStampCardConfig(storeId);
+  const required = Math.max(1, parseInt(config.stamps_required) || 10);
+  const card = await getOrCreateStampCard(storeId, phone, name);
+  const newStamps = (card.stamps || 0) + 1;
+  const rewardEarned = newStamps >= required;
+  await pool.execute(
+    `UPDATE stamp_cards
+     SET stamps = ?, total_stamps = total_stamps + 1, reward_available = ?, last_stamp_at = NOW()
+     WHERE id = ?`,
+    [newStamps, rewardEarned ? 1 : 0, card.id]
+  );
+  const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE id = ?', [card.id]);
+  return { card: { ...rows[0], config }, rewardEarned, stamps_required: required };
+}
+
+// Canjea la recompensa: reinicia sellos y suma al histórico de canjes.
+export async function redeemStampCard({ token = null, id = null, storeId = null }) {
+  await ensureStampCardTables();
+  let card;
+  if (token) {
+    const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE token = ?', [token]);
+    card = rows[0];
+  } else if (id && storeId) {
+    const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE id = ? AND store_id = ?', [id, storeId]);
+    card = rows[0];
+  }
+  if (!card) return null;
+  await pool.execute(
+    'UPDATE stamp_cards SET stamps = 0, reward_available = FALSE, redeemed_count = redeemed_count + 1 WHERE id = ?',
+    [card.id]
+  );
+  const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE id = ?', [card.id]);
+  return rows[0];
+}
+
 // ─── INVENTORY MOVEMENTS & ALERTS ─────────────────────────────────────────────
 
 let _inventoryTablesReady = false;

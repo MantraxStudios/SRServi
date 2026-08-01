@@ -1165,6 +1165,14 @@ function Store() {
   const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
   const loyaltyDiscountRef = useRef(0);
   const [loyaltyConfig, setLoyaltyConfig] = useState(null);
+  // ── Tarjeta virtual de sellos ──
+  const [stampConfig, setStampConfig] = useState(null);
+  const [stampPhone, setStampPhone] = useState('');
+  const [stampCard, setStampCard] = useState(null); // tarjeta consultada por teléfono
+  const [stampLookupLoading, setStampLookupLoading] = useState(false);
+  const stampDiscountRef = useRef(0); // % descuento por recompensa disponible
+  const [stampDiscount, setStampDiscount] = useState(0);
+  const stampRewardUsedRef = useRef(false);
   const [pendingOrderData, setPendingOrderData] = useState(null);
   const [comboModal, setComboModal] = useState(null);
   const [comboQty, setComboQty] = useState(1);
@@ -1862,6 +1870,8 @@ function Store() {
       loyaltyDiscountRef.current = 0;
       setLoyaltyDiscount(0);
     }
+    // Record stamp card purchase / redeem
+    recordStampPurchase();
     setPaymentComment('');
     const toRatingTimer = setTimeout(() => {
       setPaymentConfirmed(false);
@@ -1884,6 +1894,8 @@ function Store() {
       loyaltyDiscountRef.current = 0;
       setLoyaltyDiscount(0);
     }
+    // Record stamp card purchase / redeem
+    recordStampPurchase();
     setPaymentComment('');
     const toRatingTimer = setTimeout(() => {
       setCashPaymentSuccess(false);
@@ -2333,6 +2345,12 @@ function Store() {
       fetch(`/api/public/${code}/loyalty`)
         .then(r => r.ok ? r.json() : null)
         .then(d => { if (d?.config) setLoyaltyConfig(d.config); })
+        .catch(() => {});
+
+      // Fetch stamp card config (tarjeta virtual de sellos)
+      fetch(`/api/public/${code}/stamp-card`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.config?.enabled) setStampConfig(d.config); })
         .catch(() => {});
 
       // Welcome/language modal disabled — no longer shown on page load
@@ -3089,11 +3107,70 @@ function Store() {
     return Math.round(Math.max(subtotal - couponDiscount, 0) * disc / 100);
   };
 
+  const getStampDiscountAmount = () => {
+    const disc = stampDiscountRef.current;
+    if (!disc) return 0;
+    const subtotal = getCartTotal();
+    const couponDiscount = Number(appliedCoupon?.discount_total || 0);
+    return Math.round(Math.max(subtotal - couponDiscount, 0) * disc / 100);
+  };
+
+  // Consulta/crea la tarjeta de sellos por teléfono y aplica recompensa si está disponible
+  const applyStampCard = async () => {
+    const phone = stampPhone.replace(/\s+/g, '');
+    if (phone.replace(/\D/g, '').length < 6) return;
+    setStampLookupLoading(true);
+    try {
+      const r = await fetch(`${API}/api/public/${code}/stamp-card/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
+      });
+      if (r.ok) {
+        const d = await r.json();
+        setStampCard(d);
+        if (d.reward_available && d.reward_type === 'discount' && d.reward_value > 0) {
+          stampDiscountRef.current = d.reward_value;
+          setStampDiscount(d.reward_value);
+          stampRewardUsedRef.current = true;
+        } else {
+          stampDiscountRef.current = 0;
+          setStampDiscount(0);
+          stampRewardUsedRef.current = false;
+        }
+      }
+    } catch { /* no bloquear el pago */ }
+    finally { setStampLookupLoading(false); }
+  };
+
+  // Registra el sello / canjea recompensa tras completar la compra
+  const recordStampPurchase = () => {
+    if (!stampConfig?.enabled) return;
+    const phone = stampPhone.replace(/\s+/g, '');
+    if (stampRewardUsedRef.current && stampCard?.token) {
+      fetch(`${API}/api/public/${code}/stamp-card/redeem`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: stampCard.token })
+      }).catch(() => {});
+    } else if (phone.replace(/\D/g, '').length >= 6) {
+      fetch(`${API}/api/public/${code}/stamp-card/stamp`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
+      }).catch(() => {});
+    }
+    setStampPhone('');
+    setStampCard(null);
+    stampDiscountRef.current = 0;
+    setStampDiscount(0);
+    stampRewardUsedRef.current = false;
+  };
+
   const getCartSubtotal = () => {
     const subtotal = getCartTotal();
     const couponDiscount = Number(appliedCoupon?.discount_total || 0);
     const loyalDiscountAmt = getLoyaltyDiscountAmount();
-    return Math.max(subtotal - couponDiscount - loyalDiscountAmt, 0);
+    const stampDiscountAmt = getStampDiscountAmount();
+    return Math.max(subtotal - couponDiscount - loyalDiscountAmt - stampDiscountAmt, 0);
   };
 
   const SQUARE_COMMISSION_RATE = 0.086;
@@ -7348,6 +7425,12 @@ function Store() {
                     <span>-{colors.currency.symbol}{formatPrice(getLoyaltyDiscountAmount())}</span>
                   </div>
                 )}
+                {stampDiscount > 0 && (
+                  <div className="store-cart-summary-row store-cart-discount" style={{ color: '#16a34a' }}>
+                    <span>🎁 Recompensa tarjeta de sellos ({stampDiscount}%)</span>
+                    <span>-{colors.currency.symbol}{formatPrice(getStampDiscountAmount())}</span>
+                  </div>
+                )}
                 <div className="store-cart-summary-total">
                   <span>{selectedTerminalProvider === 'square' ? t('subtotal', lang) : t('total', lang)}</span>
                   <span>{colors.currency.symbol}{formatPrice(getCartSubtotal())}</span>
@@ -7401,6 +7484,50 @@ function Store() {
                     </button>
                   )}
                 </div>
+
+                {stampConfig?.enabled && (
+                  <div style={{ marginTop: 10, padding: '12px', borderRadius: 12, background: '#faf7ee', border: '1.5px solid #e7dcc0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#92400e', marginBottom: 8 }}>
+                      🎁 Tarjeta de sellos
+                    </div>
+                    {stampCard ? (
+                      <div style={{ fontSize: 13, color: '#111' }}>
+                        <div style={{ fontWeight: 600 }}>
+                          {stampCard.stamps}/{stampCard.stamps_required} sellos
+                          {stampCard.reward_available && <span style={{ marginLeft: 6, fontSize: 11, background: '#16a34a', color: '#fff', borderRadius: 20, padding: '1px 8px', fontWeight: 700 }}>¡Recompensa!</span>}
+                        </div>
+                        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                          {stampDiscount > 0
+                            ? `Se aplicará ${stampDiscount}% de descuento`
+                            : stampCard.reward_available
+                              ? stampConfig.reward_label
+                              : 'Sumarás 1 sello con esta compra'}
+                        </div>
+                        <button
+                          onClick={() => { setStampCard(null); setStampPhone(''); stampDiscountRef.current = 0; setStampDiscount(0); stampRewardUsedRef.current = false; }}
+                          className="btn btn-secondary btn-sm"
+                          style={{ marginTop: 8 }}
+                        >Cambiar</button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <input
+                          type="tel"
+                          inputMode="numeric"
+                          value={stampPhone}
+                          onChange={e => setStampPhone(e.target.value.replace(/[^\d+]/g, ''))}
+                          placeholder="Tu teléfono"
+                          style={{ flex: 1, padding: '9px 12px', border: '1.5px solid #e2d9bf', borderRadius: 9, fontSize: 14, outline: 'none', background: '#fff', color: '#111' }}
+                        />
+                        <button
+                          onClick={applyStampCard}
+                          disabled={stampLookupLoading || stampPhone.replace(/\D/g, '').length < 6}
+                          className="btn btn-secondary btn-sm"
+                        >{stampLookupLoading ? '...' : t('apply', lang)}</button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {vkbOpen && (
                   <VirtualKeyboard
                     value={couponCodeInput}

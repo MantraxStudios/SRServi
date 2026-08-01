@@ -349,6 +349,10 @@ export default function Configurations() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedDevices, setSelectedDevices] = useState(new Set());
   const [deletingDevices, setDeletingDevices] = useState(false);
+  const [stampCfg, setStampCfg] = useState(null);
+  const [stampCards, setStampCards] = useState([]);
+  const [stampSaving, setStampSaving] = useState(false);
+  const [stampSaved, setStampSaved] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -359,21 +363,62 @@ export default function Configurations() {
   const loadAll = async () => {
     setLoading(true);
     const token = localStorage.getItem('token');
-    const [cfgRes, devRes, ingRes, extRes] = await Promise.all([
+    const [cfgRes, devRes, ingRes, extRes, stampCfgRes, stampCardsRes] = await Promise.all([
       fetch(`/api/store-configurations?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(API + `/api/store-devices?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`/api/ingredients?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`/api/extras?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } })
+      fetch(`/api/extras?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`/api/stamp-card/config?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`/api/stamp-card/cards?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } })
     ]);
     const cfgData = await cfgRes.json();
     const devData = devRes.ok ? await devRes.json() : [];
     const ingData = ingRes.ok ? await ingRes.json() : [];
     const extData = extRes.ok ? await extRes.json() : [];
+    const stampCfgData = stampCfgRes.ok ? await stampCfgRes.json() : null;
+    const stampCardsData = stampCardsRes.ok ? await stampCardsRes.json() : [];
     setConfigs(Array.isArray(cfgData) ? cfgData : []);
     setDevices(Array.isArray(devData) ? devData : []);
     setIngredients(Array.isArray(ingData) ? ingData : []);
     setExtras(Array.isArray(extData) ? extData : []);
+    setStampCfg(stampCfgData ? {
+      enabled: !!stampCfgData.enabled,
+      stamps_required: Number(stampCfgData.stamps_required) || 10,
+      reward_type: stampCfgData.reward_type || 'free_item',
+      reward_value: Number(stampCfgData.reward_value) || 0,
+      reward_label: stampCfgData.reward_label || '1 producto gratis'
+    } : { enabled: false, stamps_required: 10, reward_type: 'free_item', reward_value: 0, reward_label: '1 producto gratis' });
+    setStampCards(Array.isArray(stampCardsData) ? stampCardsData : []);
     setLoading(false);
+  };
+
+  const saveStampCfg = async () => {
+    if (!stampCfg) return;
+    setStampSaving(true);
+    setStampSaved(false);
+    const token = localStorage.getItem('token');
+    try {
+      await fetch('/api/stamp-card/config', {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...stampCfg, store_id: selectedStore.id })
+      });
+      setStampSaved(true);
+      setTimeout(() => setStampSaved(false), 2500);
+    } finally {
+      setStampSaving(false);
+    }
+  };
+
+  const deleteStampCard = async (id) => {
+    if (!window.confirm('¿Eliminar esta tarjeta de cliente?')) return;
+    const token = localStorage.getItem('token');
+    await fetch(`/api/stamp-card/cards/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ store_id: selectedStore.id })
+    });
+    setStampCards(prev => prev.filter(c => c.id !== id));
   };
 
   const toggleComplementActive = async (type, item) => {
@@ -474,6 +519,124 @@ export default function Configurations() {
        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)', gap: isMobile ? 0 : 28, alignItems: 'start' }}>
         {/* ── Columna izquierda: pagos + complementos ── */}
         <div>
+
+        {/* ── Tarjeta Virtual de Sellos ── */}
+        {stampCfg && (
+          <div style={{ marginBottom: 36 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 12 }}>
+              Tarjeta Virtual de Sellos
+            </div>
+            <div style={{ background: '#fff', border: `1.5px solid ${stampCfg.enabled ? GOLD : '#e8e8e8'}`, borderRadius: 14, padding: '4px 18px 18px', boxShadow: '0 1px 4px rgba(0,0,0,.04)' }}>
+              <Row
+                icon={faQrcode}
+                label="Activar tarjeta de sellos"
+                sub="Los clientes juntan sellos y obtienen una recompensa"
+                active={stampCfg.enabled}
+                onToggle={() => setStampCfg(p => ({ ...p, enabled: !p.enabled }))}
+              />
+
+              {stampCfg.enabled && (
+                <>
+                  <Row icon={faHashtag} label="Sellos necesarios" sub="Compras para completar la tarjeta">
+                    <input
+                      type="number" min="1" max="99" value={stampCfg.stamps_required}
+                      onChange={e => setStampCfg(p => ({ ...p, stamps_required: Math.max(1, Math.min(99, parseInt(e.target.value) || 1)) }))}
+                      style={{ width: 56, padding: '6px 8px', border: '1.5px solid #e0e0e0', borderRadius: 8, fontSize: 14, fontWeight: 700, textAlign: 'center', outline: 'none' }}
+                    />
+                  </Row>
+
+                  <SectionLabel>Recompensa</SectionLabel>
+                  <div style={{ display: 'flex', gap: 6, margin: '4px 0 10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setStampCfg(p => ({ ...p, reward_type: 'free_item' }))}
+                      style={{ flex: 1, padding: '9px 10px', borderRadius: 9, border: '1.5px solid ' + (stampCfg.reward_type === 'free_item' ? '#111' : '#e2e2e2'), background: stampCfg.reward_type === 'free_item' ? '#111' : '#fff', color: stampCfg.reward_type === 'free_item' ? '#fff' : '#666', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                    >
+                      Producto gratis
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStampCfg(p => ({ ...p, reward_type: 'discount' }))}
+                      style={{ flex: 1, padding: '9px 10px', borderRadius: 9, border: '1.5px solid ' + (stampCfg.reward_type === 'discount' ? '#111' : '#e2e2e2'), background: stampCfg.reward_type === 'discount' ? '#111' : '#fff', color: stampCfg.reward_type === 'discount' ? '#fff' : '#666', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                    >
+                      % de descuento
+                    </button>
+                  </div>
+
+                  {stampCfg.reward_type === 'discount' && (
+                    <Row icon={faPercent} label="Descuento al completar" sub="Se aplica automáticamente en el tótem">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <input
+                          type="number" min="1" max="100" value={stampCfg.reward_value}
+                          onChange={e => setStampCfg(p => ({ ...p, reward_value: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)) }))}
+                          style={{ width: 52, padding: '6px 8px', border: '1.5px solid #e0e0e0', borderRadius: 8, fontSize: 14, fontWeight: 700, textAlign: 'center', outline: 'none' }}
+                        />
+                        <span style={{ fontSize: 13, color: '#888', fontWeight: 600 }}>%</span>
+                      </div>
+                    </Row>
+                  )}
+
+                  <div style={{ marginTop: 8 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Texto de la recompensa
+                    </label>
+                    <input
+                      value={stampCfg.reward_label}
+                      onChange={e => setStampCfg(p => ({ ...p, reward_label: e.target.value }))}
+                      placeholder="Ej: 1 café gratis, 20% de descuento..."
+                      style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #e8e8e8', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', background: '#fafafa', color: '#111' }}
+                    />
+                  </div>
+
+                  {stampCards.length > 0 && (
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                        Clientes registrados ({stampCards.length})
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+                        {stampCards.map(c => (
+                          <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, border: `1px solid ${c.reward_available ? '#bbf7d0' : '#eee'}`, background: c.reward_available ? '#f0fdf4' : '#fafafa' }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 600, fontSize: 13, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {c.name || c.phone || 'Cliente'}
+                                {c.reward_available && <span style={{ marginLeft: 6, fontSize: 10, background: '#22c55e', color: '#fff', borderRadius: 20, padding: '1px 7px', fontWeight: 700 }}>Recompensa</span>}
+                              </div>
+                              <div style={{ fontSize: 11, color: '#999' }}>
+                                {c.phone ? c.phone + ' · ' : ''}{c.stamps}/{stampCfg.stamps_required} sellos · {c.redeemed_count} canjes
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => deleteStampCard(c.id)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, padding: 6, borderRadius: 8, flexShrink: 0 }}
+                              title="Eliminar tarjeta"
+                            >
+                              <FontAwesomeIcon icon={faTrash} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <button
+                type="button"
+                disabled={stampSaving}
+                onClick={saveStampCfg}
+                style={{
+                  width: '100%', marginTop: 18, padding: '12px', borderRadius: 10, border: 'none',
+                  background: stampSaved ? '#22c55e' : '#111', color: '#fff',
+                  fontWeight: 700, fontSize: 14, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                }}
+              >
+                <FontAwesomeIcon icon={stampSaving ? faSync : faSave} spin={stampSaving} />
+                {stampSaving ? 'Guardando...' : stampSaved ? '¡Guardado!' : 'Guardar tarjeta de sellos'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Configuraciones */}
         <div style={{ marginBottom: 36 }}>

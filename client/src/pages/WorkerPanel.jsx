@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint, faClipboardList, faExclamationTriangle, faCashRegister, faLock, faBook, faChair, faFire, faPlay, faTrophy, faCommentDots, faUserClock } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint, faClipboardList, faExclamationTriangle, faCashRegister, faLock, faBook, faChair, faFire, faPlay, faTrophy, faCommentDots, faUserClock, faGift } from '@fortawesome/free-solid-svg-icons';
 import { SOCKET_URL } from '../config.js';
 import WorkerNewOrder from '../components/WorkerNewOrder';
 import WorkerTableMap from '../components/WorkerTableMap';
@@ -416,6 +416,13 @@ function WorkerPanel() {
     try { return JSON.parse(localStorage.getItem('worker') || '{}').store_code || ''; } catch { return ''; }
   });
   const [showPayModal, setShowPayModal] = useState(false);
+  // ── Tarjeta de sellos ──
+  const [showStampModal, setShowStampModal] = useState(false);
+  const [stampConfig, setStampConfig] = useState(null);
+  const [stampPhoneW, setStampPhoneW] = useState('');
+  const [stampCardW, setStampCardW] = useState(null);
+  const [stampBusy, setStampBusy] = useState(false);
+  const [stampMsg, setStampMsg] = useState('');
   const [paySearch, setPaySearch] = useState('');
   const [payResult, setPayResult] = useState(null);
   const [cashRegister, setCashRegister] = useState(null);
@@ -925,6 +932,59 @@ function WorkerPanel() {
     win.document.close();
     setTimeout(() => win.print(), 600);
   };
+
+  // ── Tarjeta de sellos ──
+  const openStampModal = async () => {
+    setShowStampModal(true);
+    setStampMsg(''); setStampCardW(null); setStampPhoneW('');
+    if (!stampConfig && storeCode) {
+      try {
+        const r = await fetch(`/api/public/${storeCode}/stamp-card`);
+        if (r.ok) { const d = await r.json(); setStampConfig(d.config); }
+      } catch {}
+    }
+  };
+  const stampLookup = async () => {
+    const phone = stampPhoneW.replace(/\s+/g, '');
+    if (phone.replace(/\D/g, '').length < 6) return;
+    setStampBusy(true); setStampMsg('');
+    try {
+      const r = await fetch(`/api/public/${storeCode}/stamp-card/register`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone })
+      });
+      if (r.ok) setStampCardW(await r.json());
+    } catch {} finally { setStampBusy(false); }
+  };
+  const stampAdd = async () => {
+    const phone = stampPhoneW.replace(/\s+/g, '');
+    if (phone.replace(/\D/g, '').length < 6) return;
+    setStampBusy(true); setStampMsg('');
+    try {
+      const r = await fetch(`/api/public/${storeCode}/stamp-card/stamp`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone })
+      });
+      if (r.ok) {
+        const d = await r.json();
+        setStampCardW(c => ({ ...(c || {}), stamps: d.card.stamps, stamps_required: d.stamps_required, reward_available: d.card.reward_available, token: d.card.token, reward_label: d.card.config?.reward_label }));
+        setStampMsg(d.rewardEarned ? '🎉 ¡Recompensa desbloqueada!' : '✓ Sello agregado');
+      }
+    } catch {} finally { setStampBusy(false); }
+  };
+  const stampRedeem = async () => {
+    if (!stampCardW?.token) return;
+    setStampBusy(true); setStampMsg('');
+    try {
+      const r = await fetch(`/api/public/${storeCode}/stamp-card/redeem`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: stampCardW.token })
+      });
+      if (r.ok) {
+        const d = await r.json();
+        setStampCardW(c => ({ ...c, stamps: d.card.stamps, reward_available: false }));
+        setStampMsg('✓ Recompensa canjeada');
+      }
+    } catch {} finally { setStampBusy(false); }
+  };
+
   const fetchDeliveryOrders = async (storeId) => {
     const BASE = 'https://srservi2.srautomatic.com';
     const token = localStorage.getItem('workerToken');
@@ -1409,6 +1469,11 @@ function WorkerPanel() {
               >
                 <FontAwesomeIcon icon={faPrint} />
               </button>
+              {storeCode && (
+                <button className="worker-header-icon-btn" onClick={openStampModal} title="Tarjeta de sellos">
+                  <FontAwesomeIcon icon={faGift} />
+                </button>
+              )}
               {storeCode && (
                 <button className="worker-header-icon-btn" onClick={() => window.open(`/store/${storeCode}`, '_blank')} title="Ver tienda">
                   <FontAwesomeIcon icon={faExternalLinkAlt} />
@@ -3073,6 +3138,69 @@ function WorkerPanel() {
               >
                 Cerrar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showStampModal && (
+        <div className="worker-modal-overlay pay-modal-overlay">
+          <div className="worker-modal" style={{ display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            <div className="worker-modal-header">
+              <h2 className="worker-modal-title"><FontAwesomeIcon icon={faGift} style={{ marginRight: 8, color: '#D4AF37' }} />Tarjeta de sellos</h2>
+              <button className="worker-modal-close" onClick={() => setShowStampModal(false)}>x</button>
+            </div>
+            <div style={{ padding: '4px 2px' }}>
+              {!stampConfig?.enabled ? (
+                <div style={{ color: '#999', textAlign: 'center', padding: '20px' }}>
+                  La tarjeta de sellos no está activada. Actívala en el panel de administración → Configuraciones.
+                </div>
+              ) : (
+                <>
+                  <label style={{ display: 'block', marginBottom: '6px', color: colors.secondary }}>Teléfono del cliente</label>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      value={stampPhoneW}
+                      onChange={e => { setStampPhoneW(e.target.value.replace(/[^\d+]/g, '')); setStampCardW(null); setStampMsg(''); }}
+                      placeholder="Ej: +56912345678"
+                      style={{ flex: 1, padding: '12px 14px', fontSize: '1.1rem', background: '#1a1a1a', color: '#fff', border: `1px solid ${colors.accent}`, borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                    <button className="btn btn-secondary" onClick={stampLookup} disabled={stampBusy || stampPhoneW.replace(/\D/g, '').length < 6}>
+                      {stampBusy ? '...' : 'Buscar'}
+                    </button>
+                  </div>
+
+                  {stampCardW && (
+                    <div style={{ background: '#1a1a1a', border: `1px solid ${colors.accent}`, borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                      <div style={{ fontSize: 28, fontWeight: 900, color: '#D4AF37', textAlign: 'center' }}>
+                        {stampCardW.stamps}<span style={{ fontSize: 18, color: '#888' }}> / {stampCardW.stamps_required}</span>
+                      </div>
+                      <div style={{ textAlign: 'center', color: '#aaa', fontSize: 13, marginBottom: 4 }}>sellos</div>
+                      {stampCardW.reward_available && (
+                        <div style={{ textAlign: 'center', color: '#22c55e', fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
+                          🎉 {stampCardW.reward_label || stampConfig.reward_label}
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                        <button className="btn btn-primary" style={{ flex: 1 }} onClick={stampAdd} disabled={stampBusy}>
+                          + Sumar sello
+                        </button>
+                        {stampCardW.reward_available && (
+                          <button className="btn btn-success" style={{ flex: 1, background: '#16a34a', color: '#fff' }} onClick={stampRedeem} disabled={stampBusy}>
+                            Canjear
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {stampMsg && (
+                    <div style={{ textAlign: 'center', color: '#22c55e', fontWeight: 600, padding: '4px 0' }}>{stampMsg}</div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
