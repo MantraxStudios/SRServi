@@ -6838,7 +6838,8 @@ async function extractProductsWithAI(text, apiKey) {
     .map(p => ({ name: String(p.name).trim(), description: '', price: _toPrice(p.price), category: '', barcode: '', image_url: '' }));
 }
 
-// Extrae productos usando León IA (servicio Python + Ollama local), sin depender de claves externas
+// Extrae productos usando León IA (servicio Python + Ollama local), sin depender de claves externas.
+// Devuelve { products, reachable, error } para poder diagnosticar.
 async function extractProductsWithLeon(text) {
   try {
     const ctrl = new AbortController();
@@ -6850,14 +6851,18 @@ async function extractProductsWithLeon(text) {
       signal: ctrl.signal
     });
     clearTimeout(timeout);
-    if (!r.ok) return [];
+    if (!r.ok) {
+      const body = await r.text().catch(() => '');
+      return { products: [], reachable: true, error: `HTTP ${r.status} ${body.slice(0, 200)}` };
+    }
     const data = await r.json();
-    return (data.products || [])
+    const products = (data.products || [])
       .filter(p => p && p.name)
       .map(p => ({ name: String(p.name).trim(), description: '', price: _toPrice(p.price), category: '', barcode: '', image_url: '' }));
+    return { products, reachable: true, error: null };
   } catch (e) {
     console.warn('[web-preview] León no disponible:', e.message);
-    return [];
+    return { products: [], reachable: false, error: e.message };
   }
 }
 
@@ -6889,6 +6894,7 @@ app.post('/api/products/web-preview', authenticateToken, async (req, res) => {
 
     let rows = extractProductsFromHtml(html, String(url).trim());
     let source = 'structured';
+    const diag = { htmlLength: html.length, structured: rows.length, textLength: 0, leonReachable: null, leonError: null, leonCount: 0 };
 
     // Si no hay datos estructurados, extraer con IA a partir del texto de la página
     if (rows.length === 0) {
@@ -6897,27 +6903,35 @@ app.post('/api/products/web-preview', authenticateToken, async (req, res) => {
         .replace(/<style[\s\S]*?<\/style>/gi, ' ')
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s+/g, ' ').trim().slice(0, 12000);
+      diag.textLength = text.length;
 
       // 1) León IA (Ollama local, sin claves externas)
-      rows = await extractProductsWithLeon(text);
-      if (rows.length > 0) source = 'leon';
+      const leon = await extractProductsWithLeon(text);
+      diag.leonReachable = leon.reachable;
+      diag.leonError = leon.error;
+      diag.leonCount = leon.products.length;
+      if (leon.products.length > 0) { rows = leon.products; source = 'leon'; }
 
       // 2) Respaldo: OpenAI si el dueño tiene su clave configurada
       if (rows.length === 0) {
         const key = await getChatGptKey(req.user.id);
         if (key) {
-          try { rows = await extractProductsWithAI(text, key); if (rows.length > 0) source = 'openai'; } catch { /* ignora */ }
+          try { const ai = await extractProductsWithAI(text, key); if (ai.length > 0) { rows = ai; source = 'openai'; } } catch { /* ignora */ }
         }
       }
     }
 
+    console.log('[web-preview]', String(url).trim(), JSON.stringify(diag));
+
     if (rows.length === 0) {
-      return res.status(422).json({
-        error: 'No pudimos detectar productos en esa página. Prueba con la URL de un producto o de un listado/categoría. Algunos sitios cargan sus productos con JavaScript y no se pueden leer.'
-      });
+      let hint = 'No pudimos detectar productos en esa página. Prueba con la URL de un producto o de un listado/categoría.';
+      if (diag.leonReachable === false) hint = 'La IA (León/Ollama) no está disponible en el servidor. Verifica que Ollama esté corriendo y el servicio de León reiniciado.';
+      else if (diag.leonReachable === true && diag.leonError) hint = 'La IA respondió con un error: ' + diag.leonError;
+      else if (diag.leonReachable === true) hint = 'La IA no encontró productos en el texto de la página. Es posible que el sitio cargue sus productos con JavaScript (no aparecen en el HTML inicial).';
+      return res.status(422).json({ error: hint, diag });
     }
 
-    res.json({ rows: rows.slice(0, 200), total: Math.min(rows.length, 200), source });
+    res.json({ rows: rows.slice(0, 200), total: Math.min(rows.length, 200), source, diag });
   } catch (error) {
     res.status(500).json({ error: 'Error al leer la página: ' + error.message });
   }
