@@ -6838,6 +6838,29 @@ async function extractProductsWithAI(text, apiKey) {
     .map(p => ({ name: String(p.name).trim(), description: '', price: _toPrice(p.price), category: '', barcode: '', image_url: '' }));
 }
 
+// Extrae productos usando León IA (servicio Python + Ollama local), sin depender de claves externas
+async function extractProductsWithLeon(text) {
+  try {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 100000);
+    const r = await fetch(`${LEON_PYTHON_URL}/extract-products`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+      signal: ctrl.signal
+    });
+    clearTimeout(timeout);
+    if (!r.ok) return [];
+    const data = await r.json();
+    return (data.products || [])
+      .filter(p => p && p.name)
+      .map(p => ({ name: String(p.name).trim(), description: '', price: _toPrice(p.price), category: '', barcode: '', image_url: '' }));
+  } catch (e) {
+    console.warn('[web-preview] León no disponible:', e.message);
+    return [];
+  }
+}
+
 app.post('/api/products/web-preview', authenticateToken, async (req, res) => {
   try {
     const { store_id, url } = req.body;
@@ -6865,17 +6888,26 @@ app.post('/api/products/web-preview', authenticateToken, async (req, res) => {
     }
 
     let rows = extractProductsFromHtml(html, String(url).trim());
-    let usedAI = false;
+    let source = 'structured';
 
+    // Si no hay datos estructurados, extraer con IA a partir del texto de la página
     if (rows.length === 0) {
-      const key = await getChatGptKey(req.user.id);
-      if (key) {
-        const text = html
-          .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-          .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/\s+/g, ' ').trim().slice(0, 12000);
-        try { rows = await extractProductsWithAI(text, key); usedAI = rows.length > 0; } catch { /* ignora */ }
+      const text = html
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ').trim().slice(0, 12000);
+
+      // 1) León IA (Ollama local, sin claves externas)
+      rows = await extractProductsWithLeon(text);
+      if (rows.length > 0) source = 'leon';
+
+      // 2) Respaldo: OpenAI si el dueño tiene su clave configurada
+      if (rows.length === 0) {
+        const key = await getChatGptKey(req.user.id);
+        if (key) {
+          try { rows = await extractProductsWithAI(text, key); if (rows.length > 0) source = 'openai'; } catch { /* ignora */ }
+        }
       }
     }
 
@@ -6885,7 +6917,7 @@ app.post('/api/products/web-preview', authenticateToken, async (req, res) => {
       });
     }
 
-    res.json({ rows: rows.slice(0, 200), total: Math.min(rows.length, 200), source: usedAI ? 'ai' : 'structured' });
+    res.json({ rows: rows.slice(0, 200), total: Math.min(rows.length, 200), source });
   } catch (error) {
     res.status(500).json({ error: 'Error al leer la página: ' + error.message });
   }

@@ -321,6 +321,104 @@ async def chat(req: ChatRequest):
         model=model
     )
 
+# ─── Extracción de productos desde el texto/HTML de una web ───────────────────
+class ExtractProductsRequest(BaseModel):
+    text: str
+
+class ExtractedProduct(BaseModel):
+    name: str
+    price: float = 0
+
+class ExtractProductsResponse(BaseModel):
+    products: List[dict] = []
+    model: str = ""
+
+EXTRACT_SYSTEM_PROMPT = (
+    "Eres un extractor de datos de tiendas online. Recibirás el texto de una página web. "
+    "Devuelve ÚNICAMENTE un array JSON válido (sin explicaciones, sin markdown) con los productos "
+    "que aparezcan, cada uno como {\"name\": string, \"price\": number}. "
+    "El precio debe ser un número sin símbolo de moneda ni separadores de miles "
+    "(por ejemplo 12990, no \"$12.990\"). Si un producto no tiene precio claro, usa 0. "
+    "Ignora menús, banners, categorías y textos que no sean productos. "
+    "Si no hay productos, devuelve []."
+)
+
+def _parse_products_json(raw: str):
+    txt = raw.replace("```json", "").replace("```", "").strip()
+    start = txt.find("[")
+    end = txt.rfind("]")
+    if start == -1 or end == -1 or end < start:
+        return []
+    try:
+        arr = json.loads(txt[start:end + 1])
+    except Exception:
+        return []
+    if not isinstance(arr, list):
+        return []
+    out = []
+    seen = set()
+    for p in arr:
+        if not isinstance(p, dict):
+            continue
+        name = str(p.get("name", "")).strip()
+        if len(name) < 2:
+            continue
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            price = float(p.get("price", 0) or 0)
+        except Exception:
+            price = 0
+        out.append({"name": name, "price": price})
+    return out
+
+@app.post("/extract-products", response_model=ExtractProductsResponse)
+async def extract_products(req: ExtractProductsRequest):
+    text = (req.text or "").strip()
+    if not text:
+        return ExtractProductsResponse(products=[], model="")
+    # Acotar el tamaño para no saturar el modelo local
+    text = text[:12000]
+    messages = [
+        {"role": "system", "content": EXTRACT_SYSTEM_PROMPT},
+        {"role": "user", "content": text},
+    ]
+    model = await get_available_model()
+    payload = {
+        "model": model,
+        "messages": messages,
+        "stream": False,
+        "keep_alive": KEEP_ALIVE,
+        "format": "json",
+        "options": {"temperature": 0, "num_predict": 2048},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(f"{OLLAMA_URL}/api/chat", json=payload)
+            resp.raise_for_status()
+            raw = resp.json()["message"]["content"]
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="Ollama no está corriendo.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error Ollama: {e}")
+
+    # Con format=json el modelo puede devolver {"products":[...]} o directamente [...]
+    products = _parse_products_json(raw)
+    if not products:
+        try:
+            obj = json.loads(raw)
+            if isinstance(obj, dict):
+                for v in obj.values():
+                    if isinstance(v, list):
+                        products = _parse_products_json(json.dumps(v))
+                        if products:
+                            break
+        except Exception:
+            pass
+    return ExtractProductsResponse(products=products, model=model)
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host=LEON_HOST, port=LEON_PORT, reload=False)
