@@ -7885,8 +7885,8 @@ async function _decorateCard(card) {
   if (!card) return null;
   let store_name = null, store_logo = null, store_code = null;
   if (card.store_id) {
-    const [srows] = await pool.execute('SELECT name, logo, code FROM stores WHERE id = ?', [card.store_id]);
-    if (srows[0]) { store_name = srows[0].name; store_logo = srows[0].logo; store_code = srows[0].code; }
+    const [srows] = await pool.execute('SELECT name, logo_url, code FROM stores WHERE id = ?', [card.store_id]);
+    if (srows[0]) { store_name = srows[0].name; store_logo = srows[0].logo_url; store_code = srows[0].code; }
   }
   const config = await getStampCardConfig(card.store_id);
   return { ...card, store_name, store_logo, store_code, config };
