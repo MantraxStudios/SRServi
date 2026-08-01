@@ -1167,8 +1167,9 @@ function Store() {
   const [loyaltyConfig, setLoyaltyConfig] = useState(null);
   // ── Tarjeta virtual de sellos ──
   const [stampConfig, setStampConfig] = useState(null);
-  const [stampPhone, setStampPhone] = useState('');
-  const [stampCard, setStampCard] = useState(null); // tarjeta consultada por teléfono
+  const [stampCode, setStampCode] = useState('');
+  const [stampCard, setStampCard] = useState(null); // tarjeta consultada por clave
+  const [stampError, setStampError] = useState('');
   const [stampLookupLoading, setStampLookupLoading] = useState(false);
   const stampDiscountRef = useRef(0); // % descuento por recompensa disponible
   const [stampDiscount, setStampDiscount] = useState(0);
@@ -3115,19 +3116,20 @@ function Store() {
     return Math.round(Math.max(subtotal - couponDiscount, 0) * disc / 100);
   };
 
-  // Consulta/crea la tarjeta de sellos por teléfono y aplica recompensa si está disponible
+  // Consulta la tarjeta de sellos por su clave de 5 dígitos y aplica recompensa si está disponible
   const applyStampCard = async () => {
-    const phone = stampPhone.replace(/\s+/g, '');
-    if (phone.replace(/\D/g, '').length < 6) return;
+    const card_code = stampCode.replace(/\D/g, '');
+    if (card_code.length !== 5) return;
     setStampLookupLoading(true);
+    setStampError('');
     try {
-      const r = await fetch(`${API}/api/public/${code}/stamp-card/register`, {
+      const r = await fetch(`${API}/api/public/${code}/stamp-card/lookup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone })
+        body: JSON.stringify({ card_code })
       });
+      const d = await r.json();
       if (r.ok) {
-        const d = await r.json();
         setStampCard(d);
         if (d.reward_available && d.reward_type === 'discount' && d.reward_value > 0) {
           stampDiscountRef.current = d.reward_value;
@@ -3138,28 +3140,31 @@ function Store() {
           setStampDiscount(0);
           stampRewardUsedRef.current = false;
         }
+      } else {
+        setStampError(d.error || 'No existe una tarjeta con esa clave');
       }
-    } catch { /* no bloquear el pago */ }
+    } catch { setStampError('Error de conexión'); }
     finally { setStampLookupLoading(false); }
   };
 
   // Registra el sello / canjea recompensa tras completar la compra
   const recordStampPurchase = () => {
     if (!stampConfig?.enabled) return;
-    const phone = stampPhone.replace(/\s+/g, '');
+    const card_code = stampCode.replace(/\D/g, '');
     if (stampRewardUsedRef.current && stampCard?.token) {
       fetch(`${API}/api/public/${code}/stamp-card/redeem`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: stampCard.token })
       }).catch(() => {});
-    } else if (phone.replace(/\D/g, '').length >= 6) {
+    } else if (card_code.length === 5) {
       fetch(`${API}/api/public/${code}/stamp-card/stamp`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone })
+        body: JSON.stringify({ card_code })
       }).catch(() => {});
     }
-    setStampPhone('');
+    setStampCode('');
     setStampCard(null);
+    setStampError('');
     stampDiscountRef.current = 0;
     setStampDiscount(0);
     stampRewardUsedRef.current = false;
@@ -7493,7 +7498,7 @@ function Store() {
                     {stampCard ? (
                       <div style={{ fontSize: 13, color: '#111' }}>
                         <div style={{ fontWeight: 600 }}>
-                          {stampCard.stamps}/{stampCard.stamps_required} sellos
+                          Clave {stampCard.code} · {stampCard.stamps}/{stampCard.stamps_required} sellos
                           {stampCard.reward_available && <span style={{ marginLeft: 6, fontSize: 11, background: '#16a34a', color: '#fff', borderRadius: 20, padding: '1px 8px', fontWeight: 700 }}>¡Recompensa!</span>}
                         </div>
                         <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
@@ -7504,27 +7509,31 @@ function Store() {
                               : 'Sumarás 1 sello con esta compra'}
                         </div>
                         <button
-                          onClick={() => { setStampCard(null); setStampPhone(''); stampDiscountRef.current = 0; setStampDiscount(0); stampRewardUsedRef.current = false; }}
+                          onClick={() => { setStampCard(null); setStampCode(''); setStampError(''); stampDiscountRef.current = 0; setStampDiscount(0); stampRewardUsedRef.current = false; }}
                           className="btn btn-secondary btn-sm"
                           style={{ marginTop: 8 }}
                         >Cambiar</button>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <input
-                          type="tel"
-                          inputMode="numeric"
-                          value={stampPhone}
-                          onChange={e => setStampPhone(e.target.value.replace(/[^\d+]/g, ''))}
-                          placeholder="Tu teléfono"
-                          style={{ flex: 1, padding: '9px 12px', border: '1.5px solid #e2d9bf', borderRadius: 9, fontSize: 14, outline: 'none', background: '#fff', color: '#111' }}
-                        />
-                        <button
-                          onClick={applyStampCard}
-                          disabled={stampLookupLoading || stampPhone.replace(/\D/g, '').length < 6}
-                          className="btn btn-secondary btn-sm"
-                        >{stampLookupLoading ? '...' : t('apply', lang)}</button>
-                      </div>
+                      <>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <input
+                            type="tel"
+                            inputMode="numeric"
+                            maxLength={5}
+                            value={stampCode}
+                            onChange={e => { setStampCode(e.target.value.replace(/\D/g, '').slice(0, 5)); setStampError(''); }}
+                            placeholder="Clave de 5 dígitos"
+                            style={{ flex: 1, padding: '9px 12px', border: '1.5px solid #e2d9bf', borderRadius: 9, fontSize: 16, letterSpacing: 3, textAlign: 'center', fontWeight: 700, outline: 'none', background: '#fff', color: '#111' }}
+                          />
+                          <button
+                            onClick={applyStampCard}
+                            disabled={stampLookupLoading || stampCode.replace(/\D/g, '').length !== 5}
+                            className="btn btn-secondary btn-sm"
+                          >{stampLookupLoading ? '...' : t('apply', lang)}</button>
+                        </div>
+                        {stampError && <div style={{ color: '#ef4444', fontSize: 12, marginTop: 6 }}>{stampError}</div>}
+                      </>
                     )}
                   </div>
                 )}

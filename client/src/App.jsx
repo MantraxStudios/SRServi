@@ -275,6 +275,7 @@ function App() {
           <Route path="/pago-delivery/:code" element={<DeliveryPaymentResult />} />
           <Route path="/rate/:code" element={<Rate />} />
           <Route path="/survey/:code" element={<ClientSurvey />} />
+          <Route path="/tarjeta" element={<StampCard />} />
           <Route path="/tarjeta/:token" element={<StampCard />} />
           <Route path="/delivery" element={<DeliveryLanding />} />
           <Route path="/delivery/:code" element={<DeliveryStore />} />

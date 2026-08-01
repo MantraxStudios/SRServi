@@ -7761,8 +7761,9 @@ async function ensureStampCardTables() {
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS stamp_cards (
       id INT PRIMARY KEY AUTO_INCREMENT,
-      store_id INT NOT NULL,
+      store_id INT NULL,
       token VARCHAR(64) NOT NULL UNIQUE,
+      code VARCHAR(5) NULL,
       name VARCHAR(255),
       phone VARCHAR(50),
       stamps INT DEFAULT 0,
@@ -7771,13 +7772,34 @@ async function ensureStampCardTables() {
       reward_available BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       last_stamp_at TIMESTAMP NULL DEFAULT NULL,
-      UNIQUE KEY uniq_store_phone (store_id, phone),
+      UNIQUE KEY uniq_stampcard_code (code),
       INDEX idx_stampcard_store (store_id),
-      INDEX idx_stampcard_token (token),
-      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+      INDEX idx_stampcard_token (token)
     )
   `);
+  // Migraciones para instalaciones que ya tenían la tabla anterior (por teléfono/tienda)
+  const [cols] = await pool.execute(
+    "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stamp_cards'"
+  );
+  const colNames = cols.map(c => c.COLUMN_NAME);
+  if (!colNames.includes('code')) {
+    await pool.execute('ALTER TABLE stamp_cards ADD COLUMN code VARCHAR(5) NULL');
+    await pool.execute('ALTER TABLE stamp_cards ADD UNIQUE KEY uniq_stampcard_code (code)').catch(() => {});
+  }
+  // store_id ahora es opcional (la tarjeta se crea sin tienda y se asocia al primer uso)
+  await pool.execute('ALTER TABLE stamp_cards MODIFY store_id INT NULL').catch(() => {});
   _stampCardReady = true;
+}
+
+// Genera un código único de 5 dígitos que no esté en uso
+async function generateUniqueStampCode() {
+  for (let i = 0; i < 30; i++) {
+    const code = String(Math.floor(10000 + Math.random() * 90000));
+    const [rows] = await pool.execute('SELECT id FROM stamp_cards WHERE code = ?', [code]);
+    if (!rows.length) return code;
+  }
+  // Fallback improbable
+  return String(Date.now()).slice(-5);
 }
 
 export async function getStampCardConfig(storeId) {
@@ -7835,17 +7857,57 @@ export async function getOrCreateStampCard(storeId, phone, name) {
   return { ...rows[0], _isNew: true };
 }
 
+// Helper: adjunta branding de tienda (si está asociada) y config al registro de tarjeta
+async function _decorateCard(card) {
+  if (!card) return null;
+  let store_name = null, store_logo = null, store_code = null;
+  if (card.store_id) {
+    const [srows] = await pool.execute('SELECT name, logo, code FROM stores WHERE id = ?', [card.store_id]);
+    if (srows[0]) { store_name = srows[0].name; store_logo = srows[0].logo; store_code = srows[0].code; }
+  }
+  const config = await getStampCardConfig(card.store_id);
+  return { ...card, store_name, store_logo, store_code, config };
+}
+
 export async function getStampCardByToken(token) {
   await ensureStampCardTables();
-  const [rows] = await pool.execute(
-    `SELECT c.*, s.name AS store_name, s.logo AS store_logo, s.code AS store_code
-     FROM stamp_cards c JOIN stores s ON c.store_id = s.id
-     WHERE c.token = ?`,
-    [token]
+  const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE token = ?', [token]);
+  return _decorateCard(rows[0]);
+}
+
+export async function getStampCardByCode(code) {
+  await ensureStampCardTables();
+  const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE code = ?', [code]);
+  return _decorateCard(rows[0]);
+}
+
+// Crea (o devuelve, si ya existe) una tarjeta por su clave de 5 dígitos.
+// Se crea SIN tienda; se asocia a una tienda en su primer uso.
+export async function createOrGetStampCardByCode(code, { name = null, phone = null } = {}) {
+  await ensureStampCardTables();
+  const clean = String(code || '').replace(/\D/g, '');
+  if (clean.length !== 5) throw new Error('La clave debe tener 5 dígitos');
+  const [existing] = await pool.execute('SELECT * FROM stamp_cards WHERE code = ?', [clean]);
+  if (existing[0]) {
+    const updates = [];
+    const params = [];
+    if (name && !existing[0].name) { updates.push('name = ?'); params.push(name); }
+    if (phone && !existing[0].phone) { updates.push('phone = ?'); params.push(phone.replace(/\s+/g, '')); }
+    if (updates.length) {
+      params.push(existing[0].id);
+      await pool.execute(`UPDATE stamp_cards SET ${updates.join(', ')} WHERE id = ?`, params);
+    }
+    const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE id = ?', [existing[0].id]);
+    return { ...(await _decorateCard(rows[0])), _isNew: false };
+  }
+  const { randomBytes } = await import('crypto');
+  const token = randomBytes(16).toString('hex');
+  const [result] = await pool.execute(
+    'INSERT INTO stamp_cards (store_id, token, code, name, phone) VALUES (NULL, ?, ?, ?, ?)',
+    [token, clean, name || null, phone ? phone.replace(/\s+/g, '') : null]
   );
-  if (!rows[0]) return null;
-  const config = await getStampCardConfig(rows[0].store_id);
-  return { ...rows[0], config };
+  const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE id = ?', [result.insertId]);
+  return { ...(await _decorateCard(rows[0])), _isNew: true };
 }
 
 export async function listStampCards(storeId) {
@@ -7862,12 +7924,21 @@ export async function deleteStampCard(id, storeId) {
   await pool.execute('DELETE FROM stamp_cards WHERE id = ? AND store_id = ?', [id, storeId]);
 }
 
-// Suma un sello a la tarjeta (por teléfono). Devuelve { card, rewardEarned }.
-export async function addStampToCard(storeId, phone, name) {
+// Suma un sello a la tarjeta identificada por su clave de 5 dígitos.
+// Asocia la tarjeta a la tienda si aún no lo estaba. Devuelve { card, rewardEarned, stamps_required }.
+export async function addStampByCode(storeId, code) {
   await ensureStampCardTables();
-  const config = await getStampCardConfig(storeId);
+  const clean = String(code || '').replace(/\D/g, '');
+  const [rows0] = await pool.execute('SELECT * FROM stamp_cards WHERE code = ?', [clean]);
+  let card = rows0[0];
+  if (!card) return null;
+  // Asociar a la tienda en el primer uso
+  if (!card.store_id) {
+    await pool.execute('UPDATE stamp_cards SET store_id = ? WHERE id = ?', [storeId, card.id]);
+    card.store_id = storeId;
+  }
+  const config = await getStampCardConfig(card.store_id);
   const required = Math.max(1, parseInt(config.stamps_required) || 10);
-  const card = await getOrCreateStampCard(storeId, phone, name);
   const newStamps = (card.stamps || 0) + 1;
   const rewardEarned = newStamps >= required;
   await pool.execute(
@@ -7877,7 +7948,7 @@ export async function addStampToCard(storeId, phone, name) {
     [newStamps, rewardEarned ? 1 : 0, card.id]
   );
   const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE id = ?', [card.id]);
-  return { card: { ...rows[0], config }, rewardEarned, stamps_required: required };
+  return { card: await _decorateCard(rows[0]), rewardEarned, stamps_required: required };
 }
 
 // Canjea la recompensa: reinicia sellos y suma al histórico de canjes.

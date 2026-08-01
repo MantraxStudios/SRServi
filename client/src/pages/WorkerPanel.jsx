@@ -419,7 +419,7 @@ function WorkerPanel() {
   // ── Tarjeta de sellos ──
   const [showStampModal, setShowStampModal] = useState(false);
   const [stampConfig, setStampConfig] = useState(null);
-  const [stampPhoneW, setStampPhoneW] = useState('');
+  const [stampCodeW, setStampCodeW] = useState('');
   const [stampCardW, setStampCardW] = useState(null);
   const [stampBusy, setStampBusy] = useState(false);
   const [stampMsg, setStampMsg] = useState('');
@@ -936,7 +936,7 @@ function WorkerPanel() {
   // ── Tarjeta de sellos ──
   const openStampModal = async () => {
     setShowStampModal(true);
-    setStampMsg(''); setStampCardW(null); setStampPhoneW('');
+    setStampMsg(''); setStampCardW(null); setStampCodeW('');
     if (!stampConfig && storeCode) {
       try {
         const r = await fetch(`/api/public/${storeCode}/stamp-card`);
@@ -945,28 +945,33 @@ function WorkerPanel() {
     }
   };
   const stampLookup = async () => {
-    const phone = stampPhoneW.replace(/\s+/g, '');
-    if (phone.replace(/\D/g, '').length < 6) return;
+    const card_code = stampCodeW.replace(/\D/g, '');
+    if (card_code.length !== 5) return;
     setStampBusy(true); setStampMsg('');
     try {
-      const r = await fetch(`/api/public/${storeCode}/stamp-card/register`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone })
+      const r = await fetch(`/api/public/${storeCode}/stamp-card/lookup`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ card_code })
       });
-      if (r.ok) setStampCardW(await r.json());
+      const d = await r.json();
+      if (r.ok) setStampCardW(d);
+      else setStampMsg(d.error || 'No existe una tarjeta con esa clave');
     } catch {} finally { setStampBusy(false); }
   };
   const stampAdd = async () => {
-    const phone = stampPhoneW.replace(/\s+/g, '');
-    if (phone.replace(/\D/g, '').length < 6) return;
+    const card_code = stampCodeW.replace(/\D/g, '');
+    if (card_code.length !== 5) return;
     setStampBusy(true); setStampMsg('');
     try {
       const r = await fetch(`/api/public/${storeCode}/stamp-card/stamp`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone })
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ card_code })
       });
       if (r.ok) {
         const d = await r.json();
         setStampCardW(c => ({ ...(c || {}), stamps: d.card.stamps, stamps_required: d.stamps_required, reward_available: d.card.reward_available, token: d.card.token, reward_label: d.card.config?.reward_label }));
         setStampMsg(d.rewardEarned ? '🎉 ¡Recompensa desbloqueada!' : '✓ Sello agregado');
+      } else {
+        const d = await r.json().catch(() => ({}));
+        setStampMsg(d.error || 'No se pudo sumar el sello');
       }
     } catch {} finally { setStampBusy(false); }
   };
@@ -3157,17 +3162,18 @@ function WorkerPanel() {
                 </div>
               ) : (
                 <>
-                  <label style={{ display: 'block', marginBottom: '6px', color: colors.secondary }}>Teléfono del cliente</label>
+                  <label style={{ display: 'block', marginBottom: '6px', color: colors.secondary }}>Clave del cliente (5 dígitos)</label>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
                     <input
                       type="tel"
                       inputMode="numeric"
-                      value={stampPhoneW}
-                      onChange={e => { setStampPhoneW(e.target.value.replace(/[^\d+]/g, '')); setStampCardW(null); setStampMsg(''); }}
-                      placeholder="Ej: +56912345678"
-                      style={{ flex: 1, padding: '12px 14px', fontSize: '1.1rem', background: '#1a1a1a', color: '#fff', border: `1px solid ${colors.accent}`, borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }}
+                      maxLength={5}
+                      value={stampCodeW}
+                      onChange={e => { setStampCodeW(e.target.value.replace(/\D/g, '').slice(0, 5)); setStampCardW(null); setStampMsg(''); }}
+                      placeholder="Ej: 48213"
+                      style={{ flex: 1, padding: '12px 14px', fontSize: '1.3rem', letterSpacing: 4, textAlign: 'center', fontWeight: 700, background: '#1a1a1a', color: '#fff', border: `1px solid ${colors.accent}`, borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }}
                     />
-                    <button className="btn btn-secondary" onClick={stampLookup} disabled={stampBusy || stampPhoneW.replace(/\D/g, '').length < 6}>
+                    <button className="btn btn-secondary" onClick={stampLookup} disabled={stampBusy || stampCodeW.replace(/\D/g, '').length !== 5}>
                       {stampBusy ? '...' : 'Buscar'}
                     </button>
                   </div>

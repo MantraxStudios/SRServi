@@ -295,11 +295,12 @@ import {
   deleteLoyalCustomer,
   getStampCardConfig,
   saveStampCardConfig,
-  getOrCreateStampCard,
   getStampCardByToken,
+  getStampCardByCode,
+  createOrGetStampCardByCode,
   listStampCards,
   deleteStampCard,
-  addStampToCard,
+  addStampByCode,
   redeemStampCard,
   getInventorySections,
   createInventorySection,
@@ -16332,47 +16333,39 @@ app.get('/api/public/:code/stamp-card', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Público: registrar/obtener tarjeta por teléfono (envía enlace por WhatsApp)
-app.post('/api/public/:code/stamp-card/register', async (req, res) => {
+// Público: consultar una tarjeta por su clave de 5 dígitos (en el tótem/caja de una tienda).
+// Devuelve el estado de la tarjeta y la config de recompensa DE ESTA tienda.
+app.post('/api/public/:code/stamp-card/lookup', async (req, res) => {
   try {
     const store = await getStoreByCode(req.params.code.toUpperCase());
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
-    const { name, phone } = req.body;
-    if (!phone) return res.status(400).json({ error: 'phone es requerido' });
+    const { card_code } = req.body;
+    if (!card_code) return res.status(400).json({ error: 'card_code es requerido' });
+    const card = await getStampCardByCode(String(card_code).replace(/\D/g, ''));
+    if (!card) return res.status(404).json({ error: 'No existe una tarjeta con esa clave' });
     const config = await getStampCardConfig(store.id);
-    const card = await getOrCreateStampCard(store.id, phone, name);
-    const cardUrl = `${BASE_URL}/tarjeta/${card.token}`;
-    // Enviar el enlace por WhatsApp solo la primera vez (no bloqueante)
-    if (card._isNew) {
-      try {
-        const msg = `¡Hola${card.name ? ' ' + card.name : ''}! 🎉 Esta es tu tarjeta de sellos de *${store.name}*.\n` +
-          `Junta ${config.stamps_required} sellos y obtén: ${config.reward_label}.\n` +
-          `Guarda tu tarjeta aquí: ${cardUrl}`;
-        await sendWhatsAppMessage(store.id, phone, msg);
-      } catch (err) { console.error('stamp-card whatsapp:', err.message); }
-    }
     res.json({
       token: card.token,
+      code: card.code,
       stamps: card.stamps,
       stamps_required: config.stamps_required,
       reward_available: !!card.reward_available,
       reward_type: config.reward_type,
       reward_value: Number(config.reward_value) || 0,
-      reward_label: config.reward_label,
-      is_new: card._isNew,
-      url: cardUrl
+      reward_label: config.reward_label
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Público: sumar un sello (por teléfono) tras una compra
+// Público: sumar un sello (por clave de 5 dígitos) tras una compra
 app.post('/api/public/:code/stamp-card/stamp', async (req, res) => {
   try {
     const store = await getStoreByCode(req.params.code.toUpperCase());
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
-    const { phone, name } = req.body;
-    if (!phone) return res.status(400).json({ error: 'phone es requerido' });
-    const result = await addStampToCard(store.id, phone, name);
+    const { card_code } = req.body;
+    if (!card_code) return res.status(400).json({ error: 'card_code es requerido' });
+    const result = await addStampByCode(store.id, String(card_code).replace(/\D/g, ''));
+    if (!result) return res.status(404).json({ error: 'No existe una tarjeta con esa clave' });
     // Confirmación en vivo en la página de la tarjeta del cliente
     if (result?.card?.token) {
       io.to(`card_${result.card.token}`).emit('stamp_card_update', {
@@ -16415,6 +16408,26 @@ app.get('/api/card/:token', async (req, res) => {
     if (!card) return res.status(404).json({ error: 'Tarjeta no encontrada' });
     res.json(card);
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Público: crear/abrir tarjeta por clave de 5 dígitos (desde la página /tarjeta)
+app.post('/api/card', async (req, res) => {
+  try {
+    const { code, name, phone } = req.body;
+    const clean = String(code || '').replace(/\D/g, '');
+    if (clean.length !== 5) return res.status(400).json({ error: 'La clave debe tener 5 dígitos' });
+    const card = await createOrGetStampCardByCode(clean, { name, phone });
+    // Si se registró un teléfono nuevo y hay tienda asociada, enviar enlace por WhatsApp
+    if (card._isNew && phone && card.store_id) {
+      try {
+        const cardUrl = `${BASE_URL}/tarjeta/${card.token}`;
+        const msg = `¡Hola${card.name ? ' ' + card.name : ''}! 🎉 Esta es tu tarjeta de sellos${card.store_name ? ' de *' + card.store_name + '*' : ''}.\n` +
+          `Tu clave es *${card.code}*. Guarda tu tarjeta aquí: ${cardUrl}`;
+        await sendWhatsAppMessage(card.store_id, phone, msg);
+      } catch (err) { console.error('stamp-card whatsapp:', err.message); }
+    }
+    res.json(card);
+  } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
 // ─── RTSP People Counter ─────────────────────────────────────────────────────
