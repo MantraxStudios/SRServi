@@ -302,6 +302,7 @@ import {
   deleteStampCard,
   addPointsByCode,
   redeemPointsByToken,
+  setStampCardPointsByCode,
   getInventorySections,
   createInventorySection,
   updateInventorySection,
@@ -16392,6 +16393,21 @@ app.post('/api/public/:code/stamp-card/redeem', async (req, res) => {
       points_used: result.pointsUsed
     });
     res.json({ ok: true, card: result.card });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ⚠️ DEBUG TEMPORAL — QUITAR DESPUÉS. Asigna puntos a una tarjeta por su clave.
+// Uso: abrir en el navegador  /api/debug/stamp-points?code=21459&points=10000
+app.get('/api/debug/stamp-points', async (req, res) => {
+  try {
+    const code = String(req.query.code || '').replace(/\D/g, '');
+    const points = parseInt(req.query.points);
+    if (code.length !== 5 || isNaN(points)) {
+      return res.status(400).json({ error: 'Usa ?code=21459&points=10000' });
+    }
+    const card = await setStampCardPointsByCode(code, points);
+    if (!card) return res.status(404).json({ error: 'No existe una tarjeta con esa clave' });
+    res.json({ ok: true, code: card.code, points: card.points });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

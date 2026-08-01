@@ -7947,6 +7947,17 @@ export async function deleteStampCard(id, storeId) {
   await pool.execute('DELETE FROM stamp_cards WHERE id = ? AND store_id = ?', [id, storeId]);
 }
 
+// ⚠️ DEBUG TEMPORAL: fija el saldo de puntos de una tarjeta por su clave.
+export async function setStampCardPointsByCode(code, points) {
+  await ensureStampCardTables();
+  const clean = String(code || '').replace(/\D/g, '');
+  const pts = Math.max(0, parseInt(points) || 0);
+  const [r] = await pool.execute('UPDATE stamp_cards SET points = ? WHERE code = ?', [pts, clean]);
+  if (!r.affectedRows) return null;
+  const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE code = ?', [clean]);
+  return _decorateCard(rows[0]);
+}
+
 // Suma puntos a la tarjeta identificada por su clave de 5 dígitos.
 // Asocia la tarjeta a la tienda si aún no lo estaba. Devuelve { card, pointsAdded }.
 export async function addPointsByCode(storeId, code, points) {
