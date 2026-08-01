@@ -492,6 +492,10 @@ function Register() {
           >
             {loading ? 'Registrando...' : 'Crear Cuenta'}
           </button>
+          <p style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center', marginTop: '10px' }}>
+            Al crear tu cuenta aceptas los{' '}
+            <a href="/terms" target="_blank" rel="noreferrer" style={{ color: '#D4AF37', fontWeight: 700, textDecoration: 'underline' }}>Términos y Condiciones</a>.
+          </p>
         </form>
 
         <div className="auth-footer">

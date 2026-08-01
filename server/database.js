@@ -1557,8 +1557,8 @@ async function migrateTables() {
         console.log('⚠️ Insertando planes por defecto...');
         await pool.execute(`
           INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
-          ('Gratis', 'Plan gratuito básico', 2, 0, 0, '["2 tiendas máximo", "Gestión de productos", "Punto de venta"]'),
-          ('SOLO', 'Plan para negocios en crecimiento', 10, 11.00, 11.00, '["1 impresora Bluetooth en la app", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
+          ('Gratis', 'Plan gratuito básico', 1, 0, 0, '["1 tienda máxima", "Gestión de productos", "Punto de venta"]'),
+          ('SOLO', 'Plan para negocios en crecimiento', 3, 11.00, 11.00, '["1 impresora Bluetooth en la app", "3 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
           ('Empresas', 'Plan para empresas con múltiples sucursales', 25, 25.00, 25.00, '["5 impresoras Bluetooth en la app", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
           ('Personalizado', 'Plan con funciones a medida y soporte dedicado', 25, 99.00, 99.00, '["10 impresoras Bluetooth en la app", "Funciones personalizadas a pedido", "Soporte prioritario dedicado", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Atención directa con el equipo de desarrollo"]')
         `);
@@ -1574,25 +1574,25 @@ async function migrateTables() {
             console.log('ℹ️ Plan Premium renombrado a SOLO');
           } else if (plan.name === 'Gratis') {
             await pool.execute(
-              'UPDATE plans SET features = ? WHERE id = ?',
-              ['["2 tiendas máximo", "Gestión de productos", "Punto de venta"]', plan.id]
+              'UPDATE plans SET max_stores = 1, features = ? WHERE id = ?',
+              ['["1 tienda máxima", "Gestión de productos", "Punto de venta"]', plan.id]
             );
-            console.log('ℹ️ Plan Gratis actualizado');
+            console.log('ℹ️ Plan Gratis actualizado (máx. 1 tienda)');
           }
         }
         const [remainingPlans] = await pool.execute("SELECT COUNT(*) as count FROM plans WHERE name = 'SOLO'");
         if (remainingPlans[0].count === 0) {
           await pool.execute(`
             INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
-            ('SOLO', 'Plan para negocios en crecimiento', 10, 11.00, 11.00, '["1 impresora Bluetooth en la app", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
+            ('SOLO', 'Plan para negocios en crecimiento', 3, 11.00, 11.00, '["1 impresora Bluetooth en la app", "3 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
           `);
           console.log('✅ Plan SOLO insertado');
         } else {
           await pool.execute(
-            'UPDATE plans SET price_monthly = 11.00, price_yearly = 11.00 WHERE name = ?',
+            'UPDATE plans SET max_stores = 3, price_monthly = 11.00, price_yearly = 11.00 WHERE name = ?',
             ['SOLO']
           );
-          console.log('ℹ️ Plan SOLO actualizado a $11/$11');
+          console.log('ℹ️ Plan SOLO actualizado (máx. 3 tiendas, $11/$11)');
         }
 
         const [empresasPlans] = await pool.execute("SELECT COUNT(*) as count FROM plans WHERE name = 'Empresas'");
@@ -5251,10 +5251,10 @@ export async function getAllSubscriptions() {
       up.created_at as subscribed_at,
       COALESCE(p.id, 1) as plan_id,
       COALESCE(p.name, 'Gratis') as plan_name,
-      COALESCE(p.max_stores, 2) as max_stores,
+      COALESCE(p.max_stores, 1) as max_stores,
       COALESCE(p.price_monthly, 0) as price_monthly,
       COALESCE(p.price_yearly, 0) as price_yearly,
-      COALESCE(p.features, '["2 tiendas máximo", "Gestión de productos", "Punto de venta"]') as features,
+      COALESCE(p.features, '["1 tienda máxima", "Gestión de productos", "Punto de venta"]') as features,
       u.username,
       u.email,
       u.business_name,
@@ -5338,7 +5338,7 @@ export async function canUserCreateStore(userId) {
   const storeCount = await getUserStoreCount(userId);
   
   if (!plan) {
-    return { canCreate: storeCount < 2, maxStores: 2, currentPlan: 'Gratis' };
+    return { canCreate: storeCount < 1, maxStores: 1, currentPlan: 'Gratis' };
   }
   
   const maxStores = plan.max_stores;
@@ -6657,7 +6657,51 @@ async function ensureAttendanceTables() {
       FOREIGN KEY (person_id) REFERENCES attendance_persons(id) ON DELETE CASCADE
     )
   `);
+  // Config del marcador: qué tipos de registro están habilitados (todos ON por defecto)
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS attendance_mark_config (
+      store_id INT PRIMARY KEY,
+      entrada BOOLEAN DEFAULT TRUE,
+      salida BOOLEAN DEFAULT TRUE,
+      inicio_almuerzo BOOLEAN DEFAULT TRUE,
+      fin_almuerzo BOOLEAN DEFAULT TRUE,
+      inicio_pausa BOOLEAN DEFAULT TRUE,
+      fin_pausa BOOLEAN DEFAULT TRUE,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
   _attendanceReady = true;
+}
+
+// Mapea columnas ↔ tipos de registro del marcador.
+const _MARK_COLS = {
+  ENTRADA: 'entrada', SALIDA: 'salida',
+  INICIO_ALMUERZO: 'inicio_almuerzo', FIN_ALMUERZO: 'fin_almuerzo',
+  INICIO_PAUSA: 'inicio_pausa', FIN_PAUSA: 'fin_pausa',
+};
+
+// Devuelve { ENTRADA: bool, ... } — todos true por defecto si no hay config.
+export async function getAttendanceMarkConfig(storeId) {
+  await ensureAttendanceTables();
+  const [rows] = await pool.execute('SELECT * FROM attendance_mark_config WHERE store_id = ?', [storeId]);
+  const row = rows[0];
+  const out = {};
+  for (const [key, col] of Object.entries(_MARK_COLS)) {
+    out[key] = row ? !!row[col] : true;
+  }
+  return out;
+}
+
+export async function upsertAttendanceMarkConfig(storeId, cfg) {
+  await ensureAttendanceTables();
+  const vals = Object.keys(_MARK_COLS).map(key => (cfg?.[key] === false ? 0 : 1));
+  await pool.execute(
+    `INSERT INTO attendance_mark_config (store_id, entrada, salida, inicio_almuerzo, fin_almuerzo, inicio_pausa, fin_pausa)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE entrada=VALUES(entrada), salida=VALUES(salida), inicio_almuerzo=VALUES(inicio_almuerzo), fin_almuerzo=VALUES(fin_almuerzo), inicio_pausa=VALUES(inicio_pausa), fin_pausa=VALUES(fin_pausa)`,
+    [storeId, ...vals]
+  );
+  return getAttendanceMarkConfig(storeId);
 }
 
 export async function getAttendancePersons(storeId) {

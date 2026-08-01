@@ -242,6 +242,8 @@ import {
   getLastAttendanceRecord,
   getSalesConfig,
   upsertSalesConfig,
+  getAttendanceMarkConfig,
+  upsertAttendanceMarkConfig,
   getSalesForMonth,
   upsertSaleRecord,
   deleteSaleRecord,
@@ -14967,6 +14969,9 @@ app.post('/api/attendance/:storeCode/record', async (req, res) => {
     const { person_id, type } = req.body;
     const valid = ['ENTRADA','SALIDA','INICIO_ALMUERZO','FIN_ALMUERZO','INICIO_PAUSA','FIN_PAUSA'];
     if (!valid.includes(type)) return res.status(400).json({ error: 'Tipo de registro inválido' });
+    // Respeta la config del marcador: rechaza tipos deshabilitados por la tienda.
+    const markCfg = await getAttendanceMarkConfig(store.id);
+    if (markCfg[type] === false) return res.status(403).json({ error: 'Ese tipo de registro está desactivado' });
     const id = await createAttendanceRecord(store.id, person_id, type);
     const last = await getLastAttendanceRecord(store.id, person_id);
     res.json({ id, type, recorded_at: last?.recorded_at });
@@ -15011,6 +15016,26 @@ app.delete('/api/attendance/:storeCode/persons/:personId', authenticateToken, as
 });
 
 // ─── Sales & Commissions API ──────────────────────────────────────────────────
+
+// Config del marcador (qué tipos de registro están habilitados).
+// GET es público: el marcador lo usa para saber qué botones mostrar.
+app.get('/api/attendance/:storeCode/mark-config', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    res.json(await getAttendanceMarkConfig(store.id));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/attendance/:storeCode/mark-config', authenticateToken, async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    if (!await verifyStoreOwnership(store.id, req.user.id)) return res.status(403).json({ error: 'Sin permiso' });
+    const config = await upsertAttendanceMarkConfig(store.id, req.body || {});
+    res.json({ ok: true, config });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 app.get('/api/attendance/:storeCode/sales/config', authenticateToken, async (req, res) => {
   try {

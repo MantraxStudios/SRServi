@@ -2137,7 +2137,7 @@ h1, h2, h3, h4, h5, h6 {
 .store-header {
   background: var(--kiosk-bg, #FAF4E9) !important;
   color: var(--kiosk-dark, #232028);
-  padding: 10px 12px;
+  padding: 6px 12px;
   margin: 0;
   border-radius: 0;
   box-shadow: none;
@@ -2394,7 +2394,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Category tabs (mobile: horizontal pills / desktop: sidebar) */
 .category-tabs {
-  padding: 10px 10px 6px;
+  padding: 6px 8px 4px;
   background: transparent;
   flex-shrink: 0;
 }
@@ -2416,9 +2416,9 @@ h1, h2, h3, h4, h5, h6 {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 18px;
-  border-radius: 14px;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 12px;
   border: 1px solid var(--kiosk-border, #F0E8D9);
   background-color: var(--kiosk-card, #fff);
   color: var(--kiosk-dark, #232028);
@@ -2653,7 +2653,7 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px 6px;
+  padding: 5px 12px 2px;
 }
 
 .category-section-icon {
@@ -2661,7 +2661,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .category-section-title {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 900;
   color: var(--kiosk-dark, #232028);
   background: transparent;
@@ -2689,8 +2689,8 @@ h1, h2, h3, h4, h5, h6 {
 .products-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  padding: 6px 8px;
+  gap: 4px;
+  padding: 4px 6px;
   justify-items: stretch;
 }
 
@@ -2698,26 +2698,26 @@ h1, h2, h3, h4, h5, h6 {
 @media (min-width: 600px) {
   .products-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    padding: 8px 10px;
+    gap: 5px;
+    padding: 5px 8px;
   }
 }
 
 /* Siempre 3 columnas (mismo formato en tablet, tótem y editor).
-   En pantallas anchas solo crece el espaciado, no la cantidad de columnas. */
+   En pantallas anchas solo crece muy poco el espaciado, no la cantidad de columnas. */
 @media (min-width: 900px) {
   .products-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    padding: 10px 14px;
+    gap: 6px;
+    padding: 6px 10px;
   }
 }
 
 @media (min-width: 1200px) {
   .products-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    padding: 12px 16px;
+    gap: 7px;
+    padding: 7px 12px;
   }
 }
 
@@ -4172,8 +4172,8 @@ html body .store-container .store-product-card * {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 16px;
-  margin-top: 16px;
+  padding: 12px;
+  margin-top: 10px;
 }
 
 .store-cart-summary-row {
@@ -4181,7 +4181,7 @@ html body .store-container .store-product-card * {
   justify-content: space-between;
   font-size: 14px;
   color: var(--muted-foreground);
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .store-cart-discount {

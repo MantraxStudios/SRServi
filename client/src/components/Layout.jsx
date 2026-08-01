@@ -890,6 +890,7 @@ function Layout() {
                 {!isSubAccount && <NavLink to="/admin/store-pin" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faLock} /> PIN Tienda</NavLink>}
                 {!isSubAccount && <NavLink to="/admin/screensaver" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faTv} /> Salva Pantallas</NavLink>}
                 {!isSubAccount && <NavLink to="/admin/cctv" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faVideo} /> Cartelería Digital</NavLink>}
+                <a href="/terms" target="_blank" rel="noreferrer" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faList} /> Términos y Condiciones</a>
               </div>
 
               {/* Mis Apps */}

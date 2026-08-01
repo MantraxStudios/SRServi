@@ -61,6 +61,7 @@ export default function Attendance() {
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [saving, setSaving] = useState(false);
+  const [markConfig, setMarkConfig] = useState(null); // qué tipos de registro están habilitados
 
   const modalOpen = uiState !== 'idle';
 
@@ -137,6 +138,15 @@ export default function Attendance() {
   }, [storeCode]);
 
   useEffect(() => { fetchPersons(); }, [fetchPersons]);
+
+  // Config del marcador: qué tipos de registro mostrar
+  useEffect(() => {
+    if (!storeCode) return;
+    fetch(`${API}/api/attendance/${storeCode}/mark-config`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setMarkConfig(d); })
+      .catch(() => {});
+  }, [storeCode]);
 
   // Camera
   useEffect(() => {
@@ -378,7 +388,7 @@ export default function Attendance() {
           />
         )}
         {uiState === 'action' && (
-          <ActionPanel person={matchedPerson} saving={saving} onRecord={handleRecord} onCancel={reset} />
+          <ActionPanel person={matchedPerson} saving={saving} onRecord={handleRecord} onCancel={reset} markConfig={markConfig} />
         )}
         {uiState === 'unknown' && (
           <RegisterPanel
@@ -435,14 +445,16 @@ function KnownPanel({ person, rutInput, setRutInput, formError, saving, onVerify
   );
 }
 
-function ActionPanel({ person, saving, onRecord, onCancel }) {
+function ActionPanel({ person, saving, onRecord, onCancel, markConfig }) {
+  // Solo los tipos habilitados por la tienda (todos si aún no cargó la config).
+  const entries = Object.entries(RECORD_LABELS).filter(([key]) => !markConfig || markConfig[key] !== false);
   return (
     <div style={p.wrap}>
       <div style={p.emoji}>✅</div>
       <h2 style={p.title}>{person?.name} {person?.surname}</h2>
       <p style={p.hint}>Selecciona el tipo de registro</p>
       <div style={p.grid}>
-        {Object.entries(RECORD_LABELS).map(([key, label]) => (
+        {entries.map(([key, label]) => (
           <button
             key={key}
             style={{ ...p.actionBtn, borderColor: RECORD_COLORS[key], color: RECORD_COLORS[key] }}

@@ -366,7 +366,7 @@ function Plans() {
           checked={termsAccepted}
           onChange={(e) => setTermsAccepted(e.target.checked)}
         />
-        <span>Acepto los términos y condiciones: una vez confirmado el pago, <strong>no habrá devolución</strong>.</span>
+        <span>Acepto los <a href="/terms" target="_blank" rel="noreferrer" style={{ color: '#D4AF37', fontWeight: 700, textDecoration: 'underline' }} onClick={(e) => e.stopPropagation()}>términos y condiciones</a>: una vez confirmado el pago, <strong>no habrá devolución</strong>.</span>
       </label>
 
       {/* Plans grid */}

@@ -454,6 +454,9 @@ function Login() {
             ¿No tienes cuenta?{' '}
             <Link to="/register" className="auth-link">Regístrate aquí</Link>
           </p>
+          <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>
+            <a href="/terms" target="_blank" rel="noreferrer" style={{ color: '#9ca3af', textDecoration: 'underline' }}>Términos y Condiciones</a>
+          </p>
           <Link
             to="/worker-login"
             className="btn btn-lg btn-full"

@@ -49,6 +49,9 @@ export default function AttendanceAdmin() {
   const [search, setSearch] = useState('');
   const [deletingId, setDeletingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [markCfg, setMarkCfg] = useState(null);
+  const [savingCfg, setSavingCfg] = useState(false);
+  const [cfgSaved, setCfgSaved] = useState(false);
 
   const storeCode = selectedStore?.code;
 
@@ -73,9 +76,30 @@ export default function AttendanceAdmin() {
     } catch {}
   }
 
+  async function fetchMarkConfig() {
+    if (!storeCode) return;
+    try {
+      const res = await fetch(`${API}/api/attendance/${storeCode}/mark-config`);
+      if (res.ok) setMarkCfg(await res.json());
+    } catch {}
+  }
+
+  async function saveMarkConfig() {
+    if (!storeCode || !markCfg) return;
+    setSavingCfg(true); setCfgSaved(false);
+    try {
+      const res = await fetch(`${API}/api/attendance/${storeCode}/mark-config`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(markCfg)
+      });
+      if (res.ok) { setCfgSaved(true); setTimeout(() => setCfgSaved(false), 2500); }
+    } finally { setSavingCfg(false); }
+  }
+
   useEffect(() => {
     if (tab === 'records') fetchRecords();
     else if (tab === 'persons') fetchPersons();
+    else if (tab === 'config') fetchMarkConfig();
   }, [storeCode, token, date, tab]);
 
   function shiftDate(days) {
@@ -119,6 +143,7 @@ export default function AttendanceAdmin() {
   const TABS = [
     ['records', 'Registros del día'],
     ['persons', 'Empleados'],
+    ['config', 'Marcador'],
   ];
 
   return (
@@ -206,6 +231,8 @@ export default function AttendanceAdmin() {
             <div style={{ textAlign: 'center', padding: 48, color: '#a1a1aa' }}>Cargando...</div>
           ) : tab === 'records' ? (
             <RecordsTable records={filteredRecords} date={date} />
+          ) : tab === 'config' ? (
+            <MarkConfigPanel markCfg={markCfg} setMarkCfg={setMarkCfg} onSave={saveMarkConfig} saving={savingCfg} saved={cfgSaved} />
           ) : (
             <PersonsTable
               persons={filteredPersons}
@@ -341,6 +368,39 @@ function PersonsTable({ persons, confirmDelete, setConfirmDelete, deletingId, on
       <div style={{ padding: '10px 16px', borderTop: '1px solid #f4f4f5', color: '#a1a1aa', fontSize: 12 }}>
         {persons.length} empleado{persons.length !== 1 ? 's' : ''} registrado{persons.length !== 1 ? 's' : ''}
       </div>
+    </div>
+  );
+}
+
+// Config del marcador: activar/desactivar los 6 tipos de registro (todos ON por defecto).
+function MarkConfigPanel({ markCfg, setMarkCfg, onSave, saving, saved }) {
+  if (!markCfg) return <div style={{ textAlign: 'center', padding: 48, color: '#a1a1aa' }}>Cargando...</div>;
+  const toggle = (key) => setMarkCfg(prev => ({ ...prev, [key]: prev[key] === false ? true : false }));
+  return (
+    <div style={{ padding: 20, maxWidth: 560 }}>
+      <h3 style={{ margin: '0 0 4px', color: '#09090b', fontSize: 17, fontWeight: 800 }}>Opciones del marcador</h3>
+      <p style={{ margin: '0 0 18px', color: '#71717a', fontSize: 13 }}>
+        Activa o desactiva los botones que verá el empleado al marcar. Todos vienen activados por defecto.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {Object.entries(TYPE_LABELS).map(([key, label]) => {
+          const active = markCfg[key] !== false;
+          return (
+            <div key={key} onClick={() => toggle(key)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', border: '1px solid #e4e4e7', borderRadius: 10, background: '#fff', cursor: 'pointer' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, color: '#09090b', fontSize: 14 }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: TYPE_COLORS[key] }} />
+                {label}
+              </span>
+              <span style={{ width: 46, height: 26, borderRadius: 13, background: active ? '#16a34a' : '#d4d4d8', position: 'relative', transition: 'background .15s', flexShrink: 0 }}>
+                <span style={{ position: 'absolute', top: 3, left: active ? 23 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left .15s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <button onClick={onSave} disabled={saving} style={{ marginTop: 18, padding: '12px 20px', background: saved ? '#16a34a' : '#09090b', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        {saving ? 'Guardando...' : saved ? '✓ Guardado' : 'Guardar cambios'}
+      </button>
     </div>
   );
 }
