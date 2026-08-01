@@ -883,6 +883,13 @@ function WorkerPanel() {
       const originalTotal = (o.items||[]).reduce((s,i) => s + Number(i.unit_price||0)*Number(i.quantity||1), 0);
       const finalTotal = Number(o.total||0);
       const priceModified = Math.abs(finalTotal - originalTotal) > 0.01;
+      // % de propina estimado: diferencia positiva entre total final y subtotal de ítems, sobre el subtotal
+      const tipAmount = Math.max(finalTotal - originalTotal, 0);
+      const tipPct = originalTotal > 0 ? (tipAmount / originalTotal) * 100 : 0;
+      const tipCell = tipAmount > 0.01
+        ? '<span style="font-weight:700;color:#15803d">'+tipPct.toFixed(1).replace(/\.0$/,'')+'%</span>'
+          + '<br><span style="color:#888;font-size:11px">$'+formatPrice(Math.round(tipAmount))+'</span>'
+        : '<span style="color:#999">0%</span>';
       const totalCell = priceModified
         ? '<span style="color:#16a34a;font-weight:800;font-size:13px">✓</span> '
           + '<span style="text-decoration:line-through;color:#999;font-size:11px;margin-right:4px">$'+formatPrice(originalTotal)+'</span>'
@@ -890,7 +897,7 @@ function WorkerPanel() {
         : '<span style="color:#dc2626;font-size:12px;margin-right:3px">✗</span>'
           + '<span style="font-weight:800">$'+formatPrice(finalTotal)+'</span>';
       const bg = o.status==='completed'?'#f0fff4':o.status==='preparing'?'#fffbeb':'#fff';
-      return '<tr style="background:'+bg+'"><td style="font-weight:800;font-size:15px">'+getOrderDisplayNumber(o)+'</td><td>'+tl(o.order_type)+(o.table_number!=null?'<br><small>Mesa '+o.table_number+'</small>':'')+'</td><td>'+fmt(o.created_at)+'</td><td>'+(o.completed_at?fmt(o.completed_at):'—')+'</td><td style="font-weight:700">'+fmtPrep(o.created_at,o.completed_at)+'</td><td>'+sl(o.status)+'</td><td style="font-weight:600">'+(o.completed_by_name||'—')+'</td><td style="font-size:12px">'+(items||'—')+'</td><td style="text-align:right;white-space:nowrap">'+totalCell+'</td></tr>';
+      return '<tr style="background:'+bg+'"><td style="font-weight:800;font-size:15px">'+getOrderDisplayNumber(o)+'</td><td>'+tl(o.order_type)+(o.table_number!=null?'<br><small>Mesa '+o.table_number+'</small>':'')+'</td><td>'+fmt(o.created_at)+'</td><td>'+(o.completed_at?fmt(o.completed_at):'—')+'</td><td style="font-weight:700">'+fmtPrep(o.created_at,o.completed_at)+'</td><td>'+sl(o.status)+'</td><td style="font-weight:600">'+(o.completed_by_name||'—')+'</td><td style="font-size:12px">'+(items||'—')+'</td><td style="text-align:center;white-space:nowrap">'+tipCell+'</td><td style="text-align:right;white-space:nowrap">'+totalCell+'</td></tr>';
     }).join('');
     const ds = new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
     const sn = worker?.store_name||'Tienda';
@@ -910,7 +917,7 @@ function WorkerPanel() {
       '<div class="top"><div><h1>'+sn+'</h1><p>Informe de pedidos del día</p><p>'+ds+'</p></div><div class="top-right"><p>Generado por: <strong>'+wn+'</strong></p><p>Hora: '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})+'</p></div></div>'+
       '<div class="stats"><div class="stat"><div class="stat-label">Total pedidos</div><div class="stat-value">'+todayOrders.length+'</div></div><div class="stat"><div class="stat-label">Completados</div><div class="stat-value">'+done.length+'</div></div><div class="stat"><div class="stat-label">Ingresos totales</div><div class="stat-value">$'+formatPrice(total)+'</div></div><div class="stat"><div class="stat-label">Tiempo prom. prep.</div><div class="stat-value">'+(avg!=null?avg+' min':'—')+'</div></div></div>'+
       (wRows?'<h2>Rendimiento por Trabajador</h2><table><thead><tr><th>Trabajador</th><th>Pedidos</th><th>Total gestionado</th></tr></thead><tbody>'+wRows+'</tbody></table>':'')+
-      '<h2>Detalle de Pedidos</h2><table><thead><tr><th>#</th><th>Tipo</th><th>Entrada</th><th>Salida</th><th>Tiempo prep.</th><th>Estado</th><th>Atendido por</th><th>Productos</th><th>Total</th></tr></thead><tbody>'+oRows+'</tbody></table>'+
+      '<h2>Detalle de Pedidos</h2><table><thead><tr><th>#</th><th>Tipo</th><th>Entrada</th><th>Salida</th><th>Tiempo prep.</th><th>Estado</th><th>Atendido por</th><th>Productos</th><th>% Propina</th><th>Total</th></tr></thead><tbody>'+oRows+'</tbody></table>'+
       '<div class="footer">SRServi — '+sn+' — '+new Date().toLocaleString('es-ES')+'</div></body></html>';
     const win = window.open('', '_blank', 'width=1050,height=750');
     if (!win) { alert('Permite ventanas emergentes para generar el PDF.'); return; }
