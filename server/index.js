@@ -474,6 +474,20 @@ const upload = multer({
   }
 });
 
+// Multer para el salvapantallas: acepta imágenes Y videos (usa el mismo storage)
+const screensaverUpload = multer({
+  storage: storage,
+  limits: { fileSize: 1024 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file) return cb(null, false);
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.mp4', '.webm', '.ogg', '.ogv', '.mov', '.m4v'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    const okMime = file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/');
+    if (okMime && allowedExts.includes(ext)) return cb(null, true);
+    cb(new Error('Solo se permiten imágenes o videos (jpg, png, webp, gif, mp4, webm, mov)'));
+  }
+});
+
 const apkStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = 'uploads/apks';
@@ -9086,7 +9100,7 @@ app.get('/api/screensaver/config', authenticateToken, async (req, res) => {
 });
 
 // Save screensaver config (admin, with optional image upload)
-app.post('/api/screensaver/config', authenticateToken, upload.single('media'), async (req, res) => {
+app.post('/api/screensaver/config', authenticateToken, screensaverUpload.single('media'), async (req, res) => {
   try {
     await ensureScreensaverTable();
     const enabled = req.body.enabled === 'true' || req.body.enabled === true;

@@ -22,6 +22,9 @@ const TIMEOUT_OPTIONS = [
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
+// ¿La URL apunta a un video? (para renderizar <video> en vez de <img>)
+export const isVideoUrl = (u) => /\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(u || '');
+
 // Layout por defecto para usuarios sin diseño guardado (editable)
 const defaultLayout = () => ({
   clickAnywhere: true,
@@ -188,6 +191,7 @@ export default function Screensaver() {
   };
 
   const displayMedia = pendingPreviewUrl || (mediaUrl ? API + mediaUrl : null);
+  const mediaIsVideo = pendingFile ? (pendingFile.type || '').startsWith('video') : isVideoUrl(mediaUrl);
   const storeLogo = selectedStore?.logo_url ? API + selectedStore.logo_url : null;
   const selectedEl = layout.elements.find(e => e.id === selectedId) || null;
 
@@ -228,6 +232,7 @@ export default function Screensaver() {
             <EditorCanvas
               layout={layout}
               background={displayMedia}
+              backgroundIsVideo={mediaIsVideo}
               storeLogo={storeLogo}
               selectedId={selectedId}
               onSelect={setSelectedId}
@@ -296,12 +301,14 @@ export default function Screensaver() {
               </select>
             </div>
 
-            {/* Imagen de fondo */}
+            {/* Imagen o video de fondo */}
             <div style={panelCard}>
-              <label style={miniLabel}>Imagen de fondo <span style={{ fontWeight: 400, color: '#aaa' }}>(opcional)</span></label>
+              <label style={miniLabel}>Imagen o video de fondo <span style={{ fontWeight: 400, color: '#aaa' }}>(opcional)</span></label>
               {displayMedia ? (
                 <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
-                  <img src={displayMedia} alt="Fondo" style={{ maxWidth: '100%', maxHeight: '140px', borderRadius: '10px', border: '2px solid #e5e7eb', display: 'block' }} />
+                  {mediaIsVideo
+                    ? <video src={displayMedia} muted loop autoPlay playsInline style={{ maxWidth: '100%', maxHeight: '140px', borderRadius: '10px', border: '2px solid #e5e7eb', display: 'block' }} />
+                    : <img src={displayMedia} alt="Fondo" style={{ maxWidth: '100%', maxHeight: '140px', borderRadius: '10px', border: '2px solid #e5e7eb', display: 'block' }} />}
                   <button onClick={() => { if (pendingFile) { setPendingFile(null); setPendingPreviewUrl(null); } else deleteMedia(); }} disabled={deleting}
                     style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: '26px', height: '26px', cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>
                     <FontAwesomeIcon icon={faTimes} />
@@ -310,11 +317,11 @@ export default function Screensaver() {
               ) : (
                 <div onClick={() => fileRef.current?.click()} style={{ border: '2px dashed #d1d5db', borderRadius: '10px', padding: '20px', textAlign: 'center', cursor: 'pointer', background: '#fafafa' }}>
                   <FontAwesomeIcon icon={faImage} style={{ fontSize: '24px', color: '#d1d5db', display: 'block', margin: '0 auto 6px' }} />
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#555' }}>Subir imagen o GIF</div>
-                  <div style={{ fontSize: '11px', color: '#aaa', marginTop: '3px' }}>JPG, PNG, WEBP, GIF — máx. 10MB</div>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#555' }}>Subir imagen, GIF o video</div>
+                  <div style={{ fontSize: '11px', color: '#aaa', marginTop: '3px' }}>JPG, PNG, WEBP, GIF, MP4, WEBM</div>
                 </div>
               )}
-              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" style={{ display: 'none' }} onChange={handleFileChange} />
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/ogg,video/quicktime" style={{ display: 'none' }} onChange={handleFileChange} />
               {displayMedia && (
                 <button onClick={() => fileRef.current?.click()} style={{ marginTop: '8px', background: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', color: '#555', fontWeight: '600' }}>
                   <FontAwesomeIcon icon={faUpload} style={{ marginRight: '5px' }} /> Cambiar fondo
@@ -346,7 +353,7 @@ export default function Screensaver() {
       </div>
 
       {preview && (
-        <FullscreenPreview layout={layout} background={displayMedia} storeLogo={storeLogo} onClose={() => setPreview(false)} />
+        <FullscreenPreview layout={layout} background={displayMedia} backgroundIsVideo={mediaIsVideo} storeLogo={storeLogo} onClose={() => setPreview(false)} />
       )}
     </>
   );
@@ -358,7 +365,7 @@ const panelTitle = { fontSize: '13px', fontWeight: 800, color: '#111', marginBot
 const miniLabel = { fontSize: '12px', fontWeight: '700', color: '#555', display: 'block', marginBottom: '6px' };
 
 // ── Lienzo con elementos arrastrables ──────────────────────────────────────
-function EditorCanvas({ layout, background, storeLogo, selectedId, onSelect, onMove }) {
+function EditorCanvas({ layout, background, backgroundIsVideo, storeLogo, selectedId, onSelect, onMove }) {
   const canvasRef = useRef(null);
   const dragRef = useRef(null);
   const [unit, setUnit] = useState(3);
@@ -394,10 +401,13 @@ function EditorCanvas({ layout, background, storeLogo, selectedId, onSelect, onM
       onClick={() => onSelect(null)}
       style={{
         position: 'relative', width: 300, height: 533, borderRadius: 18, overflow: 'hidden',
-        background: background ? `#000 center/cover url(${background})` : 'linear-gradient(160deg,#0a0a0a,#1a1a1a)',
+        background: (background && !backgroundIsVideo) ? `#000 center/cover url(${background})` : 'linear-gradient(160deg,#0a0a0a,#1a1a1a)',
         border: '3px solid #111', boxShadow: '0 10px 30px rgba(0,0,0,0.25)', touchAction: 'none', cursor: 'default',
       }}
     >
+      {background && backgroundIsVideo && (
+        <video src={background} muted loop autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+      )}
       <div style={{ position: 'absolute', inset: 0, background: background ? 'linear-gradient(to bottom, rgba(0,0,0,0.30), rgba(0,0,0,0.55))' : 'transparent' }} />
       {!background && storeLogo && (
         <img src={storeLogo} alt="" style={{ position: 'absolute', top: '18%', left: '50%', transform: 'translate(-50%,-50%)', width: 80, height: 80, objectFit: 'contain', opacity: 0.9 }} />
@@ -482,23 +492,26 @@ const styleToggle = (active) => ({
 });
 
 // ── Vista previa a pantalla completa ────────────────────────────────────────
-function FullscreenPreview({ layout, background, storeLogo, onClose }) {
+function FullscreenPreview({ layout, background, backgroundIsVideo, storeLogo, onClose }) {
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#000', cursor: 'pointer' }}>
       <div style={{ position: 'absolute', top: 14, right: 14, zIndex: 2, background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '6px 14px', fontSize: 12, color: '#fff', fontWeight: 700 }}>
         Toca para cerrar
       </div>
-      <ScreensaverContent layout={layout} background={background} storeLogo={storeLogo} />
+      <ScreensaverContent layout={layout} background={background} backgroundIsVideo={backgroundIsVideo} storeLogo={storeLogo} />
     </div>
   );
 }
 
 // Render compartido (también usado como fallback). `background` = URL absoluta.
-export function ScreensaverContent({ layout, background, storeLogo }) {
+export function ScreensaverContent({ layout, background, backgroundIsVideo, storeLogo }) {
   const unit = typeof window !== 'undefined' ? Math.min(window.innerWidth, window.innerHeight) / 100 : 4;
+  const isVid = backgroundIsVideo != null ? backgroundIsVideo : isVideoUrl(background);
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: '#000' }}>
-      {background && <img src={background} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
+      {background && (isVid
+        ? <video src={background} muted loop autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        : <img src={background} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />)}
       <div style={{ position: 'absolute', inset: 0, background: background ? 'linear-gradient(to bottom, rgba(0,0,0,0.30), rgba(0,0,0,0.55))' : 'linear-gradient(160deg,#0a0a0a,#1a1a1a)' }} />
       {!background && storeLogo && (
         <img src={storeLogo} alt="" style={{ position: 'absolute', top: '18%', left: '50%', transform: 'translate(-50%,-50%)', width: 140, height: 140, objectFit: 'contain' }} />

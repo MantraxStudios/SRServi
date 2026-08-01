@@ -1492,7 +1492,9 @@ function Store() {
   // Screensaver
   const [screensaverCfg, setScreensaverCfg] = useState(null);
   const [screensaverActive, setScreensaverActive] = useState(false);
+  const [ssWakeGuard, setSsWakeGuard] = useState(false); // bloquea toques tras cerrar el salvapantallas
   const screensaverTimerRef = useRef(null);
+  const ssWakeGuardRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const categoryRef = useRef(null);
   const productsAreaRef = useRef(null);
@@ -10324,8 +10326,14 @@ function Store() {
           if (e) { e.stopPropagation(); e.preventDefault(); }
           setScreensaverActive(false);
           clearTimeout(screensaverTimerRef.current);
+          // Escudo anti-toque: evita que el toque que cierra el salvapantallas
+          // caiga por accidente sobre un producto ("ghost tap" al desmontar el overlay).
+          setSsWakeGuard(true);
+          clearTimeout(ssWakeGuardRef.current);
+          ssWakeGuardRef.current = setTimeout(() => setSsWakeGuard(false), 700);
           if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
         };
+        const ssIsVideo = /\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(screensaverCfg.media_url || '');
         // Layout personalizado creado desde el editor admin (opcional)
         let ssLayout = null;
         try { ssLayout = screensaverCfg.layout ? JSON.parse(screensaverCfg.layout) : null; } catch { ssLayout = null; }
@@ -10351,13 +10359,18 @@ function Store() {
             onTouchStart={(hasCustom && clickAnywhere) ? dismissSS : undefined}
           >
 
-            {/* Full-screen background image */}
-            {screensaverCfg.media_url && (
-              <img
-                src={API + screensaverCfg.media_url}
-                alt=""
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
-              />
+            {/* Full-screen background media (imagen o video) */}
+            {screensaverCfg.media_url && (ssIsVideo
+              ? <video
+                  src={API + screensaverCfg.media_url}
+                  autoPlay loop muted playsInline
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
+                />
+              : <img
+                  src={API + screensaverCfg.media_url}
+                  alt=""
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
+                />
             )}
 
             {/* Dark overlay gradient */}
@@ -10461,6 +10474,19 @@ function Store() {
           </div>
         );
       })()}
+
+      {/* Escudo anti-toque: absorbe el toque justo después de cerrar el salvapantallas
+          para que no se agregue un producto por accidente. */}
+      {ssWakeGuard && !screensaverActive && (
+        <div
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99989, background: 'transparent' }}
+          onClickCapture={(e) => { e.stopPropagation(); e.preventDefault(); }}
+          onPointerDownCapture={(e) => { e.stopPropagation(); e.preventDefault(); }}
+          onPointerUpCapture={(e) => { e.stopPropagation(); e.preventDefault(); }}
+          onTouchStartCapture={(e) => { e.stopPropagation(); e.preventDefault(); }}
+          onTouchEndCapture={(e) => { e.stopPropagation(); e.preventDefault(); }}
+        />
+      )}
 
       {/* APK update banner removed — updates handled in admin panel only */}
 
