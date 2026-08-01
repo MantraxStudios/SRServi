@@ -405,6 +405,13 @@ io.on('connection', (socket) => {
     io.to(`store_${store_id}`).emit('tv_cart_update', { store_id, cart });
   });
 
+  // Página de tarjeta de sellos del cliente: se une a la sala de su tarjeta (por token)
+  // para recibir en vivo la confirmación cuando se usa en el tótem/caja.
+  socket.on('join_card_room', (token) => {
+    if (!token) return;
+    socket.join(`card_${token}`);
+  });
+
   socket.on('presence_join', ({ store_code, panel, store_name }) => {
     if (!store_code || !panel) return;
     presenceMap.set(socket.id, {
@@ -16366,6 +16373,17 @@ app.post('/api/public/:code/stamp-card/stamp', async (req, res) => {
     const { phone, name } = req.body;
     if (!phone) return res.status(400).json({ error: 'phone es requerido' });
     const result = await addStampToCard(store.id, phone, name);
+    // Confirmación en vivo en la página de la tarjeta del cliente
+    if (result?.card?.token) {
+      io.to(`card_${result.card.token}`).emit('stamp_card_update', {
+        action: result.rewardEarned ? 'reward' : 'stamp',
+        store_name: store.name,
+        stamps: result.card.stamps,
+        stamps_required: result.stamps_required,
+        reward_available: !!result.card.reward_available,
+        reward_label: result.card.config?.reward_label || null
+      });
+    }
     res.json(result);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -16379,6 +16397,13 @@ app.post('/api/public/:code/stamp-card/redeem', async (req, res) => {
     if (!token) return res.status(400).json({ error: 'token es requerido' });
     const card = await redeemStampCard({ token });
     if (!card) return res.status(404).json({ error: 'Tarjeta no encontrada' });
+    // Confirmación en vivo en la página de la tarjeta del cliente
+    io.to(`card_${token}`).emit('stamp_card_update', {
+      action: 'redeem',
+      store_name: store.name,
+      stamps: card.stamps,
+      reward_available: false
+    });
     res.json({ ok: true, card });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

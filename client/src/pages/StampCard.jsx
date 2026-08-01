@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { QRCodeCanvas } from 'qrcode.react';
+import { io } from 'socket.io-client';
+import { SOCKET_URL } from '../config.js';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -9,6 +11,8 @@ export default function StampCard() {
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [confirm, setConfirm] = useState(null); // { action, stamps, reward_available, reward_label }
+  const socketRef = useRef(null);
 
   useEffect(() => {
     let alive = true;
@@ -18,6 +22,25 @@ export default function StampCard() {
       .catch(() => { if (alive) setError('No pudimos encontrar esta tarjeta.'); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
+  }, [token]);
+
+  // Socket: escuchar en vivo cuando la tarjeta se usa en el tótem/caja
+  useEffect(() => {
+    if (!token) return;
+    const socket = io(SOCKET_URL);
+    socketRef.current = socket;
+    const join = () => socket.emit('join_card_room', token);
+    socket.on('connect', join);
+    socket.on('reconnect', join);
+    socket.on('stamp_card_update', (data) => {
+      setCard(prev => prev ? {
+        ...prev,
+        stamps: data.action === 'redeem' ? (data.stamps ?? 0) : (data.stamps ?? prev.stamps),
+        reward_available: !!data.reward_available
+      } : prev);
+      setConfirm(data);
+    });
+    return () => { socket.disconnect(); socketRef.current = null; };
   }, [token]);
 
   if (loading) return <Center><div style={{ color: '#888' }}>Cargando tu tarjeta...</div></Center>;
@@ -111,6 +134,55 @@ export default function StampCard() {
           </div>
         </div>
       </div>
+
+      {/* Modal de confirmación en vivo */}
+      {confirm && (
+        <div
+          onClick={() => setConfirm(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+          }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{
+            width: '100%', maxWidth: 360, background: '#fff', borderRadius: 20,
+            padding: '28px 24px', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+          }}>
+            <div style={{ fontSize: 52, marginBottom: 8 }}>
+              {confirm.action === 'redeem' ? '✅' : confirm.action === 'reward' ? '🎉' : '⭐'}
+            </div>
+            <h2 style={{ margin: '0 0 6px', fontSize: 20, fontWeight: 800, color: '#111' }}>
+              {confirm.action === 'redeem'
+                ? '¡Recompensa canjeada!'
+                : confirm.action === 'reward'
+                  ? '¡Recompensa desbloqueada!'
+                  : '¡Sello agregado!'}
+            </h2>
+            <p style={{ margin: '0 0 4px', fontSize: 14, color: '#6b7280' }}>
+              {confirm.store_name}
+            </p>
+            {confirm.action !== 'redeem' && confirm.stamps != null && confirm.stamps_required != null && (
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#D4AF37', margin: '6px 0' }}>
+                {confirm.stamps} / {confirm.stamps_required} sellos
+              </div>
+            )}
+            {(confirm.action === 'reward') && confirm.reward_label && (
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#16a34a', marginTop: 4 }}>
+                {confirm.reward_label}
+              </div>
+            )}
+            <button
+              onClick={() => setConfirm(null)}
+              style={{
+                marginTop: 20, width: '100%', padding: '12px', borderRadius: 12, border: 'none',
+                background: '#111', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer'
+              }}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
     </Center>
   );
 }
