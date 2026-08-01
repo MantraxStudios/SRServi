@@ -69,13 +69,42 @@ function Plans() {
   const [claimingTrial, setClaimingTrial] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const scriptLoaded = useRef(false);
+  // Solicitud de plan gratis (requiere aprobación del superadmin)
+  const [freeReq, setFreeReq] = useState(null);
+  const [showFreeForm, setShowFreeForm] = useState(false);
+  const [freeBiz, setFreeBiz] = useState('');
+  const [freeReason, setFreeReason] = useState('');
+  const [sendingFree, setSendingFree] = useState(false);
 
   useEffect(() => {
     fetchPlans();
     fetchMyPlan();
+    fetchFreeRequest();
     loadMercadoPagoScript();
     handlePaymentReturn();
   }, []);
+
+  const fetchFreeRequest = async () => {
+    try {
+      const r = await fetch(API + '/api/free-plan/request', { headers: { Authorization: 'Bearer ' + token } });
+      if (r.ok) { const d = await r.json(); setFreeReq(d.request || null); }
+    } catch { /* noop */ }
+  };
+
+  const submitFreeRequest = async () => {
+    if (!freeReason.trim()) return;
+    setSendingFree(true);
+    try {
+      const r = await fetch(API + '/api/free-plan/request', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ business_name: freeBiz, reason: freeReason })
+      });
+      const d = await r.json();
+      if (r.ok) { setFreeReq(d.request); setShowFreeForm(false); setFreeReason(''); setFreeBiz(''); }
+      else alert(d.error || 'No se pudo enviar la solicitud');
+    } catch { alert('Error de conexión'); }
+    finally { setSendingFree(false); }
+  };
 
   const fetchPlans = async () => {
     try {
@@ -407,28 +436,56 @@ function Plans() {
                 </ul>
 
                 {/* CTA */}
-                <button
-                  onClick={() => !currentPlan && !isFree && handleSubscribe(plan.id)}
-                  disabled={currentPlan || subscribing === plan.id || isFree || !termsAccepted}
-                  className="plan-subscribe-btn"
-                  title={!currentPlan && !isFree && !termsAccepted ? 'Aceptá los términos y condiciones primero' : undefined}
-                  style={{
-                    background: currentPlan || isFree ? '#f3f4f6' : meta.gradient,
-                    color: currentPlan || isFree ? '#9ca3af' : '#fff',
-                    opacity: (!currentPlan && !isFree && !termsAccepted) ? 0.5 : 1,
-                    cursor: currentPlan || isFree || subscribing === plan.id || !termsAccepted ? 'default' : 'pointer',
-                  }}
-                >
-                  {subscribing === plan.id ? (
-                    <><FontAwesomeIcon icon={faSpinner} spin /> Procesando...</>
-                  ) : currentPlan ? (
-                    <><FontAwesomeIcon icon={faCheck} /> Plan Actual</>
-                  ) : isFree ? (
-                    <><FontAwesomeIcon icon={faCheck} /> Incluido</>
+                {plan.name === 'Gratis' && !currentPlan ? (
+                  freeReq?.status === 'pending' ? (
+                    <button className="plan-subscribe-btn" disabled style={{ background: '#fef9c3', color: '#a16207', cursor: 'default' }}>
+                      <FontAwesomeIcon icon={faSpinner} /> Solicitud en revisión
+                    </button>
+                  ) : freeReq?.status === 'approved' ? (
+                    <button
+                      onClick={() => handleSubscribe(plan.id)}
+                      disabled={subscribing === plan.id}
+                      className="plan-subscribe-btn"
+                      style={{ background: meta.gradient, color: '#fff', cursor: 'pointer' }}
+                    >
+                      {subscribing === plan.id ? <><FontAwesomeIcon icon={faSpinner} spin /> Procesando...</> : <><FontAwesomeIcon icon={faCheck} /> Activar plan gratis</>}
+                    </button>
                   ) : (
-                    <><FontAwesomeIcon icon={faCreditCard} /> Suscribirse</>
-                  )}
-                </button>
+                    <button
+                      onClick={() => setShowFreeForm(true)}
+                      className="plan-subscribe-btn"
+                      style={{ background: meta.gradient, color: '#fff', cursor: 'pointer' }}
+                    >
+                      <FontAwesomeIcon icon={faGift} /> {freeReq?.status === 'rejected' ? 'Volver a solicitar' : 'Solicitar plan gratis'}
+                    </button>
+                  )
+                ) : (
+                  <button
+                    onClick={() => !currentPlan && !isFree && handleSubscribe(plan.id)}
+                    disabled={currentPlan || subscribing === plan.id || isFree || !termsAccepted}
+                    className="plan-subscribe-btn"
+                    title={!currentPlan && !isFree && !termsAccepted ? 'Aceptá los términos y condiciones primero' : undefined}
+                    style={{
+                      background: currentPlan || isFree ? '#f3f4f6' : meta.gradient,
+                      color: currentPlan || isFree ? '#9ca3af' : '#fff',
+                      opacity: (!currentPlan && !isFree && !termsAccepted) ? 0.5 : 1,
+                      cursor: currentPlan || isFree || subscribing === plan.id || !termsAccepted ? 'default' : 'pointer',
+                    }}
+                  >
+                    {subscribing === plan.id ? (
+                      <><FontAwesomeIcon icon={faSpinner} spin /> Procesando...</>
+                    ) : currentPlan ? (
+                      <><FontAwesomeIcon icon={faCheck} /> Plan Actual</>
+                    ) : isFree ? (
+                      <><FontAwesomeIcon icon={faCheck} /> Incluido</>
+                    ) : (
+                      <><FontAwesomeIcon icon={faCreditCard} /> Suscribirse</>
+                    )}
+                  </button>
+                )}
+                {plan.name === 'Gratis' && !currentPlan && freeReq?.status === 'rejected' && (
+                  <div style={{ fontSize: 11, color: '#dc2626', textAlign: 'center', marginTop: 6 }}>Tu solicitud anterior fue rechazada.</div>
+                )}
               </div>
             </div>
           );
@@ -438,6 +495,32 @@ function Plans() {
       <div className="plans-footer">
         <p>¿Preguntas? Contacta a <strong>soporte@srautomatic.com</strong></p>
       </div>
+
+      {/* Formulario: solicitar el plan gratis (justificación → aprueba el superadmin) */}
+      {showFreeForm && (
+        <div onClick={() => setShowFreeForm(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: '#fff', borderRadius: 18, padding: 24, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <h2 style={{ margin: '0 0 6px', fontSize: 19, fontWeight: 800, color: '#111', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <FontAwesomeIcon icon={faGift} style={{ color: '#D4AF37' }} /> Solicitar plan gratis
+            </h2>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280' }}>
+              El plan gratis es limitado y se otorga con aprobación. Cuéntanos por qué lo necesitas y lo revisaremos.
+            </p>
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#555', display: 'block', marginBottom: 5 }}>Nombre de tu negocio</label>
+            <input value={freeBiz} onChange={e => setFreeBiz(e.target.value)} placeholder="Ej: Cafetería La Esquina"
+              style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, outline: 'none', boxSizing: 'border-box', marginBottom: 14 }} />
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#555', display: 'block', marginBottom: 5 }}>¿Por qué necesitas el plan gratis? *</label>
+            <textarea value={freeReason} onChange={e => setFreeReason(e.target.value)} rows={4} placeholder="Explica tu situación..."
+              style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', marginBottom: 16 }} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setShowFreeForm(false)} disabled={sendingFree} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #e5e7eb', background: '#fff', color: '#555', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={submitFreeRequest} disabled={sendingFree || !freeReason.trim()} style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: '#111', color: '#fff', fontWeight: 800, fontSize: 14, cursor: sendingFree || !freeReason.trim() ? 'default' : 'pointer', opacity: (!freeReason.trim()) ? 0.6 : 1 }}>
+                {sendingFree ? 'Enviando...' : 'Enviar solicitud'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

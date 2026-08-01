@@ -31,6 +31,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.WindowCompat
@@ -68,6 +69,7 @@ class SellActivity : AppCompatActivity() {
     companion object {
         private const val BASE_URL = "https://srservi2.srautomatic.com"
         private const val EXIT_PIN = "1234"
+        private const val REQ_MEDIA_PERMS = 4711
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,6 +88,9 @@ class SellActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progressBar)
 
         applyImmersiveMode()
+        // Pide micrófono (y cámara) al iniciar para que el pedido por voz del tótem
+        // funcione automáticamente sin que el cliente tenga que activarlo.
+        requestMediaPermissions()
         setupWebView()
 
         val storeCode = getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
@@ -103,6 +108,32 @@ class SellActivity : AppCompatActivity() {
         }
 
         startKioskLock()
+    }
+
+    // Asegura micrófono y cámara al arrancar para que el pedido por voz del tótem
+    // funcione automáticamente. Si la app es device owner (kiosco), los concede en
+    // SILENCIO (sin diálogo). Si no, los pide con el diálogo estándar del sistema.
+    private fun requestMediaPermissions() {
+        val perms = arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA)
+        // 1) Device owner → auto-conceder sin molestar al cliente.
+        try {
+            val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            if (dpm.isDeviceOwnerApp(packageName)) {
+                val admin = SRServiDeviceAdminReceiver.getComponentName(this)
+                for (p in perms) {
+                    dpm.setPermissionGrantState(admin, packageName, p, DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
+                }
+                return
+            }
+        } catch (_: Exception) { /* cae al pedido normal */ }
+
+        // 2) Sin device owner → pedir con diálogo estándar.
+        val needed = perms.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }.toTypedArray()
+        if (needed.isNotEmpty()) {
+            try { ActivityCompat.requestPermissions(this, needed, REQ_MEDIA_PERMS) } catch (_: Exception) {}
+        }
     }
 
     private fun sendHeartbeat(storeCode: String, appVersion: String) {

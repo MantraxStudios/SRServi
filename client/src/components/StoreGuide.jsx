@@ -235,6 +235,8 @@ const StoreGuide = forwardRef(function StoreGuide({
   onAddItems,
   currencySymbol = '$',
   onListeningChange,
+  onTranscript,
+  onVoiceResult,
   storeCode,
 }, ref) {
   const [openState, setOpenState] = useState(false);
@@ -409,7 +411,9 @@ const StoreGuide = forwardRef(function StoreGuide({
     }
     setMessages((prev) => [...prev, { role: 'bot', text: reply }]);
     speak(reply);
-  }, [onAddItems, currencySymbol, speak]);
+    // Notifica el resultado al padre (para el modo directo sin chat)
+    if (onVoiceResult) onVoiceResult({ added, notFound, heard });
+  }, [onAddItems, currencySymbol, speak, onVoiceResult]);
 
   // Muestra un aviso del bot (y lo lee) para explicar por qué falló el micrófono.
   const botSay = useCallback((text) => {
@@ -463,7 +467,9 @@ const StoreGuide = forwardRef(function StoreGuide({
         if (r.isFinal) finalText += r[0].transcript;
         else interim += r[0].transcript;
       }
-      setTranscript(finalText || interim);
+      const shown = finalText || interim;
+      setTranscript(shown);
+      if (onTranscript) onTranscript(shown);
     };
     rec.onerror = (e) => {
       gotError = true;
@@ -483,6 +489,7 @@ const StoreGuide = forwardRef(function StoreGuide({
       setListening(false);
       const said = (finalText || '').trim();
       setTranscript('');
+      if (onTranscript) onTranscript('');
       if (said) { processTranscript(said); return; }
       if (gotError) return;
       // Terminó sin capturar nada y sin un error normal. Si fue casi instantáneo,
@@ -510,12 +517,18 @@ const StoreGuide = forwardRef(function StoreGuide({
     startListening();
   }, [setOpen, startListening]);
 
+  // Escucha directa SIN abrir el chat (el pedido se agrega al carrito directamente).
+  const startVoiceDirect = useCallback(() => {
+    startListening();
+  }, [startListening]);
+
   // Expone controles de voz al componente padre (barra del carrito).
   useImperativeHandle(ref, () => ({
     startVoice,
+    startVoiceDirect,
     voiceEnabled,
     stop: () => { try { recognitionRef.current?.stop(); } catch { /* noop */ } },
-  }), [startVoice, voiceEnabled]);
+  }), [startVoice, startVoiceDirect, voiceEnabled]);
 
   // Avisa al padre cuando cambia el estado de escucha (para animar su botón).
   useEffect(() => { if (onListeningChange) onListeningChange(listening); }, [listening, onListeningChange]);

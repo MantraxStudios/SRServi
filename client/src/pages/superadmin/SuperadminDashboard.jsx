@@ -62,6 +62,7 @@ import {
   faDesktop,
   faChair,
   faFire,
+  faGift,
   faUserTie,
   faWifi,
   faMotorcycle,
@@ -83,6 +84,7 @@ function SuperadminDashboard() {
   const [activeTab, setActiveTab] = useState('users');
   const [presence, setPresence] = useState({ sessions: [] });
   const [users, setUsers] = useState([]);
+  const [freePlanReqs, setFreePlanReqs] = useState([]);
   const [stores, setStores] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -424,6 +426,10 @@ function SuperadminDashboard() {
             if (data.stats) setSalesLeadStats(data.stats);
           }
         } finally { setLeadsLoading(false); }
+      } else if (activeTab === 'free-plan') {
+        const res = await fetch(API + '/api/superadmin/free-plan-requests', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (res.ok) { const d = await res.json(); setFreePlanReqs(Array.isArray(d.requests) ? d.requests : []); }
+        return;
       } else if (activeTab === 'orders') {
         await fetchSaOrders();
         return;
@@ -440,6 +446,17 @@ function SuperadminDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const reviewFreePlan = async (id, status) => {
+    const token = localStorage.getItem('superadminToken');
+    try {
+      const res = await fetch(API + `/api/superadmin/free-plan-requests/${id}/review`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) setFreePlanReqs(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+    } catch { /* noop */ }
   };
 
   const handleLogout = () => {
@@ -908,6 +925,14 @@ function SuperadminDashboard() {
           >
             <FontAwesomeIcon icon={faChair} />
             {sidebarOpen && <span>Arriendo Tótem</span>}
+          </div>
+
+          <div
+            className={`sidebar-nav-item ${activeTab === 'free-plan' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('free-plan'); setMobileMenuOpen(false); }}
+          >
+            <FontAwesomeIcon icon={faGift} />
+            {sidebarOpen && <span>Plan Gratis</span>}
           </div>
 
           <div
@@ -2258,6 +2283,39 @@ function SuperadminDashboard() {
                         </div>
                       ));
                     })()}
+                  </div>
+                )}
+              </div>
+            ) : activeTab === 'free-plan' ? (
+              <div>
+                <h3 style={{ margin: '0 0 4px', fontWeight: 800 }}>Solicitudes de plan gratis</h3>
+                <p style={{ margin: '0 0 18px', color: '#888', fontSize: 13 }}>Los usuarios justifican por qué necesitan el plan gratis. Aprobar otorga el plan Gratis a su cuenta.</p>
+                {freePlanReqs.length === 0 ? (
+                  <div style={{ color: '#999', padding: 30, textAlign: 'center' }}>No hay solicitudes.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {freePlanReqs.map(req => {
+                      const badge = req.status === 'pending' ? { bg: '#fef9c3', c: '#a16207', t: 'Pendiente' }
+                        : req.status === 'approved' ? { bg: '#dcfce7', c: '#16a34a', t: 'Aprobada' }
+                        : { bg: '#fee2e2', c: '#dc2626', t: 'Rechazada' };
+                      return (
+                        <div key={req.id} style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: 14, background: '#fff' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <div style={{ fontWeight: 700, color: '#111' }}>
+                              {req.business_name || req.user_name || 'Usuario'} <span style={{ color: '#999', fontWeight: 400, fontSize: 12 }}>· {req.user_email}</span>
+                            </div>
+                            <span style={{ fontSize: 11, fontWeight: 700, background: badge.bg, color: badge.c, borderRadius: 20, padding: '2px 10px' }}>{badge.t}</span>
+                          </div>
+                          <div style={{ fontSize: 13, color: '#444', whiteSpace: 'pre-wrap', marginBottom: 10 }}>{req.reason || '—'}</div>
+                          {req.status === 'pending' && (
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button onClick={() => reviewFreePlan(req.id, 'approved')} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>Aprobar</button>
+                              <button onClick={() => reviewFreePlan(req.id, 'rejected')} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #fca5a5', background: '#fff', color: '#dc2626', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>Rechazar</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

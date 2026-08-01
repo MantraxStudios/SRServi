@@ -1120,6 +1120,9 @@ function Store() {
   const [editingCartItemId, setEditingCartItemId] = useState(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [voiceListening, setVoiceListening] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState('');
+  const [voiceResult, setVoiceResult] = useState(null); // { added, notFound, heard }
+  const voiceResultTimerRef = useRef(null);
   const guideRef = useRef(null);
   // ¿El navegador soporta reconocimiento de voz? (para mostrar el micro en la barra)
   const voiceSupported = typeof window !== 'undefined'
@@ -5515,11 +5518,13 @@ function Store() {
         </div>
       </header>
 
-      <div style={{ background: 'transparent', textAlign: 'center', padding: '3px 0', fontSize: 10, color: '#c3bbaa', letterSpacing: '0.4px', lineHeight: 1 }}>
-        <a href="https://srservi.com/" target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
-          {t('poweredBy', lang)}
-        </a>
-      </div>
+      {!store?.store?.is_premium && (
+        <div style={{ background: 'transparent', textAlign: 'center', padding: '3px 0', fontSize: 10, color: '#c3bbaa', letterSpacing: '0.4px', lineHeight: 1 }}>
+          <a href="https://srservi.com/" target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
+            {t('poweredBy', lang)}
+          </a>
+        </div>
+      )}
 
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
 
@@ -11208,11 +11213,93 @@ function Store() {
         );
       })()}
 
+      {/* Botón de micrófono directo: el cliente habla y el pedido se agrega al carrito
+          SIN abrir el chat. */}
+      {voiceSupported && (store?.products?.length > 0) && !editMode && !restaurantView && !ticketMode && !guideOpen && !anyModalOpen && (
+        <button
+          onClick={() => { if (voiceListening) guideRef.current?.stop?.(); else guideRef.current?.startVoiceDirect?.(); }}
+          aria-label="Pedir hablando"
+          style={{
+            position: 'fixed', bottom: 92, right: 16, zIndex: 9994,
+            display: 'flex', alignItems: 'center', gap: 10, height: 56, padding: '0 22px 0 18px',
+            borderRadius: 999, border: 'none', cursor: 'pointer',
+            background: voiceListening ? '#ef4444' : colors.accent, color: voiceListening ? '#fff' : '#1a1a1a',
+            fontWeight: 800, fontSize: 15, fontFamily: 'inherit',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+            animation: voiceListening ? 'sv-rec 1s infinite' : 'none',
+          }}
+        >
+          <FontAwesomeIcon icon={faMicrophone} style={{ fontSize: 20 }} />
+          {voiceListening ? 'Te escucho…' : 'Pedir hablando'}
+        </button>
+      )}
+
+      {/* Capa de escucha directa + confirmación (sin chat) */}
+      {(voiceListening || voiceResult) && !guideOpen && (
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, top: 0, zIndex: 99991, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', pointerEvents: 'none' }}>
+          <div style={{
+            pointerEvents: 'auto', margin: '0 0 160px', maxWidth: 460, width: '92%',
+            background: '#111', color: '#fff', borderRadius: 20, padding: '20px 22px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.45)', border: `1.5px solid ${colors.accent}`,
+          }}>
+            {voiceListening ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <span style={{ display: 'inline-flex', gap: 4 }}>
+                    <i style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', display: 'inline-block', animation: 'sv-bounce 1s infinite' }} />
+                    <i style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', display: 'inline-block', animation: 'sv-bounce 1s infinite .15s' }} />
+                    <i style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', display: 'inline-block', animation: 'sv-bounce 1s infinite .3s' }} />
+                  </span>
+                  <span style={{ fontWeight: 800, fontSize: 16 }}>Te escucho…</span>
+                </div>
+                <div style={{ fontSize: 15, color: voiceTranscript ? '#fff' : 'rgba(255,255,255,0.55)', minHeight: 22 }}>
+                  {voiceTranscript ? `“${voiceTranscript}”` : 'Dime tu pedido, por ejemplo: "dos hamburguesas de carne"'}
+                </div>
+                <button
+                  onClick={() => guideRef.current?.stop?.()}
+                  style={{ marginTop: 14, width: '100%', padding: '11px', borderRadius: 12, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}
+                >
+                  Terminar
+                </button>
+              </>
+            ) : voiceResult && (
+              <>
+                {voiceResult.added?.length ? (
+                  <>
+                    <div style={{ fontWeight: 800, fontSize: 16, color: '#22c55e', marginBottom: 8 }}>✓ Agregado a tu pedido</div>
+                    {voiceResult.added.map((a, i) => (
+                      <div key={i} style={{ fontSize: 15, marginBottom: 3 }}>
+                        {a.quantity}× {a.product.name} <span style={{ color: colors.accent }}>{colors.currency.symbol}{Number(a.product.price).toLocaleString('es-CL')}</span>
+                      </div>
+                    ))}
+                    {voiceResult.notFound?.length > 0 && (
+                      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 8 }}>No encontré: {voiceResult.notFound.join(', ')}</div>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ fontSize: 15 }}>No encontré ese producto 😕. Toca el micrófono e intenta de nuevo, por ejemplo: "dos hamburguesas de carne".</div>
+                )}
+              </>
+            )}
+          </div>
+          <style>{`
+            @keyframes sv-rec { 0%,100%{opacity:1} 50%{opacity:.75} }
+            @keyframes sv-bounce { 0%,100%{transform:translateY(0);opacity:.4} 50%{transform:translateY(-4px);opacity:1} }
+          `}</style>
+        </div>
+      )}
+
       {/* Asistente-guía de compra (solo en la vista de cliente del tótem) */}
       {!editMode && !restaurantView && !ticketMode && (
         <StoreGuide
           ref={guideRef}
           onListeningChange={setVoiceListening}
+          onTranscript={setVoiceTranscript}
+          onVoiceResult={(r) => {
+            setVoiceResult(r);
+            clearTimeout(voiceResultTimerRef.current);
+            voiceResultTimerRef.current = setTimeout(() => setVoiceResult(null), 4500);
+          }}
           step={
             paymentModalOpen ? 'payment'
             : cartOpen ? 'cart'

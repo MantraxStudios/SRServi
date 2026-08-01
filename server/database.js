@@ -7782,6 +7782,8 @@ async function ensureStampCardTables() {
       code VARCHAR(5) NULL,
       name VARCHAR(255),
       phone VARCHAR(50),
+      theme VARCHAR(24) DEFAULT '',
+      bg_photo MEDIUMTEXT NULL,
       points INT DEFAULT 0,
       stamps INT DEFAULT 0,
       total_stamps INT DEFAULT 0,
@@ -7805,6 +7807,12 @@ async function ensureStampCardTables() {
   }
   if (!colNames.includes('points')) {
     await pool.execute('ALTER TABLE stamp_cards ADD COLUMN points INT DEFAULT 0').catch(e => console.error('stamp migr add points:', e.message));
+  }
+  if (!colNames.includes('theme')) {
+    await pool.execute("ALTER TABLE stamp_cards ADD COLUMN theme VARCHAR(24) DEFAULT ''").catch(e => console.error('stamp migr add theme:', e.message));
+  }
+  if (!colNames.includes('bg_photo')) {
+    await pool.execute('ALTER TABLE stamp_cards ADD COLUMN bg_photo MEDIUMTEXT NULL').catch(e => console.error('stamp migr add bg_photo:', e.message));
   }
   // Soltar la FK sobre store_id (impide dejar la columna nullable en algunos casos)
   const [fks] = await pool.execute(
@@ -7947,6 +7955,20 @@ export async function deleteStampCard(id, storeId) {
   await pool.execute('DELETE FROM stamp_cards WHERE id = ? AND store_id = ?', [id, storeId]);
 }
 
+// Personaliza la tarjeta (por token, la posee el cliente): nombre, tema y foto de fondo.
+export async function customizeStampCard(token, { name, theme, bg_photo }) {
+  await ensureStampCardTables();
+  const updates = [];
+  const params = [];
+  if (name !== undefined) { updates.push('name = ?'); params.push(String(name || '').slice(0, 60) || null); }
+  if (theme !== undefined) { updates.push('theme = ?'); params.push(String(theme || '').slice(0, 24)); }
+  if (bg_photo !== undefined) { updates.push('bg_photo = ?'); params.push(bg_photo || null); }
+  if (!updates.length) return getStampCardByToken(token);
+  params.push(token);
+  await pool.execute(`UPDATE stamp_cards SET ${updates.join(', ')} WHERE token = ?`, params);
+  return getStampCardByToken(token);
+}
+
 // ⚠️ DEBUG TEMPORAL: fija el saldo de puntos de una tarjeta por su clave.
 export async function setStampCardPointsByCode(code, points) {
   await ensureStampCardTables();
@@ -7956,6 +7978,91 @@ export async function setStampCardPointsByCode(code, points) {
   if (!r.affectedRows) return null;
   const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE code = ?', [clean]);
   return _decorateCard(rows[0]);
+}
+
+// ─── Solicitudes de plan gratis (requieren aprobación del superadmin) ─────────
+let _freePlanReqReady = false;
+async function ensureFreePlanRequestsTable() {
+  if (_freePlanReqReady) return;
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS free_plan_requests (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      business_name VARCHAR(255),
+      reason TEXT,
+      status VARCHAR(20) DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      reviewed_at TIMESTAMP NULL DEFAULT NULL,
+      INDEX idx_fpr_user (user_id),
+      INDEX idx_fpr_status (status),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  _freePlanReqReady = true;
+}
+
+// Crea una solicitud pendiente (o devuelve la pendiente existente).
+export async function createFreePlanRequest(userId, { business_name, reason }) {
+  await ensureFreePlanRequestsTable();
+  const [pending] = await pool.execute(
+    "SELECT * FROM free_plan_requests WHERE user_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1",
+    [userId]
+  );
+  if (pending[0]) return pending[0];
+  const [r] = await pool.execute(
+    'INSERT INTO free_plan_requests (user_id, business_name, reason) VALUES (?, ?, ?)',
+    [userId, (business_name || '').slice(0, 255) || null, (reason || '').slice(0, 2000) || null]
+  );
+  const [rows] = await pool.execute('SELECT * FROM free_plan_requests WHERE id = ?', [r.insertId]);
+  return rows[0];
+}
+
+// Última solicitud del usuario (para mostrar su estado).
+export async function getMyFreePlanRequest(userId) {
+  await ensureFreePlanRequestsTable();
+  const [rows] = await pool.execute(
+    'SELECT * FROM free_plan_requests WHERE user_id = ? ORDER BY id DESC LIMIT 1',
+    [userId]
+  );
+  return rows[0] || null;
+}
+
+// Lista para el superadmin (con datos del usuario).
+export async function listFreePlanRequests(status = null) {
+  await ensureFreePlanRequestsTable();
+  const params = [];
+  let where = '';
+  if (status) { where = 'WHERE fpr.status = ?'; params.push(status); }
+  const [rows] = await pool.execute(
+    `SELECT fpr.*, u.email AS user_email, u.username AS user_name
+     FROM free_plan_requests fpr JOIN users u ON fpr.user_id = u.id
+     ${where}
+     ORDER BY (fpr.status = 'pending') DESC, fpr.created_at DESC`,
+    params
+  );
+  return rows;
+}
+
+// Marca la solicitud como aprobada/rechazada. Devuelve la fila (incluye user_id).
+export async function reviewFreePlanRequest(id, status) {
+  await ensureFreePlanRequestsTable();
+  const st = status === 'approved' ? 'approved' : 'rejected';
+  await pool.execute(
+    'UPDATE free_plan_requests SET status = ?, reviewed_at = NOW() WHERE id = ?',
+    [st, id]
+  );
+  const [rows] = await pool.execute('SELECT * FROM free_plan_requests WHERE id = ?', [id]);
+  return rows[0] || null;
+}
+
+// ¿El usuario tiene una solicitud de gratis aprobada?
+export async function hasApprovedFreePlan(userId) {
+  await ensureFreePlanRequestsTable();
+  const [rows] = await pool.execute(
+    "SELECT id FROM free_plan_requests WHERE user_id = ? AND status = 'approved' LIMIT 1",
+    [userId]
+  );
+  return rows.length > 0;
 }
 
 // Suma puntos a la tarjeta identificada por su clave de 5 dígitos.

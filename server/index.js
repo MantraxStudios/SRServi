@@ -161,6 +161,11 @@ import {
   deleteStoreBySuperadmin,
   createSuperadmin,
   getAllPlans,
+  createFreePlanRequest,
+  getMyFreePlanRequest,
+  listFreePlanRequests,
+  reviewFreePlanRequest,
+  hasApprovedFreePlan,
   getAllSubscriptions,
   getSubscriptionHistory,
   getUserPlan,
@@ -300,6 +305,7 @@ import {
   createOrGetStampCardByCode,
   listStampCards,
   deleteStampCard,
+  customizeStampCard,
   addPointsByCode,
   redeemPointsByToken,
   setStampCardPointsByCode,
@@ -1383,6 +1389,7 @@ app.get('/api/public/:code', async (req, res) => {
         id: store.id,
         code: store.code,
         name: store.name,
+        is_premium: isPremium,
         // Personalización visual solo en planes de pago; en Gratis se usa el branding por defecto.
         primary_color: isPremium ? (store.primary_color || '#000000') : '#000000',
         secondary_color: isPremium ? (store.secondary_color || '#FFFFFF') : '#FFFFFF',
@@ -2721,8 +2728,39 @@ app.post('/api/subscribe-plan', authenticateToken, async (req, res) => {
     if (!planId) {
       return res.status(400).json({ error: 'Plan es requerido' });
     }
+    // El plan Gratis ya no se otorga directo: requiere solicitud aprobada por el superadmin.
+    const plan = await getPlanById(parseInt(planId));
+    if (plan && plan.name === 'Gratis') {
+      const approved = await hasApprovedFreePlan(req.user.id);
+      if (!approved) {
+        return res.status(403).json({ error: 'El plan Gratis requiere aprobación. Envía la solicitud justificando por qué lo necesitas.', code: 'FREE_PLAN_REQUIRES_APPROVAL' });
+      }
+    }
     const result = await assignPlanToUser(req.user.id, planId, billingCycle || 'monthly');
     res.json({ success: true, message: `Te has suscrito al plan ${result.plan}`, plan: result.plan });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ─── Solicitud de plan gratis (con aprobación del superadmin) ─────────────────
+// El usuario envía un formulario justificando por qué necesita el plan gratis.
+app.post('/api/free-plan/request', authenticateToken, async (req, res) => {
+  try {
+    const { business_name, reason } = req.body || {};
+    if (!reason || !String(reason).trim()) return res.status(400).json({ error: 'Cuéntanos por qué necesitas el plan gratis.' });
+    const request = await createFreePlanRequest(req.user.id, { business_name, reason });
+    res.json({ success: true, request });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Estado de mi solicitud de plan gratis
+app.get('/api/free-plan/request', authenticateToken, async (req, res) => {
+  try {
+    const request = await getMyFreePlanRequest(req.user.id);
+    res.json({ request });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -2742,12 +2780,16 @@ app.post('/api/create-subscription-preference', authenticateToken, async (req, r
     }
     
     if (plan.price_monthly === 0 && plan.price_yearly === 0) {
+      // El plan gratis ya no se otorga directo: requiere aprobación del superadmin.
+      if (plan.name === 'Gratis' && !(await hasApprovedFreePlan(req.user.id))) {
+        return res.status(403).json({ error: 'El plan Gratis requiere aprobación. Envía la solicitud justificando por qué lo necesitas.', code: 'FREE_PLAN_REQUIRES_APPROVAL' });
+      }
       const result = await assignPlanToUser(req.user.id, planId, billingCycle || 'monthly');
-      return res.json({ 
-        success: true, 
+      return res.json({
+        success: true,
         message: `Te has suscrito al plan ${result.plan}`,
         plan: result.plan,
-        isFree: true 
+        isFree: true
       });
     }
     
@@ -4632,6 +4674,34 @@ app.delete('/api/superadmin/sales-leads/:id', authenticateSuperadminToken, async
     res.json({ success: true });
   } catch (error) {
     console.error('[SalesChat] eliminar lead:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── Solicitudes de plan gratis (superadmin) ──
+app.get('/api/superadmin/free-plan-requests', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const requests = await listFreePlanRequests(req.query.status || null);
+    res.json({ requests });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/superadmin/free-plan-requests/:id/review', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { status } = req.body || {};
+    if (!['approved', 'rejected'].includes(status)) return res.status(400).json({ error: 'Estado inválido' });
+    const request = await reviewFreePlanRequest(parseInt(req.params.id), status);
+    if (!request) return res.status(404).json({ error: 'Solicitud no encontrada' });
+    // Al aprobar, se otorga el plan Gratis al usuario.
+    if (status === 'approved') {
+      const plans = await getAllPlans();
+      const gratis = plans.find(p => p.name === 'Gratis');
+      if (gratis) await assignPlanToUser(request.user_id, gratis.id, 'monthly');
+    }
+    res.json({ success: true, request });
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
@@ -16620,6 +16690,20 @@ app.get('/api/debug/stamp-points', async (req, res) => {
 app.get('/api/card/:token', async (req, res) => {
   try {
     const card = await getStampCardByToken(req.params.token);
+    if (!card) return res.status(404).json({ error: 'Tarjeta no encontrada' });
+    res.json(card);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Público por token: personalizar la tarjeta (nombre, tema, foto de fondo)
+app.post('/api/card/:token/customize', async (req, res) => {
+  try {
+    const { name, theme, bg_photo } = req.body;
+    // La foto va como data URL base64; límite ~4MB para no saturar la BD.
+    if (bg_photo && typeof bg_photo === 'string' && bg_photo.length > 4_500_000) {
+      return res.status(413).json({ error: 'La imagen es muy grande. Usa una más liviana.' });
+    }
+    const card = await customizeStampCard(req.params.token, { name, theme, bg_photo });
     if (!card) return res.status(404).json({ error: 'Tarjeta no encontrada' });
     res.json(card);
   } catch (e) { res.status(500).json({ error: e.message }); }

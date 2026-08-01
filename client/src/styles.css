@@ -2703,19 +2703,19 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Desktop / tablet landscape — aprovechar el ancho con más productos por fila */
+/* Siempre 3 columnas (mismo formato en tablet, tótem y editor).
+   En pantallas anchas solo crece el espaciado, no la cantidad de columnas. */
 @media (min-width: 900px) {
   .products-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
     padding: 10px 14px;
   }
 }
 
-/* Tótems anchos: columnas automáticas (5+), menos huecos desperdiciados */
 @media (min-width: 1200px) {
   .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 12px;
     padding: 12px 16px;
   }
@@ -2723,7 +2723,7 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (min-width: 1700px) {
   .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
@@ -2785,17 +2785,16 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* En modo edición usamos todo el ancho con tarjetas más chicas para que
-   quepan muchas en pantalla (clave en PC). Auto-fill: 2 columnas en teléfono,
-   más columnas a medida que crece la pantalla. */
+/* En modo edición mostramos el MISMO formato que ve el cliente en la tablet:
+   siempre 3 columnas, en todas las pantallas (no más columnas chicas). */
 .store-body.editing .products-grid {
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
 }
 
 @media (min-width: 1024px) {
   .store-body.editing .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
