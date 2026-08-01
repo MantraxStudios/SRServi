@@ -16427,7 +16427,7 @@ app.post('/api/card', async (req, res) => {
       } catch (err) { console.error('stamp-card whatsapp:', err.message); }
     }
     res.json(card);
-  } catch (e) { res.status(400).json({ error: e.message }); }
+  } catch (e) { console.error('POST /api/card:', e.message); res.status(400).json({ error: e.message }); }
 });
 
 // ─── RTSP People Counter ─────────────────────────────────────────────────────

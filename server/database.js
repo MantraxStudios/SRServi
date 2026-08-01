@@ -7783,11 +7783,20 @@ async function ensureStampCardTables() {
   );
   const colNames = cols.map(c => c.COLUMN_NAME);
   if (!colNames.includes('code')) {
-    await pool.execute('ALTER TABLE stamp_cards ADD COLUMN code VARCHAR(5) NULL');
+    await pool.execute('ALTER TABLE stamp_cards ADD COLUMN code VARCHAR(5) NULL').catch(e => console.error('stamp migr add code:', e.message));
     await pool.execute('ALTER TABLE stamp_cards ADD UNIQUE KEY uniq_stampcard_code (code)').catch(() => {});
   }
+  // Soltar la FK sobre store_id (impide dejar la columna nullable en algunos casos)
+  const [fks] = await pool.execute(
+    "SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stamp_cards' AND COLUMN_NAME = 'store_id' AND REFERENCED_TABLE_NAME IS NOT NULL"
+  );
+  for (const fk of fks) {
+    await pool.execute(`ALTER TABLE stamp_cards DROP FOREIGN KEY \`${fk.CONSTRAINT_NAME}\``).catch(e => console.error('stamp migr drop fk:', e.message));
+  }
+  // Soltar el índice único antiguo (store_id, phone) si existe
+  await pool.execute('ALTER TABLE stamp_cards DROP INDEX uniq_store_phone').catch(() => {});
   // store_id ahora es opcional (la tarjeta se crea sin tienda y se asocia al primer uso)
-  await pool.execute('ALTER TABLE stamp_cards MODIFY store_id INT NULL').catch(() => {});
+  await pool.execute('ALTER TABLE stamp_cards MODIFY store_id INT NULL').catch(e => console.error('stamp migr modify store_id:', e.message));
   _stampCardReady = true;
 }
 
