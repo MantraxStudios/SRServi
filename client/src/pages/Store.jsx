@@ -1165,15 +1165,13 @@ function Store() {
   const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
   const loyaltyDiscountRef = useRef(0);
   const [loyaltyConfig, setLoyaltyConfig] = useState(null);
-  // ── Tarjeta virtual de sellos ──
+  // ── Tarjeta virtual de puntos ──
   const [stampConfig, setStampConfig] = useState(null);
   const [stampCode, setStampCode] = useState('');
-  const [stampCard, setStampCard] = useState(null); // tarjeta consultada por clave
+  const [stampCard, setStampCard] = useState(null); // tarjeta consultada por clave (incluye points, money_per_point)
   const [stampError, setStampError] = useState('');
   const [stampLookupLoading, setStampLookupLoading] = useState(false);
-  const stampDiscountRef = useRef(0); // % descuento por recompensa disponible
-  const [stampDiscount, setStampDiscount] = useState(0);
-  const stampRewardUsedRef = useRef(false);
+  const [stampPointsToUse, setStampPointsToUse] = useState(0); // puntos que el cliente decide canjear
   const [pendingOrderData, setPendingOrderData] = useState(null);
   const [comboModal, setComboModal] = useState(null);
   const [comboQty, setComboQty] = useState(1);
@@ -1269,7 +1267,7 @@ function Store() {
   const [complementForm, setComplementForm] = useState({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
   const [prodModalOpen, setProdModalOpen] = useState(false);
   const [editingProd, setEditingProd] = useState(null);
-  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, max_extras: '', max_ingredients: '', image_url: '', complements_private: false, complement_group_ids: [] });
+  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, max_extras: '', max_ingredients: '', image_url: '', complements_private: false, complement_group_ids: [], points: '0' });
   const [storeComplementGroups, setStoreComplementGroups] = useState([]);
   // Edición de secciones dinámicas desde el editor del tótem
   const [sectionGroupModal, setSectionGroupModal] = useState(null); // { id?, name, min_select, max_select, required }
@@ -3108,15 +3106,29 @@ function Store() {
     return Math.round(Math.max(subtotal - couponDiscount, 0) * disc / 100);
   };
 
-  const getStampDiscountAmount = () => {
-    const disc = stampDiscountRef.current;
-    if (!disc) return 0;
-    const subtotal = getCartTotal();
-    const couponDiscount = Number(appliedCoupon?.discount_total || 0);
-    return Math.round(Math.max(subtotal - couponDiscount, 0) * disc / 100);
+  // Puntos que se ganarán con la compra actual (suma de puntos de cada producto × cantidad)
+  const getCartPoints = () => {
+    if (!stampConfig?.enabled) return 0;
+    const map = {};
+    (store?.products || []).forEach(p => { map[p.id] = Number(p.points) || 0; });
+    return cart.reduce((s, it) => s + (map[it.product_id] || 0) * (it.quantity || 1), 0);
   };
 
-  // Consulta la tarjeta de sellos por su clave de 5 dígitos y aplica recompensa si está disponible
+  const getStampMoneyPerPoint = () => Number(stampCard?.money_per_point ?? stampConfig?.money_per_point) || 0;
+
+  // Descuento en $ por los puntos que el cliente decide canjear (tope: saldo, y total de la compra)
+  const getStampDiscountAmount = () => {
+    if (!stampCard || !stampPointsToUse) return 0;
+    const mpp = getStampMoneyPerPoint();
+    const maxByPoints = Math.min(stampPointsToUse, stampCard.points || 0) * mpp;
+    const subtotal = getCartTotal();
+    const couponDiscount = Number(appliedCoupon?.discount_total || 0);
+    const loyalDiscountAmt = getLoyaltyDiscountAmount();
+    const base = Math.max(subtotal - couponDiscount - loyalDiscountAmt, 0);
+    return Math.round(Math.min(maxByPoints, base));
+  };
+
+  // Consulta la tarjeta de puntos por su clave de 5 dígitos
   const applyStampCard = async () => {
     const card_code = stampCode.replace(/\D/g, '');
     if (card_code.length !== 5) return;
@@ -3131,15 +3143,7 @@ function Store() {
       const d = await r.json();
       if (r.ok) {
         setStampCard(d);
-        if (d.reward_available && d.reward_type === 'discount' && d.reward_value > 0) {
-          stampDiscountRef.current = d.reward_value;
-          setStampDiscount(d.reward_value);
-          stampRewardUsedRef.current = true;
-        } else {
-          stampDiscountRef.current = 0;
-          setStampDiscount(0);
-          stampRewardUsedRef.current = false;
-        }
+        setStampPointsToUse(0);
       } else {
         setStampError(d.error || 'No existe una tarjeta con esa clave');
       }
@@ -3147,27 +3151,30 @@ function Store() {
     finally { setStampLookupLoading(false); }
   };
 
-  // Registra el sello / canjea recompensa tras completar la compra
+  // Suma los puntos ganados y canjea los puntos usados tras completar la compra
   const recordStampPurchase = () => {
     if (!stampConfig?.enabled) return;
     const card_code = stampCode.replace(/\D/g, '');
-    if (stampRewardUsedRef.current && stampCard?.token) {
+    const earned = getCartPoints();
+    const used = stampCard ? Math.min(stampPointsToUse || 0, stampCard.points || 0) : 0;
+    // Canjear puntos usados como descuento
+    if (used > 0 && stampCard?.token) {
       fetch(`${API}/api/public/${code}/stamp-card/redeem`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: stampCard.token })
+        body: JSON.stringify({ token: stampCard.token, points: used })
       }).catch(() => {});
-    } else if (card_code.length === 5) {
-      fetch(`${API}/api/public/${code}/stamp-card/stamp`, {
+    }
+    // Sumar puntos ganados con la compra
+    if (earned > 0 && card_code.length === 5) {
+      fetch(`${API}/api/public/${code}/stamp-card/points`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ card_code })
+        body: JSON.stringify({ card_code, points: earned })
       }).catch(() => {});
     }
     setStampCode('');
     setStampCard(null);
     setStampError('');
-    stampDiscountRef.current = 0;
-    setStampDiscount(0);
-    stampRewardUsedRef.current = false;
+    setStampPointsToUse(0);
   };
 
   const getCartSubtotal = () => {
@@ -4777,7 +4784,8 @@ function Store() {
       max_ingredients: product?.max_ingredients?.toString() || '',
       image_url: (product?.image?.startsWith('http') ? product.image : '') || '',
       complements_private: !!product?.complements_private,
-      complement_group_ids: Array.isArray(product?.complement_groups) ? product.complement_groups.map(g => g.id) : []
+      complement_group_ids: Array.isArray(product?.complement_groups) ? product.complement_groups.map(g => g.id) : [],
+      points: product?.points?.toString() || '0'
     });
     setProdImageFile(null);
     setProdNewExtras([]);
@@ -4953,6 +4961,7 @@ function Store() {
       formData.append('has_ingredients', prodForm.has_ingredients);
       formData.append('max_extras', prodForm.has_extras ? (parseInt(prodForm.max_extras) || 0) : 0);
       formData.append('max_ingredients', prodForm.has_ingredients ? (parseInt(prodForm.max_ingredients) || 0) : 0);
+      formData.append('points', parseInt(prodForm.points) || 0);
       if (prodImageFile) {
         formData.append('image', prodImageFile);
       } else if (prodForm.image_url) {
@@ -7430,9 +7439,9 @@ function Store() {
                     <span>-{colors.currency.symbol}{formatPrice(getLoyaltyDiscountAmount())}</span>
                   </div>
                 )}
-                {stampDiscount > 0 && (
+                {getStampDiscountAmount() > 0 && (
                   <div className="store-cart-summary-row store-cart-discount" style={{ color: '#16a34a' }}>
-                    <span>🎁 Recompensa tarjeta de sellos ({stampDiscount}%)</span>
+                    <span>🎁 Puntos canjeados ({Math.min(stampPointsToUse, stampCard?.points || 0)} pts)</span>
                     <span>-{colors.currency.symbol}{formatPrice(getStampDiscountAmount())}</span>
                   </div>
                 )}
@@ -7493,28 +7502,43 @@ function Store() {
                 {stampConfig?.enabled && (
                   <div style={{ marginTop: 10, padding: '12px', borderRadius: 12, background: '#faf7ee', border: '1.5px solid #e7dcc0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#92400e', marginBottom: 8 }}>
-                      🎁 Tarjeta de sellos
+                      🎁 Tarjeta de puntos
                     </div>
-                    {stampCard ? (
-                      <div style={{ fontSize: 13, color: '#111' }}>
-                        <div style={{ fontWeight: 600 }}>
-                          Clave {stampCard.code} · {stampCard.stamps}/{stampCard.stamps_required} sellos
-                          {stampCard.reward_available && <span style={{ marginLeft: 6, fontSize: 11, background: '#16a34a', color: '#fff', borderRadius: 20, padding: '1px 8px', fontWeight: 700 }}>¡Recompensa!</span>}
+                    {stampCard ? (() => {
+                      const mpp = getStampMoneyPerPoint();
+                      const base = Math.max(getCartTotal() - Number(appliedCoupon?.discount_total || 0) - getLoyaltyDiscountAmount(), 0);
+                      const maxUsable = mpp > 0 ? Math.min(stampCard.points || 0, Math.floor(base / mpp)) : 0;
+                      return (
+                        <div style={{ fontSize: 13, color: '#111' }}>
+                          <div style={{ fontWeight: 600 }}>
+                            Clave {stampCard.code} · {stampCard.points || 0} puntos
+                            <span style={{ color: '#6b7280', fontWeight: 400 }}> (≈ {colors.currency.symbol}{formatPrice(Math.round((stampCard.points || 0) * mpp))})</span>
+                          </div>
+                          <div style={{ fontSize: 12, color: '#16a34a', marginTop: 2 }}>Ganarás {getCartPoints()} puntos con esta compra</div>
+                          {maxUsable > 0 ? (
+                            <div style={{ marginTop: 8 }}>
+                              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>¿Cuántos puntos quieres usar?</div>
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                <input
+                                  type="number" min="0" max={maxUsable} value={stampPointsToUse}
+                                  onChange={e => setStampPointsToUse(Math.max(0, Math.min(maxUsable, parseInt(e.target.value) || 0)))}
+                                  style={{ width: 80, padding: '8px 10px', border: '1.5px solid #e2d9bf', borderRadius: 9, fontSize: 15, fontWeight: 700, textAlign: 'center', outline: 'none', background: '#fff', color: '#111' }}
+                                />
+                                <button onClick={() => setStampPointsToUse(maxUsable)} className="btn btn-secondary btn-sm">Usar {maxUsable}</button>
+                                <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 700 }}>-{colors.currency.symbol}{formatPrice(getStampDiscountAmount())}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 6 }}>Aún no tienes puntos suficientes para canjear.</div>
+                          )}
+                          <button
+                            onClick={() => { setStampCard(null); setStampCode(''); setStampError(''); setStampPointsToUse(0); }}
+                            className="btn btn-secondary btn-sm"
+                            style={{ marginTop: 8 }}
+                          >Cambiar</button>
                         </div>
-                        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-                          {stampDiscount > 0
-                            ? `Se aplicará ${stampDiscount}% de descuento`
-                            : stampCard.reward_available
-                              ? stampConfig.reward_label
-                              : 'Sumarás 1 sello con esta compra'}
-                        </div>
-                        <button
-                          onClick={() => { setStampCard(null); setStampCode(''); setStampError(''); stampDiscountRef.current = 0; setStampDiscount(0); stampRewardUsedRef.current = false; }}
-                          className="btn btn-secondary btn-sm"
-                          style={{ marginTop: 8 }}
-                        >Cambiar</button>
-                      </div>
-                    ) : (
+                      );
+                    })() : (
                       <>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <input
@@ -7532,6 +7556,7 @@ function Store() {
                             className="btn btn-secondary btn-sm"
                           >{stampLookupLoading ? '...' : t('apply', lang)}</button>
                         </div>
+                        {getCartPoints() > 0 && <div style={{ fontSize: 12, color: '#16a34a', marginTop: 6 }}>Con esta compra ganarás {getCartPoints()} puntos</div>}
                         {stampError && <div style={{ color: '#ef4444', fontSize: 12, marginTop: 6 }}>{stampError}</div>}
                       </>
                     )}
@@ -8555,6 +8580,23 @@ function Store() {
                   </button>
                 </div>
               </div>
+
+              {/* 2b. Puntos de la tarjeta */}
+              {stampConfig?.enabled && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 13, color: '#888', fontWeight: 600, flexShrink: 0 }}>🎁 Puntos que da:</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={prodForm.points}
+                    onChange={(e) => setProdForm({ ...prodForm, points: e.target.value })}
+                    placeholder="0"
+                    className="store-prod-modal-input"
+                    style={{ width: 90 }}
+                  />
+                </div>
+              )}
 
               {/* 3. Descripción */}
               <input

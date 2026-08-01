@@ -1252,6 +1252,10 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE products ADD COLUMN is_featured BOOLEAN NOT NULL DEFAULT FALSE');
         console.log('✅ Columna is_featured agregada a products');
       }
+      if (!prodColNames.includes('points')) {
+        await pool.execute('ALTER TABLE products ADD COLUMN points INT NOT NULL DEFAULT 0');
+        console.log('✅ Columna points agregada a products');
+      }
     } catch (err) {
       console.error('❌ Error migrando lista única (owner_product_id):', err.message);
     }
@@ -3568,15 +3572,16 @@ export async function getProducts(storeId) {
 }
 
 export async function createProduct(storeId, data) {
-  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time, is_featured } = data;
+  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time, is_featured, points } = data;
   const showDescription = show_description !== false;
   const showPrepTime = show_prep_time !== false;
   const isFeatured = is_featured === true || is_featured === 'true' || is_featured === 1;
+  const pointsVal = Math.max(0, parseInt(points) || 0);
 
   const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO products (store_id, user_id, category_id, name, barcode, description, price, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time, is_featured) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, category_id || null, name, barcode || null, description || null, price, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, showDescription ? 1 : 0, showPrepTime ? 1 : 0, isFeatured ? 1 : 0]
+    'INSERT INTO products (store_id, user_id, category_id, name, barcode, description, price, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time, is_featured, points) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, category_id || null, name, barcode || null, description || null, price, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, showDescription ? 1 : 0, showPrepTime ? 1 : 0, isFeatured ? 1 : 0, pointsVal]
   );
   const productId = result.insertId;
 
@@ -3596,6 +3601,7 @@ export async function createProduct(storeId, data) {
     show_description: showDescription,
     show_prep_time: showPrepTime,
     is_featured: isFeatured,
+    points: pointsVal,
     stock: 0,
     unlimited_stock: true,
     ingredients: await getProductIngredients(productId, category_id),
@@ -3605,14 +3611,15 @@ export async function createProduct(storeId, data) {
 }
 
 export async function updateProduct(productId, storeId, data) {
-  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time, is_featured } = data;
+  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time, is_featured, points } = data;
   const showDescription = show_description !== false;
   const showPrepTime = show_prep_time !== false;
   const isFeatured = is_featured === true || is_featured === 'true' || is_featured === 1;
+  const pointsVal = Math.max(0, parseInt(points) || 0);
 
   await pool.execute(
-    'UPDATE products SET name = ?, barcode = ?, description = ?, price = ?, category_id = ?, image = ?, has_extras = ?, has_ingredients = ?, max_extras = ?, max_ingredients = ?, show_description = ?, show_prep_time = ?, is_featured = ? WHERE id = ? AND store_id = ?',
-    [name, barcode || null, description || null, price, category_id || null, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, showDescription ? 1 : 0, showPrepTime ? 1 : 0, isFeatured ? 1 : 0, productId, storeId]
+    'UPDATE products SET name = ?, barcode = ?, description = ?, price = ?, category_id = ?, image = ?, has_extras = ?, has_ingredients = ?, max_extras = ?, max_ingredients = ?, show_description = ?, show_prep_time = ?, is_featured = ?, points = ? WHERE id = ? AND store_id = ?',
+    [name, barcode || null, description || null, price, category_id || null, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, showDescription ? 1 : 0, showPrepTime ? 1 : 0, isFeatured ? 1 : 0, pointsVal, productId, storeId]
   );
 
   // Get current stock from inventory
@@ -3638,6 +3645,7 @@ export async function updateProduct(productId, storeId, data) {
     show_description: showDescription,
     show_prep_time: showPrepTime,
     is_featured: isFeatured,
+    points: pointsVal,
     stock: parseInt(stock) || 0,
     unlimited_stock: !!unlimited_stock,
     ingredients: await getProductIngredients(productId, category_id),
@@ -7749,6 +7757,7 @@ async function ensureStampCardTables() {
       id INT PRIMARY KEY AUTO_INCREMENT,
       store_id INT NOT NULL UNIQUE,
       enabled BOOLEAN DEFAULT FALSE,
+      money_per_point DECIMAL(10,2) DEFAULT 1.00,
       stamps_required INT DEFAULT 10,
       reward_type VARCHAR(20) DEFAULT 'free_item',
       reward_value DECIMAL(5,2) DEFAULT 0,
@@ -7758,6 +7767,13 @@ async function ensureStampCardTables() {
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )
   `);
+  // Migración: money_per_point (valor en $ de cada punto)
+  const [cfgCols] = await pool.execute(
+    "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stamp_card_config'"
+  );
+  if (!cfgCols.map(c => c.COLUMN_NAME).includes('money_per_point')) {
+    await pool.execute('ALTER TABLE stamp_card_config ADD COLUMN money_per_point DECIMAL(10,2) DEFAULT 1.00').catch(e => console.error('stamp migr money_per_point:', e.message));
+  }
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS stamp_cards (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -7766,6 +7782,7 @@ async function ensureStampCardTables() {
       code VARCHAR(5) NULL,
       name VARCHAR(255),
       phone VARCHAR(50),
+      points INT DEFAULT 0,
       stamps INT DEFAULT 0,
       total_stamps INT DEFAULT 0,
       redeemed_count INT DEFAULT 0,
@@ -7785,6 +7802,9 @@ async function ensureStampCardTables() {
   if (!colNames.includes('code')) {
     await pool.execute('ALTER TABLE stamp_cards ADD COLUMN code VARCHAR(5) NULL').catch(e => console.error('stamp migr add code:', e.message));
     await pool.execute('ALTER TABLE stamp_cards ADD UNIQUE KEY uniq_stampcard_code (code)').catch(() => {});
+  }
+  if (!colNames.includes('points')) {
+    await pool.execute('ALTER TABLE stamp_cards ADD COLUMN points INT DEFAULT 0').catch(e => console.error('stamp migr add points:', e.message));
   }
   // Soltar la FK sobre store_id (impide dejar la columna nullable en algunos casos)
   const [fks] = await pool.execute(
@@ -7818,27 +7838,21 @@ export async function getStampCardConfig(storeId) {
     [storeId]
   );
   if (rows[0]) return rows[0];
-  return { store_id: storeId, enabled: false, stamps_required: 10, reward_type: 'free_item', reward_value: 0, reward_label: '1 producto gratis' };
+  return { store_id: storeId, enabled: false, money_per_point: 1.00 };
 }
 
-export async function saveStampCardConfig(storeId, { enabled, stamps_required, reward_type, reward_value, reward_label }) {
+export async function saveStampCardConfig(storeId, { enabled, money_per_point }) {
   await ensureStampCardTables();
   await pool.execute(`
-    INSERT INTO stamp_card_config (store_id, enabled, stamps_required, reward_type, reward_value, reward_label)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO stamp_card_config (store_id, enabled, money_per_point)
+    VALUES (?, ?, ?)
     ON DUPLICATE KEY UPDATE
       enabled = VALUES(enabled),
-      stamps_required = VALUES(stamps_required),
-      reward_type = VALUES(reward_type),
-      reward_value = VALUES(reward_value),
-      reward_label = VALUES(reward_label)
+      money_per_point = VALUES(money_per_point)
   `, [
     storeId,
     enabled ? 1 : 0,
-    Math.max(1, parseInt(stamps_required) || 10),
-    reward_type === 'discount' ? 'discount' : 'free_item',
-    parseFloat(reward_value) || 0,
-    reward_label || '1 producto gratis'
+    Math.max(0, parseFloat(money_per_point) || 0)
   ]);
 }
 
@@ -7933,11 +7947,12 @@ export async function deleteStampCard(id, storeId) {
   await pool.execute('DELETE FROM stamp_cards WHERE id = ? AND store_id = ?', [id, storeId]);
 }
 
-// Suma un sello a la tarjeta identificada por su clave de 5 dígitos.
-// Asocia la tarjeta a la tienda si aún no lo estaba. Devuelve { card, rewardEarned, stamps_required }.
-export async function addStampByCode(storeId, code) {
+// Suma puntos a la tarjeta identificada por su clave de 5 dígitos.
+// Asocia la tarjeta a la tienda si aún no lo estaba. Devuelve { card, pointsAdded }.
+export async function addPointsByCode(storeId, code, points) {
   await ensureStampCardTables();
   const clean = String(code || '').replace(/\D/g, '');
+  const add = Math.max(0, parseInt(points) || 0);
   const [rows0] = await pool.execute('SELECT * FROM stamp_cards WHERE code = ?', [clean]);
   let card = rows0[0];
   if (!card) return null;
@@ -7946,38 +7961,27 @@ export async function addStampByCode(storeId, code) {
     await pool.execute('UPDATE stamp_cards SET store_id = ? WHERE id = ?', [storeId, card.id]);
     card.store_id = storeId;
   }
-  const config = await getStampCardConfig(card.store_id);
-  const required = Math.max(1, parseInt(config.stamps_required) || 10);
-  const newStamps = (card.stamps || 0) + 1;
-  const rewardEarned = newStamps >= required;
   await pool.execute(
-    `UPDATE stamp_cards
-     SET stamps = ?, total_stamps = total_stamps + 1, reward_available = ?, last_stamp_at = NOW()
-     WHERE id = ?`,
-    [newStamps, rewardEarned ? 1 : 0, card.id]
+    'UPDATE stamp_cards SET points = points + ?, last_stamp_at = NOW() WHERE id = ?',
+    [add, card.id]
   );
   const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE id = ?', [card.id]);
-  return { card: await _decorateCard(rows[0]), rewardEarned, stamps_required: required };
+  return { card: await _decorateCard(rows[0]), pointsAdded: add };
 }
 
-// Canjea la recompensa: reinicia sellos y suma al histórico de canjes.
-export async function redeemStampCard({ token = null, id = null, storeId = null }) {
+// Canjea (resta) puntos de la tarjeta identificada por su token. Devuelve la tarjeta actualizada.
+export async function redeemPointsByToken(token, pointsToUse) {
   await ensureStampCardTables();
-  let card;
-  if (token) {
-    const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE token = ?', [token]);
-    card = rows[0];
-  } else if (id && storeId) {
-    const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE id = ? AND store_id = ?', [id, storeId]);
-    card = rows[0];
-  }
+  const [rows0] = await pool.execute('SELECT * FROM stamp_cards WHERE token = ?', [token]);
+  const card = rows0[0];
   if (!card) return null;
+  const use = Math.min(Math.max(0, parseInt(pointsToUse) || 0), card.points || 0);
   await pool.execute(
-    'UPDATE stamp_cards SET stamps = 0, reward_available = FALSE, redeemed_count = redeemed_count + 1 WHERE id = ?',
-    [card.id]
+    'UPDATE stamp_cards SET points = points - ?, redeemed_count = redeemed_count + 1 WHERE id = ?',
+    [use, card.id]
   );
   const [rows] = await pool.execute('SELECT * FROM stamp_cards WHERE id = ?', [card.id]);
-  return rows[0];
+  return { card: await _decorateCard(rows[0]), pointsUsed: use };
 }
 
 // ─── INVENTORY MOVEMENTS & ALERTS ─────────────────────────────────────────────

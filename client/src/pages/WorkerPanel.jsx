@@ -421,6 +421,7 @@ function WorkerPanel() {
   const [stampConfig, setStampConfig] = useState(null);
   const [stampCodeW, setStampCodeW] = useState('');
   const [stampCardW, setStampCardW] = useState(null);
+  const [stampRedeemPts, setStampRedeemPts] = useState(0);
   const [stampBusy, setStampBusy] = useState(false);
   const [stampMsg, setStampMsg] = useState('');
   const [paySearch, setPaySearch] = useState('');
@@ -936,7 +937,7 @@ function WorkerPanel() {
   // ── Tarjeta de sellos ──
   const openStampModal = async () => {
     setShowStampModal(true);
-    setStampMsg(''); setStampCardW(null); setStampCodeW('');
+    setStampMsg(''); setStampCardW(null); setStampCodeW(''); setStampRedeemPts(0);
     if (!stampConfig && storeCode) {
       try {
         const r = await fetch(`/api/public/${storeCode}/stamp-card`);
@@ -953,39 +954,22 @@ function WorkerPanel() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ card_code })
       });
       const d = await r.json();
-      if (r.ok) setStampCardW(d);
+      if (r.ok) { setStampCardW(d); setStampRedeemPts(0); }
       else setStampMsg(d.error || 'No existe una tarjeta con esa clave');
     } catch {} finally { setStampBusy(false); }
   };
-  const stampAdd = async () => {
-    const card_code = stampCodeW.replace(/\D/g, '');
-    if (card_code.length !== 5) return;
-    setStampBusy(true); setStampMsg('');
-    try {
-      const r = await fetch(`/api/public/${storeCode}/stamp-card/stamp`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ card_code })
-      });
-      if (r.ok) {
-        const d = await r.json();
-        setStampCardW(c => ({ ...(c || {}), stamps: d.card.stamps, stamps_required: d.stamps_required, reward_available: d.card.reward_available, token: d.card.token, reward_label: d.card.config?.reward_label }));
-        setStampMsg(d.rewardEarned ? '🎉 ¡Recompensa desbloqueada!' : '✓ Sello agregado');
-      } else {
-        const d = await r.json().catch(() => ({}));
-        setStampMsg(d.error || 'No se pudo sumar el sello');
-      }
-    } catch {} finally { setStampBusy(false); }
-  };
   const stampRedeem = async () => {
-    if (!stampCardW?.token) return;
+    if (!stampCardW?.token || stampRedeemPts <= 0) return;
     setStampBusy(true); setStampMsg('');
     try {
       const r = await fetch(`/api/public/${storeCode}/stamp-card/redeem`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: stampCardW.token })
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: stampCardW.token, points: stampRedeemPts })
       });
       if (r.ok) {
         const d = await r.json();
-        setStampCardW(c => ({ ...c, stamps: d.card.stamps, reward_available: false }));
-        setStampMsg('✓ Recompensa canjeada');
+        setStampCardW(c => ({ ...c, points: d.card.points }));
+        setStampMsg(`✓ Canjeaste ${stampRedeemPts} puntos`);
+        setStampRedeemPts(0);
       }
     } catch {} finally { setStampBusy(false); }
   };
@@ -1475,7 +1459,7 @@ function WorkerPanel() {
                 <FontAwesomeIcon icon={faPrint} />
               </button>
               {storeCode && (
-                <button className="worker-header-icon-btn" onClick={openStampModal} title="Tarjeta de sellos">
+                <button className="worker-header-icon-btn" onClick={openStampModal} title="Tarjeta de puntos">
                   <FontAwesomeIcon icon={faGift} />
                 </button>
               )}
@@ -3152,13 +3136,13 @@ function WorkerPanel() {
         <div className="worker-modal-overlay pay-modal-overlay">
           <div className="worker-modal" style={{ display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             <div className="worker-modal-header">
-              <h2 className="worker-modal-title"><FontAwesomeIcon icon={faGift} style={{ marginRight: 8, color: '#D4AF37' }} />Tarjeta de sellos</h2>
+              <h2 className="worker-modal-title"><FontAwesomeIcon icon={faGift} style={{ marginRight: 8, color: '#D4AF37' }} />Tarjeta de puntos</h2>
               <button className="worker-modal-close" onClick={() => setShowStampModal(false)}>x</button>
             </div>
             <div style={{ padding: '4px 2px' }}>
               {!stampConfig?.enabled ? (
                 <div style={{ color: '#999', textAlign: 'center', padding: '20px' }}>
-                  La tarjeta de sellos no está activada. Actívala en el panel de administración → Configuraciones.
+                  La tarjeta de puntos no está activada. Actívala en el panel de administración → Configuraciones.
                 </div>
               ) : (
                 <>
@@ -3178,29 +3162,34 @@ function WorkerPanel() {
                     </button>
                   </div>
 
-                  {stampCardW && (
-                    <div style={{ background: '#1a1a1a', border: `1px solid ${colors.accent}`, borderRadius: 12, padding: 16, marginBottom: 12 }}>
-                      <div style={{ fontSize: 28, fontWeight: 900, color: '#D4AF37', textAlign: 'center' }}>
-                        {stampCardW.stamps}<span style={{ fontSize: 18, color: '#888' }}> / {stampCardW.stamps_required}</span>
-                      </div>
-                      <div style={{ textAlign: 'center', color: '#aaa', fontSize: 13, marginBottom: 4 }}>sellos</div>
-                      {stampCardW.reward_available && (
-                        <div style={{ textAlign: 'center', color: '#22c55e', fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
-                          🎉 {stampCardW.reward_label || stampConfig.reward_label}
-                        </div>
-                      )}
-                      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                        <button className="btn btn-primary" style={{ flex: 1 }} onClick={stampAdd} disabled={stampBusy}>
-                          + Sumar sello
-                        </button>
-                        {stampCardW.reward_available && (
-                          <button className="btn btn-success" style={{ flex: 1, background: '#16a34a', color: '#fff' }} onClick={stampRedeem} disabled={stampBusy}>
-                            Canjear
-                          </button>
+                  {stampCardW && (() => {
+                    const mpp = Number(stampCardW.money_per_point) || 0;
+                    const pts = stampCardW.points || 0;
+                    return (
+                      <div style={{ background: '#1a1a1a', border: `1px solid ${colors.accent}`, borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                        <div style={{ fontSize: 30, fontWeight: 900, color: '#D4AF37', textAlign: 'center' }}>{pts}</div>
+                        <div style={{ textAlign: 'center', color: '#aaa', fontSize: 13, marginBottom: 2 }}>puntos</div>
+                        {mpp > 0 && (
+                          <div style={{ textAlign: 'center', color: '#22c55e', fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
+                            ≈ ${Math.round(pts * mpp).toLocaleString('es-CL')} en descuento
+                          </div>
+                        )}
+                        {pts > 0 && (
+                          <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                            <input
+                              type="number" min="0" max={pts} value={stampRedeemPts}
+                              onChange={e => setStampRedeemPts(Math.max(0, Math.min(pts, parseInt(e.target.value) || 0)))}
+                              placeholder="Puntos a canjear"
+                              style={{ flex: 1, padding: '10px 12px', fontSize: '1.1rem', textAlign: 'center', fontWeight: 700, background: '#111', color: '#fff', border: `1px solid ${colors.accent}`, borderRadius: 8, outline: 'none', boxSizing: 'border-box' }}
+                            />
+                            <button className="btn btn-success" style={{ background: '#16a34a', color: '#fff' }} onClick={stampRedeem} disabled={stampBusy || stampRedeemPts <= 0}>
+                              Canjear {mpp > 0 && stampRedeemPts > 0 ? `($${Math.round(stampRedeemPts * mpp).toLocaleString('es-CL')})` : ''}
+                            </button>
+                          </div>
                         )}
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {stampMsg && (
                     <div style={{ textAlign: 'center', color: '#22c55e', fontWeight: 600, padding: '4px 0' }}>{stampMsg}</div>

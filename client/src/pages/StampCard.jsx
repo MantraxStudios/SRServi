@@ -36,11 +36,7 @@ export default function StampCard() {
     socket.on('connect', join);
     socket.on('reconnect', join);
     socket.on('stamp_card_update', (data) => {
-      setCard(prev => prev ? {
-        ...prev,
-        stamps: data.action === 'redeem' ? (data.stamps ?? 0) : (data.stamps ?? prev.stamps),
-        reward_available: !!data.reward_available
-      } : prev);
+      setCard(prev => prev ? { ...prev, points: data.points ?? prev.points } : prev);
       setConfirm(data);
     });
     return () => { socket.disconnect(); socketRef.current = null; };
@@ -54,10 +50,9 @@ export default function StampCard() {
   }
 
   const cfg = card.config || {};
-  const required = Math.max(1, parseInt(cfg.stamps_required) || 10);
-  const stamps = Math.min(card.stamps || 0, required);
-  const rewardAvailable = !!card.reward_available;
-  const rewardLabel = cfg.reward_label || '1 producto gratis';
+  const mpp = Number(cfg.money_per_point) || 0;
+  const points = card.points || 0;
+  const moneyValue = Math.round(points * mpp);
   const cardUrl = card.token ? `${API}/tarjeta/${card.token}` : (typeof window !== 'undefined' ? window.location.href : '');
 
   return (
@@ -68,7 +63,7 @@ export default function StampCard() {
           {card.store_logo && (
             <img src={card.store_logo} alt={card.store_name} style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.25)', marginBottom: 10 }} />
           )}
-          <div style={{ fontSize: 13, letterSpacing: 1, textTransform: 'uppercase', opacity: 0.7 }}>Tarjeta de sellos</div>
+          <div style={{ fontSize: 13, letterSpacing: 1, textTransform: 'uppercase', opacity: 0.7 }}>Tarjeta de puntos</div>
           <h1 style={{ margin: '4px 0 0', fontSize: 22, fontWeight: 800 }}>{card.store_name || 'Tu tarjeta'}</h1>
           {card.name && <div style={{ marginTop: 4, fontSize: 14, opacity: 0.85 }}>{card.name}</div>}
         </div>
@@ -77,51 +72,22 @@ export default function StampCard() {
         <div style={{ background: '#faf7ee', borderBottom: '1px solid #eee', padding: '12px 20px', textAlign: 'center' }}>
           <span style={{ fontSize: 12, color: '#92400e', fontWeight: 600 }}>Tu clave: </span>
           <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: 4, color: '#111' }}>{card.code}</span>
-          <div style={{ fontSize: 11, color: '#a1874a', marginTop: 2 }}>Muéstrala al pagar para sumar tu sello</div>
+          <div style={{ fontSize: 11, color: '#a1874a', marginTop: 2 }}>Muéstrala al pagar para sumar y canjear puntos</div>
         </div>
 
-        {/* Reward banner */}
-        {rewardAvailable && (
-          <div style={{ background: '#16a34a', color: '#fff', padding: '12px 20px', textAlign: 'center', fontWeight: 700, fontSize: 15 }}>
-            🎉 ¡Recompensa disponible!
-          </div>
-        )}
-
         <div style={{ padding: '24px' }}>
-          {/* Progreso */}
-          <div style={{ textAlign: 'center', marginBottom: 18 }}>
-            <span style={{ fontSize: 34, fontWeight: 900, color: '#D4AF37' }}>{stamps}</span>
-            <span style={{ fontSize: 18, fontWeight: 700, color: '#9ca3af' }}> / {required}</span>
-            <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>
-              {card.store_id
-                ? (rewardAvailable ? '¡Tarjeta completa!' : `Te faltan ${required - stamps} sello${required - stamps !== 1 ? 's' : ''} para tu recompensa`)
-                : 'Usa tu clave en la tienda para empezar a sumar sellos'}
-            </div>
-          </div>
-
-          {/* Grilla de sellos */}
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(required, 5)}, 1fr)`, gap: 10, marginBottom: 22 }}>
-            {Array.from({ length: required }).map((_, i) => {
-              const filled = i < stamps;
-              return (
-                <div key={i} style={{
-                  aspectRatio: '1', borderRadius: '50%',
-                  border: `2px solid ${filled ? '#D4AF37' : '#e5e7eb'}`,
-                  background: filled ? '#D4AF37' : '#fafafa',
-                  color: filled ? '#fff' : '#d1d5db',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 18, fontWeight: 800
-                }}>
-                  {filled ? '★' : i + 1}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Recompensa */}
-          <div style={{ background: '#faf7ee', border: '1.5px solid #D4AF37', borderRadius: 12, padding: '12px 16px', textAlign: 'center', marginBottom: 22 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: 0.5 }}>Tu recompensa</div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: '#111', marginTop: 2 }}>{rewardLabel}</div>
+          {/* Saldo de puntos */}
+          <div style={{ textAlign: 'center', marginBottom: 22 }}>
+            <div style={{ fontSize: 44, fontWeight: 900, color: '#D4AF37', lineHeight: 1 }}>{points}</div>
+            <div style={{ fontSize: 14, color: '#6b7280', marginTop: 4, fontWeight: 600 }}>puntos acumulados</div>
+            {mpp > 0 && (
+              <div style={{ fontSize: 13, color: '#16a34a', marginTop: 6, fontWeight: 700 }}>
+                Equivalen a ≈ ${moneyValue.toLocaleString('es-CL')} de descuento
+              </div>
+            )}
+            {!card.store_id && (
+              <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 8 }}>Usa tu clave en la tienda para empezar a acumular puntos</div>
+            )}
           </div>
 
           {/* QR */}
@@ -139,17 +105,16 @@ export default function StampCard() {
         <div onClick={() => setConfirm(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 360, background: '#fff', borderRadius: 20, padding: '28px 24px', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
             <div style={{ fontSize: 52, marginBottom: 8 }}>
-              {confirm.action === 'redeem' ? '✅' : confirm.action === 'reward' ? '🎉' : '⭐'}
+              {confirm.action === 'redeem' ? '✅' : '⭐'}
             </div>
             <h2 style={{ margin: '0 0 6px', fontSize: 20, fontWeight: 800, color: '#111' }}>
-              {confirm.action === 'redeem' ? '¡Recompensa canjeada!' : confirm.action === 'reward' ? '¡Recompensa desbloqueada!' : '¡Sello agregado!'}
+              {confirm.action === 'redeem'
+                ? `¡Canjeaste ${confirm.points_used ?? ''} puntos!`
+                : `¡Sumaste ${confirm.points_added ?? ''} puntos!`}
             </h2>
             <p style={{ margin: '0 0 4px', fontSize: 14, color: '#6b7280' }}>{confirm.store_name}</p>
-            {confirm.action !== 'redeem' && confirm.stamps != null && confirm.stamps_required != null && (
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#D4AF37', margin: '6px 0' }}>{confirm.stamps} / {confirm.stamps_required} sellos</div>
-            )}
-            {confirm.action === 'reward' && confirm.reward_label && (
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#16a34a', marginTop: 4 }}>{confirm.reward_label}</div>
+            {confirm.points != null && (
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#D4AF37', margin: '6px 0' }}>Saldo: {confirm.points} puntos</div>
             )}
             <button onClick={() => setConfirm(null)} style={{ marginTop: 20, width: '100%', padding: '12px', borderRadius: 12, border: 'none', background: '#111', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>Entendido</button>
           </div>
@@ -188,7 +153,7 @@ function CodeEntry({ onCard, error, setError }) {
     <Center>
       <div style={{ width: '100%', maxWidth: 360, background: '#fff', borderRadius: 24, boxShadow: '0 10px 40px rgba(0,0,0,0.12)', padding: '28px 24px', textAlign: 'center' }}>
         <div style={{ fontSize: 40, marginBottom: 6 }}>🎁</div>
-        <h1 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 800, color: '#111' }}>Tu tarjeta de sellos</h1>
+        <h1 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 800, color: '#111' }}>Tu tarjeta de puntos</h1>
         <p style={{ margin: '0 0 18px', fontSize: 13, color: '#6b7280' }}>
           Ingresa tu clave de 5 dígitos. Si es nueva, se creará tu tarjeta.
         </p>
