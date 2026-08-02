@@ -43,7 +43,7 @@ const FEATURES = [
 const PLANS = [
   { name: 'Gratis', price: '0', per: '', feats: ['Hasta 2 tiendas', 'Punto de venta', 'Gestión de productos'], pop: false },
   { name: 'SOLO', price: '11', per: '/mes', feats: ['Hasta 10 tiendas', 'Logo y colores propios', 'Multi-tienda', 'Soporte prioritario'], pop: true },
-  { name: 'Empresas', price: '25', per: '/mes', feats: ['Hasta 25 tiendas', '5 impresoras Bluetooth', 'Personalización', 'Soporte prioritario'], pop: false },
+  { name: 'Empresas', price: '50', per: '/mes', feats: ['Hasta 25 tiendas', '5 impresoras Bluetooth', 'Personalización', 'Soporte prioritario'], pop: false },
   { name: 'Personalizado', price: '99', per: '/mes', feats: ['Funciones a medida', '10 impresoras', 'Atención directa con desarrollo'], pop: false },
 ];
 

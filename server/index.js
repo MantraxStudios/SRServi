@@ -4443,7 +4443,7 @@ const SALES_NOTIFY_EMAIL = process.env.SALES_NOTIFY_EMAIL || process.env.EMAIL_U
 const SALES_FALLBACK = [
   '¡Hola! 👋 Soy Sofía, de SRServi. Te ayudo a digitalizar tu negocio: punto de venta, pedidos, inventario y más. ¿Qué tipo de local tienes?',
   '¡Genial! SRServi funciona para restaurantes, cafeterías y minimarkets. Puedes empezar gratis con hasta 2 tiendas. ¿Quieres que te agende una demo? Déjame tu nombre y WhatsApp 📲',
-  'Con gusto te cuento los planes: Gratis (US$0), SOLO (US$11/mes), Empresas (US$25/mes) y Personalizado (US$99/mes). ¿Cuántas sucursales manejas?',
+  'Con gusto te cuento los planes: Gratis (US$0), SOLO (US$11/mes), Empresas (US$50/mes) y Personalizado (US$99/mes). ¿Cuántas sucursales manejas?',
 ];
 
 // Notifica al equipo de ventas por WhatsApp + email cuando entra un lead
@@ -8131,6 +8131,14 @@ app.get('/api/store/:code/orders', async (req, res) => {
          WHERE oi.order_id = ?`,
         [order.id]
       );
+      // Normaliza un campo JSON a lista de nombres (strings), tolerando strings u objetos {name}
+      const namesOf = (raw) => {
+        try {
+          return JSON.parse(raw || '[]')
+            .map(x => (typeof x === 'string' ? x : (x?.name || '')))
+            .filter(Boolean);
+        } catch { return []; }
+      };
       orders.push({
         id: order.id,
         external_reference: order.external_reference,
@@ -8159,8 +8167,9 @@ app.get('/api/store/:code/orders', async (req, res) => {
           product_name: item.product_name,
           quantity: item.quantity,
           unit_price: parseFloat(item.unit_price),
-          selected_ingredients: JSON.parse(item.selected_ingredients || '[]'),
-          selected_extras: JSON.parse(item.selected_extras || '[]')
+          selected_ingredients: namesOf(item.selected_ingredients),
+          selected_extras: namesOf(item.selected_extras),
+          selected_complements: namesOf(item.selected_complements)
         }))
       });
     }
@@ -8873,17 +8882,25 @@ app.get('/api/getCashOrders', async (req, res) => {
     for (const order of orders) {
       const [items] = await pool.execute(
         `SELECT oi.id, oi.quantity, oi.unit_price,
-                oi.selected_extras, oi.selected_ingredients,
+                oi.selected_extras, oi.selected_ingredients, oi.selected_complements,
                 COALESCE(oi.promo_title, p.name, 'Producto eliminado') AS product_name
          FROM order_items oi
          LEFT JOIN products p ON oi.product_id = p.id
          WHERE oi.order_id = ?`,
         [order.id]
       );
+      const namesOf = (raw) => {
+        try {
+          return JSON.parse(raw || '[]')
+            .map(x => (typeof x === 'string' ? x : (x?.name || '')))
+            .filter(Boolean);
+        } catch { return []; }
+      };
       order.items = items.map(item => ({
         ...item,
-        selected_extras: (() => { try { return JSON.parse(item.selected_extras || '[]'); } catch { return []; } })(),
-        selected_ingredients: (() => { try { return JSON.parse(item.selected_ingredients || '[]'); } catch { return []; } })()
+        selected_extras: namesOf(item.selected_extras),
+        selected_ingredients: namesOf(item.selected_ingredients),
+        selected_complements: namesOf(item.selected_complements)
       }));
       order.display_number = order.order_number
         ? (order.table_number ? `${order.order_number} (Mesa: ${order.table_number})` : order.order_number)

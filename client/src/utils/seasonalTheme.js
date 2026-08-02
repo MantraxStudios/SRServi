@@ -4,19 +4,11 @@
 // Calendario curado (Chile / LatAm), determinista y sin depender de internet.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Devuelve el N-ésimo domingo de un mes (0 = enero). occurrence: 1 = primero, 2 = segundo…
-function nthSunday(year, month, occurrence) {
-  const d = new Date(year, month, 1);
-  const firstSunday = 1 + ((7 - d.getDay()) % 7);
-  return new Date(year, month, firstSunday + (occurrence - 1) * 7);
+// El festejo dura TODO el mes indicado (0 = enero, 11 = diciembre).
+function wholeMonth(now, m) {
+  return now.getMonth() === m;
 }
 
-function sameOrAfter(now, y, m, d) {
-  return now >= new Date(y, m, d, 0, 0, 0);
-}
-function sameOrBefore(now, y, m, d) {
-  return now <= new Date(y, m, d, 23, 59, 59);
-}
 // Rango que puede cruzar el fin de año (ej. 27-dic → 6-ene)
 function inRange(now, from, to) {
   const y = now.getFullYear();
@@ -33,63 +25,103 @@ function inRange(now, from, to) {
 
 // Definición de cada temporada. El orden importa: gana la primera que coincida.
 function buildThemes(now, country, forceId = null) {
-  const y = now.getFullYear();
   const isChile = !country || /chile/i.test(country);
 
+  // El festejo dura TODO su mes. El orden importa: gana la primera coincidencia,
+  // por eso las ventanas cortas que cruzan meses (Año Nuevo, Día del Trabajador)
+  // van primero para tener prioridad sobre el tema mensual que las contiene.
   const themes = [
-    {
-      id: 'navidad',
-      name: 'Navidad',
-      emoji: '🎄',
-      banner: '🎄 ¡Feliz Navidad! 🎁',
-      active: inRange(now, { m: 11, d: 1 }, { m: 11, d: 26 }),
-      colors: { primary: '#0f5132', secondary: '#ffffff', accent: '#c1121f', header: '#0f5132' },
-      decorations: ['🎄', '🎅', '❄️', '🎁', '⭐', '🦌'],
-      animation: 'fall',
-    },
+    // ── Ventanas cortas con prioridad ────────────────────────────────────────
     {
       id: 'anio-nuevo',
       name: 'Año Nuevo',
       emoji: '🎉',
       banner: '🎉 ¡Feliz Año Nuevo! ✨',
+      // Cruza el fin de año: 27-dic → 6-ene. Gana sobre Navidad y Verano.
       active: inRange(now, { m: 11, d: 27 }, { m: 0, d: 6 }),
       colors: { primary: '#141428', secondary: '#ffffff', accent: '#ffd700', header: '#141428' },
       decorations: ['🎉', '🎆', '🥂', '✨', '🎊', '🍾'],
       animation: 'fall',
     },
     {
+      id: 'dia-trabajador',
+      name: 'Día del Trabajador',
+      emoji: '🛠️',
+      banner: '👷 ¡Feliz Día del Trabajador! 🛠️',
+      // Solo el 1° de mayo (y su víspera): gana sobre el "mes de la madre".
+      active: inRange(now, { m: 3, d: 30 }, { m: 4, d: 1 }),
+      colors: { primary: '#2b2d42', secondary: '#ffffff', accent: '#ef233c', header: '#2b2d42' },
+      decorations: ['👷', '🛠️', '⚙️', '💪', '🏭', '📋'],
+      animation: 'fall',
+    },
+
+    // ── Temas de mes completo ────────────────────────────────────────────────
+    {
+      id: 'vacaciones-verano',
+      name: 'Vacaciones de Verano',
+      emoji: '🌞',
+      banner: '🌞 ¡Enero, mes de vacaciones! 🍦',
+      active: wholeMonth(now, 0), // Enero completo (Año Nuevo tiene prioridad hasta el 6)
+      colors: { primary: '#0096c7', secondary: '#ffffff', accent: '#ffb703', header: '#0096c7' },
+      decorations: ['🌞', '🏖️', '🍦', '🌊', '🕶️', '🐚'],
+      animation: 'fall',
+    },
+    {
       id: 'san-valentin',
       name: 'San Valentín',
       emoji: '❤️',
-      banner: '❤️ ¡Feliz San Valentín! 💕',
-      active: inRange(now, { m: 1, d: 8 }, { m: 1, d: 14 }),
+      banner: '❤️ ¡Febrero, mes del amor! 💕',
+      active: wholeMonth(now, 1), // Febrero completo
       colors: { primary: '#c9184a', secondary: '#ffffff', accent: '#ff8fab', header: '#c9184a' },
       decorations: ['❤️', '💕', '🌹', '💘', '💖', '😍'],
       animation: 'fall',
     },
-    // Día de la Madre — Chile: segundo domingo de mayo (± esa semana)
-    (() => {
-      const md = nthSunday(y, 4, 2);
-      const from = new Date(y, 4, md.getDate() - 3);
-      const to = new Date(y, 4, md.getDate());
-      return {
-        id: 'dia-madre',
-        name: 'Día de la Madre',
-        emoji: '💐',
-        banner: '💐 ¡Feliz Día de la Madre! 💖',
-        active: now >= new Date(from.getFullYear(), from.getMonth(), from.getDate(), 0, 0, 0) &&
-                now <= new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59),
-        colors: { primary: '#b5179e', secondary: '#ffffff', accent: '#ff8fab', header: '#b5179e' },
-        decorations: ['💐', '🌸', '💖', '🌷', '👩', '💗'],
-        animation: 'fall',
-      };
-    })(),
+    {
+      id: 'dia-madre',
+      name: 'Día de la Madre',
+      emoji: '💐',
+      banner: '💐 ¡Mayo, mes de la Madre! 💖',
+      active: wholeMonth(now, 4), // Mayo completo
+      colors: { primary: '#b5179e', secondary: '#ffffff', accent: '#ff8fab', header: '#b5179e' },
+      decorations: ['💐', '🌸', '💖', '🌷', '👩', '💗'],
+      animation: 'fall',
+    },
+    {
+      id: 'dia-padre',
+      name: 'Día del Padre',
+      emoji: '👔',
+      banner: '👔 ¡Junio, mes del Padre! 💙',
+      active: wholeMonth(now, 5), // Junio completo
+      colors: { primary: '#1d3557', secondary: '#ffffff', accent: '#457b9d', header: '#1d3557' },
+      decorations: ['👔', '🎁', '⚽', '🧔', '💙', '🍺'],
+      animation: 'fall',
+    },
+    {
+      id: 'vacaciones-invierno',
+      name: 'Vacaciones de Invierno',
+      emoji: '❄️',
+      banner: '❄️ ¡Julio, mes de vacaciones de invierno! ☕',
+      active: wholeMonth(now, 6), // Julio completo: receso escolar de invierno en Chile
+      colors: { primary: '#1e3a8a', secondary: '#ffffff', accent: '#38bdf8', header: '#1e3a8a' },
+      decorations: ['❄️', '☃️', '🧣', '☕', '🧤', '⛄'],
+      animation: 'fall',
+    },
+    {
+      id: 'dia-nino',
+      name: 'Día del Niño',
+      emoji: '🎈',
+      banner: '🎈 ¡Agosto, mes del Niño! 🧸',
+      active: wholeMonth(now, 7), // Agosto completo
+      colors: { primary: '#7209b7', secondary: '#ffffff', accent: '#f72585', header: '#7209b7' },
+      decorations: ['🎈', '🧸', '🎠', '🍭', '🎮', '🎨'],
+      animation: 'fall',
+    },
     {
       id: 'fiestas-patrias',
       name: 'Fiestas Patrias',
       emoji: '🇨🇱',
-      banner: '🇨🇱 ¡Viva Chile! 🥟',
-      active: isChile && inRange(now, { m: 8, d: 1 }, { m: 8, d: 20 }),
+      banner: '🇨🇱 ¡Septiembre, mes de la Patria! 🥟',
+      active: isChile && wholeMonth(now, 8), // Septiembre completo (Chile)
       colors: { primary: '#0033a0', secondary: '#ffffff', accent: '#da291c', header: '#0033a0' },
       decorations: ['🇨🇱', '🎊', '🥟', '🍷', '🪁', '⭐'],
       animation: 'fall',
@@ -98,87 +130,30 @@ function buildThemes(now, country, forceId = null) {
       id: 'halloween',
       name: 'Halloween',
       emoji: '🎃',
-      banner: '🎃 ¡Feliz Halloween! 👻',
-      active: inRange(now, { m: 9, d: 24 }, { m: 9, d: 31 }),
+      banner: '🎃 ¡Octubre, mes del terror! 👻',
+      active: wholeMonth(now, 9), // Octubre completo
       colors: { primary: '#1a1a1a', secondary: '#ffffff', accent: '#ff7518', header: '#1a1a1a' },
       decorations: ['🎃', '👻', '🦇', '🕷️', '🕸️', '💀'],
       animation: 'fall',
     },
     {
-      id: 'vacaciones-verano',
-      name: 'Vacaciones de Verano',
-      emoji: '🌞',
-      banner: '🌞 ¡Vacaciones de Verano! 🍦',
-      // Tras Año Nuevo (que termina el 6-ene) y hasta principios de febrero.
-      active: inRange(now, { m: 0, d: 7 }, { m: 1, d: 7 }),
-      colors: { primary: '#0096c7', secondary: '#ffffff', accent: '#ffb703', header: '#0096c7' },
-      decorations: ['🌞', '🏖️', '🍦', '🌊', '🕶️', '🐚'],
-      animation: 'fall',
-    },
-    {
-      id: 'dia-trabajador',
-      name: 'Día del Trabajador',
-      emoji: '🛠️',
-      banner: '👷 ¡Feliz Día del Trabajador! 🛠️',
-      active: inRange(now, { m: 3, d: 28 }, { m: 4, d: 1 }),
-      colors: { primary: '#2b2d42', secondary: '#ffffff', accent: '#ef233c', header: '#2b2d42' },
-      decorations: ['👷', '🛠️', '⚙️', '💪', '🏭', '📋'],
-      animation: 'fall',
-    },
-    // Día del Padre — Chile: tercer domingo de junio (± esa semana)
-    (() => {
-      const md = nthSunday(y, 5, 3);
-      const from = new Date(y, 5, md.getDate() - 3);
-      const to = new Date(y, 5, md.getDate());
-      return {
-        id: 'dia-padre',
-        name: 'Día del Padre',
-        emoji: '👔',
-        banner: '👔 ¡Feliz Día del Padre! 💙',
-        active: now >= new Date(from.getFullYear(), from.getMonth(), from.getDate(), 0, 0, 0) &&
-                now <= new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59),
-        colors: { primary: '#1d3557', secondary: '#ffffff', accent: '#457b9d', header: '#1d3557' },
-        decorations: ['👔', '🎁', '⚽', '🧔', '💙', '🍺'],
-        animation: 'fall',
-      };
-    })(),
-    {
-      id: 'vacaciones-invierno',
-      name: 'Vacaciones de Invierno',
-      emoji: '❄️',
-      banner: '❄️ ¡Vacaciones de Invierno! ☕',
-      // Julio completo: receso escolar de invierno en Chile.
-      active: inRange(now, { m: 6, d: 1 }, { m: 6, d: 31 }),
-      colors: { primary: '#1e3a8a', secondary: '#ffffff', accent: '#38bdf8', header: '#1e3a8a' },
-      decorations: ['❄️', '☃️', '🧣', '☕', '🧤', '⛄'],
-      animation: 'fall',
-    },
-    // Día del Niño — Chile: segundo domingo de agosto (± esa semana)
-    (() => {
-      const md = nthSunday(y, 7, 2);
-      const from = new Date(y, 7, md.getDate() - 3);
-      const to = new Date(y, 7, md.getDate());
-      return {
-        id: 'dia-nino',
-        name: 'Día del Niño',
-        emoji: '🎈',
-        banner: '🎈 ¡Feliz Día del Niño! 🧸',
-        active: now >= new Date(from.getFullYear(), from.getMonth(), from.getDate(), 0, 0, 0) &&
-                now <= new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59),
-        colors: { primary: '#7209b7', secondary: '#ffffff', accent: '#f72585', header: '#7209b7' },
-        decorations: ['🎈', '🧸', '🎠', '🍭', '🎮', '🎨'],
-        animation: 'fall',
-      };
-    })(),
-    {
       id: 'primavera',
       name: 'Primavera',
       emoji: '🌸',
-      banner: '🌸 ¡Bienvenida la Primavera! 🌷',
-      // Después de Fiestas Patrias, entrada de la primavera.
-      active: inRange(now, { m: 8, d: 21 }, { m: 8, d: 30 }),
+      banner: '🌸 ¡Noviembre, mes de la primavera! 🌷',
+      active: wholeMonth(now, 10), // Noviembre completo
       colors: { primary: '#2d6a4f', secondary: '#ffffff', accent: '#ff70a6', header: '#2d6a4f' },
       decorations: ['🌸', '🌷', '🌼', '🐝', '🦋', '🌻'],
+      animation: 'fall',
+    },
+    {
+      id: 'navidad',
+      name: 'Navidad',
+      emoji: '🎄',
+      banner: '🎄 ¡Diciembre, mes de Navidad! 🎁',
+      active: wholeMonth(now, 11), // Diciembre completo (Año Nuevo tiene prioridad desde el 27)
+      colors: { primary: '#0f5132', secondary: '#ffffff', accent: '#c1121f', header: '#0f5132' },
+      decorations: ['🎄', '🎅', '❄️', '🎁', '⭐', '🦌'],
       animation: 'fall',
     },
   ];

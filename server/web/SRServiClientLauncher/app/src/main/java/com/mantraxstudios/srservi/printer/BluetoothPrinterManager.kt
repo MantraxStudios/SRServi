@@ -287,6 +287,15 @@ class BluetoothPrinterManager(private val context: Context) {
                     builder.addNewLine()
                 }
             }
+
+            if (item.selectedComplements.isNotEmpty()) {
+                builder.addText("  Complementos:")
+                builder.addNewLine()
+                for (complement in item.selectedComplements) {
+                    builder.addText("  - $complement")
+                    builder.addNewLine()
+                }
+            }
         }
 
         builder.addSeparator()

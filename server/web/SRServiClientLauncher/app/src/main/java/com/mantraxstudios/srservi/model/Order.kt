@@ -41,6 +41,7 @@ data class OrderItem(
     @SerializedName("product_name") val productName: String,
     val quantity: Int,
     @SerializedName("unit_price") val unitPrice: Double,
-    @SerializedName("selected_ingredients") val selectedIngredients: List<String>,
-    @SerializedName("selected_extras") val selectedExtras: List<String>
+    @SerializedName("selected_ingredients") val selectedIngredients: List<String> = emptyList(),
+    @SerializedName("selected_extras") val selectedExtras: List<String> = emptyList(),
+    @SerializedName("selected_complements") val selectedComplements: List<String> = emptyList()
 )

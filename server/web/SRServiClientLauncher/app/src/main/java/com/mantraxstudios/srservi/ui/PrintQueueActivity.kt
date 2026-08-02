@@ -413,6 +413,9 @@ class PrintQueueActivity : AppCompatActivity() {
                 if (item.selectedExtras.isNotEmpty()) {
                     text.append("\n  Extras: ${item.selectedExtras.joinToString(", ")}")
                 }
+                if (item.selectedComplements.isNotEmpty()) {
+                    text.append("\n  Complementos: ${item.selectedComplements.joinToString(", ")}")
+                }
 
                 itemView.text = text.toString()
                 itemView.setTextColor(getColor(R.color.text_primary))

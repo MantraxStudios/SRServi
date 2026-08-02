@@ -1564,7 +1564,7 @@ async function migrateTables() {
           INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
           ('Gratis', 'Plan gratuito básico', 1, 0, 0, '["1 tienda máxima", "Gestión de productos", "Punto de venta"]'),
           ('SOLO', 'Plan para negocios en crecimiento', 3, 25.00, 25.00, '["1 impresora Bluetooth en la app", "3 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
-          ('Empresas', 'Plan para empresas con múltiples sucursales', 25, 25.00, 25.00, '["5 impresoras Bluetooth en la app", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
+          ('Empresas', 'Plan para empresas con múltiples sucursales', 25, 50.00, 50.00, '["5 impresoras Bluetooth en la app", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
           ('Personalizado', 'Plan con funciones a medida y soporte dedicado', 25, 99.00, 99.00, '["10 impresoras Bluetooth en la app", "Funciones personalizadas a pedido", "Soporte prioritario dedicado", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Atención directa con el equipo de desarrollo"]')
         `);
         console.log('✅ Planes por defecto insertados');
@@ -1604,12 +1604,12 @@ async function migrateTables() {
         if (empresasPlans[0].count === 0) {
           await pool.execute(`
             INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
-            ('Empresas', 'Plan para empresas con múltiples sucursales', 25, 25.00, 25.00, '["5 impresoras Bluetooth en la app", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
+            ('Empresas', 'Plan para empresas con múltiples sucursales', 25, 50.00, 50.00, '["5 impresoras Bluetooth en la app", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
           `);
           console.log('✅ Plan Empresas insertado');
         } else {
           await pool.execute(
-            "UPDATE plans SET max_stores = 25, price_monthly = 25.00, price_yearly = 25.00, features = '[\"5 impresoras Bluetooth en la app\", \"25 tiendas máximo\", \"Logo superior personalizado\", \"Cambio de colores\", \"Multi tiendas\", \"Soporte prioritario\"]' WHERE name = ?",
+            "UPDATE plans SET max_stores = 25, price_monthly = 50.00, price_yearly = 50.00, features = '[\"5 impresoras Bluetooth en la app\", \"25 tiendas máximo\", \"Logo superior personalizado\", \"Cambio de colores\", \"Multi tiendas\", \"Soporte prioritario\"]' WHERE name = ?",
             ['Empresas']
           );
           console.log('ℹ️ Plan Empresas actualizado');
