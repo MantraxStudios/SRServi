@@ -515,6 +515,23 @@ function SuperadminDashboard() {
     }
   };
 
+  // Habilita/deshabilita el acceso a Cartelería (CCTV) sin premium para un usuario.
+  const handleToggleCctv = async (user) => {
+    const token = localStorage.getItem('superadminToken');
+    try {
+      const res = await fetch(API + '/api/superadmin/users/' + user.id + '/cctv-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ enabled: !user.cctv_access })
+      });
+      if (res.ok) {
+        setUsers(prev => prev.map(u => u.id === user.id ? { ...u, cctv_access: !user.cctv_access } : u));
+      }
+    } catch (error) {
+      console.error('Error toggling cctv access:', error);
+    }
+  };
+
   const handleDeleteUser = async (userId) => {
     const token = localStorage.getItem('superadminToken');
     try {
@@ -1233,6 +1250,7 @@ function SuperadminDashboard() {
                           <div className="sa-item-card-actions">
                             <button className="btn btn-sm btn-icon" onClick={() => handleEditUser(user)} title="Editar"><FontAwesomeIcon icon={faEdit} /></button>
                             <button className={`btn btn-sm btn-icon ${user.is_banned ? 'btn-unban' : 'btn-ban'}`} onClick={() => handleToggleBanUser(user)} title={user.is_banned ? 'Desbanear' : 'Banear'}><FontAwesomeIcon icon={user.is_banned ? faCheck : faBan} /></button>
+                            <button className="btn btn-sm btn-icon" onClick={() => handleToggleCctv(user)} title={user.cctv_access ? 'Quitar acceso a Cartelería' : 'Dar acceso a Cartelería (sin premium)'} style={{ background: user.cctv_access ? '#0ea5e9' : '#e5e7eb', color: user.cctv_access ? '#fff' : '#71717a', border: 'none' }}><FontAwesomeIcon icon={faTv} /></button>
                             <button className="btn btn-sm btn-icon btn-delete" onClick={() => setShowDeleteConfirm({ type: 'user', id: user.id, name: user.username })} title="Eliminar"><FontAwesomeIcon icon={faTrash} /></button>
                             <button className="btn btn-sm btn-icon" onClick={() => handleImpersonate(user)} title="Ingresar como este usuario" style={{ background: '#7c3aed', color: '#fff', border: 'none' }}><FontAwesomeIcon icon={faUserSecret} /></button>
                             {getWhatsAppUrl(user.phone) && (
@@ -1294,6 +1312,7 @@ function SuperadminDashboard() {
                               <td className="text-center">
                                 <button className="btn btn-sm btn-icon" onClick={() => handleEditUser(user)} title="Editar"><FontAwesomeIcon icon={faEdit} /></button>
                                 <button className={`btn btn-sm btn-icon ${user.is_banned ? 'btn-unban' : 'btn-ban'}`} onClick={() => handleToggleBanUser(user)} title={user.is_banned ? 'Desbanear' : 'Banear'}><FontAwesomeIcon icon={user.is_banned ? faCheck : faBan} /></button>
+                                <button className="btn btn-sm btn-icon" onClick={() => handleToggleCctv(user)} title={user.cctv_access ? 'Quitar acceso a Cartelería' : 'Dar acceso a Cartelería (sin premium)'} style={{ background: user.cctv_access ? '#0ea5e9' : '#e5e7eb', color: user.cctv_access ? '#fff' : '#71717a', border: 'none' }}><FontAwesomeIcon icon={faTv} /></button>
                                 <button className="btn btn-sm btn-icon btn-delete" onClick={() => setShowDeleteConfirm({ type: 'user', id: user.id, name: user.username })} title="Eliminar"><FontAwesomeIcon icon={faTrash} /></button>
                                 <button className="btn btn-sm btn-icon" onClick={() => handleImpersonate(user)} title="Ingresar como este usuario" style={{ background: '#7c3aed', color: '#fff', border: 'none' }}><FontAwesomeIcon icon={faUserSecret} /></button>
                                 {getWhatsAppUrl(user.phone) && (

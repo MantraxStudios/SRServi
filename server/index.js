@@ -170,6 +170,7 @@ import {
   getSubscriptionHistory,
   getUserPlan,
   getUserCapabilities,
+  setUserCctvAccess,
   planCapabilities,
   FREE_MAX_PRODUCTS_PER_STORE,
   canUserCreateStore,
@@ -2689,7 +2690,7 @@ app.get('/api/my-plan', authenticateToken, async (req, res) => {
     res.json({
       plan,
       has_claimed_trial: hasTrial,
-      capabilities: planCapabilities(plan?.plan_name),
+      capabilities: await getUserCapabilities(req.user.id),
       ...storeInfo
     });
   } catch (error) {
@@ -4807,6 +4808,16 @@ app.put('/api/superadmin/users/:id', authenticateSuperadminToken, async (req, re
     }
     await updateUserBySuperadmin(id, { email, password, is_banned });
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Superadmin: habilitar/deshabilitar acceso a Cartelería (CCTV) sin premium para un usuario.
+app.post('/api/superadmin/users/:id/cctv-access', authenticateSuperadminToken, async (req, res) => {
+  try {
+    await setUserCctvAccess(parseInt(req.params.id), !!req.body.enabled);
+    res.json({ success: true, enabled: !!req.body.enabled });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

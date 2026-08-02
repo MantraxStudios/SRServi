@@ -1383,6 +1383,11 @@ async function migrateTables() {
     try {
       const [userCols] = await pool.execute('SHOW COLUMNS FROM users');
       const userColNames = userCols.map(c => c.Field);
+      if (!userColNames.includes('cctv_access')) {
+        console.log('⚠️ Agregando columna cctv_access a tabla users...');
+        await pool.execute('ALTER TABLE users ADD COLUMN cctv_access BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna cctv_access agregada a users');
+      }
       if (!userColNames.includes('is_banned')) {
         console.log('⚠️ Agregando columna is_banned a tabla users...');
         await pool.execute('ALTER TABLE users ADD COLUMN is_banned BOOLEAN NOT NULL DEFAULT FALSE');
@@ -1558,7 +1563,7 @@ async function migrateTables() {
         await pool.execute(`
           INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
           ('Gratis', 'Plan gratuito básico', 1, 0, 0, '["1 tienda máxima", "Gestión de productos", "Punto de venta"]'),
-          ('SOLO', 'Plan para negocios en crecimiento', 3, 11.00, 11.00, '["1 impresora Bluetooth en la app", "3 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
+          ('SOLO', 'Plan para negocios en crecimiento', 3, 25.00, 25.00, '["1 impresora Bluetooth en la app", "3 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
           ('Empresas', 'Plan para empresas con múltiples sucursales', 25, 25.00, 25.00, '["5 impresoras Bluetooth en la app", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
           ('Personalizado', 'Plan con funciones a medida y soporte dedicado', 25, 99.00, 99.00, '["10 impresoras Bluetooth en la app", "Funciones personalizadas a pedido", "Soporte prioritario dedicado", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Atención directa con el equipo de desarrollo"]')
         `);
@@ -1584,15 +1589,15 @@ async function migrateTables() {
         if (remainingPlans[0].count === 0) {
           await pool.execute(`
             INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
-            ('SOLO', 'Plan para negocios en crecimiento', 3, 11.00, 11.00, '["1 impresora Bluetooth en la app", "3 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
+            ('SOLO', 'Plan para negocios en crecimiento', 3, 25.00, 25.00, '["1 impresora Bluetooth en la app", "3 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
           `);
           console.log('✅ Plan SOLO insertado');
         } else {
           await pool.execute(
-            'UPDATE plans SET max_stores = 3, price_monthly = 11.00, price_yearly = 11.00 WHERE name = ?',
+            'UPDATE plans SET max_stores = 3, price_monthly = 25.00, price_yearly = 25.00 WHERE name = ?',
             ['SOLO']
           );
-          console.log('ℹ️ Plan SOLO actualizado (máx. 3 tiendas, $11/$11)');
+          console.log('ℹ️ Plan SOLO actualizado (máx. 3 tiendas, $25/$25)');
         }
 
         const [empresasPlans] = await pool.execute("SELECT COUNT(*) as count FROM plans WHERE name = 'Empresas'");
@@ -5064,7 +5069,7 @@ export async function authenticateSuperadmin(email, password) {
 
 export async function getAllUsers() {
   const [rows] = await pool.execute(`
-    SELECT u.id, u.username, u.email, u.business_name, u.code, u.is_banned, u.created_at, u.last_active, u.country, u.phone,
+    SELECT u.id, u.username, u.email, u.business_name, u.code, u.is_banned, u.cctv_access, u.created_at, u.last_active, u.country, u.phone,
            COUNT(s.id) as store_count
     FROM users u
     LEFT JOIN stores s ON u.id = s.user_id
@@ -5369,9 +5374,21 @@ export function planCapabilities(planName) {
 }
 
 // Devuelve las capacidades del plan activo de un usuario (Gratis si no tiene).
+// Además respeta permisos otorgados por el superadmin (ej. cartelería sin premium).
 export async function getUserCapabilities(userId) {
   const plan = await getUserPlan(userId);
-  return planCapabilities(plan?.plan_name);
+  const caps = planCapabilities(plan?.plan_name);
+  // Acceso a Cartelería (CCTV) sin requerir plan de pago, si el superadmin lo habilitó.
+  try {
+    const [rows] = await pool.execute('SELECT cctv_access FROM users WHERE id = ?', [userId]);
+    if (rows[0]?.cctv_access) caps.cctv = true;
+  } catch { /* columna aún no migrada */ }
+  return caps;
+}
+
+// El superadmin habilita/deshabilita el acceso a Cartelería sin premium para un usuario.
+export async function setUserCctvAccess(userId, enabled) {
+  await pool.execute('UPDATE users SET cctv_access = ? WHERE id = ?', [enabled ? 1 : 0, userId]);
 }
 
 export async function assignPlanToUser(userId, planId, billingCycle = 'monthly') {

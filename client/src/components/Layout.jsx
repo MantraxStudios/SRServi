@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useRole } from '../context/RoleContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import MandatoryFeedbackModal from './MandatoryFeedbackModal';
+import AccessGate from './AccessGate';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -124,6 +125,7 @@ function Layout() {
   const { can, isSubAccount } = useRole() || { can: () => true, isSubAccount: false };
   const [isPremiumUser, setIsPremiumUser] = useState(false);
   const [planCaps, setPlanCaps] = useState(null);
+  const [accessBlocked, setAccessBlocked] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const isEditorMode = location.pathname.startsWith('/admin/editor');
@@ -278,6 +280,10 @@ function Layout() {
           const planName = data?.plan?.plan_name || data?.plan?.name || '';
           setIsPremiumUser(!!planName && planName !== 'Gratis');
           setPlanCaps(data?.capabilities || null);
+          // Sin plan activo y sin acceso especial (ej. cartelería) → cuenta bloqueada.
+          const hasPlan = !!data?.plan;
+          const hasSpecial = !!data?.capabilities?.cctv;
+          setAccessBlocked(!hasPlan && !hasSpecial);
         })
         .catch(() => {});
     }
@@ -562,6 +568,12 @@ function Layout() {
 
   return (
     <StoreContext.Provider value={{ selectedStore, stores, selectStore, fetchStores, colors, menuOpen: settingsOpen, setMenuOpen: setSettingsOpen, storeLoading: loading, isPremiumUser, planCaps }}>
+
+      {/* Cuenta bloqueada (sin plan): formulario de acceso gratis o contratar plan.
+          Se permite ver la página de Planes para poder pagar. */}
+      {accessBlocked && location.pathname !== '/admin/plans' && (
+        <AccessGate token={token} onGoToPlans={() => navigate('/admin/plans')} onLogout={logout} />
+      )}
 
       {/* Backdrop para paneles y store dropdown */}
       {(settingsOpen || accountOpen || storeDropdownOpen) && (
