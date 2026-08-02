@@ -10224,9 +10224,9 @@ html body .store-container .store-product-card * {
     font-size: 14px;
   }
 
-  /* Grilla de edición: 2 columnas, tarjetas más grandes */
+  /* Grilla de edición: siempre 3 columnas (igual que la vista del cliente) */
   .store-body.editing .products-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 12px;
   }
 
