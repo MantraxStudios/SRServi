@@ -6851,15 +6851,26 @@ function Store() {
 
       {hasProducts && !adminEditToken && (
       <div className="cart-bar">
-        <button
-          className="cart-bar-ia"
-          onClick={() => setGuideOpen(true)}
-          aria-label="Asistente de compra"
-          title="¿Necesitas ayuda?"
-        >
-          <FontAwesomeIcon icon={faRobot} />
-          <span className="cart-bar-ia-ping" />
-        </button>
+        {voiceSupported ? (
+          <button
+            className={`cart-bar-ia${voiceListening ? ' listening' : ''}`}
+            onClick={() => { if (voiceListening) guideRef.current?.stop?.(); else guideRef.current?.startVoiceDirect?.(); }}
+            aria-label="Pedir hablando"
+            title="Pedir hablando"
+          >
+            <FontAwesomeIcon icon={faMicrophone} />
+          </button>
+        ) : (
+          <button
+            className="cart-bar-ia"
+            onClick={() => setGuideOpen(true)}
+            aria-label="Asistente de compra"
+            title="¿Necesitas ayuda?"
+          >
+            <FontAwesomeIcon icon={faRobot} />
+            <span className="cart-bar-ia-ping" />
+          </button>
+        )}
         <div className="cart-bar-left" onClick={() => setCartOpen(true)}>
           <div className="cart-bar-icon">
             <FontAwesomeIcon icon={faShoppingCart} />
@@ -10367,8 +10378,20 @@ function Store() {
             {/* Full-screen background media (imagen o video) */}
             {screensaverCfg.media_url && (ssIsVideo
               ? <video
+                  // El atributo `muted` de React no se refleja de forma confiable en el DOM
+                  // antes de que el navegador decida el autoplay, así que lo forzamos por ref
+                  // (muted + defaultMuted) y disparamos play() manualmente. Sin esto el video
+                  // no arranca (autoplay sin muted está bloqueado en móviles/WebView).
+                  ref={(el) => {
+                    if (!el) return;
+                    el.muted = true;
+                    el.defaultMuted = true;
+                    const p = el.play();
+                    if (p && p.catch) p.catch(() => {});
+                  }}
                   src={API + screensaverCfg.media_url}
-                  autoPlay loop muted playsInline
+                  autoPlay loop muted playsInline preload="auto"
+                  onCanPlay={(e) => { const p = e.currentTarget.play(); if (p && p.catch) p.catch(() => {}); }}
                   style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
                 />
               : <img
@@ -10378,8 +10401,9 @@ function Store() {
                 />
             )}
 
-            {/* Dark overlay gradient */}
-            <div style={{ position: 'absolute', inset: 0, background: screensaverCfg.media_url ? 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 100%)' : 'linear-gradient(160deg, #0a0a0a 0%, #111 100%)' }} />
+            {/* Overlay: sin media = fondo oscuro sólido; con media (foto/video) solo un
+                oscurecido sutil abajo para que se lea el botón, dejando el video limpio. */}
+            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: screensaverCfg.media_url ? 'linear-gradient(to bottom, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%)' : 'linear-gradient(160deg, #0a0a0a 0%, #111 100%)' }} />
 
             {/* ══════════ Layout personalizado (editor) ══════════ */}
             {hasCustom ? (
@@ -10406,13 +10430,13 @@ function Store() {
 
               {/* Nombre tienda */}
               {screensaverCfg.store_name && (
-                <div style={{ fontSize: 'clamp(28px,5.5vw,62px)', fontWeight: '900', color: '#fff', textAlign: 'center', lineHeight: 1.1, letterSpacing: '-0.5px', marginBottom: 18 }}>
+                <div style={{ fontSize: 'clamp(28px,5.5vw,62px)', fontWeight: '900', color: '#fff', textAlign: 'center', lineHeight: 1.1, letterSpacing: '-0.5px', marginBottom: 18, textShadow: '0 2px 18px rgba(0,0,0,0.65)' }}>
                   {screensaverCfg.store_name}
                 </div>
               )}
 
               {/* Llamado a la acción central */}
-              <div style={{ fontSize: 'clamp(20px,3.5vw,34px)', fontWeight: '900', color: '#D4AF37', textAlign: 'center', letterSpacing: '0.5px', marginBottom: 24 }}>
+              <div style={{ fontSize: 'clamp(20px,3.5vw,34px)', fontWeight: '900', color: '#D4AF37', textAlign: 'center', letterSpacing: '0.5px', marginBottom: 24, textShadow: '0 2px 16px rgba(0,0,0,0.7)' }}>
                 HOLA!! COMPRA AQUÍ
               </div>
 
@@ -11213,26 +11237,6 @@ function Store() {
         );
       })()}
 
-      {/* Botón de micrófono directo: el cliente habla y el pedido se agrega al carrito
-          SIN abrir el chat. */}
-      {voiceSupported && (store?.products?.length > 0) && !editMode && !restaurantView && !ticketMode && !guideOpen && !anyModalOpen && (
-        <button
-          onClick={() => { if (voiceListening) guideRef.current?.stop?.(); else guideRef.current?.startVoiceDirect?.(); }}
-          aria-label="Pedir hablando"
-          style={{
-            position: 'fixed', bottom: 92, right: 16, zIndex: 9994,
-            display: 'flex', alignItems: 'center', gap: 10, height: 56, padding: '0 22px 0 18px',
-            borderRadius: 999, border: 'none', cursor: 'pointer',
-            background: voiceListening ? '#ef4444' : colors.accent, color: voiceListening ? '#fff' : '#1a1a1a',
-            fontWeight: 800, fontSize: 15, fontFamily: 'inherit',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
-            animation: voiceListening ? 'sv-rec 1s infinite' : 'none',
-          }}
-        >
-          <FontAwesomeIcon icon={faMicrophone} style={{ fontSize: 20 }} />
-          {voiceListening ? 'Te escucho…' : 'Pedir hablando'}
-        </button>
-      )}
 
       {/* Capa de escucha directa + confirmación (sin chat) */}
       {(voiceListening || voiceResult) && !guideOpen && (

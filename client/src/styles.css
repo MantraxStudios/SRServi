@@ -2786,15 +2786,18 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* En modo edición mostramos el MISMO formato que ve el cliente en la tablet:
-   siempre 3 columnas, en todas las pantallas (no más columnas chicas). */
+   siempre 3 columnas, en todas las pantallas (no más columnas chicas).
+   minmax(0,1fr) evita que los tracks crezcan por el contenido y desborden. */
 .store-body.editing .products-grid {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 @media (min-width: 1024px) {
   .store-body.editing .products-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -3330,6 +3333,12 @@ html body .store-container .store-product-card * {
   transition: transform var(--transition);
 }
 .cart-bar-ia:hover { transform: scale(1.08); }
+/* Estado grabando (pedido por voz activo): rojo + pulso */
+.cart-bar-ia.listening {
+  background: #ef4444;
+  color: #fff;
+  animation: cart-mic-rec 1s infinite;
+}
 .cart-bar-ia-ping {
   position: absolute;
   top: -1px;
@@ -10224,10 +10233,11 @@ html body .store-container .store-product-card * {
     font-size: 14px;
   }
 
-  /* Grilla de edición: siempre 3 columnas (igual que la vista del cliente) */
+  /* Grilla de edición: siempre 3 columnas (igual que la vista del cliente).
+     minmax(0,1fr) + gap chico para que quepan en el ancho del teléfono sin desbordar. */
   .store-body.editing .products-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
   }
 
   /* Modal de producto del editor a pantalla casi completa */
