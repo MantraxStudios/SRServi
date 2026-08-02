@@ -3427,75 +3427,67 @@ function SuperadminDashboard() {
         </div>
       )}
       {showPremiumModal && premiumTarget && (
-        <div className="modal-overlay" onClick={() => setShowPremiumModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">Asignar Premium</h3>
-              <button className="modal-close" onClick={() => setShowPremiumModal(false)}>&times;</button>
-            </div>
-
-            <div style={{ marginBottom: '12px', padding: '10px', background: '#f9f9f9', borderRadius: '8px' }}>
-              <div style={{ fontWeight: '700' }}>{premiumTarget.username}</div>
-              <div style={{ fontSize: '13px', color: '#888' }}>{premiumTarget.email}</div>
-              <div style={{ fontSize: '12px', color: '#aaa' }}>Plan actual: {premiumTarget.current_plan || 'Gratis'}</div>
-            </div>
-
-            <div className="form-group">
-              <label>Plan</label>
-              <select
-                value={premiumPlanId}
-                onChange={(e) => setPremiumPlanId(parseInt(e.target.value))}
-                style={{ width: '100%', padding: '10px', border: '2px solid #e0e0e0', borderRadius: '8px' }}
-              >
-                {premiumPlans.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group" style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '8px' }}>
-                <input
-                  type="radio"
-                  checked={premiumForever}
-                  onChange={() => setPremiumForever(true)}
-                />
-                <span style={{ fontWeight: '600' }}>Para siempre</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <input
-                  type="radio"
-                  checked={!premiumForever}
-                  onChange={() => setPremiumForever(false)}
-                />
-                <span style={{ fontWeight: '600' }}>Hasta una fecha</span>
-              </label>
-            </div>
-
-            {!premiumForever && (
-              <div className="form-group">
-                <label>Fecha de vencimiento</label>
-                <input
-                  type="date"
-                  value={premiumDate}
-                  onChange={(e) => setPremiumDate(e.target.value)}
-                  style={{ width: '100%', padding: '10px', border: '2px solid #e0e0e0', borderRadius: '8px' }}
-                />
+        <div onClick={() => setShowPremiumModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(9,9,11,0.6)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 430, background: '#fff', borderRadius: 20, overflow: 'hidden', boxShadow: '0 24px 70px rgba(0,0,0,0.4)' }}>
+            {/* Header con degradado dorado */}
+            <div style={{ background: 'linear-gradient(135deg,#1a1a1a,#000)', padding: '20px 22px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#e6c15a,#b8952d)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>👑</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: '#fff', fontWeight: 800, fontSize: 17 }}>Asignar plan</div>
+                <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>Otorgar un plan de pago a este usuario</div>
               </div>
-            )}
+              <button onClick={() => setShowPremiumModal(false)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: 30, height: 30, borderRadius: 8, cursor: 'pointer', fontSize: 16 }}>✕</button>
+            </div>
 
-            <div className="flex gap-3 justify-end modal-actions">
-              <button className="btn btn-secondary flex-1" onClick={() => setShowPremiumModal(false)}>
-                Cancelar
-              </button>
-              <button
-                className="btn flex-1"
-                style={{ background: '#D4AF37', color: '#fff', border: 'none' }}
-                onClick={handleAssignPremium}
-                disabled={!premiumForever && !premiumDate}
-              >
-                Asignar Premium
-              </button>
+            <div style={{ padding: 22 }}>
+              {/* Usuario */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: '#f8fafc', borderRadius: 12, marginBottom: 18, border: '1px solid #f1f5f9' }}>
+                <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#111', color: '#D4AF37', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 16, flexShrink: 0 }}>
+                  {(premiumTarget.username || '?').charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{premiumTarget.username}</div>
+                  <div style={{ fontSize: 12.5, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{premiumTarget.email}</div>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, background: '#f1f5f9', color: '#475569', borderRadius: 20, padding: '3px 10px', flexShrink: 0 }}>{premiumTarget.current_plan || 'Gratis'}</span>
+              </div>
+
+              {/* Plan */}
+              <label style={{ fontSize: 12.5, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 8 }}>Plan a asignar</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+                {premiumPlans.map(p => {
+                  const sel = String(premiumPlanId) === String(p.id);
+                  return (
+                    <button key={p.id} onClick={() => setPremiumPlanId(p.id)}
+                      style={{ flex: '1 1 40%', minWidth: 120, padding: '11px 12px', borderRadius: 12, cursor: 'pointer', textAlign: 'left',
+                        border: sel ? '2px solid #D4AF37' : '1.5px solid #e5e7eb', background: sel ? '#fffdf5' : '#fff' }}>
+                      <div style={{ fontWeight: 800, color: '#0f172a', fontSize: 14 }}>{p.name}</div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>${p.price_monthly}/mes</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Duración */}
+              <label style={{ fontSize: 12.5, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 8 }}>Duración</label>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                <button onClick={() => setPremiumForever(true)} style={{ flex: 1, padding: '10px', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 13, border: premiumForever ? '2px solid #D4AF37' : '1.5px solid #e5e7eb', background: premiumForever ? '#fffdf5' : '#fff', color: '#0f172a' }}>♾️ Para siempre</button>
+                <button onClick={() => setPremiumForever(false)} style={{ flex: 1, padding: '10px', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 13, border: !premiumForever ? '2px solid #D4AF37' : '1.5px solid #e5e7eb', background: !premiumForever ? '#fffdf5' : '#fff', color: '#0f172a' }}>📅 Hasta fecha</button>
+              </div>
+
+              {!premiumForever && (
+                <input type="date" value={premiumDate} onChange={(e) => setPremiumDate(e.target.value)}
+                  style={{ width: '100%', padding: '11px 12px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, outline: 'none', boxSizing: 'border-box', marginBottom: 4 }} />
+              )}
+
+              {/* Acciones */}
+              <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+                <button onClick={() => setShowPremiumModal(false)} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #e5e7eb', background: '#fff', color: '#475569', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
+                <button onClick={handleAssignPremium} disabled={!premiumForever && !premiumDate}
+                  style={{ flex: 2, padding: '12px', borderRadius: 12, border: 'none', background: (!premiumForever && !premiumDate) ? '#e5e7eb' : 'linear-gradient(135deg,#e6c15a,#b8952d)', color: (!premiumForever && !premiumDate) ? '#9ca3af' : '#111', fontWeight: 800, fontSize: 14, cursor: (!premiumForever && !premiumDate) ? 'default' : 'pointer' }}>
+                  Asignar plan
+                </button>
+              </div>
             </div>
           </div>
         </div>
