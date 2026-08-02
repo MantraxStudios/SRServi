@@ -415,6 +415,11 @@ function Plans() {
                       <span className="plan-card-period">/{billingCycle === 'yearly' ? 'año' : 'mes'}</span>
                     </div>
                   )}
+                  {plan.name === 'SOLO' && billingCycle !== 'yearly' && (
+                    <div style={{ marginTop: 6, fontSize: 12, fontWeight: 800, color: '#16a34a', background: '#dcfce7', border: '1px solid #86efac', borderRadius: 8, padding: '4px 8px', display: 'inline-block' }}>
+                      🎉 Primer mes 85% OFF: ${formatPrice(Math.round(Number(price) * 0.15 * 100) / 100)} · luego ${formatPrice(price)}/mes
+                    </div>
+                  )}
                 </div>
 
                 {/* Features */}

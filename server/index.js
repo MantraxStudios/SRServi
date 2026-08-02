@@ -171,6 +171,7 @@ import {
   getUserPlan,
   getUserCapabilities,
   setUserCctvAccess,
+  hasSubscribedToPlanName,
   planCapabilities,
   FREE_MAX_PRODUCTS_PER_STORE,
   canUserCreateStore,
@@ -837,7 +838,10 @@ app.post('/api/auth/register', async (req, res) => {
       </div>`
     });
 
-    res.json({ requiresVerification: true, email });
+    // Token para permitir "omitir" la verificación y entrar directo (no obligatoria).
+    const token = jwt.sign({ id: user.id, email: user.email, type: 'user' }, JWT_SECRET, { expiresIn: '7d' });
+    const { password: _pw, totp_secret, totp_enabled, email_verified, verification_code, ...safeUser } = user;
+    res.json({ requiresVerification: true, email, token, user: safeUser });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -894,27 +898,8 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
-    if (!user.email_verified) {
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      const expires = new Date(Date.now() + 15 * 60 * 1000);
-      await setVerificationCode(user.id, code, expires);
-      try {
-        await mailer.sendMail({
-          from: `"SRServi" <${process.env.EMAIL_USER}>`,
-          to: email,
-          subject: 'Activa tu cuenta SRServi',
-          html: `<div style="font-family:sans-serif;max-width:480px;margin:auto">
-            <h2 style="color:#D4AF37">Activa tu cuenta</h2>
-            <p>Tu código de activación es:</p>
-            <div style="font-size:36px;font-weight:900;letter-spacing:10px;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px">${code}</div>
-            <p style="color:#888;font-size:12px">Expira en 15 minutos.</p>
-          </div>`
-        });
-      } catch (mailErr) {
-        console.error('Error enviando correo de verificación:', mailErr.message);
-      }
-      return res.json({ requiresVerification: true, email });
-    }
+    // La verificación de correo es OPCIONAL: no bloquea el inicio de sesión.
+    // (Los usuarios pueden verificar su correo si lo desean, pero no es obligatorio.)
 
     if (user.totp_enabled && user.totp_secret) {
       const tempToken = jwt.sign({ id: user.id, type: '2fa_pending' }, JWT_SECRET, { expiresIn: '5m' });
@@ -2796,12 +2781,19 @@ app.post('/api/create-subscription-preference', authenticateToken, async (req, r
       });
     }
     
-    const price = billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
+    let price = billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
+    // Promoción: 85% de descuento el PRIMER MES del plan SOLO (solo pago mensual y
+    // solo la primera vez que el usuario lo contrata).
+    let firstMonthPromo = false;
+    if (plan.name === 'SOLO' && billingCycle !== 'yearly' && !(await hasSubscribedToPlanName(req.user.id, 'SOLO'))) {
+      price = Math.round(price * 0.15 * 100) / 100; // 85% off
+      firstMonthPromo = true;
+    }
     const user = await getUserById(req.user.id);
-    
+
     console.log('=== Creating MercadoPago Preference ===');
     console.log('User:', user.email);
-    console.log('Plan:', plan.name, '- Price:', price, 'USD');
+    console.log('Plan:', plan.name, '- Price:', price, 'USD', firstMonthPromo ? '(1er mes 85% OFF)' : '');
     console.log('Billing Cycle:', billingCycle);
     
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
@@ -2810,8 +2802,8 @@ app.post('/api/create-subscription-preference', authenticateToken, async (req, r
       items: [
         {
           id: `plan-${plan.id}-${billingCycle}`,
-          title: `Suscripción ${plan.name} - ${billingCycle === 'yearly' ? 'Anual' : 'Mensual'}`,
-          description: `Acceso al plan ${plan.name} - ${plan.description}`,
+          title: `Suscripción ${plan.name} - ${billingCycle === 'yearly' ? 'Anual' : 'Mensual'}${firstMonthPromo ? ' (1er mes -85%)' : ''}`,
+          description: firstMonthPromo ? `Primer mes con 85% de descuento del plan ${plan.name}` : `Acceso al plan ${plan.name} - ${plan.description}`,
           quantity: 1,
           currency_id: 'USD',
           unit_price: Number(price)

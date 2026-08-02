@@ -5391,6 +5391,16 @@ export async function setUserCctvAccess(userId, enabled) {
   await pool.execute('UPDATE users SET cctv_access = ? WHERE id = ?', [enabled ? 1 : 0, userId]);
 }
 
+// ¿El usuario ya se suscribió alguna vez a un plan con este nombre? (activo o pasado)
+export async function hasSubscribedToPlanName(userId, planName) {
+  const [rows] = await pool.execute(
+    `SELECT up.id FROM user_plans up JOIN plans p ON up.plan_id = p.id
+     WHERE up.user_id = ? AND p.name = ? LIMIT 1`,
+    [userId, planName]
+  );
+  return rows.length > 0;
+}
+
 export async function assignPlanToUser(userId, planId, billingCycle = 'monthly') {
   const [plans] = await pool.execute('SELECT * FROM plans WHERE id = ?', [planId]);
   if (plans.length === 0) {

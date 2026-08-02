@@ -52,6 +52,7 @@ function Register() {
   });
   const [verifyEmail, setVerifyEmail] = useState('');
   const [verifyCode, setVerifyCode] = useState('');
+  const [pendingAuth, setPendingAuth] = useState(null); // { user, token } para "omitir verificación"
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
@@ -205,6 +206,7 @@ function Register() {
       if (!res.ok) throw new Error(data.error || 'Error al registrar');
 
       setVerifyEmail(data.email);
+      if (data.token && data.user) setPendingAuth({ user: data.user, token: data.token });
       setStep('verify');
     } catch (err) {
       setError(err.message);
@@ -338,6 +340,19 @@ function Register() {
             <p style={{ fontSize: '12px', color: resendMsg === 'Código reenviado' ? '#16a34a' : '#dc2626', marginTop: '8px' }}>
               {resendMsg}
             </p>
+          )}
+          {pendingAuth && (
+            <div style={{ marginTop: '18px', paddingTop: '14px', borderTop: '1px solid #eee' }}>
+              <button
+                onClick={() => login(pendingAuth.user, pendingAuth.token)}
+                style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '13px', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                Omitir por ahora y entrar
+              </button>
+              <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
+                Podés verificar tu correo más tarde.
+              </p>
+            </div>
           )}
         </div>
       </div>
