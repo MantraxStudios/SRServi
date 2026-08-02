@@ -2676,6 +2676,7 @@ app.get('/api/my-plan', authenticateToken, async (req, res) => {
       plan,
       has_claimed_trial: hasTrial,
       capabilities: await getUserCapabilities(req.user.id),
+      free_plan_approved: await hasApprovedFreePlan(req.user.id),
       ...storeInfo
     });
   } catch (error) {

@@ -280,10 +280,13 @@ function Layout() {
           const planName = data?.plan?.plan_name || data?.plan?.name || '';
           setIsPremiumUser(!!planName && planName !== 'Gratis');
           setPlanCaps(data?.capabilities || null);
-          // Sin plan activo y sin acceso especial (ej. cartelería) → cuenta bloqueada.
-          const hasPlan = !!data?.plan;
+          // Acceso permitido solo si: plan de pago, plan gratis APROBADO por el superadmin,
+          // o acceso especial (cartelería). En cualquier otro caso (sin plan o "Gratis" sin
+          // aprobación) → cuenta bloqueada: debe pagar o solicitar acceso gratis.
+          const isPaid = !!planName && planName !== 'Gratis';
+          const approvedFree = !!data?.free_plan_approved;
           const hasSpecial = !!data?.capabilities?.cctv;
-          setAccessBlocked(!hasPlan && !hasSpecial);
+          setAccessBlocked(!isPaid && !approvedFree && !hasSpecial);
         })
         .catch(() => {});
     }
