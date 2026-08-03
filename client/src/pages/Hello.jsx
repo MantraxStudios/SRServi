@@ -161,18 +161,18 @@ function Faq({ q, a }) {
   const [open, setOpen] = useState(false);
   return (
     <div
-      className={`overflow-hidden rounded-2xl border bg-panel transition-colors ${
-        open ? 'border-gold/50' : 'border-white/10 hover:border-white/25'
+      className={`overflow-hidden rounded-2xl border bg-[#141414] transition-colors ${
+        open ? 'border-[#D4AF37]/50' : 'border-white/10 hover:border-white/25'
       }`}
     >
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
+        className="flex w-full items-center justify-between gap-4 bg-[#141414] px-6 py-5 text-left"
       >
-        <span className={`text-base font-semibold ${open ? 'text-gold' : 'text-white'}`}>{q}</span>
+        <span className={`text-base font-semibold ${open ? 'text-[#D4AF37]' : 'text-white'}`}>{q}</span>
         <span
           className={`flex h-8 w-8 flex-none items-center justify-center rounded-full transition-colors ${
-            open ? 'bg-gold text-ink' : 'bg-white/10 text-gold'
+            open ? 'bg-[#D4AF37] text-[#0a0a0a]' : 'bg-white/10 text-[#D4AF37]'
           }`}
         >
           <FontAwesomeIcon icon={open ? faMinus : faPlus} className="text-sm" />
