@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reset local acotado SOLO a la landing /hello (preflight global está desactivado). */
+.hello-page,
+.hello-page * {
+  box-sizing: border-box;
+}
+.hello-page {
+  margin: 0;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+}
+.hello-page img {
+  display: block;
+  max-width: 100%;
+}
+.hello-page button {
+  font-family: inherit;
+  cursor: pointer;
+}
