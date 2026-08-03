@@ -53,6 +53,7 @@ export default function StampCard() {
   const [editTheme, setEditTheme] = useState(DEFAULT_THEME);
   const [editPhoto, setEditPhoto] = useState(undefined); // undefined = sin cambio, null = quitar, string = nueva
   const [saving, setSaving] = useState(false);
+  const [wallets, setWallets] = useState({ google: false, apple: false });
   const socketRef = useRef(null);
 
   const openEditor = () => {
@@ -94,6 +95,16 @@ export default function StampCard() {
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [tokenParam]);
+
+  // Qué wallets están disponibles (según credenciales del servidor)
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API}/api/wallet/status`)
+      .then(r => (r.ok ? r.json() : { google: false, apple: false }))
+      .then(d => { if (alive) setWallets(d); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   // Socket: confirmación en vivo cuando la tarjeta se usa en el tótem/caja
   useEffect(() => {
@@ -221,6 +232,24 @@ export default function StampCard() {
             <button onClick={openEditor} style={{ width: '100%', marginTop: 16, padding: '13px', borderRadius: 14, border: '1.5px solid #e5e7eb', background: '#fff', color: '#111', fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
               🎨 Personalizar mi tarjeta
             </button>
+
+            {/* Añadir al teléfono (Google / Apple Wallet) */}
+            {card.token && (wallets.google || wallets.apple) && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+                {wallets.google && (
+                  <a href={`${API}/api/card/${card.token}/google-wallet`}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '13px', borderRadius: 14, background: '#000', color: '#fff', fontWeight: 800, fontSize: 14, textDecoration: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}>
+                    <span style={{ fontSize: 18 }}>🅶</span> Añadir a Google Wallet
+                  </a>
+                )}
+                {wallets.apple && (
+                  <a href={`${API}/api/card/${card.token}/apple-wallet`}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '13px', borderRadius: 14, background: '#000', color: '#fff', fontWeight: 800, fontSize: 14, textDecoration: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}>
+                    <span style={{ fontSize: 18 }}></span> Añadir a Apple Wallet
+                  </a>
+                )}
+              </div>
+            )}
 
             {/* QR para guardar/compartir */}
             <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 8px 30px rgba(0,0,0,0.08)', padding: 18, marginTop: 14, textAlign: 'center' }}>

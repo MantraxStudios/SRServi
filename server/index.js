@@ -31,6 +31,7 @@ import { runSrBrain, runSrBrainForStore, runWeeklySalesReport } from './sr_brain
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds, setBotEnabled, getBotEnabled, getBotPhone } from './whatsapp.js';
 import cron from 'node-cron';
 import { generateMenuImage } from './cctv-menu-image.js';
+import { walletStatus, isGoogleWalletEnabled, buildGoogleWalletSaveUrl, isAppleWalletEnabled, buildApplePkpass } from './wallet-passes.js';
 
 const __serverDir = path.dirname(fileURLToPath(import.meta.url));
 import {
@@ -16753,6 +16754,35 @@ app.post('/api/card/:token/customize', async (req, res) => {
     if (!card) return res.status(404).json({ error: 'Tarjeta no encontrada' });
     res.json(card);
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Público: qué wallets están disponibles (para mostrar/ocultar los botones)
+app.get('/api/wallet/status', (req, res) => {
+  res.json(walletStatus());
+});
+
+// Público: añadir la tarjeta a Google Wallet (redirige al enlace "Save to Google Wallet")
+app.get('/api/card/:token/google-wallet', async (req, res) => {
+  try {
+    if (!isGoogleWalletEnabled()) return res.status(503).json({ error: 'Google Wallet no está configurado' });
+    const card = await getStampCardByToken(req.params.token);
+    if (!card) return res.status(404).json({ error: 'Tarjeta no encontrada' });
+    const url = buildGoogleWalletSaveUrl(card);
+    res.redirect(url);
+  } catch (e) { console.error('google-wallet:', e.message); res.status(500).json({ error: e.message }); }
+});
+
+// Público: descargar la tarjeta como .pkpass para Apple Wallet
+app.get('/api/card/:token/apple-wallet', async (req, res) => {
+  try {
+    if (!isAppleWalletEnabled()) return res.status(503).json({ error: 'Apple Wallet no está configurado' });
+    const card = await getStampCardByToken(req.params.token);
+    if (!card) return res.status(404).json({ error: 'Tarjeta no encontrada' });
+    const buffer = await buildApplePkpass(card);
+    res.set('Content-Type', 'application/vnd.apple.pkpass');
+    res.set('Content-Disposition', `attachment; filename="tarjeta-${card.code}.pkpass"`);
+    res.send(buffer);
+  } catch (e) { console.error('apple-wallet:', e.message); res.status(500).json({ error: e.message }); }
 });
 
 // Público: crear/abrir tarjeta por clave de 5 dígitos (desde la página /tarjeta)

@@ -97,6 +97,7 @@ import Feedback from './pages/Feedback';
 import TotemRental from './pages/admin/TotemRental';
 import TicketeriaPublic from './pages/TicketeriaPublic';
 import TicketViewer from './pages/TicketViewer';
+import Hello from './pages/Hello';
 
 const TV_CODE_KEY = 'srservi_tv_code';
 const API_HOST = 'srservi2.srautomatic.com';
@@ -287,6 +288,7 @@ function App() {
           <Route path="/tv-menu/:code" element={<TvMenu />} />
           <Route path="/market/:code" element={<Minimarket />} />
           <Route path="/docs" element={<Docs />} />
+          <Route path="/hello" element={<Hello />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
