@@ -325,18 +325,31 @@ else
     echo "  Modo local — Nginx no es necesario (acceso directo por puertos)"
 fi
 
+# Instala dependencias si node_modules falta O si package.json/lock cambiaron
+# (más nuevos que node_modules). Así, al agregar paquetes nuevos (p.ej. tailwind)
+# no hay que borrar node_modules a mano en cada máquina.
+needs_install() {  # $1 = carpeta (server|client)
+    local dir="$1"
+    [ ! -d "$dir/node_modules" ] && return 0
+    [ "$dir/package.json" -nt "$dir/node_modules" ] && return 0
+    [ -f "$dir/package-lock.json" ] && [ "$dir/package-lock.json" -nt "$dir/node_modules" ] && return 0
+    return 1
+}
+
 # Install server dependencies if needed
 echo "[5/7] Verificando dependencias del servidor..."
-if [ ! -d "server/node_modules" ]; then
+if needs_install server; then
     echo "Instalando dependencias del servidor..."
     cd server && npm install && cd ..
+    touch server/node_modules
 fi
 
 # Install client dependencies if needed
 echo "[6/7] Verificando dependencias del cliente..."
-if [ ! -d "client/node_modules" ]; then
+if needs_install client; then
     echo "Instalando dependencias del cliente..."
     cd client && npm install && cd ..
+    touch client/node_modules
 fi
 
 # Build client
