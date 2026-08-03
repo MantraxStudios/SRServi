@@ -160,19 +160,29 @@ function SectionTitle({ eyebrow, title, subtitle, light = false }) {
 function Faq({ q, a }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur transition-colors hover:border-gold/30">
+    <div
+      className={`overflow-hidden rounded-2xl border bg-panel transition-colors ${
+        open ? 'border-gold/50' : 'border-white/10 hover:border-white/25'
+      }`}
+    >
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
       >
-        <span className="text-base font-semibold text-white">{q}</span>
-        <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-gold/15 text-gold">
+        <span className={`text-base font-semibold ${open ? 'text-gold' : 'text-white'}`}>{q}</span>
+        <span
+          className={`flex h-8 w-8 flex-none items-center justify-center rounded-full transition-colors ${
+            open ? 'bg-gold text-ink' : 'bg-white/10 text-gold'
+          }`}
+        >
           <FontAwesomeIcon icon={open ? faMinus : faPlus} className="text-sm" />
         </span>
       </button>
       <div className={`grid transition-all duration-300 ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
         <div className="overflow-hidden">
-          <p className="px-6 pb-6 text-sm leading-relaxed text-white/60">{a}</p>
+          <p className="mx-6 mb-6 border-t border-white/10 pt-4 text-sm leading-relaxed text-gray-300">
+            {a}
+          </p>
         </div>
       </div>
     </div>
