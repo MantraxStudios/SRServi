@@ -9,6 +9,10 @@
 }
 .hello-page {
   margin: 0;
+  /* Fondo oscuro forzado: el body global de la app es claro (#fafafa) y, al
+     tener el preflight desactivado, podría filtrarse. Esto lo garantiza. */
+  background-color: #0a0a0a;
+  color: #ffffff;
   font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
