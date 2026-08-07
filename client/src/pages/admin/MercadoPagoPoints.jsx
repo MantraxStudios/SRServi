@@ -104,6 +104,10 @@ function MercadoPagoPoints({ view = 'pos' }) {
   const [posList, setPosList] = useState([]);
   const [showPosModal, setShowPosModal] = useState(false);
   const [posTab, setPosTab] = useState(0);
+  // Edición de un terminal existente (ver/copiar/editar token, serial, nombre)
+  const [editingPos, setEditingPos] = useState(null);
+  const [posEdit, setPosEdit] = useState({ name: '', api_key: '', device_id: '' });
+  const [posEditSaving, setPosEditSaving] = useState(false);
   const [mpNewName, setMpNewName] = useState('');
   const [mpNewToken, setMpNewToken] = useState('');
   const [mpNewTerminalId, setMpNewTerminalId] = useState('');
@@ -269,6 +273,40 @@ function MercadoPagoPoints({ view = 'pos' }) {
     if (!confirm('¿Eliminar este terminal?')) return;
     await fetch(API + '/api/pos-terminals/' + pos.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
     refreshAll();
+  };
+
+  // Etiquetas de los campos según la marca del POS.
+  const posFieldLabels = (provider) => ({
+    mercadopago: { key: 'Access Token', id: 'Terminal / Device ID' },
+    tuu:         { key: 'API Key',      id: 'Serial del dispositivo' },
+    square:      { key: 'Access Token', id: 'Device ID' },
+    sumup:       { key: 'API Key',      id: 'Merchant Code' },
+  }[provider] || { key: 'Token / API Key', id: 'ID del dispositivo' });
+
+  const openEditPos = (pos) => {
+    setEditingPos(pos);
+    setPosEdit({ name: pos.name || '', api_key: pos.api_key || '', device_id: pos.device_id || '' });
+    setPosEditSaving(false);
+  };
+
+  const savePosEdit = async () => {
+    if (!editingPos) return;
+    if (!posEdit.name.trim()) { alert('El nombre es requerido'); return; }
+    setPosEditSaving(true);
+    try {
+      const res = await fetch(API + '/api/pos-terminals/' + editingPos.id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ name: posEdit.name.trim(), api_key: posEdit.api_key.trim(), device_id: posEdit.device_id.trim() }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'No se pudo guardar');
+      setEditingPos(null);
+      refreshAll();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setPosEditSaving(false);
+    }
   };
 
   // Calls all fetch functions in parallel to refresh data from server.
@@ -1062,17 +1100,26 @@ function MercadoPagoPoints({ view = 'pos' }) {
                     onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.1)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
                     onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'; e.currentTarget.style.transform = 'translateY(0)'; }}
                   >
-                    <button onClick={() => deletePos(pos)}
-                      style={{ position: 'absolute', top: '10px', right: '10px', background: '#fff0f0', border: '1px solid #fdd', cursor: 'pointer', color: '#e57373', fontSize: '12px', padding: '4px 7px', borderRadius: '6px', lineHeight: 1, transition: 'color 0.15s, background 0.15s, border-color 0.15s' }}
-                      onMouseEnter={e => { e.currentTarget.style.color = '#c0392b'; e.currentTarget.style.background = '#ffe0e0'; e.currentTarget.style.borderColor = '#f5a0a0'; }}
-                      onMouseLeave={e => { e.currentTarget.style.color = '#e57373'; e.currentTarget.style.background = '#fff0f0'; e.currentTarget.style.borderColor = '#fdd'; }}
-                      title="Eliminar terminal">
-                      <FontAwesomeIcon icon={faTrash} style={{ fontSize: '11px' }} />
-                    </button>
+                    <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '6px' }}>
+                      <button onClick={() => openEditPos(pos)}
+                        style={{ background: '#eef4ff', border: '1px solid #cfe0ff', cursor: 'pointer', color: '#3b82f6', fontSize: '12px', padding: '4px 7px', borderRadius: '6px', lineHeight: 1, transition: 'color 0.15s, background 0.15s, border-color 0.15s' }}
+                        onMouseEnter={e => { e.currentTarget.style.color = '#1d4ed8'; e.currentTarget.style.background = '#dbe8ff'; e.currentTarget.style.borderColor = '#a9c8ff'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = '#3b82f6'; e.currentTarget.style.background = '#eef4ff'; e.currentTarget.style.borderColor = '#cfe0ff'; }}
+                        title="Editar / ver token">
+                        <FontAwesomeIcon icon={faEdit} style={{ fontSize: '11px' }} />
+                      </button>
+                      <button onClick={() => deletePos(pos)}
+                        style={{ background: '#fff0f0', border: '1px solid #fdd', cursor: 'pointer', color: '#e57373', fontSize: '12px', padding: '4px 7px', borderRadius: '6px', lineHeight: 1, transition: 'color 0.15s, background 0.15s, border-color 0.15s' }}
+                        onMouseEnter={e => { e.currentTarget.style.color = '#c0392b'; e.currentTarget.style.background = '#ffe0e0'; e.currentTarget.style.borderColor = '#f5a0a0'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = '#e57373'; e.currentTarget.style.background = '#fff0f0'; e.currentTarget.style.borderColor = '#fdd'; }}
+                        title="Eliminar terminal">
+                        <FontAwesomeIcon icon={faTrash} style={{ fontSize: '11px' }} />
+                      </button>
+                    </div>
                     <div style={{ width: '40px', height: '40px', borderRadius: '10px', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', background: meta.bg, color: meta.color, flexShrink: 0 }}>
                       <FontAwesomeIcon icon={meta.icon} />
                     </div>
-                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#111', marginBottom: '4px', paddingRight: '22px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pos.name}</div>
+                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#111', marginBottom: '4px', paddingRight: '56px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pos.name}</div>
                     <span style={{ display: 'inline-block', fontSize: '10px', fontWeight: '700', color: meta.color, background: meta.bg, padding: '2px 8px', borderRadius: '20px', marginBottom: '10px' }}>
                       {meta.name}
                     </span>
@@ -1269,6 +1316,81 @@ function MercadoPagoPoints({ view = 'pos' }) {
             </div>
           </div>
         )}
+
+        {/* ── MODAL EDITAR / VER TOKEN DE UN POS ── */}
+        {editingPos && (() => {
+          const meta = providerMeta(editingPos.provider);
+          const labels = posFieldLabels(editingPos.provider);
+          const copy = (val) => { if (val) navigator.clipboard.writeText(val); };
+          const fieldWrap = { marginBottom: '16px' };
+          const labelStyle = { display: 'block', fontSize: '12px', fontWeight: '700', color: '#444', marginBottom: '6px' };
+          const inputStyle = { width: '100%', padding: '10px 12px', fontSize: '13px', border: '1.5px solid #e2e2e2', borderRadius: '9px', boxSizing: 'border-box', fontFamily: 'monospace' };
+          const copyBtn = { padding: '10px 12px', background: '#f5f5f5', border: '1.5px solid #e2e2e2', borderRadius: '9px', cursor: 'pointer', color: '#555', flexShrink: 0 };
+          return (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+              onClick={() => setEditingPos(null)}>
+              <div style={{ background: '#fff', borderRadius: '18px', width: '100%', maxWidth: '460px', maxHeight: '92vh', overflow: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.25)' }}
+                onClick={e => e.stopPropagation()}>
+                <div style={{ padding: '20px 22px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '34px', height: '34px', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', background: meta.bg, color: meta.color }}>
+                      <FontAwesomeIcon icon={meta.icon} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '15px', fontWeight: '800', color: '#111' }}>Editar terminal</div>
+                      <div style={{ fontSize: '11px', color: meta.color, fontWeight: '700' }}>{meta.name}</div>
+                    </div>
+                  </div>
+                  <button onClick={() => setEditingPos(null)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#999', lineHeight: 1 }}>×</button>
+                </div>
+
+                <div style={{ padding: '20px 22px' }}>
+                  <div style={fieldWrap}>
+                    <label style={labelStyle}>Nombre</label>
+                    <input type="text" value={posEdit.name} onChange={e => setPosEdit({ ...posEdit, name: e.target.value })}
+                      style={{ ...inputStyle, fontFamily: 'inherit' }} />
+                  </div>
+
+                  <div style={fieldWrap}>
+                    <label style={labelStyle}>{labels.key}</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input type="text" value={posEdit.api_key} onChange={e => setPosEdit({ ...posEdit, api_key: e.target.value })}
+                        spellCheck={false} autoComplete="off" style={inputStyle} />
+                      <button onClick={() => copy(posEdit.api_key)} style={copyBtn} title="Copiar"><FontAwesomeIcon icon={faCopy} /></button>
+                    </div>
+                  </div>
+
+                  <div style={fieldWrap}>
+                    <label style={labelStyle}>{labels.id}</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input type="text" value={posEdit.device_id} onChange={e => setPosEdit({ ...posEdit, device_id: e.target.value })}
+                        spellCheck={false} autoComplete="off" style={inputStyle} />
+                      <button onClick={() => copy(posEdit.device_id)} style={copyBtn} title="Copiar"><FontAwesomeIcon icon={faCopy} /></button>
+                    </div>
+                  </div>
+
+                  {editingPos.pos_pin && (
+                    <div style={{ ...fieldWrap, background: '#f9f6ee', border: '1px solid #e8d99a', borderRadius: '9px', padding: '10px 12px' }}>
+                      <label style={{ ...labelStyle, color: '#9a8000' }}>PIN de acceso</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: '800', color: '#5a4500', letterSpacing: '0.15em' }}>{editingPos.pos_pin}</span>
+                        <button onClick={() => copy(editingPos.pos_pin)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9a8000' }} title="Copiar PIN"><FontAwesomeIcon icon={faCopy} /></button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                    <button onClick={() => setEditingPos(null)} style={{ flex: 1, padding: '11px', background: '#f5f5f5', border: '1px solid #e5e5e5', borderRadius: '9px', fontWeight: '700', fontSize: '13px', cursor: 'pointer', color: '#555' }}>Cancelar</button>
+                    <button onClick={savePosEdit} disabled={posEditSaving}
+                      style={{ flex: 1, padding: '11px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: '9px', fontWeight: '700', fontSize: '13px', cursor: posEditSaving ? 'wait' : 'pointer', opacity: posEditSaving ? 0.7 : 1 }}>
+                      {posEditSaving ? 'Guardando…' : 'Guardar'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── MODAL AGREGAR POS ── */}
         {showPosModal && (
