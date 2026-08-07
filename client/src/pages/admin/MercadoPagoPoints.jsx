@@ -204,6 +204,7 @@ function MercadoPagoPoints({ view = 'pos' }) {
       name: t.name,
       terminal_id: t.device_id,
       device_id: t.device_id,
+      api_key: t.api_key || '',
       store_id: t.store_id,
       pos_pin: t.pos_pin || null,
     }));
