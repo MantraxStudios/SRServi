@@ -257,10 +257,10 @@ function Plans() {
     }
   };
 
+  // Precios en pesos chilenos (CLP), sin decimales y con separador de miles.
   const formatPrice = (price) => {
-    if (price === 0) return '0';
-    const n = parseFloat(price);
-    return n % 1 === 0 ? String(Math.round(n)) : n.toFixed(2);
+    const n = Math.round(parseFloat(price) || 0);
+    return n.toLocaleString('es-CL');
   };
 
   const parseFeatures = (features) => {
@@ -349,7 +349,7 @@ function Plans() {
           <div className="plans-trial-banner-text">
             <FontAwesomeIcon icon={faGift} style={{ fontSize: 22, marginRight: 10 }} />
             <div>
-              <strong>Probá el plan SOLO gratis por 3 meses</strong>
+              <strong>Probá el plan SOLO gratis por 1 mes</strong>
               <p style={{ margin: '2px 0 0', fontSize: 13, opacity: 0.85 }}>Sin tarjeta, sin compromiso. Se activa al instante.</p>
             </div>
           </div>
@@ -409,15 +409,18 @@ function Plans() {
                   {isFree ? (
                     <div className="plan-card-price-free">Gratis</div>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 2 }}>
-                      <span className="plan-card-currency">$</span>
-                      <span className="plan-card-price">{formatPrice(price)}</span>
-                      <span className="plan-card-period">/{billingCycle === 'yearly' ? 'año' : 'mes'}</span>
-                    </div>
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 2 }}>
+                        <span className="plan-card-currency">$</span>
+                        <span className="plan-card-price">{formatPrice(price)}</span>
+                        <span className="plan-card-period">/{billingCycle === 'yearly' ? 'año' : 'mes'}</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>CLP · IVA 19% incluido</div>
+                    </>
                   )}
                   {plan.name === 'SOLO' && billingCycle !== 'yearly' && (
                     <div style={{ marginTop: 6, fontSize: 12, fontWeight: 800, color: '#16a34a', background: '#dcfce7', border: '1px solid #86efac', borderRadius: 8, padding: '4px 8px', display: 'inline-block' }}>
-                      🎉 Primer mes 85% OFF: ${formatPrice(Math.round(Number(price) * 0.15 * 100) / 100)} · luego ${formatPrice(price)}/mes
+                      🎉 Primer mes 85% OFF: ${formatPrice(Math.round(Number(price) * 0.15))} · luego ${formatPrice(price)}/mes
                     </div>
                   )}
                 </div>

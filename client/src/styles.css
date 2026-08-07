@@ -13324,10 +13324,14 @@ html body .store-container .store-product-card * {
   box-shadow: 0 2px 10px rgba(0,0,0,0.15);
 }
 .store-seasonal-deco {
-  position: absolute;
+  /* fixed (no absolute): la lluvia se limita al TAMAÑO DE LA PANTALLA, no a la
+     altura total del documento. En páginas largas, un contenedor absolute con
+     inset:0 crea una capa de composición gigantesca que genera muchísimo lag. */
+  position: fixed;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
+  contain: layout paint; /* aísla el repintado de la lluvia del resto de la página */
   /* Por encima de las tarjetas de producto y cabeceras sticky (z-index 2–100)
      para que la lluvia se vea en TODAS las pantallas, no solo en teléfono donde
      asomaba por los huecos del fondo. Debajo de modales y carrito (1000+). */
@@ -13341,7 +13345,9 @@ html body .store-container .store-product-card * {
   animation-name: store-seasonal-fall;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.12));
+  /* Sin filter: drop-shadow — animarlo repinta cada frame en 14 capas y causa
+     lag en kioscos/Android. Un text-shadow estático es mucho más barato. */
+  text-shadow: 0 2px 3px rgba(0,0,0,0.12);
 }
 @keyframes store-seasonal-fall {
   0%   { transform: translateY(-10vh) rotate(0deg); opacity: 0; }

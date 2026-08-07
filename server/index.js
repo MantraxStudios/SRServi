@@ -2749,7 +2749,7 @@ app.post('/api/offline/import', async (req, res) => {
 app.post('/api/claim-trial', authenticateToken, async (req, res) => {
   try {
     const result = await claimFreeTrial(req.user.id);
-    res.json({ success: true, message: `¡Listo! Activamos 3 meses gratis del plan ${result.plan}`, ...result });
+    res.json({ success: true, message: `¡Listo! Activamos 1 mes gratis del plan ${result.plan}`, ...result });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -2840,14 +2840,15 @@ app.post('/api/create-subscription-preference', authenticateToken, async (req, r
     // solo la primera vez que el usuario lo contrata).
     let firstMonthPromo = false;
     if (plan.name === 'SOLO' && billingCycle !== 'yearly' && !(await hasSubscribedToPlanName(req.user.id, 'SOLO'))) {
-      price = Math.round(price * 0.15 * 100) / 100; // 85% off
+      price = Math.round(price * 0.15); // 85% off (CLP, sin decimales)
       firstMonthPromo = true;
     }
+    price = Math.round(Number(price)); // CLP es moneda sin decimales
     const user = await getUserById(req.user.id);
 
     console.log('=== Creating MercadoPago Preference ===');
     console.log('User:', user.email);
-    console.log('Plan:', plan.name, '- Price:', price, 'USD', firstMonthPromo ? '(1er mes 85% OFF)' : '');
+    console.log('Plan:', plan.name, '- Price:', price, 'CLP', firstMonthPromo ? '(1er mes 85% OFF)' : '');
     console.log('Billing Cycle:', billingCycle);
     
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
@@ -2859,8 +2860,8 @@ app.post('/api/create-subscription-preference', authenticateToken, async (req, r
           title: `Suscripción ${plan.name} - ${billingCycle === 'yearly' ? 'Anual' : 'Mensual'}${firstMonthPromo ? ' (1er mes -85%)' : ''}`,
           description: firstMonthPromo ? `Primer mes con 85% de descuento del plan ${plan.name}` : `Acceso al plan ${plan.name} - ${plan.description}`,
           quantity: 1,
-          currency_id: 'USD',
-          unit_price: Number(price)
+          currency_id: 'CLP',
+          unit_price: price
         }
       ],
       payer: {

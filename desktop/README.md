@@ -45,8 +45,17 @@ cd desktop
 npm run dist
 ```
 
-El instalador NSIS queda en `desktop/release/SRServi-POS-Setup-<version>.exe`.
+El instalador NSIS queda en `desktop/release/SRServi-POS-Setup.exe`.
 Es autocontenido: se instala y funciona sin Node ni MySQL en la máquina destino.
+
+Para que el botón **"Descargar POS Escritorio (Offline · Gratis)"** de la pantalla
+de login funcione, copiá ese `.exe` a la carpeta pública de descargas del server:
+
+```
+cp desktop/release/SRServi-POS-Setup.exe server/public/downloads/SRServi-POS-Setup.exe
+```
+
+Queda servido en `https://<tu-server>/downloads/SRServi-POS-Setup.exe`.
 
 ## Variables de entorno útiles
 

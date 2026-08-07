@@ -4,8 +4,9 @@ import { useAuth } from '../../context/AuthContext';
 
 // Launcher de la app de escritorio (offline). Landing en /desktop.
 // Flujo: login (nube) → descarga datos + imágenes → import local → menú.
-// Verifica premium cada semana; con 7 días de gracia sin internet.
-const GRACE_DAYS = 7;
+// La app de escritorio es GRATIS: no exige suscripción de pago ni re-verificación
+// periódica. Tras el primer sync abre directo; el bloqueo por cuenta baneada
+// solo se aplica cuando hay conexión.
 const GOLD = '#D4AF37';
 
 export default function Launcher() {
@@ -15,7 +16,7 @@ export default function Launcher() {
   const REMOTE = sd?.remoteHost || 'https://srservi2.srautomatic.com';
   const LOCAL = sd?.localHost || (typeof window !== 'undefined' && window.__SRSERVI_API__) || '';
 
-  const [view, setView] = useState('loading'); // loading|login|syncing|menu|reconnect|blocked|nodesktop
+  const [view, setView] = useState('loading'); // loading|login|syncing|menu|blocked|nodesktop
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
@@ -99,25 +100,18 @@ export default function Launcher() {
       if (!lic || !lic.synced) { setView('login'); return; }
       setStoreCode(lic.store_code || ''); setPlanName(lic.plan_name || '');
 
+      // App gratis: solo actualizamos el estado de la cuenta si hay internet,
+      // pero NUNCA bloqueamos por falta de conexión ni por suscripción.
       if (navigator.onLine) {
         const res = await verifyRemote();
         if (res.ok) {
           await sd.setLicense({ ...lic, last_verified_at: new Date().toISOString(), premium: res.premium, blocked: res.blocked, plan_name: res.plan_name });
           if (res.blocked) { setView('blocked'); return; }
           setPlanName(res.plan_name || lic.plan_name || '');
-          await ensureLocalSession(lic.email);
-          setView('menu');
-          return;
         }
       }
-      // offline o verificación fallida → ventana de gracia
-      const days = (Date.now() - new Date(lic.last_verified_at || 0).getTime()) / 86400000;
-      if (days <= GRACE_DAYS) {
-        await ensureLocalSession(lic.email);
-        setView('menu');
-      } else {
-        setView('reconnect');
-      }
+      await ensureLocalSession(lic.email);
+      setView('menu');
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -138,18 +132,6 @@ export default function Launcher() {
     if (!res.ok) { setErr('No hay conexión para actualizar.'); return; }
     if (res.blocked) { setView('blocked'); return; }
     try { await doSync(res.token, res.creds.email, res.creds.password); } catch (e) { setErr(e.message); }
-  };
-
-  const retryReconnect = async () => {
-    setView('loading');
-    const res = await verifyRemote();
-    if (res.ok && !res.blocked) {
-      const lic = (sd && await sd.getLicense()) || {};
-      await sd.setLicense({ ...lic, last_verified_at: new Date().toISOString(), premium: res.premium, blocked: res.blocked });
-      await ensureLocalSession(lic.email);
-      setView('menu');
-    } else if (res.ok && res.blocked) { setView('blocked'); }
-    else { setView('reconnect'); }
   };
 
   // ─────────────────────── UI ───────────────────────
@@ -202,16 +184,6 @@ export default function Launcher() {
       <div style={{ color: '#bbb', fontSize: 14 }}>{progress}</div>
       <div style={{ color: '#666', fontSize: 12, marginTop: 10 }}>La primera descarga puede tardar según tu catálogo.</div>
       <style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style>
-    </div></div>
-  );
-
-  if (view === 'reconnect') return (
-    <div style={S.page}><div style={{ ...S.card, textAlign: 'center' }}>
-      <div style={{ fontSize: 40, marginBottom: 8 }}>📶</div>
-      <div style={S.brand}>Reconéctate a internet</div>
-      <div style={S.sub}>Pasaron más de {GRACE_DAYS} días sin verificar tu cuenta. Conéctate una vez para seguir usando la app.</div>
-      {err && <div style={S.err}>{err}</div>}
-      <button style={S.btn} onClick={retryReconnect}>Reintentar</button>
     </div></div>
   );
 
