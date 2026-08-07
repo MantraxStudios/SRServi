@@ -408,7 +408,7 @@ function EditorCanvas({ layout, background, backgroundIsVideo, storeLogo, select
       {background && backgroundIsVideo && (
         <video src={background} muted loop autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
       )}
-      <div style={{ position: 'absolute', inset: 0, background: background ? 'linear-gradient(to bottom, rgba(0,0,0,0.30), rgba(0,0,0,0.55))' : 'transparent' }} />
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: background ? 'linear-gradient(to bottom, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%)' : 'transparent' }} />
       {!background && storeLogo && (
         <img src={storeLogo} alt="" style={{ position: 'absolute', top: '18%', left: '50%', transform: 'translate(-50%,-50%)', width: 80, height: 80, objectFit: 'contain', opacity: 0.9 }} />
       )}
@@ -512,7 +512,7 @@ export function ScreensaverContent({ layout, background, backgroundIsVideo, stor
       {background && (isVid
         ? <video src={background} muted loop autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
         : <img src={background} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />)}
-      <div style={{ position: 'absolute', inset: 0, background: background ? 'linear-gradient(to bottom, rgba(0,0,0,0.30), rgba(0,0,0,0.55))' : 'linear-gradient(160deg,#0a0a0a,#1a1a1a)' }} />
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: background ? 'linear-gradient(to bottom, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%)' : 'linear-gradient(160deg,#0a0a0a,#1a1a1a)' }} />
       {!background && storeLogo && (
         <img src={storeLogo} alt="" style={{ position: 'absolute', top: '18%', left: '50%', transform: 'translate(-50%,-50%)', width: 140, height: 140, objectFit: 'contain' }} />
       )}

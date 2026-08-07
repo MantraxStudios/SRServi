@@ -98,9 +98,12 @@ import TotemRental from './pages/admin/TotemRental';
 import TicketeriaPublic from './pages/TicketeriaPublic';
 import TicketViewer from './pages/TicketViewer';
 import Hello from './pages/Hello';
+import Launcher from './pages/desktop/Launcher';
 
 const TV_CODE_KEY = 'srservi_tv_code';
-const API_HOST = 'srservi2.srautomatic.com';
+const API_HOST = (typeof window !== 'undefined' && window.__SRSERVI_API__)
+  ? window.__SRSERVI_API__.replace(/^https?:\/\//, '')
+  : 'srservi2.srautomatic.com';
 
 // Detects if app is running on a store subdomain (e.g. mitienda.srautomatic.com)
 function getSubdomainInfo() {
@@ -268,6 +271,7 @@ function App() {
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/desktop" element={<Launcher />} />
           <Route path="/asistente" element={<SalesAssistant />} />
           <Route path="/demo" element={<SalesAssistant />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />

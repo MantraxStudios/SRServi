@@ -7,12 +7,14 @@ import { handleBotMessage } from './whatsapp-bot.js';
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const {
-  default: makeWASocket,
-  useMultiFileAuthState,
-  DisconnectReason,
-  fetchLatestBaileysVersion
-} = require('@whiskeysockets/baileys');
+// Baileys es ESM puro: cargarlo con require() al arranque rompe bajo el Node de
+// Electron (ERR_REQUIRE_ESM). Se carga de forma perezosa (dynamic import) solo
+// cuando se inicia realmente WhatsApp, que además está desactivado en OFFLINE.
+let _baileys = null;
+async function loadBaileys() {
+  if (!_baileys) _baileys = await import('@whiskeysockets/baileys');
+  return _baileys;
+}
 const { Boom } = require('@hapi/boom');
 const QRCode = require('qrcode');
 
@@ -77,6 +79,10 @@ export async function initWhatsApp(storeId) {
 
   const authDir = path.join(AUTH_BASE, `store_${storeId}`);
   if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
+
+  const baileys = await loadBaileys();
+  const makeWASocket = baileys.default;
+  const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = baileys;
 
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion();

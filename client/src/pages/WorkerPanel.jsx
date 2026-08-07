@@ -574,6 +574,12 @@ function WorkerPanel() {
       }
     });
 
+    // Pago con terminal TUU (built-in o plugin). Al completarse, refrescamos las
+    // órdenes para que el pedido recién pagado aparezca en el panel del trabajador.
+    socket.on('tuu_payment_update', (data) => {
+      if (data && data.status === 'Completed') fetchOrders(parsedWorker.store_id);
+    });
+
     socket.on('order_updated', (updatedOrder) => {
       if (updatedOrder && updatedOrder.id) {
         if (updatedOrder.status === 'completed') {

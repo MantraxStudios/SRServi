@@ -1,6 +1,10 @@
-const API_URL = 'https://srservi2.srautomatic.com';
-const SOCKET_URL = 'https://srservi2.srautomatic.com';
-const UPLOAD_URL = 'https://srservi2.srautomatic.com';
+// Host de la API. En la app de escritorio (Electron offline) el preload inyecta
+// window.__SRSERVI_API__ = 'http://localhost:8888'. En la web queda el remoto.
+const HOST = (typeof window !== 'undefined' && window.__SRSERVI_API__)
+  || 'https://srservi2.srautomatic.com';
+const API_URL = HOST;
+const SOCKET_URL = HOST;
+const UPLOAD_URL = HOST;
 
 export { API_URL, SOCKET_URL, UPLOAD_URL };
 export const getImageUrl = (imagePath) => {

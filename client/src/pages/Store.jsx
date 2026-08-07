@@ -1261,6 +1261,10 @@ function Store() {
     const v = localStorage.getItem('srservi_accept_card');
     return v === null ? null : v === 'true';
   });
+  // Conectividad: en la app de escritorio offline no hay pagos online (Mercado
+  // Pago / TUU / QR). Detectamos si hay red para ocultar esas opciones y forzar
+  // efectivo. navigator.onLine + un ping periódico al servidor de pagos remoto.
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [productInfo, setProductInfo] = useState(null);
   const [posSelectModalOpen, setPosSelectModalOpen] = useState(false);
@@ -1993,6 +1997,15 @@ function Store() {
     link.href = canvas.toDataURL('image/jpeg', 0.95);
     link.click();
   }, [store]);
+
+  // Conectividad: escuchar cambios de red para habilitar/ocultar pagos online.
+  useEffect(() => {
+    const on = () => setIsOnline(true);
+    const off = () => setIsOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }, []);
 
   // Fetch screensaver config (public, no auth needed)
   useEffect(() => {
@@ -7835,7 +7848,7 @@ function Store() {
                   </div>
                 )}
                 <div className="flex flex-col" style={{ gap: '15px' }}>
-                  {tuuModePayFromUrl && androidBridgeAvailable && (
+                  {tuuModePayFromUrl && androidBridgeAvailable && isOnline && (
                     <>
                       <button
                         onClick={() => handleAndroidTuuPayment(2)}
@@ -7866,7 +7879,7 @@ function Store() {
                     if (deliveryMode) {
                       return (
                         <>
-                          {delivAllowsTuu && haulmerNative && (
+                          {delivAllowsTuu && haulmerNative && isOnline && (
                             <button
                               onClick={() => processPayment('haulmer_native')}
                               className="btn btn-lg btn-full store-glow-pulse"
@@ -7876,7 +7889,7 @@ function Store() {
                               <span className="font-bold" style={{ fontSize: '18px' }}>{t('payWithTuu', lang)}</span>
                             </button>
                           )}
-                          {delivAllowsCash && (
+                          {(delivAllowsCash || !isOnline) && (
                             <button
                               onClick={() => processPayment('cash')}
                               className="btn btn-lg btn-full store-glow-pulse"
@@ -7886,7 +7899,7 @@ function Store() {
                               <span className="font-bold" style={{ fontSize: '18px' }}>{t('cash', lang)}</span>
                             </button>
                           )}
-                          {delivAllowsMP && (
+                          {delivAllowsMP && isOnline && (
                             <button
                               onClick={() => processPayment('mp_checkout')}
                               className="btn btn-lg btn-full store-glow-pulse"
@@ -7903,9 +7916,18 @@ function Store() {
                       );
                     }
 
+                    // Tarjeta (terminal MP/TUU) requiere internet. Offline se
+                    // oculta y siempre se ofrece efectivo.
+                    const showCard = localAcceptCard && isOnline;
+                    const showCash = localAcceptCash || !isOnline;
                     return (
                       <>
-                        {localAcceptCard && (
+                        {!isOnline && (
+                          <div style={{ marginBottom: 4, padding: '8px 12px', borderRadius: 10, background: '#fff7ed', border: '1px solid #fdba74', color: '#9a3412', fontSize: 13, fontWeight: 600 }}>
+                            {t('offlineCashOnly', lang)}
+                          </div>
+                        )}
+                        {showCard && (
                           <button
                             onClick={() => handlePaymentMethodSelect('card')}
                             className="btn btn-lg btn-full store-glow-pulse"
@@ -7915,7 +7937,7 @@ function Store() {
                             <span className="font-bold" style={{ fontSize: '18px' }}>{t('card', lang)}</span>
                           </button>
                         )}
-                        {localAcceptCash && (
+                        {showCash && (
                           <button
                             onClick={() => handlePaymentMethodSelect('cash')}
                             className="btn btn-lg btn-full store-glow-pulse"
@@ -7925,7 +7947,7 @@ function Store() {
                             <span className="font-bold" style={{ fontSize: '18px' }}>{t('cash', lang)}</span>
                           </button>
                         )}
-                        {!localAcceptCash && !localAcceptCard && !qrProvider && !haulmerNative && (
+                        {!showCash && !showCard && !qrProvider && !haulmerNative && (
                           <p className="text-muted">{t('noPaymentMethods', lang)}</p>
                         )}
                       </>

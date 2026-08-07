@@ -329,6 +329,7 @@ import {
   getInventoryAlertReport
 } from './database.js';
 import { registerSubdomain, unregisterSubdomain } from './nginx-manager.js';
+import { exportUserData, importUserData } from './offline-sync.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -340,6 +341,12 @@ const io = new Server(server, {
 });
 const PORT = process.env.SERVER_PORT || 8888;
 const HOST = process.env.SERVER_HOST || '127.0.0.1';
+// Modo offline (app de escritorio Electron): desactiva subsistemas externos
+// que requieren internet o servicios locales (WhatsApp, Instagram, León IA,
+// nginx) y no programa los cron jobs. Las rutas Express quedan intactas.
+const OFFLINE = process.env.OFFLINE === '1';
+// En modo offline, cron.schedule se vuelve un no-op para no lanzar tareas.
+const scheduleCron = OFFLINE ? (() => {}) : cron.schedule.bind(cron);
 const JWT_SECRET = process.env.JWT_SECRET || 'srservi-secret-key-2024';
 const BASE_URL = process.env.BASE_URL || 'https://srservi2.srautomatic.com';
 
@@ -2690,6 +2697,51 @@ app.get('/api/can-create-store', authenticateToken, async (req, res) => {
     const canCreate = await canUserCreateStore(req.user.id);
     res.json(canCreate);
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ─── Sincronización offline (app de escritorio) ──────────────────────────────
+// Export: el servidor nube entrega TODOS los datos del usuario para bajarlos.
+app.get('/api/offline/export', authenticateToken, async (req, res) => {
+  try {
+    const data = await exportUserData(req.user.id);
+    res.json(data);
+  } catch (error) {
+    console.error('[offline/export]', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Verify: chequeo ligero de premium/bloqueo para la verificación semanal.
+app.get('/api/offline/verify', authenticateToken, async (req, res) => {
+  try {
+    const user = await getUserById(req.user.id);
+    const plan = await getUserPlan(req.user.id);
+    const planName = plan?.plan_name || plan?.name || '';
+    res.json({
+      blocked: !!user?.is_banned,
+      premium: !!planName && planName !== 'Gratis',
+      plan_name: planName || 'Gratis',
+      premium_until: plan?.ends_at || null,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Import: SOLO en el servidor local offline. Vuelca el dump en la BD local.
+// No exige token: en el primer sync la BD local aún no tiene el usuario, y el
+// server local escucha solo en 127.0.0.1 (monousuario).
+app.post('/api/offline/import', async (req, res) => {
+  if (process.env.OFFLINE !== '1') {
+    return res.status(403).json({ error: 'Import solo disponible en la app offline' });
+  }
+  try {
+    const result = await importUserData(req.body);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('[offline/import]', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -7916,9 +7968,11 @@ app.post('/api/orders/:orderId/confirm-payment', async (req, res) => {
       orderItems = await getOrderItems(parseInt(orderId));
     }
 
-    const socketId = userSockets.get(parseInt(storeId));
-    if (socketId && updatedOrder) {
-      io.to(socketId).emit('payment_confirmed', { ...updatedOrder, items: orderItems });
+    // Emitir a la SALA de la tienda (store_<id>) para que TODOS los clientes
+    // conectados (tótem + panel del trabajador + cocina) reciban la confirmación,
+    // no solo el último socket registrado en userSockets.
+    if (updatedOrder) {
+      io.to(`store_${parseInt(storeId)}`).emit('payment_confirmed', { ...updatedOrder, items: orderItems });
     }
 
     if (pluginManager && updatedOrder) {
@@ -10432,16 +10486,24 @@ async function startServer() {
               ['Completed', data.transactionReference || null, idempotencyKey]
             );
             let orderNumber = null;
+            let paidOrder = null;
             if (orderId) {
               await pool.execute(
                 "UPDATE orders SET status = 'preparing', payment_process = 1, cash_approved = TRUE, sequence_id = ?, reference_id = ? WHERE id = ?",
                 [data.sequenceNumber || null, data.transactionReference || null, orderId]
               ).catch(() => {});
-              const [orRows] = await pool.execute('SELECT order_number FROM orders WHERE id = ?', [orderId]).catch(() => [[]]);
-              orderNumber = orRows[0]?.order_number || null;
+              const [orRows] = await pool.execute('SELECT * FROM orders WHERE id = ?', [orderId]).catch(() => [[]]);
+              paidOrder = orRows[0] || null;
+              orderNumber = paidOrder?.order_number || null;
             }
-            const socketId = userSockets.get(parseInt(storeId));
-            if (socketId) io.to(socketId).emit('tuu_payment_update', { idempotencyKey, orderId, order_number: orderNumber, status: 'Completed', transactionRef: data.transactionReference, sequenceNumber: data.sequenceNumber });
+            // Emitir a la SALA de la tienda para que tótem y panel del trabajador
+            // reciban la confirmación (no solo el último socket de userSockets).
+            const room = `store_${parseInt(storeId)}`;
+            io.to(room).emit('tuu_payment_update', { idempotencyKey, orderId, order_number: orderNumber, status: 'Completed', transactionRef: data.transactionReference, sequenceNumber: data.sequenceNumber });
+            if (paidOrder) {
+              const items = await getOrderItems(parseInt(orderId)).catch(() => null);
+              io.to(room).emit('payment_confirmed', { ...paidOrder, items });
+            }
           } else if (data.status === 'Canceled' || data.status === 'Failed') {
             clearInterval(intervalId);
             tuuActivePolls.delete(idempotencyKey);
@@ -10449,8 +10511,7 @@ async function startServer() {
             if (orderId) {
               await pool.execute("UPDATE orders SET status = 'canceled' WHERE id = ?", [orderId]).catch(() => {});
             }
-            const socketId = userSockets.get(parseInt(storeId));
-            if (socketId) io.to(socketId).emit('tuu_payment_update', { idempotencyKey, orderId, status: data.status });
+            io.to(`store_${parseInt(storeId)}`).emit('tuu_payment_update', { idempotencyKey, orderId, status: data.status });
           }
         } catch (err) {
           console.error('Tuu poll error:', err.message);
@@ -10459,8 +10520,7 @@ async function startServer() {
           clearInterval(intervalId);
           tuuActivePolls.delete(idempotencyKey);
           await pool.execute('UPDATE tuu_transactions SET status = ?, updated_at = NOW() WHERE idempotency_key = ?', ['Timeout', idempotencyKey]);
-          const socketId = userSockets.get(parseInt(storeId));
-          if (socketId) io.to(socketId).emit('tuu_payment_update', { idempotencyKey, orderId, status: 'Timeout' });
+          io.to(`store_${parseInt(storeId)}`).emit('tuu_payment_update', { idempotencyKey, orderId, status: 'Timeout' });
         }
       }, 5000);
       tuuActivePolls.set(idempotencyKey, intervalId);
@@ -12949,7 +13009,7 @@ async function startServer() {
     });
 
     // Cron cada día a medianoche — cerrar cajas abiertas y enviar email
-    cron.schedule('0 0 * * *', async () => {
+    scheduleCron('0 0 * * *', async () => {
       console.log('[Caja] Cierre automático de cajas...');
       try {
         const openRegisters = await getAllOpenCashRegisters();
@@ -12967,7 +13027,7 @@ async function startServer() {
     });
 
     // Cron diario 8 AM — enviar estadísticas de productos del día anterior
-    cron.schedule('0 8 * * *', async () => {
+    scheduleCron('0 8 * * *', async () => {
       console.log('[ProductStats] Enviando reportes diarios de productos...');
       try {
         const allStores = await getAllStoresWithOwnerEmail();
@@ -12993,7 +13053,7 @@ async function startServer() {
     });
 
     // Cron diario 7 AM — email de estado de inventario
-    cron.schedule('0 7 * * *', async () => {
+    scheduleCron('0 7 * * *', async () => {
       console.log('[InventoryAlert] Enviando reportes de inventario...');
       try {
         const allStores = await getAllStoresWithOwnerEmail();
@@ -14017,7 +14077,7 @@ async function startServer() {
     });
 
     // Cron cada domingo a las 10:00
-    cron.schedule('0 * * * *', async () => {
+    scheduleCron('0 * * * *', async () => {
       const now = new Date();
       const currentHour = now.getHours();
       const currentDay  = now.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
@@ -14068,7 +14128,7 @@ async function startServer() {
     });
 
     // TikTok auto-post cron (runs every hour, checks schedule per store)
-    cron.schedule('0 * * * *', async () => {
+    scheduleCron('0 * * * *', async () => {
       const now        = new Date();
       const currentHour = now.getHours();
       const currentDay  = now.getDay();
@@ -14391,7 +14451,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     });
 
     // Cron SRBrain — cada hora evalúa qué tiendas deben ejecutarse según su schedule
-    cron.schedule('0 * * * *', async () => {
+    scheduleCron('0 * * * *', async () => {
       try {
         const now = new Date();
         const currentHour = now.getHours();
@@ -14415,7 +14475,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     // ── Reinicio periódico de OpenSSH — cada 1 hora en punto ───────────────────
     // El servicio SSH del servidor deja de responder cada tanto; lo reiniciamos
     // cada hora para mantener el acceso remoto disponible. Solo en Linux.
-    cron.schedule('0 * * * *', () => {
+    scheduleCron('0 * * * *', () => {
       if (process.platform !== 'linux') return;
       const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
       const services = ['ssh', 'sshd']; // Debian/Ubuntu = ssh, RHEL/Fedora = sshd
@@ -14479,7 +14539,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       </body></html>`;
     }
 
-    cron.schedule('0 0 * * 1', async () => {
+    scheduleCron('0 0 * * 1', async () => {
       console.log('[SRBrain] Generando reportes semanales de ventas (lunes 00:00)...');
       try {
         const configs = await getAllEnabledAiConfigs();
@@ -14824,7 +14884,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
 
     // Cron: procesar mensajes programados cada minuto
     let schedLock = false;
-    cron.schedule('* * * * *', async () => {
+    scheduleCron('* * * * *', async () => {
       if (schedLock) return;
       schedLock = true;
       try {
@@ -14911,38 +14971,56 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     });
 
     // Auto-start WhatsApp for each store that has a saved session
-    for (const storeId of getAutoStartStoreIds()) {
-      initWhatsApp(storeId).catch(e => console.warn(`[WhatsApp:${storeId}] Auto-start failed:`, e.message));
+    if (!OFFLINE) {
+      for (const storeId of getAutoStartStoreIds()) {
+        initWhatsApp(storeId).catch(e => console.warn(`[WhatsApp:${storeId}] Auto-start failed:`, e.message));
+      }
+
+      // RTSP people counter — reanudar streams activos al arrancar
+      try {
+        const { rtspCounterService } = await import('./rtsp-counter.js');
+        await rtspCounterService.initAll();
+        app._rtspCounterService = rtspCounterService;
+      } catch (e) {
+        console.warn('[RTSP] No se pudo iniciar servicio de aforo RTSP:', e.message);
+      }
     }
 
-    // RTSP people counter — reanudar streams activos al arrancar
-    try {
-      const { rtspCounterService } = await import('./rtsp-counter.js');
-      await rtspCounterService.initAll();
-      app._rtspCounterService = rtspCounterService;
-    } catch (e) {
-      console.warn('[RTSP] No se pudo iniciar servicio de aforo RTSP:', e.message);
+    // SPA de escritorio (Electron): sirve el build del cliente y hace fallback a
+    // index.html para las rutas del router. Solo se activa si CLIENT_DIST está
+    // definido (lo setea la app Electron), así el server web no se ve afectado.
+    // Se registra al final, después de todas las rutas /api, para no ensombrecerlas.
+    if (process.env.CLIENT_DIST) {
+      const clientDist = process.env.CLIENT_DIST;
+      app.use(express.static(clientDist));
+      app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api') || req.path.startsWith('/uploads') ||
+            req.path.startsWith('/downloads') || req.path.startsWith('/socket.io')) return next();
+        res.sendFile(path.join(clientDist, 'index.html'));
+      });
     }
 
     server.listen(PORT, HOST, () => {
       console.log(`Servidor corriendo en http://${HOST}:${PORT}`);
     });
 
-    // Instagram Python service — se inicia automáticamente con el servidor
-    initInstagramService().catch(e => console.warn('[IG-Service] Error autostart:', e.message));
+    if (!OFFLINE) {
+      // Instagram Python service — se inicia automáticamente con el servidor
+      initInstagramService().catch(e => console.warn('[IG-Service] Error autostart:', e.message));
 
-    // León IA — configuración automática en background (no bloquea el servidor)
-    // En Windows/Mac se puede forzar con LEON_AUTOSTART=1 en el .env
-    if (process.platform === 'linux' || process.env.LEON_AUTOSTART === '1') {
-      initLeonIA().catch(e => console.warn('[León IA] Error autostart:', e.message));
-    }
+      // León IA — configuración automática en background (no bloquea el servidor)
+      // En Windows/Mac se puede forzar con LEON_AUTOSTART=1 en el .env
+      if (process.platform === 'linux' || process.env.LEON_AUTOSTART === '1') {
+        initLeonIA().catch(e => console.warn('[León IA] Error autostart:', e.message));
+      }
 
-    // Servicio de generación de imágenes con IA (FLUX.1-schnell, open source) — descarga
-    // el modelo (~2-3GB) la primera vez. En Windows/Mac se fuerza con AI_IMAGE_AUTOSTART=1
-    if (process.platform === 'linux' || process.env.AI_IMAGE_AUTOSTART === '1') {
-      import('./ai_image/autostart.js')
-        .then(({ initAiImageService }) => initAiImageService())
-        .catch(e => console.warn('[AI-Image] Error autostart:', e.message));
+      // Servicio de generación de imágenes con IA (FLUX.1-schnell, open source) — descarga
+      // el modelo (~2-3GB) la primera vez. En Windows/Mac se fuerza con AI_IMAGE_AUTOSTART=1
+      if (process.platform === 'linux' || process.env.AI_IMAGE_AUTOSTART === '1') {
+        import('./ai_image/autostart.js')
+          .then(({ initAiImageService }) => initAiImageService())
+          .catch(e => console.warn('[AI-Image] Error autostart:', e.message));
+      }
     }
   } catch (error) {
     console.error('Error al iniciar el servidor:', error);
@@ -17333,7 +17411,7 @@ app.post('/api/feedback/:token', async (req, res) => {
 });
 
 // Cron mensual: primer día de cada mes a las 9am
-cron.schedule('0 9 1 * *', async () => {
+scheduleCron('0 9 1 * *', async () => {
   console.log('[Feedback Cron] Iniciando encuesta mensual automática...');
   try {
     const campaignId = await createFeedbackCampaign('monthly');
