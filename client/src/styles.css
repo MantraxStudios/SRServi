@@ -3387,7 +3387,7 @@ html body .store-container .store-product-card * {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 400px;
+  max-height: 180px;   /* ~alto real del banner compacto (sin imagen) */
   transition: max-height 0.42s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.32s ease, padding 0.42s ease;
 }
 .store-banner-top {
@@ -3421,6 +3421,8 @@ html body .store-container .store-product-card * {
    idioma (arriba-der) y buscador+voz superpuestos abajo. ── */
 .store-name-banner--img {
   min-height: clamp(110px, 17vh, 170px);
+  /* max-height = min-height → el colapso es 1:1, sin salto */
+  max-height: clamp(110px, 17vh, 170px);
   padding: 12px;
   background-size: cover;
   background-position: center;
