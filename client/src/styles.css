@@ -2143,6 +2143,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 .store-container.store-scrolled .store-name-banner {
   max-height: 0 !important;
+  min-height: 0 !important;   /* anula el min-height del hero para que colapse */
   opacity: 0;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
@@ -2429,8 +2430,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .category-tab {
-  flex: 0 0 84px;              /* todas el MISMO ancho */
-  width: 84px;
+  flex: 0 0 76px;              /* todas el MISMO ancho */
+  width: 76px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;      /* imagen/icono arriba, nombre abajo */
@@ -2453,7 +2454,7 @@ h1, h2, h3, h4, h5, h6 {
 .category-tab-icon {
   width: 100%;
   color: var(--kiosk-dark, #232028);
-  font-size: 34px;
+  font-size: 30px;
   opacity: 0.9;
   display: inline-flex;
   align-items: center;
@@ -2464,7 +2465,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Imagen del ícono de categoría: grande, ocupa el ancho del tab. */
 .cat-tab-img {
   width: 100%;
-  height: 54px;
+  height: 46px;
   object-fit: cover;
   border-radius: 9px;
   display: block;
