@@ -43,27 +43,19 @@ function TvDisplay() {
   const [error, setError] = useState(null);
   const [time, setTime] = useState(new Date());
   const [highlightOrder, setHighlightOrder] = useState(null);
+  const [started, setStarted] = useState(false);
   const prevReadyRef = useRef([]);
   const audioRef = useRef(null);
 
   useNoSleep();
 
-  // Desbloquea el audio en la primera interacción (los navegadores bloquean el
-  // autoplay de sonido hasta que el usuario toca/clickea la pantalla una vez).
-  useEffect(() => {
-    const unlock = () => {
-      const a = audioRef.current;
-      if (a) { a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {}); }
-      document.removeEventListener('pointerdown', unlock);
-      document.removeEventListener('keydown', unlock);
-    };
-    document.addEventListener('pointerdown', unlock);
-    document.addEventListener('keydown', unlock);
-    return () => {
-      document.removeEventListener('pointerdown', unlock);
-      document.removeEventListener('keydown', unlock);
-    };
-  }, []);
+  // Al tocar "COMENZAR MONITOREO" se desbloquea el audio (los navegadores
+  // bloquean el sonido automático hasta que el usuario interactúa una vez).
+  const startMonitoring = () => {
+    const a = audioRef.current;
+    if (a) { a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {}); }
+    setStarted(true);
+  };
 
   const fetchOrders = async () => {
     try {
@@ -171,6 +163,15 @@ function TvDisplay() {
       }}
     >
       <audio ref={audioRef} src="/notification.mp3" preload="auto" />
+
+      {!started && (
+        <div className="tv-start-overlay">
+          {store?.logo_url && <img src={store.logo_url} alt="" className="tv-start-logo" />}
+          <h1 className="tv-start-title">{store?.name || 'Pantalla de pedidos'}</h1>
+          <button className="tv-start-btn" onClick={startMonitoring}>▶ COMENZAR MONITOREO</button>
+          <p className="tv-start-hint">Tocá el botón para iniciar y activar el sonido</p>
+        </div>
+      )}
 
       <header className="tv-header">
         {store?.logo_url && <img src={store.logo_url} alt="" className="tv-logo" />}
@@ -452,6 +453,47 @@ function TvDisplay() {
           color: #000;
         }
 
+        .tv-start-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 100;
+          background: linear-gradient(160deg, #0a0a0a, #1a1a1a);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 24px;
+          color: #fff;
+          text-align: center;
+          padding: 24px;
+        }
+        .tv-start-logo {
+          width: 120px;
+          height: 120px;
+          object-fit: contain;
+          border-radius: 20px;
+          background: #fff;
+        }
+        .tv-start-title {
+          font-size: clamp(28px, 5vw, 54px);
+          font-weight: 900;
+          margin: 0;
+        }
+        .tv-start-btn {
+          padding: 22px 52px;
+          font-size: clamp(24px, 3.4vw, 42px);
+          font-weight: 900;
+          letter-spacing: 1px;
+          border: none;
+          border-radius: 18px;
+          background: #22c55e;
+          color: #000;
+          cursor: pointer;
+          box-shadow: 0 12px 40px rgba(34, 197, 94, 0.45);
+        }
+        .tv-start-btn:active { transform: scale(0.97); }
+        .tv-start-hint { font-size: 16px; color: #999; margin: 0; }
+
         .tv-orders-grid {
           flex: 1;
           display: grid;
@@ -480,15 +522,15 @@ function TvDisplay() {
         .tv-empty svg { font-size: 48px; opacity: 0.3; }
 
         .tv-order-card {
-          border-radius: 12px;
+          border-radius: 16px;
           display: flex;
-          flex-direction: column;
-          align-items: stretch;
-          justify-content: flex-start;
+          align-items: center;
+          justify-content: center;
+          aspect-ratio: 1 / 1;      /* tarjeta cuadrada */
           font-weight: 900;
           position: relative;
           overflow: hidden;
-          padding: 12px 14px;
+          padding: 10px;
           animation: tv-fade-in 0.5s ease-out backwards;
         }
 
@@ -506,12 +548,11 @@ function TvDisplay() {
         }
 
         .tv-order-number {
-          font-size: 22px;
-          letter-spacing: -0.5px;
+          font-size: clamp(38px, 6vw, 76px);
+          letter-spacing: -1px;
+          line-height: 1;
+          text-align: center;
           z-index: 2;
-          padding-bottom: 8px;
-          margin-bottom: 8px;
-          border-bottom: 2px solid rgba(0,0,0,0.15);
         }
 
         .tv-order-products {
