@@ -5527,6 +5527,9 @@ function Store() {
       {seasonalTheme && (
         <div className="store-seasonal-banner">{seasonalTheme.banner}</div>
       )}
+      {store?.store?.name && (
+        <div className="store-name-banner">{store.store.name}</div>
+      )}
       <header className="store-header">
         <div className="store-header-content">
           <div className="store-header-brand">
@@ -5537,9 +5540,6 @@ function Store() {
                 className="store-header-logo"
               />
             )}
-            <h1 className="store-header-name">
-              {store?.store?.name}
-            </h1>
           </div>
           <div className="store-header-greeting">
             <div className="store-header-greeting-title">{t('greetingHi', lang)} 👋</div>
@@ -5841,9 +5841,6 @@ function Store() {
       )}
 
       <div className={`store-body${editMode && !previewMode ? ' editing' : ''}`} style={restaurantView && !activeTable ? { display: 'none' } : {}}>
-      {store?.store?.name && (
-        <div className="store-name-banner">{store.store.name}</div>
-      )}
       <div className="category-tabs">
         <div
           ref={categoryRef}
@@ -5914,7 +5911,26 @@ function Store() {
 
       <div className="store-main" onScroll={e => { const y = e.currentTarget.scrollTop; setScrolled(prev => prev ? y > 12 : y > 56); }}>
       {(!editMode || previewMode) && hasProducts && (
-        <div className="store-product-search-bar" style={{ display: 'flex', padding: '10px 16px 12px', background: 'var(--kiosk-bg, #FAF4E9)', borderRadius: '0 0 18px 18px', boxShadow: '0 6px 10px -6px rgba(0,0,0,0.18)' }}>
+        <div className="store-product-search-bar" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px 12px', background: 'var(--kiosk-bg, #FAF4E9)', borderRadius: '0 0 18px 18px', boxShadow: '0 6px 10px -6px rgba(0,0,0,0.18)' }}>
+          {voiceSupported ? (
+            <button
+              type="button"
+              className={`search-voice-btn${voiceListening ? ' listening' : ''}`}
+              onClick={() => { if (voiceListening) guideRef.current?.stop?.(); else guideRef.current?.startVoiceDirect?.(); }}
+              aria-label="Pedir hablando" title="Pedir hablando"
+            >
+              <FontAwesomeIcon icon={faMicrophone} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="search-voice-btn"
+              onClick={() => setGuideOpen(true)}
+              aria-label="Asistente de compra" title="¿Necesitas ayuda?"
+            >
+              <FontAwesomeIcon icon={faRobot} />
+            </button>
+          )}
           <div style={{ position: 'relative', flex: 1 }}>
             <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--store-text-secondary, #999)', fontSize: 14, pointerEvents: 'none' }} />
             <input
@@ -6890,26 +6906,6 @@ function Store() {
 
       {hasProducts && !adminEditToken && (
       <div className={`cart-bar${cart.length > 0 ? '' : ' cart-bar-hidden'}`}>
-        {voiceSupported ? (
-          <button
-            className={`cart-bar-ia${voiceListening ? ' listening' : ''}`}
-            onClick={() => { if (voiceListening) guideRef.current?.stop?.(); else guideRef.current?.startVoiceDirect?.(); }}
-            aria-label="Pedir hablando"
-            title="Pedir hablando"
-          >
-            <FontAwesomeIcon icon={faMicrophone} />
-          </button>
-        ) : (
-          <button
-            className="cart-bar-ia"
-            onClick={() => setGuideOpen(true)}
-            aria-label="Asistente de compra"
-            title="¿Necesitas ayuda?"
-          >
-            <FontAwesomeIcon icon={faRobot} />
-            <span className="cart-bar-ia-ping" />
-          </button>
-        )}
         <div className="cart-bar-left" onClick={() => setCartOpen(true)}>
           <div className="cart-bar-icon">
             <FontAwesomeIcon icon={faShoppingCart} />

@@ -3344,17 +3344,41 @@ html body .store-container .store-product-card * {
   padding-bottom: 20px;
 }
 
-/* Banner con el nombre del negocio, centrado, arriba de las categorías. */
+/* Banner con el nombre del negocio, centrado, arriba de todo. */
 .store-name-banner {
   text-align: center;
   font-weight: 800;
-  font-size: clamp(16px, 4.5vw, 22px);
+  font-size: clamp(17px, 4.8vw, 24px);
   color: var(--kiosk-dark, #232028);
   background: var(--kiosk-bg, #FAF4E9);
-  padding: 8px 14px 6px;
+  padding: 10px 14px;
   letter-spacing: 0.2px;
   line-height: 1.15;
   border-bottom: 1px solid var(--kiosk-border, #F0E8D9);
+}
+
+/* Botón "pedir hablando con la IA" a la izquierda del buscador. */
+.search-voice-btn {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--kiosk-accent, #FFC42E);
+  color: var(--kiosk-dark, #232028);
+  font-size: 18px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease;
+}
+.search-voice-btn:hover { transform: scale(1.06); }
+.search-voice-btn.listening {
+  background: #ef4444;
+  color: #fff;
+  animation: cart-mic-rec 1s infinite;
 }
 
 /* En el teléfono ocultamos el texto "Ver carrito" para que no se superponga
