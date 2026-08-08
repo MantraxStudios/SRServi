@@ -48,6 +48,23 @@ function TvDisplay() {
 
   useNoSleep();
 
+  // Desbloquea el audio en la primera interacción (los navegadores bloquean el
+  // autoplay de sonido hasta que el usuario toca/clickea la pantalla una vez).
+  useEffect(() => {
+    const unlock = () => {
+      const a = audioRef.current;
+      if (a) { a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {}); }
+      document.removeEventListener('pointerdown', unlock);
+      document.removeEventListener('keydown', unlock);
+    };
+    document.addEventListener('pointerdown', unlock);
+    document.addEventListener('keydown', unlock);
+    return () => {
+      document.removeEventListener('pointerdown', unlock);
+      document.removeEventListener('keydown', unlock);
+    };
+  }, []);
+
   const fetchOrders = async () => {
     try {
       const res = await fetch(`/api/store/${code}/tv-orders`);
@@ -181,16 +198,6 @@ function TvDisplay() {
                   style={{ animationDelay: `${idx * 0.1}s` }}
                 >
                   <div className="tv-order-number">{order.order_number}</div>
-                  {order.products?.length > 0 && (
-                    <div className="tv-order-products">
-                      {order.products.map((p, i) => (
-                        <div key={i} className="tv-order-product">
-                          <span className="tv-order-product-qty">{p.quantity}×</span>
-                          <span className="tv-order-product-name">{p.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                   <div className="tv-order-pulse" />
                 </div>
               ))
@@ -218,16 +225,6 @@ function TvDisplay() {
                   style={{ animationDelay: `${idx * 0.1}s` }}
                 >
                   <div className="tv-order-number">{order.order_number}</div>
-                  {order.products?.length > 0 && (
-                    <div className="tv-order-products">
-                      {order.products.map((p, i) => (
-                        <div key={i} className="tv-order-product">
-                          <span className="tv-order-product-qty">{p.quantity}×</span>
-                          <span className="tv-order-product-name">{p.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                   <div className="tv-order-shine" />
                 </div>
               ))
