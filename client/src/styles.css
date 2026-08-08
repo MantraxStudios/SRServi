@@ -2915,14 +2915,14 @@ h1, h2, h3, h4, h5, h6 {
 
 .store-product-card {
   position: relative;
-  /* Fondo oscuro para dar contraste: así el cuadrado del producto se nota
-     aunque la imagen tenga fondo claro o transparente. */
-  background-color: rgba(0, 0, 0, 0.55);
-  border: none;
+  /* Fondo blanco + sombra fuerte para que el cuadrado del producto se despegue
+     del fondo (la tarjeta se nota aunque el fondo de la página sea blanco). */
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 14px;
   overflow: hidden;
-  transition: transform var(--transition);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  transition: transform var(--transition), box-shadow var(--transition);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.14);
   width: 100%;
   aspect-ratio: 1 / 1;
   display: flex;
