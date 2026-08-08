@@ -283,16 +283,6 @@ function TvDisplay() {
         )}
       </main>
 
-      {highlightOrder && (
-        <div className="tv-popup-overlay">
-          <div className="tv-popup">
-            <FontAwesomeIcon icon={faBell} className="tv-popup-icon" />
-            <p className="tv-popup-label">PEDIDO LISTO</p>
-            <h2 className="tv-popup-number">{highlightOrder}</h2>
-          </div>
-        </div>
-      )}
-
       <style>{`
         @keyframes tv-fade-in {
           from { opacity: 0; transform: translateY(20px) scale(0.95); }
