@@ -45,16 +45,42 @@ function TvDisplay() {
   const [highlightOrder, setHighlightOrder] = useState(null);
   const [started, setStarted] = useState(false);
   const prevReadyRef = useRef([]);
+  const prevPreparingRef = useRef([]);
   const firstLoadRef = useRef(true);
   const audioRef = useRef(null);
+  const audioUnlockedRef = useRef(false);
 
   useNoSleep();
+
+  // Reproduce el sonido de notificación. Devuelve la promesa para poder
+  // diagnosticar en consola si el navegador lo bloqueó.
+  const playBeep = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    try {
+      a.muted = false;
+      a.volume = 1;
+      a.currentTime = 0;
+      const p = a.play();
+      if (p && p.catch) p.catch((err) => console.warn('[TV] audio bloqueado:', err?.name || err));
+    } catch (err) {
+      console.warn('[TV] audio error:', err);
+    }
+  };
 
   // Al tocar "COMENZAR MONITOREO" se desbloquea el audio (los navegadores
   // bloquean el sonido automático hasta que el usuario interactúa una vez).
   const startMonitoring = () => {
     const a = audioRef.current;
-    if (a) { a.play().then(() => { a.pause(); a.currentTime = 0; }).catch(() => {}); }
+    if (a) {
+      a.muted = false;
+      a.volume = 1;
+      a.play().then(() => {
+        a.pause();
+        a.currentTime = 0;
+        audioUnlockedRef.current = true;
+      }).catch((err) => console.warn('[TV] no se pudo desbloquear audio:', err?.name || err));
+    }
     setStarted(true);
   };
 
@@ -64,23 +90,24 @@ function TvDisplay() {
       if (!res.ok) throw new Error('Tienda no encontrada');
       const json = await res.json();
 
-      // Detect newly ready orders for animation/sound.
+      // Detecta pedidos nuevos para animación/sonido.
       // En la primera carga NO sonamos (evita sonido al abrir la pantalla);
-      // a partir de ahí, cualquier pedido nuevo en "listos" reproduce el sonido,
-      // incluso si la lista pasó de 0 a 1.
+      // a partir de ahí suena cuando aparece un pedido nuevo, ya sea en
+      // "en preparación" o en "listos", incluso si la lista pasó de 0 a 1.
       const prevReadyIds = new Set(prevReadyRef.current.map(o => o.id));
       const newReady = json.ready.filter(o => !prevReadyIds.has(o.id));
-      if (newReady.length > 0 && !firstLoadRef.current) {
-        setHighlightOrder(newReady[0].order_number);
-        try {
-          if (audioRef.current) {
-            audioRef.current.currentTime = 0;
-            audioRef.current.play().catch(() => {});
-          }
-        } catch {}
-        setTimeout(() => setHighlightOrder(null), 5000);
+      const prevPreparingIds = new Set(prevPreparingRef.current.map(o => o.id));
+      const newPreparing = json.preparing.filter(o => !prevPreparingIds.has(o.id));
+
+      if (!firstLoadRef.current && (newReady.length > 0 || newPreparing.length > 0)) {
+        if (newReady.length > 0) {
+          setHighlightOrder(newReady[0].order_number);
+          setTimeout(() => setHighlightOrder(null), 5000);
+        }
+        playBeep();
       }
       prevReadyRef.current = json.ready;
+      prevPreparingRef.current = json.preparing;
       firstLoadRef.current = false;
 
       localStorage.setItem(TV_CODE_KEY, code);
