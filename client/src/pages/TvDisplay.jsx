@@ -497,11 +497,12 @@ function TvDisplay() {
         .tv-orders-grid {
           flex: 1;
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 10px;
+          grid-template-columns: repeat(auto-fill, minmax(150px, 190px));
+          gap: 12px;
           overflow-y: auto;
           align-content: start;
           align-items: start;
+          justify-content: start;
         }
 
         .tv-orders-grid::-webkit-scrollbar { width: 0; }
@@ -548,7 +549,7 @@ function TvDisplay() {
         }
 
         .tv-order-number {
-          font-size: clamp(38px, 6vw, 76px);
+          font-size: clamp(34px, 4vw, 58px);
           letter-spacing: -1px;
           line-height: 1;
           text-align: center;
