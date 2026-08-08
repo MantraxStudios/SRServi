@@ -2668,8 +2668,9 @@ h1, h2, h3, h4, h5, h6 {
 .category-section-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 5px 12px 2px;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 14px 4px;
 }
 
 .category-section-icon {
@@ -2683,15 +2684,22 @@ h1, h2, h3, h4, h5, h6 {
   background: transparent;
   padding: 0;
   border-radius: 0;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.3px;
   text-transform: none;
   margin: 0;
   white-space: nowrap;
+  text-align: center;
   box-shadow: none;
 }
 
+/* Líneas amarillas a los costados del nombre de la categoría */
 .category-section-line {
-  display: none;
+  display: block;
+  flex: 1;
+  min-width: 16px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--kiosk-accent, #FFC42E);
 }
 
 @media (min-width: 900px) {
@@ -3351,6 +3359,8 @@ html body .store-container .store-product-card * {
   background: var(--kiosk-bg, #FAF4E9);
   padding: 8px 14px 12px;
   border-bottom: 1px solid var(--kiosk-border, #F0E8D9);
+  border-radius: 0 0 20px 20px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -3381,7 +3391,7 @@ html body .store-container .store-product-card * {
 /* ── Banner con IMAGEN: hero a todo ancho/alto, con logo (arriba-izq),
    idioma (arriba-der) y buscador+voz superpuestos abajo. ── */
 .store-name-banner--img {
-  min-height: clamp(170px, 28vh, 300px);
+  min-height: clamp(110px, 17vh, 170px);
   padding: 12px;
   background-size: cover;
   background-position: center;

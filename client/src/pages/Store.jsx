@@ -6159,11 +6159,9 @@ function Store() {
       {(!editMode || previewMode) && !(restaurantView && !activeTable) && searchedProducts === null && (store?.products || []).some(p => p.is_featured) && (
         <div className="category-section">
           <div className="category-section-header">
-            <div className="flex items-center gap-3">
-              <FontAwesomeIcon icon={faFire} className="category-section-icon" />
-              <h3 className="category-section-title">⭐ Destacados</h3>
-            </div>
-            <div className="category-section-line" />
+            <span className="category-section-line" />
+            <h3 className="category-section-title">⭐ Destacados</h3>
+            <span className="category-section-line" />
           </div>
           <div className="products-grid">
             {(store?.products || []).filter(p => p.is_featured).map(product => renderProductCard(product))}
@@ -6174,11 +6172,9 @@ function Store() {
       {(!editMode || previewMode) && !(restaurantView && !activeTable) && searchedProducts === null && (store?.combos || []).filter(c => c.is_active && c.items?.length > 0).length > 0 && (
         <div className="category-section">
           <div className="category-section-header">
-            <div className="flex items-center gap-3">
-              <FontAwesomeIcon icon={faLayerGroup} className="category-section-icon" />
-              <h3 className="category-section-title">Combos y Promociones</h3>
-            </div>
-            <div className="category-section-line" />
+            <span className="category-section-line" />
+            <h3 className="category-section-title">Combos y Promociones</h3>
+            <span className="category-section-line" />
           </div>
           <div className="products-grid">
             {(store.combos || []).filter(c => c.is_active && c.items?.length > 0).map(combo => {
@@ -6238,16 +6234,11 @@ function Store() {
           {Object.entries(groupedProducts).map(([category, products]) => (
             <div key={category} className="category-section" data-cat-section={category}>
               <div className="category-section-header">
-                <div className="flex items-center gap-3">
-                  <FontAwesomeIcon
-                    icon={faTags}
-                    className="category-section-icon"
-                  />
-                  <h3 className="category-section-title">
-                    {category}
-                  </h3>
-                </div>
-                <div className="category-section-line" />
+                <span className="category-section-line" />
+                <h3 className="category-section-title">
+                  {category}
+                </h3>
+                <span className="category-section-line" />
               </div>
               <div className="products-grid">
                 {products.map(product => renderProductCard(product))}
@@ -6366,11 +6357,9 @@ function Store() {
                 .map(([category, products]) => (
                 <div key={category} className="category-section">
                   <div className="category-section-header">
-                    <div className="flex items-center gap-3">
-                      <FontAwesomeIcon icon={faTags} className="category-section-icon" />
-                      <h3 className="category-section-title">{category}</h3>
-                    </div>
-                    <div className="category-section-line" />
+                    <span className="category-section-line" />
+                    <h3 className="category-section-title">{category}</h3>
+                    <span className="category-section-line" />
                   </div>
                   <div className="products-grid" style={{ padding: '0 16px' }}>
                     {products.map(product => (
