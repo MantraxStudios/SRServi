@@ -5527,48 +5527,56 @@ function Store() {
       {seasonalTheme && (
         <div className="store-seasonal-banner">{seasonalTheme.banner}</div>
       )}
-      {store?.store?.name && (
-        <div className="store-name-banner">{store.store.name}</div>
-      )}
-      <header className="store-header">
-        <div className="store-header-content">
-          <div className="store-header-brand">
+      {store?.store && (
+        <div className="store-name-banner">
+          <div className="store-banner-top">
             {store?.store?.logo_url && (
-              <img
-                src={store.store.logo_url}
-                alt={store?.store?.name}
-                className="store-header-logo"
-              />
+              <img src={store.store.logo_url} alt={store?.store?.name} className="store-banner-logo" />
             )}
-          </div>
-          <div className="store-header-greeting">
-            <div className="store-header-greeting-title">{t('greetingHi', lang)} 👋</div>
-            <div className="store-header-greeting-sub">{t('greetingSub', lang)}</div>
-          </div>
-          <div className="store-header-spacer" />
-          <div className="store-header-actions">
-            <div style={{ position: 'relative' }}>
-              <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: '#fff', border: '1px solid #eee6d8', borderRadius: '999px', padding: '7px 13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#232028', fontSize: '13px', fontWeight: 700, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+            <div className="store-name-banner-lang">
+              <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: '#fff', border: '1px solid #eee6d8', borderRadius: '999px', padding: '6px 11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#232028', fontSize: '13px', fontWeight: 700, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
                 <FontAwesomeIcon icon={faGlobe} style={{ fontSize: '11px' }} />
                 <span>{LANGUAGES.find(l => l.code === lang)?.flag || '🌐'}</span>
               </button>
               {showLangPicker && (
                 <>
-                <div onClick={() => setShowLangPicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
-                <div style={{ position: 'fixed', top: '58px', right: '12px', background: '#fff', borderRadius: '10px', boxShadow: '0 4px 24px rgba(0,0,0,0.25)', overflow: 'hidden', minWidth: '150px', zIndex: 9999 }}>
-                  {LANGUAGES.map(l => (
-                    <button key={l.code} onClick={() => { setLang(l.code); localStorage.setItem('srservi_lang', l.code); setShowLangPicker(false); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '12px 16px', border: 'none', background: lang === l.code ? '#f5f5f5' : '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: lang === l.code ? '700' : '400', borderBottom: '1px solid #f0f0f0' }}>
-                      <span style={{ fontSize: '18px' }}>{l.flag}</span> {l.label}
-                    </button>
-                  ))}
-                </div>
+                  <div onClick={() => setShowLangPicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
+                  <div style={{ position: 'fixed', top: '52px', right: '12px', background: '#fff', borderRadius: '10px', boxShadow: '0 4px 24px rgba(0,0,0,0.25)', overflow: 'hidden', minWidth: '150px', zIndex: 9999 }}>
+                    {LANGUAGES.map(l => (
+                      <button key={l.code} onClick={() => { setLang(l.code); localStorage.setItem('srservi_lang', l.code); setShowLangPicker(false); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '12px 16px', border: 'none', background: lang === l.code ? '#f5f5f5' : '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: lang === l.code ? '700' : '400', borderBottom: '1px solid #f0f0f0' }}>
+                        <span style={{ fontSize: '18px' }}>{l.flag}</span> {l.label}
+                      </button>
+                    ))}
+                  </div>
                 </>
               )}
             </div>
           </div>
+          {(!editMode || previewMode) && hasProducts && (
+            <div className="store-banner-search">
+              {voiceSupported ? (
+                <button type="button" className={`search-voice-btn${voiceListening ? ' listening' : ''}`} onClick={() => { if (voiceListening) guideRef.current?.stop?.(); else guideRef.current?.startVoiceDirect?.(); }} aria-label="Pedir hablando" title="Pedir hablando">
+                  <FontAwesomeIcon icon={faMicrophone} />
+                </button>
+              ) : (
+                <button type="button" className="search-voice-btn" onClick={() => setGuideOpen(true)} aria-label="Asistente de compra" title="¿Necesitas ayuda?">
+                  <FontAwesomeIcon icon={faRobot} />
+                </button>
+              )}
+              <div style={{ position: 'relative', flex: 1 }}>
+                <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--store-text-secondary, #999)', fontSize: 14, pointerEvents: 'none' }} />
+                <input ref={productSearchInputRef} type="text" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} placeholder="Buscar producto…" className="store-product-search-input" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 36px 10px 34px', borderRadius: 10, border: '1px solid var(--store-border, #ddd)', fontSize: 14, outline: 'none' }} />
+                {productSearch && (
+                  <button type="button" onClick={() => { setProductSearch(''); productSearchInputRef.current?.focus(); }} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--store-text-secondary, #999)', fontSize: 15, padding: 6, lineHeight: 1 }} aria-label="Limpiar búsqueda">
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      </header>
+      )}
 
       {!store?.store?.is_premium && (
         <div style={{ background: 'transparent', textAlign: 'center', padding: '3px 0', fontSize: 10, color: '#c3bbaa', letterSpacing: '0.4px', lineHeight: 1 }}>
@@ -5910,51 +5918,6 @@ function Store() {
       </div>
 
       <div className="store-main" onScroll={e => { const y = e.currentTarget.scrollTop; setScrolled(prev => prev ? y > 12 : y > 56); }}>
-      {(!editMode || previewMode) && hasProducts && (
-        <div className="store-product-search-bar" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px 12px', background: 'var(--kiosk-bg, #FAF4E9)', borderRadius: '0 0 18px 18px', boxShadow: '0 6px 10px -6px rgba(0,0,0,0.18)' }}>
-          {voiceSupported ? (
-            <button
-              type="button"
-              className={`search-voice-btn${voiceListening ? ' listening' : ''}`}
-              onClick={() => { if (voiceListening) guideRef.current?.stop?.(); else guideRef.current?.startVoiceDirect?.(); }}
-              aria-label="Pedir hablando" title="Pedir hablando"
-            >
-              <FontAwesomeIcon icon={faMicrophone} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="search-voice-btn"
-              onClick={() => setGuideOpen(true)}
-              aria-label="Asistente de compra" title="¿Necesitas ayuda?"
-            >
-              <FontAwesomeIcon icon={faRobot} />
-            </button>
-          )}
-          <div style={{ position: 'relative', flex: 1 }}>
-            <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--store-text-secondary, #999)', fontSize: 14, pointerEvents: 'none' }} />
-            <input
-              ref={productSearchInputRef}
-              type="text"
-              value={productSearch}
-              onChange={(e) => setProductSearch(e.target.value)}
-              placeholder="Buscar producto…"
-              className="store-product-search-input"
-              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 36px 10px 34px', borderRadius: 10, border: '1px solid var(--store-border, #ddd)', fontSize: 14, outline: 'none' }}
-            />
-            {productSearch && (
-              <button
-                type="button"
-                onClick={() => { setProductSearch(''); productSearchInputRef.current?.focus(); }}
-                style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--store-text-secondary, #999)', fontSize: 15, padding: 6, lineHeight: 1 }}
-                aria-label="Limpiar búsqueda"
-              >
-                <FontAwesomeIcon icon={faTimes} />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
       {!hasProducts && (
         <div className="store-empty">
           <div className="store-empty-icon" style={{ background: `linear-gradient(135deg, ${colors.accent}20, ${colors.accent}40)` }}>
