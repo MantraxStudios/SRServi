@@ -1852,7 +1852,9 @@ function Store() {
     if (activeTab) {
       activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
-    // Sube el área de productos al cambiar de categoría (scroll independiente)
+    // Al elegir una categoría se oculta el buscador (solo visible en "Todos");
+    // limpiamos el texto y llevamos la vista a los productos de esa categoría.
+    if (activeCategory !== 'all') setProductSearch('');
     document.querySelector('.store-main')?.scrollTo({ top: 0 });
   }, [activeCategory]);
 
@@ -5882,7 +5884,7 @@ function Store() {
       </div>
 
       <div className="store-main" onScroll={e => { const y = e.currentTarget.scrollTop; setScrolled(prev => prev ? y > 12 : y > 56); }}>
-      {(!editMode || previewMode) && hasProducts && (
+      {(!editMode || previewMode) && hasProducts && activeCategory === 'all' && (
         <div className="store-product-search-bar" style={{ display: 'flex', padding: '10px 16px', position: 'sticky', top: 0, zIndex: 5, background: 'var(--kiosk-bg, #FAF4E9)' }}>
           <div style={{ position: 'relative', flex: 1 }}>
             <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--store-text-secondary, #999)', fontSize: 14, pointerEvents: 'none' }} />

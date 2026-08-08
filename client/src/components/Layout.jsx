@@ -945,6 +945,29 @@ function Layout() {
                     </button>
                   );
                 })}
+                {/* Apps offline (gratis) — descargas directas, no requieren tienda seleccionada */}
+                <a
+                  href="https://www.mediafire.com/file/0vyuh0m129gx6ky/SRServi-POS-Offline.apk/file"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="isb-fp-link"
+                  onClick={() => setSettingsOpen(false)}
+                >
+                  <span className="isb-app-icon-box"><span style={{ fontSize: 22 }}>🤖</span></span>
+                  <span style={{ display: 'block', lineHeight: 1.2 }}>POS Android</span>
+                  <span style={{ display: 'block', lineHeight: 1.2 }}>Offline</span>
+                </a>
+                <a
+                  href={`${API}/downloads/SRServi-POS-Setup.exe`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="isb-fp-link"
+                  onClick={() => setSettingsOpen(false)}
+                >
+                  <span className="isb-app-icon-box"><span style={{ fontSize: 22 }}>🖥️</span></span>
+                  <span style={{ display: 'block', lineHeight: 1.2 }}>POS Escritorio</span>
+                  <span style={{ display: 'block', lineHeight: 1.2 }}>Offline</span>
+                </a>
               </div>
 
               {/* Instalar / Desinstalar app */}
