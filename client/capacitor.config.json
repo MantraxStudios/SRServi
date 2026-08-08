@@ -1,0 +1,11 @@
+{
+  "appId": "com.srservi.pos",
+  "appName": "SRServi POS",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": true
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

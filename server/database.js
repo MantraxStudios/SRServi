@@ -423,6 +423,26 @@ async function createTables() {
     )
   `);
 
+  // Postulaciones de trabajo: el cliente escanea el QR de la tienda y postula
+  // desde una página pública (/trabajo/:code). El dueño las ve en el admin.
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS job_applications (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      name VARCHAR(150) NOT NULL,
+      phone VARCHAR(40) DEFAULT NULL,
+      email VARCHAR(150) DEFAULT NULL,
+      position VARCHAR(120) DEFAULT NULL,
+      age INT DEFAULT NULL,
+      experience TEXT,
+      availability VARCHAR(120) DEFAULT NULL,
+      message TEXT,
+      status ENUM('nuevo','revisado','contactado','descartado') DEFAULT 'nuevo',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
   const createMercadoPagoTerminalsTable = `
     CREATE TABLE IF NOT EXISTS mercado_pago_terminals (
       id INT PRIMARY KEY AUTO_INCREMENT,

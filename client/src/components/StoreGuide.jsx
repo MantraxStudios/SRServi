@@ -130,12 +130,24 @@ function pickSpanishVoice() {
       if (chosen) return chosen;
     }
   } catch { /* noop */ }
-  const prefs = ['es-cl', 'es-419', 'es-mx', 'es-us', 'es-es', 'es'];
-  for (const p of prefs) {
-    const v = voices.find((x) => (x.lang || '').toLowerCase().startsWith(p));
-    if (v) return v;
-  }
-  return voices.find((x) => (x.lang || '').toLowerCase().startsWith('es')) || null;
+  const es = voices.filter((x) => (x.lang || '').toLowerCase().startsWith('es'));
+  if (!es.length) return null;
+  // Puntúa para elegir la voz más natural y agradable disponible (Google /
+  // Microsoft "Natural" / femeninas), priorizando español latino.
+  const NICE = ['sabina', 'helena', 'laura', 'paulina', 'monica', 'mónica', 'femenin', 'female'];
+  const langPref = ['es-cl', 'es-419', 'es-mx', 'es-us', 'es-es', 'es'];
+  const score = (v) => {
+    const n = (v.name || '').toLowerCase();
+    let s = 0;
+    if (NICE.some((k) => n.includes(k))) s += 10;
+    if (n.includes('google')) s += 6;        // suelen ser las más naturales
+    if (/natural|online/.test(n)) s += 7;     // Microsoft "Natural"
+    const li = langPref.findIndex((p) => (v.lang || '').toLowerCase().startsWith(p));
+    if (li >= 0) s += (langPref.length - li);
+    if (!v.localService) s += 1;              // voces de red suelen sonar mejor
+    return s;
+  };
+  return es.slice().sort((a, b) => score(b) - score(a))[0] || es[0];
 }
 
 // ---- Reconocimiento de voz + pedido hablado ("quiero 2 hamburguesas de carne") ----

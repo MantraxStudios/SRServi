@@ -1179,6 +1179,9 @@ function Store() {
   const [comboModal, setComboModal] = useState(null);
   const [comboQty, setComboQty] = useState(1);
   const [activeCategory, setActiveCategory] = useState('all');
+  // Al deslizar hacia abajo se colapsa el saludo/promos para dejar arriba solo
+  // el logo + buscador + categorías (más productos visibles).
+  const [scrolled, setScrolled] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const productSearchInputRef = useRef(null);
   const [promoConfirm, setPromoConfirm] = useState(null);
@@ -5462,7 +5465,7 @@ function Store() {
     )}
     <div
       ref={storeContainerRef}
-      className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}`}
+      className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}${scrolled ? ' store-scrolled' : ''}`}
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom,
         ...(seasonalTheme ? { '--kiosk-accent': seasonalTheme.colors.accent, '--kiosk-orange': seasonalTheme.colors.primary, '--kiosk-accent-soft': seasonalTheme.colors.accent + '22' } : {}) }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
@@ -5878,7 +5881,7 @@ function Store() {
         )}
       </div>
 
-      <div className="store-main">
+      <div className="store-main" onScroll={e => { const y = e.currentTarget.scrollTop; setScrolled(prev => prev ? y > 12 : y > 56); }}>
       {(!editMode || previewMode) && hasProducts && (
         <div className="store-product-search-bar" style={{ display: 'flex', padding: '10px 16px', position: 'sticky', top: 0, zIndex: 5, background: 'var(--kiosk-bg, #FAF4E9)' }}>
           <div style={{ position: 'relative', flex: 1 }}>

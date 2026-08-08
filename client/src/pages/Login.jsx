@@ -27,27 +27,6 @@ function Login() {
     setDlModal({ label, icon, appName, isWindows, buildState: null });
   };
 
-  // Instala la PWA (app offline en Android/escritorio). No hay APK: se agrega a
-  // la pantalla de inicio y funciona sin conexión gracias al service worker.
-  const installPwa = async () => {
-    const p = typeof window !== 'undefined' ? window.__pwaInstallPrompt : null;
-    if (p) {
-      try {
-        await p.prompt();
-        await p.userChoice;
-        window.__pwaInstallPrompt = null;
-      } catch { /* usuario canceló */ }
-      return;
-    }
-    if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
-      alert('En iPhone: toca Compartir ↑ y luego "Añadir a pantalla de inicio".');
-    } else if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
-      alert('La app ya está instalada en este dispositivo.');
-    } else {
-      alert('Abre este sitio en Chrome (Android) y usá el menú ⋮ → "Instalar app" / "Agregar a la pantalla de inicio".');
-    }
-  };
-
   const triggerAndroidDl = (appName, storeCode, jobId) => {
     const params = new URLSearchParams({ appName });
     if (storeCode) params.set('storeCode', storeCode);
@@ -522,14 +501,16 @@ function Login() {
             <FontAwesomeIcon icon={faDesktop} style={{ color: '#22c55e' }} />
             Descargar POS Escritorio (Offline · Gratis)
           </a>
-          <button
-            onClick={installPwa}
+          <a
+            href="https://www.mediafire.com/file/0vyuh0m129gx6ky/SRServi-POS-Offline.apk/file"
+            target="_blank"
+            rel="noreferrer"
             className="btn btn-lg btn-full"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#1a1a1a', color: '#fff', border: '2px solid #22c55e' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#1a1a1a', color: '#fff', border: '2px solid #22c55e', textDecoration: 'none' }}
           >
             <FontAwesomeIcon icon={faDownload} style={{ color: '#22c55e' }} />
-            Instalar App Offline (Android · Gratis)
-          </button>
+            Descargar App Android (APK · Offline · Gratis)
+          </a>
           <button
             onClick={() => openDlModal('Cartelería TV', '🎬', 'cctv')}
             className="btn btn-lg btn-full"

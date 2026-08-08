@@ -46,6 +46,7 @@ import {
   faPlug,
   faCopy,
   faClipboardList,
+  faBriefcase,
   faWarehouse,
   faStar,
   faMotorcycle,
@@ -826,6 +827,7 @@ function Layout() {
                 <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faUsers} /> Gestión</div>
                 {can('workers', 'view') && <NavLink to="/admin/workers" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faUsers} /> Vendedores</NavLink>}
                 {can('tasks', 'view') && <NavLink to="/admin/tasks" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faClipboardList} /> Tareas</NavLink>}
+                <NavLink to="/admin/jobs" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faBriefcase} /> Postulaciones</NavLink>
                 {can('inventory', 'view') && <NavLink to="/admin/inventory" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faWarehouse} /> Inventario</NavLink>}
                 {can('procedures', 'view') && <NavLink to="/admin/procedures" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faList} /> Procedimientos</NavLink>}
                 {can('attendance', 'view') && <NavLink to="/admin/attendance" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faUserClock} /> Asistencia</NavLink>}

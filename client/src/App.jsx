@@ -68,6 +68,8 @@ import TvMenu from './pages/TvMenu';
 import Docs from './pages/Docs';
 import Rate from './pages/Rate';
 import ClientSurvey from './pages/ClientSurvey';
+import JobApplication from './pages/JobApplication';
+import Jobs from './pages/admin/Jobs';
 import Ratings from './pages/admin/Ratings';
 import SurveyConfig from './pages/admin/SurveyConfig';
 import RappiIntegration from './pages/admin/RappiIntegration';
@@ -280,6 +282,7 @@ function App() {
           <Route path="/pago-delivery/:code" element={<DeliveryPaymentResult />} />
           <Route path="/rate/:code" element={<Rate />} />
           <Route path="/survey/:code" element={<ClientSurvey />} />
+          <Route path="/trabajo/:code" element={<JobApplication />} />
           <Route path="/tarjeta" element={<StampCard />} />
           <Route path="/tarjeta/:token" element={<StampCard />} />
           <Route path="/delivery" element={<DeliveryLanding />} />
@@ -335,6 +338,7 @@ function App() {
             <Route path="ai-images" element={<PlanLock feature="aiFeatures" title="Imágenes y videos con IA" description="La generación de imágenes y videos con IA para redes sociales está disponible en los planes de pago."><AiImageGenerator /></PlanLock>} />
             <Route path="fudo" element={<PermissionGate section="canales"><FudoIntegration /></PermissionGate>} />
             <Route path="tasks" element={<PermissionGate section="tasks"><Tasks /></PermissionGate>} />
+            <Route path="jobs" element={<Jobs />} />
             <Route path="inventory" element={<PermissionGate section="inventory"><Inventory /></PermissionGate>} />
             <Route path="procedures" element={<PermissionGate section="procedures"><Procedures /></PermissionGate>} />
             <Route path="tables" element={<PermissionGate section="tables"><TableMap /></PermissionGate>} />

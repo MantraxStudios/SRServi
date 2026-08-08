@@ -2134,6 +2134,22 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
 }
 
+/* Al deslizar hacia abajo se ocultan el saludo, banner y promos para dejar
+   arriba solo el logo + buscador + categorías (así se ven más productos). */
+.store-container.store-scrolled .store-header-greeting,
+.store-container.store-scrolled .store-seasonal-banner,
+.store-container.store-scrolled .store-promos {
+  display: none;
+}
+.store-container.store-scrolled .store-header {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+.store-container.store-scrolled .store-header-logo {
+  width: 30px;
+  height: 30px;
+}
+
 .store-header {
   background: var(--kiosk-bg, #FAF4E9) !important;
   color: var(--kiosk-dark, #232028);

@@ -8648,6 +8648,82 @@ function getWeekStart() {
   return d.toISOString().split('T')[0];
 }
 
+// ─── Postulaciones de trabajo (formulario público con QR) ────────────────────
+// Info pública de la tienda para brandear el formulario /trabajo/:code
+app.get('/api/public/:code/job-info', async (req, res) => {
+  try {
+    const store = await getStoreByCode((req.params.code || '').toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    if (store.is_banned) return res.status(403).json({ error: 'Esta tienda no está disponible.' });
+    res.json({ store: {
+      name: store.name,
+      logo_url: store.logo_url || null,
+      primary_color: store.primary_color || null,
+      accent_color: store.accent_color || null,
+    } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Envío público de una postulación
+app.post('/api/public/:code/job-application', async (req, res) => {
+  try {
+    const store = await getStoreByCode((req.params.code || '').toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    if (store.is_banned) return res.status(403).json({ error: 'Esta tienda no está disponible.' });
+    const { name, phone, email, position, age, experience, availability, message } = req.body || {};
+    if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
+    if (!phone?.trim() && !email?.trim()) return res.status(400).json({ error: 'Deja un teléfono o correo de contacto' });
+    const ageNum = age ? (parseInt(age) || null) : null;
+    await pool.execute(
+      `INSERT INTO job_applications (store_id, name, phone, email, position, age, experience, availability, message)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [store.id, name.trim().slice(0, 150), (phone || '').trim().slice(0, 40) || null,
+       (email || '').trim().slice(0, 150) || null, (position || '').trim().slice(0, 120) || null,
+       ageNum, (experience || '').trim() || null, (availability || '').trim().slice(0, 120) || null,
+       (message || '').trim() || null]
+    );
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Listado de postulaciones (dueño de la tienda)
+app.get('/api/jobs', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'user') return res.status(403).json({ error: 'Acceso denegado' });
+    const storeId = req.query.store_id;
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    if (!(await verifyStoreOwnership(parseInt(storeId), req.user.id))) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const [rows] = await pool.execute('SELECT * FROM job_applications WHERE store_id = ? ORDER BY created_at DESC', [storeId]);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Cambiar estado de una postulación
+app.patch('/api/jobs/:id', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'user') return res.status(403).json({ error: 'Acceso denegado' });
+    const { status } = req.body || {};
+    if (!['nuevo', 'revisado', 'contactado', 'descartado'].includes(status)) return res.status(400).json({ error: 'Estado inválido' });
+    const [rows] = await pool.execute('SELECT store_id FROM job_applications WHERE id = ?', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'No encontrado' });
+    if (!(await verifyStoreOwnership(rows[0].store_id, req.user.id))) return res.status(403).json({ error: 'Sin acceso' });
+    await pool.execute('UPDATE job_applications SET status = ? WHERE id = ?', [status, req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Eliminar una postulación
+app.delete('/api/jobs/:id', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'user') return res.status(403).json({ error: 'Acceso denegado' });
+    const [rows] = await pool.execute('SELECT store_id FROM job_applications WHERE id = ?', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'No encontrado' });
+    if (!(await verifyStoreOwnership(rows[0].store_id, req.user.id))) return res.status(403).json({ error: 'Sin acceso' });
+    await pool.execute('DELETE FROM job_applications WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/tasks', authenticateToken, async (req, res) => {
   try {
     if (req.user.type !== 'user') return res.status(403).json({ error: 'Acceso denegado' });

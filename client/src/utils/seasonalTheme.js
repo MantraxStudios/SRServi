@@ -23,9 +23,31 @@ function inRange(now, from, to) {
   return now >= start && now <= end;
 }
 
+// Fechas patrias por país (mes completo, 0 = enero). Cada país tiene su propia
+// celebración nacional para que NO todos los tótems muestren lo mismo.
+const NATIONAL = {
+  chile:     { m: 8, emoji: '🇨🇱', banner: '🇨🇱 ¡Septiembre, mes de la Patria! 🥟', colors: { primary: '#0033a0', accent: '#da291c' }, decorations: ['🇨🇱', '🎊', '🥟', '🍷', '🪁', '⭐'] },
+  argentina: { m: 6, emoji: '🇦🇷', banner: '🇦🇷 ¡Julio, mes de la Patria! 🧉', colors: { primary: '#74acdf', accent: '#f6b40e' }, decorations: ['🇦🇷', '🎊', '🥟', '🧉', '⭐', '🎶'] },
+  mexico:    { m: 8, emoji: '🇲🇽', banner: '🇲🇽 ¡Septiembre, mes patrio! 🌮', colors: { primary: '#006847', accent: '#ce1126' }, decorations: ['🇲🇽', '🎊', '🌮', '🌶️', '🎉', '⭐'] },
+  peru:      { m: 6, emoji: '🇵🇪', banner: '🇵🇪 ¡Julio, Fiestas Patrias! 🎊', colors: { primary: '#d91023', accent: '#7a1420' }, decorations: ['🇵🇪', '🎊', '🌶️', '🎉', '⭐', '🍽️'] },
+  colombia:  { m: 6, emoji: '🇨🇴', banner: '🇨🇴 ¡Julio, mes de la Independencia! 🎊', colors: { primary: '#003893', accent: '#fcd116' }, decorations: ['🇨🇴', '🎊', '🎉', '⭐', '🥁', '🎶'] },
+};
+
+// País → clave normalizada (sin acentos ni mayúsculas).
+function countryKey(country) {
+  const c = (country || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();
+  if (!c) return 'chile';
+  if (c.includes('argentin')) return 'argentina';
+  if (c.includes('mexic')) return 'mexico';
+  if (c.includes('peru')) return 'peru';
+  if (c.includes('colombia')) return 'colombia';
+  if (c.includes('chile')) return 'chile';
+  return c; // sin fecha patria propia → cae en null abajo
+}
+
 // Definición de cada temporada. El orden importa: gana la primera que coincida.
 function buildThemes(now, country, forceId = null) {
-  const isChile = !country || /chile/i.test(country);
+  const nat = NATIONAL[countryKey(country)] || null;
 
   // El festejo dura TODO su mes. El orden importa: gana la primera coincidencia,
   // por eso las ventanas cortas que cruzan meses (Año Nuevo, Día del Trabajador)
@@ -54,6 +76,18 @@ function buildThemes(now, country, forceId = null) {
       decorations: ['👷', '🛠️', '⚙️', '💪', '🏭', '📋'],
       animation: 'fall',
     },
+
+    // ── Fecha patria del país (mes completo, prioridad sobre el tema del mes) ──
+    ...(nat ? [{
+      id: 'fiestas-patrias',
+      name: 'Fiestas Patrias',
+      emoji: nat.emoji,
+      banner: nat.banner,
+      active: wholeMonth(now, nat.m),
+      colors: { primary: nat.colors.primary, secondary: '#ffffff', accent: nat.colors.accent, header: nat.colors.primary },
+      decorations: nat.decorations,
+      animation: 'fall',
+    }] : []),
 
     // ── Temas de mes completo ────────────────────────────────────────────────
     {
@@ -114,16 +148,6 @@ function buildThemes(now, country, forceId = null) {
       active: wholeMonth(now, 7), // Agosto completo
       colors: { primary: '#7209b7', secondary: '#ffffff', accent: '#f72585', header: '#7209b7' },
       decorations: ['🎈', '🧸', '🎠', '🍭', '🎮', '🎨'],
-      animation: 'fall',
-    },
-    {
-      id: 'fiestas-patrias',
-      name: 'Fiestas Patrias',
-      emoji: '🇨🇱',
-      banner: '🇨🇱 ¡Septiembre, mes de la Patria! 🥟',
-      active: isChile && wholeMonth(now, 8), // Septiembre completo (Chile)
-      colors: { primary: '#0033a0', secondary: '#ffffff', accent: '#da291c', header: '#0033a0' },
-      decorations: ['🇨🇱', '🎊', '🥟', '🍷', '🪁', '⭐'],
       animation: 'fall',
     },
     {
