@@ -2431,10 +2431,14 @@ h1, h2, h3, h4, h5, h6 {
 .category-tab {
   flex-shrink: 0;
   display: flex;
+  flex-direction: column;      /* imagen/icono arriba, nombre abajo */
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  border-radius: 12px;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  min-width: 70px;
+  max-width: 96px;
+  border-radius: 14px;
   border: 1px solid var(--kiosk-border, #F0E8D9);
   background-color: var(--kiosk-card, #fff);
   color: var(--kiosk-dark, #232028);
@@ -2448,12 +2452,11 @@ h1, h2, h3, h4, h5, h6 {
 
 .category-tab-icon {
   color: var(--kiosk-dark, #232028);
-  font-size: 15px;
-  opacity: 0.85;
+  font-size: 26px;
+  opacity: 0.9;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
   flex-shrink: 0;
 }
 
@@ -2461,7 +2464,14 @@ h1, h2, h3, h4, h5, h6 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 12px;
+  text-align: center;
+  max-width: 100%;
 }
+
+/* En modo edición mantenemos el tab horizontal (arrastrar + botones editar). */
+.store-body.editing .category-tab { flex-direction: row; max-width: none; }
+.store-body.editing .category-tab-icon { font-size: 15px; width: 18px; }
 
 .category-tab:active {
   transform: scale(0.97);
@@ -2670,7 +2680,7 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 8px 14px 4px;
+  padding: 6px 14px 2px;
 }
 
 .category-section-icon {
@@ -2713,7 +2723,7 @@ h1, h2, h3, h4, h5, h6 {
 .products-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
+  gap: 10px 6px;
   padding: 4px 6px;
   justify-items: stretch;
 }
@@ -2722,8 +2732,8 @@ h1, h2, h3, h4, h5, h6 {
 @media (min-width: 600px) {
   .products-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 5px;
-    padding: 5px 8px;
+    gap: 10px 6px;
+    padding: 4px 8px;
   }
 }
 
@@ -2732,8 +2742,8 @@ h1, h2, h3, h4, h5, h6 {
 @media (min-width: 900px) {
   .products-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    padding: 6px 10px;
+    gap: 10px 8px;
+    padding: 4px 10px;
   }
 }
 
@@ -3387,6 +3397,7 @@ html body .store-container .store-product-card * {
   align-items: center;
   gap: 10px;
 }
+.store-product-search-input::placeholder { color: rgba(255, 255, 255, 0.72); }
 
 /* ── Banner con IMAGEN: hero a todo ancho/alto, con logo (arriba-izq),
    idioma (arriba-der) y buscador+voz superpuestos abajo. ── */
@@ -3434,10 +3445,11 @@ html body .store-container .store-product-card * {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--kiosk-accent, #FFC42E);
-  color: var(--kiosk-dark, #232028);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
   font-size: 18px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
+  backdrop-filter: blur(3px);
   transition: transform 0.15s ease;
 }
 .search-voice-btn:hover { transform: scale(1.06); }

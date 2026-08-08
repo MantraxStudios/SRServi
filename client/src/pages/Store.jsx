@@ -5605,8 +5605,8 @@ function Store() {
                 </button>
               )}
               <div style={{ position: 'relative', flex: 1 }}>
-                <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--store-text-secondary, #999)', fontSize: 14, pointerEvents: 'none' }} />
-                <input ref={productSearchInputRef} type="text" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} placeholder="Buscar producto…" className="store-product-search-input" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 36px 10px 34px', borderRadius: 10, border: '1px solid var(--store-border, #ddd)', fontSize: 14, outline: 'none' }} />
+                <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.8)', fontSize: 14, pointerEvents: 'none', zIndex: 1 }} />
+                <input ref={productSearchInputRef} type="text" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} placeholder="Buscar producto…" className="store-product-search-input" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 36px 10px 34px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(0,0,0,0.3)', color: '#fff', backdropFilter: 'blur(3px)', fontSize: 14, outline: 'none' }} />
                 {productSearch && (
                   <button type="button" onClick={() => { setProductSearch(''); productSearchInputRef.current?.focus(); }} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--store-text-secondary, #999)', fontSize: 15, padding: 6, lineHeight: 1 }} aria-label="Limpiar búsqueda">
                     <FontAwesomeIcon icon={faTimes} />
@@ -5936,25 +5936,6 @@ function Store() {
         )}
         </div>
 
-        {/* Promociones (banners bajo las categorías) */}
-        {storePromos.length > 0 && (
-          <div className="store-promos">
-            {storePromos.map(promo => (
-              <div key={promo.id} className="store-promo-card" onClick={() => setPromoConfirm(promo)}>
-                <div className="store-promo-info">
-                  <div className="store-promo-title">{promo.title}</div>
-                  {promo.description && <div className="store-promo-desc">{promo.description}</div>}
-                  {Number(promo.price) > 0 && (
-                    <div className="store-promo-price">{colors.currency.symbol}{formatPrice(promo.price)}</div>
-                  )}
-                </div>
-                {promo.image && (
-                  <img src={getProductImageUrl(promo.image)} alt={promo.title} className="store-promo-img" loading="lazy" decoding="async" />
-                )}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="store-main" onScroll={e => { const y = e.currentTarget.scrollTop; setScrolled(prev => prev ? y > 12 : y > 56); }}>
