@@ -85,7 +85,7 @@ const isIconImage = (icon) => typeof icon === 'string' && (icon.startsWith('/upl
 // Renderiza el icono de la categoría: imagen subida o icono FontAwesome.
 const renderCatIcon = (catObj) => {
   if (catObj && isIconImage(catObj.icon)) {
-    return <img src={getImageUrl(catObj.icon)} alt="" style={{ width: '1.5em', height: '1.5em', objectFit: 'cover', borderRadius: '6px', display: 'block' }} />;
+    return <img src={getImageUrl(catObj.icon)} alt="" className="cat-tab-img" />;
   }
   return <FontAwesomeIcon icon={catIconFor(catObj)} />;
 };
@@ -1197,6 +1197,9 @@ function Store() {
   // Mientras hacemos scroll programático (al tocar una categoría), pausamos el
   // scroll-spy para que no pelee con el desplazamiento.
   const programmaticScrollRef = useRef(0);
+  // true solo cuando el usuario TOCÓ/deslizó una categoría (no cuando el
+  // resaltado cambió por el scroll). Evita que la vista salte sola.
+  const userPickedCategoryRef = useRef(false);
   const [productSearch, setProductSearch] = useState('');
   const productSearchInputRef = useRef(null);
   const [promoConfirm, setPromoConfirm] = useState(null);
@@ -1847,6 +1850,7 @@ function Store() {
       // Require: min 80px, clearly horizontal (2:1 ratio), within 600ms
       if (elapsed > 600 || Math.abs(dx) < 80 || Math.abs(dx) < Math.abs(dy) * 2) return;
 
+      userPickedCategoryRef.current = true;
       setActiveCategory(prev => {
         const cats = ['all', ...(store?.categories || []).map(c => c.name)];
         const idx = cats.indexOf(prev);
@@ -1871,9 +1875,12 @@ function Store() {
     if (activeTab) {
       activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
-    // Se muestran TODAS las categorías como secciones; al elegir una, la vista
-    // se DESPLAZA hasta esa sección (no filtra ni oculta las demás).
-    programmaticScrollRef.current = Date.now() + 800; // pausa el scroll-spy
+    // Solo desplazamos los PRODUCTOS si el usuario tocó/deslizó una categoría.
+    // Si el cambio vino del scroll (scroll-spy), NO tocamos el scroll (evita
+    // que la vista salte sola / se sienta a los golpes).
+    if (!userPickedCategoryRef.current) return;
+    userPickedCategoryRef.current = false;
+    programmaticScrollRef.current = Date.now() + 900; // pausa el scroll-spy
     if (activeCategory === 'all') {
       document.querySelector('.store-main')?.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
@@ -5956,7 +5963,7 @@ function Store() {
               key={catObj.id}
               className={`category-tab${activeCategory === catObj.name ? ' active' : ''}`}
               data-category={catObj.name}
-              onClick={() => { setProductSearch(''); setActiveCategory(catObj.name); }}
+              onClick={() => { userPickedCategoryRef.current = true; setProductSearch(''); setActiveCategory(catObj.name); }}
             >
               <span className="category-tab-icon">{renderCatIcon(catObj)}</span>
               <span className="category-tab-label">{catObj.name}</span>

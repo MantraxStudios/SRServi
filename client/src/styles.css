@@ -2117,7 +2117,7 @@ h1, h2, h3, h4, h5, h6 {
      de elementos con fondo oscuro y texto claro, como .cart-bar. */
   color-scheme: light;
   /* Kiosk palette (Sabor Express style) */
-  --kiosk-bg: #FAF4E9;
+  --kiosk-bg: #ffffff;
   --kiosk-card: #ffffff;
   --kiosk-accent: #FFC42E;
   --kiosk-accent-soft: #FFF3D3;
@@ -2135,11 +2135,19 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Al deslizar hacia abajo se oculta TODO el banner (imagen, logo, idioma,
-   buscador y botón de voz): quedan arriba solo las categorías. */
+   buscador y botón de voz): quedan arriba solo las categorías. La transición
+   es suave (colapsa el alto en vez de desaparecer de golpe). */
 .store-container.store-scrolled .store-seasonal-banner,
-.store-container.store-scrolled .store-promos,
-.store-container.store-scrolled .store-name-banner {
+.store-container.store-scrolled .store-promos {
   display: none;
+}
+.store-container.store-scrolled .store-name-banner {
+  max-height: 0 !important;
+  opacity: 0;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-bottom: none;
+  pointer-events: none;
 }
 
 .store-header {
@@ -2428,10 +2436,10 @@ h1, h2, h3, h4, h5, h6 {
   flex-direction: column;      /* imagen/icono arriba, nombre abajo */
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 8px;
-  border-radius: 14px;
-  border: 1px solid var(--kiosk-border, #F0E8D9);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  border: 2px solid var(--kiosk-accent, #FFC42E);   /* borde amarillo 2px */
   background-color: var(--kiosk-card, #fff);
   color: var(--kiosk-dark, #232028);
   font-weight: 600;
@@ -2443,13 +2451,23 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .category-tab-icon {
+  width: 100%;
   color: var(--kiosk-dark, #232028);
-  font-size: 26px;
+  font-size: 34px;
   opacity: 0.9;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+/* Imagen del ícono de categoría: grande, ocupa el ancho del tab. */
+.cat-tab-img {
+  width: 100%;
+  height: 54px;
+  object-fit: cover;
+  border-radius: 9px;
+  display: block;
 }
 
 .category-tab-label {
@@ -2462,8 +2480,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* En modo edición mantenemos el tab horizontal (arrastrar + botones editar). */
-.store-body.editing .category-tab { flex-direction: row; flex: 0 0 auto; width: auto; }
+.store-body.editing .category-tab { flex-direction: row; flex: 0 0 auto; width: auto; padding: 8px 14px; }
 .store-body.editing .category-tab-icon { font-size: 15px; width: 18px; }
+.store-body.editing .cat-tab-img { width: 24px; height: 24px; }
 
 .category-tab:active {
   transform: scale(0.97);
@@ -3367,6 +3386,8 @@ html body .store-container .store-product-card * {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 400px;
+  transition: max-height 0.42s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.32s ease, padding 0.42s ease;
 }
 .store-banner-top {
   position: relative;
