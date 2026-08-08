@@ -25,4 +25,18 @@
         <item name="android:textColor">@color/gold</item>
         <item name="iconTint">@color/gold</item>
     </style>
+
+    <style name="CircleImage">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <style name="Theme.SRServi.BottomSheet" parent="Theme.MaterialComponents.BottomSheetDialog">
+        <item name="android:navigationBarColor">@color/surface</item>
+        <item name="bottomSheetStyle">@style/SRServiBottomSheetStyle</item>
+    </style>
+
+    <style name="SRServiBottomSheetStyle" parent="Widget.MaterialComponents.BottomSheet.Modal">
+        <item name="android:background">@android:color/transparent</item>
+    </style>
 </resources>

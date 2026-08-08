@@ -99,6 +99,16 @@
             android:turnScreenOn="true" />
 
         <activity
+            android:name=".ui.OfflinePosActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:lockTaskMode="if_whitelisted"
+            android:screenOrientation="portrait"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true" />
+
+        <activity
             android:name=".ui.PrintQueueActivity"
             android:exported="false"
             android:screenOrientation="portrait" />

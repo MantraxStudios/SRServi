@@ -18,6 +18,7 @@ import com.mantraxstudios.srservi.admin.SRServiDeviceAdminReceiver
 import com.mantraxstudios.srservi.network.ApiService
 import com.mantraxstudios.srservi.printer.BluetoothPrinterManager
 import com.mantraxstudios.srservi.printer.PrinterForegroundService
+import com.mantraxstudios.srservi.ui.OfflinePosActivity
 import com.mantraxstudios.srservi.ui.RateActivity
 import com.mantraxstudios.srservi.ui.SellActivity
 import com.mantraxstudios.srservi.ui.SettingsActivity
@@ -48,6 +49,16 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, getString(R.string.sell_no_code), Toast.LENGTH_SHORT).show()
             } else {
                 startActivity(Intent(this, SellActivity::class.java))
+            }
+        }
+
+        findViewById<View>(R.id.btnOfflineMode).setOnClickListener {
+            val prefs = getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
+            val storeCode = prefs.getString("store_code", "")
+            if (storeCode.isNullOrBlank()) {
+                Toast.makeText(this, getString(R.string.sell_no_code), Toast.LENGTH_SHORT).show()
+            } else {
+                startActivity(Intent(this, OfflinePosActivity::class.java))
             }
         }
 

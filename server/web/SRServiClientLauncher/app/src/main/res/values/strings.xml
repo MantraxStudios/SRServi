@@ -39,4 +39,5 @@
     <string name="sell_no_code">Configura el código de tienda primero</string>
     <string name="worker_panel_title">Panel Trabajador</string>
     <string name="exit_kiosk">Salir</string>
+    <string name="btn_offline_mode">Modo Offline</string>
 </resources>
