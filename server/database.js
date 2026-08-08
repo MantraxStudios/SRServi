@@ -1110,8 +1110,12 @@ async function migrateTables() {
         console.log('✅ Columna sort_order agregada a categories');
       }
       if (!catColNames.includes('icon')) {
-        await pool.execute('ALTER TABLE categories ADD COLUMN icon VARCHAR(50) DEFAULT NULL');
+        await pool.execute('ALTER TABLE categories ADD COLUMN icon VARCHAR(255) DEFAULT NULL');
         console.log('✅ Columna icon agregada a categories');
+      } else {
+        // El icono puede ser una clave corta ('hamburger') o la URL de una imagen
+        // subida (/uploads/...): asegurar ancho suficiente.
+        try { await pool.execute('ALTER TABLE categories MODIFY COLUMN icon VARCHAR(255) DEFAULT NULL'); } catch { /* ya está */ }
       }
     } catch (migErr) {
       console.error('❌ Error migrando categories:', migErr.message);

@@ -79,6 +79,17 @@ const catIconFor = (catObj) => {
   return catIcon(catObj?.name || '');
 };
 
+// ¿El icono guardado es una imagen subida (URL) en vez de una clave FontAwesome?
+const isIconImage = (icon) => typeof icon === 'string' && (icon.startsWith('/uploads') || icon.startsWith('http') || icon.startsWith('data:'));
+
+// Renderiza el icono de la categoría: imagen subida o icono FontAwesome.
+const renderCatIcon = (catObj) => {
+  if (catObj && isIconImage(catObj.icon)) {
+    return <img src={getImageUrl(catObj.icon)} alt="" style={{ width: '1.5em', height: '1.5em', objectFit: 'cover', borderRadius: '6px', display: 'block' }} />;
+  }
+  return <FontAwesomeIcon icon={catIconFor(catObj)} />;
+};
+
 // Icono heurístico por nombre de categoría (estilo kiosko)
 const catIcon = (name = '') => {
   const n = name.toLowerCase();
@@ -140,7 +151,7 @@ function SortableCategoryTab({ catObj, activeCategory, onEdit, onDelete }) {
       <span className="cat-drag-handle" {...attributes} {...listeners}>
         <FontAwesomeIcon icon={faGripVertical} />
       </span>
-      <span className="category-tab-icon"><FontAwesomeIcon icon={catIconFor(catObj)} /></span>
+      <span className="category-tab-icon">{renderCatIcon(catObj)}</span>
       {catObj.name}
       <span className="cat-tab-edit-icons">
         <span onClick={(e) => { e.stopPropagation(); onEdit(catObj); }}><FontAwesomeIcon icon={faEdit} /></span>
@@ -1200,6 +1211,8 @@ function Store() {
   const [editingCat, setEditingCat] = useState(null);
   const [catModalFromProduct, setCatModalFromProduct] = useState(false);
   const [catName, setCatName] = useState('');
+  const [catIconUploading, setCatIconUploading] = useState(false);
+  const catIconFileRef = useRef(null);
   const [catIconKey, setCatIconKey] = useState('');
   const [tuuProvider, setTuuProvider] = useState(null);
   const [qrProvider, setQrProvider] = useState(null);
@@ -4689,6 +4702,22 @@ function Store() {
     setCatModalOpen(true);
   };
 
+  // Sube una imagen para usarla como icono de la categoría y guarda su URL en catIconKey.
+  const uploadCatIcon = async (file) => {
+    if (!file) return;
+    setCatIconUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append(adminToken ? 'token' : 'pin', adminToken || sessionPin);
+      fd.append('image', file);
+      const r = await fetch(`/api/public/${code}/upload-image`, { method: 'POST', body: fd });
+      const d = await r.json();
+      if (r.ok && d.url) setCatIconKey(d.url);
+      else alert(d.error || 'No se pudo subir la imagen');
+    } catch { alert('Error al subir la imagen'); }
+    finally { setCatIconUploading(false); if (catIconFileRef.current) catIconFileRef.current.value = ''; }
+  };
+
   const saveCat = async () => {
     if (!catName.trim()) return;
     try {
@@ -5850,7 +5879,7 @@ function Store() {
               data-category={catObj.name}
               onClick={() => setActiveCategory(catObj.name)}
             >
-              <span className="category-tab-icon"><FontAwesomeIcon icon={catIconFor(catObj)} /></span>
+              <span className="category-tab-icon">{renderCatIcon(catObj)}</span>
               <span className="category-tab-label">{catObj.name}</span>
             </button>
           ))
@@ -9486,8 +9515,26 @@ function Store() {
                   </button>
                 ))}
               </div>
+              {/* Subir imagen propia como icono de la categoría */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+                {isIconImage(catIconKey) && (
+                  <div style={{ position: 'relative', width: 46, height: 46, flexShrink: 0 }}>
+                    <img src={getImageUrl(catIconKey)} alt="" style={{ width: 46, height: 46, objectFit: 'cover', borderRadius: 8, border: '2px solid var(--store-accent)' }} />
+                    <button type="button" onClick={() => setCatIconKey('')} title="Quitar imagen"
+                      style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', border: 'none', background: '#ef4444', color: '#fff', fontSize: 12, cursor: 'pointer', lineHeight: 1 }}>×</button>
+                  </div>
+                )}
+                <button type="button" onClick={() => catIconFileRef.current?.click()} disabled={catIconUploading}
+                  style={{ flex: 1, padding: '10px', border: '2px dashed var(--store-accent)', borderRadius: 8, background: '#fff', cursor: catIconUploading ? 'default' : 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--store-primary)' }}>
+                  {catIconUploading ? 'Subiendo…' : (isIconImage(catIconKey) ? '📷 Cambiar imagen' : '📷 Subir imagen propia')}
+                </button>
+                <input ref={catIconFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={(e) => { if (e.target.files[0]) uploadCatIcon(e.target.files[0]); }} />
+              </div>
               <div style={{ fontSize: '11px', color: '#888', marginTop: '6px' }}>
-                {catIconKey ? 'Toca el icono seleccionado para quitarlo.' : 'Opcional. Si no eliges, se usa un icono automático según el nombre.'}
+                {isIconImage(catIconKey)
+                  ? 'Se usará tu imagen como icono. Toca la × para quitarla.'
+                  : (catIconKey ? 'Toca el icono seleccionado para quitarlo.' : 'Opcional: elige un icono, sube tu imagen, o déjalo automático según el nombre.')}
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>

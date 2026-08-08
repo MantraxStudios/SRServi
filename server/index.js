@@ -2589,6 +2589,16 @@ app.put('/api/public/:code/categories/:id', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// Subir una imagen desde el tótem (ej. icono de categoría) → devuelve su URL.
+app.post('/api/public/:code/upload-image', upload.single('image'), async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    if (!req.file) return res.status(400).json({ error: 'No se recibió imagen' });
+    res.json({ url: `/uploads/${req.file.filename}` });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 // Sync product complements (ingredients + extras)
 app.put('/api/public/:code/products/:id/complements', async (req, res) => {
   try {
