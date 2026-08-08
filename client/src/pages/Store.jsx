@@ -1193,6 +1193,9 @@ function Store() {
   // Al deslizar hacia abajo se colapsa el saludo/promos para dejar arriba solo
   // el logo + buscador + categorías (más productos visibles).
   const [scrolled, setScrolled] = useState(false);
+  // Mientras hacemos scroll programático (al tocar una categoría), pausamos el
+  // scroll-spy para que no pelee con el desplazamiento.
+  const programmaticScrollRef = useRef(0);
   const [productSearch, setProductSearch] = useState('');
   const productSearchInputRef = useRef(null);
   const [promoConfirm, setPromoConfirm] = useState(null);
@@ -1737,36 +1740,32 @@ function Store() {
     else if (takeoutOnly && orderType !== 'takeout') setOrderType('takeout');
   }, [selectedConfiguration]);
 
+  // Scroll-spy: resalta la pestaña de la categoría cuya sección está a la vista
+  // mientras se desliza el área de productos (no filtra, solo resalta).
   useEffect(() => {
-    const container = categoryRef.current;
-    if (!container) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const cat = entry.target.dataset.category;
-            if (cat) setActiveCategory(cat);
-          }
-        });
-      },
-      { root: container, threshold: 0.5 }
-    );
-
-    const reobserve = () => {
-      const tabs = container.querySelectorAll('.category-tab');
-      tabs.forEach((tab) => observer.observe(tab));
+    const scroller = document.querySelector('.store-main');
+    if (!scroller) return;
+    let raf = null;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = null;
+        if (Date.now() < programmaticScrollRef.current) return; // scroll programático en curso
+        const top = scroller.getBoundingClientRect().top;
+        // Si estás arriba del todo, "Todos"; si no, la sección más cercana al tope.
+        if (scroller.scrollTop < 40) { setActiveCategory('all'); return; }
+        const secs = scroller.querySelectorAll('[data-cat-section]');
+        let current = null;
+        for (const el of secs) {
+          if (el.getBoundingClientRect().top - top <= 80) current = el.dataset.catSection;
+          else break;
+        }
+        if (current) setActiveCategory(current);
+      });
     };
-
-    reobserve();
-    const mutationObserver = new MutationObserver(reobserve);
-    mutationObserver.observe(container, { childList: true, subtree: true });
-
-    return () => {
-      observer.disconnect();
-      mutationObserver.disconnect();
-    };
-  }, []);
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    return () => { scroller.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf); };
+  }, [hasProducts, editMode]);
 
   // Touch drag-to-scroll en las categorías
   useEffect(() => {
@@ -1865,10 +1864,16 @@ function Store() {
     if (activeTab) {
       activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
-    // Al elegir una categoría se oculta el buscador (solo visible en "Todos");
-    // limpiamos el texto y llevamos la vista a los productos de esa categoría.
-    if (activeCategory !== 'all') setProductSearch('');
-    document.querySelector('.store-main')?.scrollTo({ top: 0 });
+    // Se muestran TODAS las categorías como secciones; al elegir una, la vista
+    // se DESPLAZA hasta esa sección (no filtra ni oculta las demás).
+    programmaticScrollRef.current = Date.now() + 800; // pausa el scroll-spy
+    if (activeCategory === 'all') {
+      document.querySelector('.store-main')?.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      const sections = document.querySelectorAll('[data-cat-section]');
+      const target = Array.from(sections).find(el => el.dataset.catSection === activeCategory);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }, [activeCategory]);
 
   const [paymentWaiting, setPaymentWaiting] = useState(false);
@@ -5841,14 +5846,6 @@ function Store() {
           ref={categoryRef}
           className="category-tabs-list"
         >
-        <button
-          className={`category-tab${activeCategory === 'all' ? ' active' : ''}`}
-          data-category="all"
-          onClick={() => setActiveCategory('all')}
-        >
-          <span className="category-tab-icon"><FontAwesomeIcon icon={faThLarge} /></span>
-          <span className="category-tab-label">{t('all', lang)}</span>
-        </button>
         {editMode ? (
           <DndContext
             sensors={editSensors}
@@ -5877,7 +5874,7 @@ function Store() {
               key={catObj.id}
               className={`category-tab${activeCategory === catObj.name ? ' active' : ''}`}
               data-category={catObj.name}
-              onClick={() => setActiveCategory(catObj.name)}
+              onClick={() => { setProductSearch(''); setActiveCategory(catObj.name); }}
             >
               <span className="category-tab-icon">{renderCatIcon(catObj)}</span>
               <span className="category-tab-label">{catObj.name}</span>
@@ -5913,8 +5910,8 @@ function Store() {
       </div>
 
       <div className="store-main" onScroll={e => { const y = e.currentTarget.scrollTop; setScrolled(prev => prev ? y > 12 : y > 56); }}>
-      {(!editMode || previewMode) && hasProducts && activeCategory === 'all' && (
-        <div className="store-product-search-bar" style={{ display: 'flex', padding: '10px 16px', position: 'sticky', top: 0, zIndex: 5, background: 'var(--kiosk-bg, #FAF4E9)' }}>
+      {(!editMode || previewMode) && hasProducts && (
+        <div className="store-product-search-bar" style={{ display: 'flex', padding: '10px 16px', background: 'var(--kiosk-bg, #FAF4E9)' }}>
           <div style={{ position: 'relative', flex: 1 }}>
             <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--store-text-secondary, #999)', fontSize: 14, pointerEvents: 'none' }} />
             <input
@@ -6152,7 +6149,7 @@ function Store() {
         </div>
       )}
 
-      {(!editMode || previewMode) && !(restaurantView && !activeTable) && searchedProducts === null && activeCategory === 'all' && (store?.combos || []).filter(c => c.is_active && c.items?.length > 0).length > 0 && (
+      {(!editMode || previewMode) && !(restaurantView && !activeTable) && searchedProducts === null && (store?.combos || []).filter(c => c.is_active && c.items?.length > 0).length > 0 && (
         <div className="category-section">
           <div className="category-section-header">
             <div className="flex items-center gap-3">
@@ -6206,7 +6203,7 @@ function Store() {
         </div>
       )}
 
-      {(!editMode || previewMode) && !(restaurantView && !activeTable) && searchedProducts === null && activeCategory === 'all' && hasProducts && (
+      {(!editMode || previewMode) && !(restaurantView && !activeTable) && searchedProducts === null && hasProducts && (
         <div className="category-sections" ref={productsAreaRef}>
           {(() => {
             const uncategorized = smartProducts.filter(p => !p.category_name);
@@ -6217,7 +6214,7 @@ function Store() {
             ) : null;
           })()}
           {Object.entries(groupedProducts).map(([category, products]) => (
-            <div key={category} className="category-section">
+            <div key={category} className="category-section" data-cat-section={category}>
               <div className="category-section-header">
                 <div className="flex items-center gap-3">
                   <FontAwesomeIcon
@@ -6235,14 +6232,6 @@ function Store() {
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {(!editMode || previewMode) && !(restaurantView && !activeTable) && searchedProducts === null && activeCategory !== 'all' && hasProducts && (
-        <div className="products-grid">
-          {(store?.products || [])
-            .filter(product => product.category_name === activeCategory)
-            .map(product => renderProductCard(product))}
         </div>
       )}
 
