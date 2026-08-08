@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.app.DownloadManager
 import android.content.Context
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -38,6 +39,12 @@ class MainActivity : ComponentActivity() {
 
         // Mantener pantalla siempre encendida
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // Que los botones de volumen (fisicos o del control remoto) controlen
+        // el canal de MEDIOS y asegurar que el volumen de medios sea audible,
+        // para que suene el notification.mp3 del pedido en la TV.
+        volumeControlStream = AudioManager.STREAM_MUSIC
+        ensureMediaVolume()
 
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
@@ -103,6 +110,21 @@ class MainActivity : ComponentActivity() {
         checkForUpdateAndHeartbeat()
     }
 
+    // Sube el volumen de medios a un nivel audible si esta muy bajo o en cero.
+    // Sin esto, muchos boxes/TVs Android arrancan con STREAM_MUSIC en 0 y el
+    // sonido del pedido nunca se escucha aunque el WebView lo reproduzca.
+    private fun ensureMediaVolume() {
+        try {
+            val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            val current = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val target = (max * 0.8).toInt().coerceAtLeast(1)
+            if (current < target) {
+                am.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+            }
+        } catch (_: Exception) {}
+    }
+
     private fun checkForUpdateAndHeartbeat() {
         Thread {
             try {
@@ -165,6 +187,7 @@ class MainActivity : ComponentActivity() {
         CookieManager.getInstance().flush()
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (!wakeLock.isHeld) wakeLock.acquire()
+        ensureMediaVolume()
     }
 
     override fun onPause() {

@@ -45,7 +45,6 @@ function TvDisplay() {
   const [highlightOrder, setHighlightOrder] = useState(null);
   const [started, setStarted] = useState(false);
   const prevReadyRef = useRef([]);
-  const prevPreparingRef = useRef([]);
   const firstLoadRef = useRef(true);
   const audioRef = useRef(null);
   const audioUnlockedRef = useRef(false);
@@ -90,24 +89,19 @@ function TvDisplay() {
       if (!res.ok) throw new Error('Tienda no encontrada');
       const json = await res.json();
 
-      // Detecta pedidos nuevos para animación/sonido.
-      // En la primera carga NO sonamos (evita sonido al abrir la pantalla);
-      // a partir de ahí suena cuando aparece un pedido nuevo, ya sea en
-      // "en preparación" o en "listos", incluso si la lista pasó de 0 a 1.
+      // Detecta pedidos que pasan a "LISTOS PARA RETIRAR" para animación/sonido.
+      // El sonido suena SOLO cuando un pedido queda listo, no cuando entra en
+      // preparación. En la primera carga NO sonamos (evita sonido al abrir la
+      // pantalla); a partir de ahí suena aunque la lista pase de 0 a 1.
       const prevReadyIds = new Set(prevReadyRef.current.map(o => o.id));
       const newReady = json.ready.filter(o => !prevReadyIds.has(o.id));
-      const prevPreparingIds = new Set(prevPreparingRef.current.map(o => o.id));
-      const newPreparing = json.preparing.filter(o => !prevPreparingIds.has(o.id));
 
-      if (!firstLoadRef.current && (newReady.length > 0 || newPreparing.length > 0)) {
-        if (newReady.length > 0) {
-          setHighlightOrder(newReady[0].order_number);
-          setTimeout(() => setHighlightOrder(null), 5000);
-        }
+      if (newReady.length > 0 && !firstLoadRef.current) {
+        setHighlightOrder(newReady[0].order_number);
+        setTimeout(() => setHighlightOrder(null), 5000);
         playBeep();
       }
       prevReadyRef.current = json.ready;
-      prevPreparingRef.current = json.preparing;
       firstLoadRef.current = false;
 
       localStorage.setItem(TV_CODE_KEY, code);
@@ -527,8 +521,8 @@ function TvDisplay() {
         .tv-orders-grid {
           flex: 1;
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(150px, 190px));
-          gap: 12px;
+          grid-template-columns: repeat(auto-fill, minmax(105px, 130px));
+          gap: 10px;
           overflow-y: auto;
           align-content: start;
           align-items: start;
@@ -579,7 +573,7 @@ function TvDisplay() {
         }
 
         .tv-order-number {
-          font-size: clamp(34px, 4vw, 58px);
+          font-size: clamp(26px, 2.6vw, 42px);
           letter-spacing: -1px;
           line-height: 1;
           text-align: center;
