@@ -2134,20 +2134,21 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
 }
 
-/* Al deslizar hacia abajo se ocultan el saludo, banner y promos para dejar
-   arriba solo el logo + buscador + categorías (así se ven más productos). */
-.store-container.store-scrolled .store-header-greeting,
+/* Al deslizar hacia abajo, el banner colapsa: se oculta TODO su contenido
+   (imagen, logo, idioma) y queda solo la barra de búsqueda. */
 .store-container.store-scrolled .store-seasonal-banner,
-.store-container.store-scrolled .store-promos {
+.store-container.store-scrolled .store-promos,
+.store-container.store-scrolled .store-banner-top {
   display: none;
 }
-.store-container.store-scrolled .store-header {
-  padding-top: 3px;
-  padding-bottom: 3px;
+.store-container.store-scrolled .store-name-banner {
+  min-height: 0 !important;
+  padding: 8px 12px !important;
+  background-image: none !important;
+  border-bottom: 1px solid var(--kiosk-border, #F0E8D9);
 }
-.store-container.store-scrolled .store-header-logo {
-  width: 30px;
-  height: 30px;
+.store-container.store-scrolled .store-name-banner::before {
+  display: none;
 }
 
 .store-header {
