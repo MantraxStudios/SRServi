@@ -1765,7 +1765,7 @@ function Store() {
     };
     scroller.addEventListener('scroll', onScroll, { passive: true });
     return () => { scroller.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf); };
-  }, [hasProducts, editMode]);
+  }, [store, editMode]);
 
   // Touch drag-to-scroll en las categorías
   useEffect(() => {
@@ -6886,7 +6886,7 @@ function Store() {
       <PluginSlot name="store-footer" context={{ storeId: store?.store?.id, code }} />
 
       {hasProducts && !adminEditToken && (
-      <div className="cart-bar">
+      <div className={`cart-bar${cart.length > 0 ? '' : ' cart-bar-hidden'}`}>
         {voiceSupported ? (
           <button
             className={`cart-bar-ia${voiceListening ? ' listening' : ''}`}
