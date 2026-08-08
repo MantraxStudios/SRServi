@@ -3376,6 +3376,14 @@ html body .store-container .store-product-card * {
   align-items: center;
   gap: 10px;
 }
+/* Imagen de banner opcional (se sube en el editor de Estilos). */
+.store-banner-image {
+  width: 100%;
+  max-height: 150px;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
 
 /* Botón "pedir hablando con la IA" a la izquierda del buscador. */
 .search-voice-btn {

@@ -2599,6 +2599,20 @@ app.post('/api/public/:code/upload-image', upload.single('image'), async (req, r
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// Cambiar / quitar el logo de la tienda desde el editor del tótem.
+app.post('/api/public/:code/store-logo', upload.single('image'), async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    let url = null;
+    if (req.file) url = `/uploads/${req.file.filename}`;
+    else if (!(req.body.remove === '1' || req.body.remove === 'true')) return res.status(400).json({ error: 'No se recibió imagen' });
+    await pool.execute('UPDATE stores SET logo_url = ? WHERE id = ?', [url, auth.store.id]);
+    emitProductUpdate(auth.store.id, 'store_updated', { logo_url: url });
+    res.json({ logo_url: url });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 // Sync product complements (ingredients + extras)
 app.put('/api/public/:code/products/:id/complements', async (req, res) => {
   try {

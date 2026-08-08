@@ -1217,6 +1217,12 @@ function Store() {
   const [catIconUploading, setCatIconUploading] = useState(false);
   const catIconFileRef = useRef(null);
   const [catIconKey, setCatIconKey] = useState('');
+  // Imagen de banner del tótem (se sube desde el editor de Estilos)
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const bannerFileRef = useRef(null);
+  // Logo de la tienda (también editable desde el editor de Estilos)
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoFileRef = useRef(null);
   const [tuuProvider, setTuuProvider] = useState(null);
   const [qrProvider, setQrProvider] = useState(null);
   const [qrPaymentUrl, setQrPaymentUrl] = useState(null);
@@ -4723,6 +4729,37 @@ function Store() {
     finally { setCatIconUploading(false); if (catIconFileRef.current) catIconFileRef.current.value = ''; }
   };
 
+  // Sube una imagen de banner para el tótem y la guarda en visualSettings.bannerImage.
+  const uploadBannerImage = async (file) => {
+    if (!file) return;
+    setBannerUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append(adminToken ? 'token' : 'pin', adminToken || sessionPin);
+      fd.append('image', file);
+      const r = await fetch(`/api/public/${code}/upload-image`, { method: 'POST', body: fd });
+      const d = await r.json();
+      if (r.ok && d.url) setVisualSettings(prev => ({ ...prev, bannerImage: d.url }));
+      else alert(d.error || 'No se pudo subir la imagen');
+    } catch { alert('Error al subir la imagen'); }
+    finally { setBannerUploading(false); if (bannerFileRef.current) bannerFileRef.current.value = ''; }
+  };
+
+  // Sube (o quita) el logo de la tienda desde el editor del tótem.
+  const uploadStoreLogo = async (file) => {
+    setLogoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append(adminToken ? 'token' : 'pin', adminToken || sessionPin);
+      if (file) fd.append('image', file); else fd.append('remove', '1');
+      const r = await fetch(`/api/public/${code}/store-logo`, { method: 'POST', body: fd });
+      const d = await r.json();
+      if (r.ok) setStore(prev => prev ? { ...prev, store: { ...prev.store, logo_url: d.logo_url || null } } : prev);
+      else alert(d.error || 'No se pudo guardar el logo');
+    } catch { alert('Error al subir el logo'); }
+    finally { setLogoUploading(false); if (logoFileRef.current) logoFileRef.current.value = ''; }
+  };
+
   const saveCat = async () => {
     if (!catName.trim()) return;
     try {
@@ -5529,6 +5566,9 @@ function Store() {
       )}
       {store?.store && (
         <div className="store-name-banner">
+          {visualSettings?.bannerImage && (
+            <img src={getImageUrl(visualSettings.bannerImage)} alt="" className="store-banner-image" />
+          )}
           <div className="store-banner-top">
             {store?.store?.logo_url && (
               <img src={store.store.logo_url} alt={store?.store?.name} className="store-banner-logo" />
@@ -9121,7 +9161,7 @@ function Store() {
 
       {styleEditorOpen && (() => {
         const setField = (key, val) => { const v = { ...visualSettings, [key]: val }; setVisualSettings(v); applyStyles(v, customCss); };
-        const applyPreset = (p) => { const v = { ...SE_BLANK, ...p.settings }; setVisualSettings(v); applyStyles(v, customCss); };
+        const applyPreset = (p) => { const v = { ...SE_BLANK, ...p.settings, bannerImage: visualSettings.bannerImage || '' }; setVisualSettings(v); applyStyles(v, customCss); };
         const cur = {}; Object.keys(SE_BLANK).forEach(k => { cur[k] = visualSettings[k] || ''; });
         const activePresetId = (STYLE_PRESETS.find(p => Object.keys(SE_BLANK).every(k => (p.settings[k] || '') === cur[k])) || {}).id;
         return (
@@ -9196,6 +9236,40 @@ function Store() {
 
               {styleTab === 'visual' && (
                 <div className="se-grid">
+                  <SESection icon={faPalette} title="Logo y banner" hint="El logo aparece arriba a la izquierda; el banner es una imagen ancha arriba del tótem.">
+                    <div className="se-row" style={{ gap: 20, flexWrap: 'wrap' }}>
+                      <div className="se-field" style={{ flex: '0 0 auto' }}>
+                        <label>Logo</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          {store?.store?.logo_url && (
+                            <img src={getImageUrl(store.store.logo_url)} alt="" style={{ width: 46, height: 46, objectFit: 'contain', borderRadius: 8, border: '1px solid #ddd', background: '#fff' }} />
+                          )}
+                          <button type="button" className="se-input" onClick={() => logoFileRef.current?.click()} disabled={logoUploading} style={{ cursor: logoUploading ? 'default' : 'pointer', fontWeight: 600, width: 'auto' }}>
+                            {logoUploading ? 'Subiendo…' : (store?.store?.logo_url ? '📷 Cambiar' : '📷 Subir')}
+                          </button>
+                          {store?.store?.logo_url && (
+                            <button type="button" onClick={() => uploadStoreLogo(null)} disabled={logoUploading} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 13 }}>Quitar</button>
+                          )}
+                          <input ref={logoFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { if (e.target.files[0]) uploadStoreLogo(e.target.files[0]); }} />
+                        </div>
+                      </div>
+                      <div className="se-field" style={{ flex: '1 1 180px' }}>
+                        <label>Banner (imagen ancha)</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          {visualSettings.bannerImage && (
+                            <img src={getImageUrl(visualSettings.bannerImage)} alt="" style={{ width: 84, height: 40, objectFit: 'cover', borderRadius: 8, border: '1px solid #ddd' }} />
+                          )}
+                          <button type="button" className="se-input" onClick={() => bannerFileRef.current?.click()} disabled={bannerUploading} style={{ cursor: bannerUploading ? 'default' : 'pointer', fontWeight: 600, width: 'auto' }}>
+                            {bannerUploading ? 'Subiendo…' : (visualSettings.bannerImage ? '📷 Cambiar' : '📷 Subir')}
+                          </button>
+                          {visualSettings.bannerImage && (
+                            <button type="button" onClick={() => setField('bannerImage', '')} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 13 }}>Quitar</button>
+                          )}
+                          <input ref={bannerFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { if (e.target.files[0]) uploadBannerImage(e.target.files[0]); }} />
+                        </div>
+                      </div>
+                    </div>
+                  </SESection>
                   <SESection icon={faFont} title="Texto y fuente" hint="Cómo se ve la letra en toda tu tienda.">
                     <div className="se-row">
                       <div className="se-field">
