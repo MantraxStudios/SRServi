@@ -2134,20 +2134,11 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
 }
 
-/* Al deslizar hacia abajo, el banner colapsa: se oculta TODO su contenido
-   (imagen, logo, idioma) y queda solo la barra de búsqueda. */
+/* Al deslizar hacia abajo se oculta TODO el banner (imagen, logo, idioma,
+   buscador y botón de voz): quedan arriba solo las categorías. */
 .store-container.store-scrolled .store-seasonal-banner,
 .store-container.store-scrolled .store-promos,
-.store-container.store-scrolled .store-banner-top {
-  display: none;
-}
 .store-container.store-scrolled .store-name-banner {
-  min-height: 0 !important;
-  padding: 8px 12px !important;
-  background-image: none !important;
-  border-bottom: 1px solid var(--kiosk-border, #F0E8D9);
-}
-.store-container.store-scrolled .store-name-banner::before {
   display: none;
 }
 
@@ -2430,15 +2421,15 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .category-tab {
-  flex-shrink: 0;
+  flex: 0 0 84px;              /* todas el MISMO ancho */
+  width: 84px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;      /* imagen/icono arriba, nombre abajo */
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 10px;
-  min-width: 70px;
-  max-width: 96px;
+  padding: 8px 8px;
   border-radius: 14px;
   border: 1px solid var(--kiosk-border, #F0E8D9);
   background-color: var(--kiosk-card, #fff);
@@ -2471,7 +2462,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* En modo edición mantenemos el tab horizontal (arrastrar + botones editar). */
-.store-body.editing .category-tab { flex-direction: row; max-width: none; }
+.store-body.editing .category-tab { flex-direction: row; flex: 0 0 auto; width: auto; }
 .store-body.editing .category-tab-icon { font-size: 15px; width: 18px; }
 
 .category-tab:active {
