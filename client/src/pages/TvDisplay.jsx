@@ -89,19 +89,28 @@ function TvDisplay() {
       if (!res.ok) throw new Error('Tienda no encontrada');
       const json = await res.json();
 
-      // Detecta pedidos que pasan a "LISTOS PARA RETIRAR" para animación/sonido.
-      // El sonido suena SOLO cuando un pedido queda listo, no cuando entra en
-      // preparación. En la primera carga NO sonamos (evita sonido al abrir la
-      // pantalla); a partir de ahí suena aunque la lista pase de 0 a 1.
+      // Detecta pedidos que ENTRAN a la columna "LISTOS PARA RETIRAR" para
+      // animación/sonido. Esa columna incluye tanto los pedidos en estado
+      // 'ready' como los recién completados (< 5 min), así que vigilamos ambos:
+      // si el flujo marca el pedido directo como completado, igual suena.
+      // El sonido NO suena cuando entra en preparación, solo al quedar listo.
+      // En la primera carga NO sonamos (evita sonido al abrir la pantalla);
+      // a partir de ahí suena aunque la lista pase de 0 a 1.
+      const nowTs = Date.now();
+      const recentCompleted = (json.completed || []).filter(o => {
+        const t = new Date(o.completed_at).getTime();
+        return (nowTs - t) < 5 * 60 * 1000;
+      });
+      const readyList = [...json.ready, ...recentCompleted];
       const prevReadyIds = new Set(prevReadyRef.current.map(o => o.id));
-      const newReady = json.ready.filter(o => !prevReadyIds.has(o.id));
+      const newReady = readyList.filter(o => !prevReadyIds.has(o.id));
 
       if (newReady.length > 0 && !firstLoadRef.current) {
         setHighlightOrder(newReady[0].order_number);
         setTimeout(() => setHighlightOrder(null), 5000);
         playBeep();
       }
-      prevReadyRef.current = json.ready;
+      prevReadyRef.current = readyList;
       firstLoadRef.current = false;
 
       localStorage.setItem(TV_CODE_KEY, code);
