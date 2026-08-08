@@ -3388,7 +3388,7 @@ html body .store-container .store-product-card * {
   flex-direction: column;
   gap: 8px;
   max-height: 180px;   /* ~alto real del banner compacto (sin imagen) */
-  transition: max-height 0.42s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.32s ease, padding 0.42s ease;
+  transition: max-height 0.42s cubic-bezier(0.4, 0, 0.2, 1), min-height 0.42s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.42s ease, padding 0.42s ease;
 }
 .store-banner-top {
   position: relative;
