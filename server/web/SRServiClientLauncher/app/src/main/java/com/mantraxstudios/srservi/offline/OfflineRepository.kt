@@ -2,6 +2,8 @@ package com.mantraxstudios.srservi.offline
 
 import android.content.Context
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonDeserializer
 import com.google.gson.reflect.TypeToken
 import java.io.File
 import java.net.HttpURLConnection
@@ -22,7 +24,53 @@ object OfflineRepository {
     const val BASE_URL = "https://srservi2.srautomatic.com"
     const val HOST = BASE_URL // para imágenes /uploads/*
 
-    private val gson = Gson()
+    private val lenientBool = JsonDeserializer<Boolean> { json, _, _ ->
+        try {
+            val p = json.asJsonPrimitive
+            when {
+                p.isBoolean -> p.asBoolean
+                p.isNumber -> p.asDouble != 0.0
+                p.isString -> p.asString.equals("true", true) || p.asString == "1"
+                else -> false
+            }
+        } catch (_: Exception) { false }
+    }
+
+    private val lenientInt = JsonDeserializer<Int> { json, _, _ ->
+        try {
+            val p = json.asJsonPrimitive
+            when {
+                p.isNumber -> p.asInt
+                p.isBoolean -> if (p.asBoolean) 1 else 0
+                p.isString -> p.asString.toDoubleOrNull()?.toInt() ?: 0
+                else -> 0
+            }
+        } catch (_: Exception) { 0 }
+    }
+
+    private val lenientDouble = JsonDeserializer<Double> { json, _, _ ->
+        try {
+            val p = json.asJsonPrimitive
+            when {
+                p.isNumber -> p.asDouble
+                p.isBoolean -> if (p.asBoolean) 1.0 else 0.0
+                p.isString -> p.asString.toDoubleOrNull() ?: 0.0
+                else -> 0.0
+            }
+        } catch (_: Exception) { 0.0 }
+    }
+
+    // Gson tolerante a tipos: el server manda booleanos como 0/1 (tinyint de MySQL)
+    // y a veces números como string. Sin esto, Gson lanza
+    // "IllegalStateException: Expected a boolean but was NUMBER" y falla la descarga.
+    private val gson: Gson = GsonBuilder()
+        .registerTypeAdapter(Boolean::class.javaObjectType, lenientBool)
+        .registerTypeAdapter(Boolean::class.javaPrimitiveType, lenientBool)
+        .registerTypeAdapter(Int::class.javaObjectType, lenientInt)
+        .registerTypeAdapter(Int::class.javaPrimitiveType, lenientInt)
+        .registerTypeAdapter(Double::class.javaObjectType, lenientDouble)
+        .registerTypeAdapter(Double::class.javaPrimitiveType, lenientDouble)
+        .create()
 
     private fun dir(context: Context): File =
         File(context.filesDir, "offline").apply { if (!exists()) mkdirs() }
