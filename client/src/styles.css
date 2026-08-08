@@ -3347,6 +3347,7 @@ html body .store-container .store-product-card * {
 /* Banner superior: logo (izquierda) + selector de idioma (derecha) arriba, y el
    buscador con su botón de voz abajo. */
 .store-name-banner {
+  position: relative;
   background: var(--kiosk-bg, #FAF4E9);
   padding: 8px 14px 12px;
   border-bottom: 1px solid var(--kiosk-border, #F0E8D9);
@@ -3376,13 +3377,40 @@ html body .store-container .store-product-card * {
   align-items: center;
   gap: 10px;
 }
-/* Imagen de banner opcional (se sube en el editor de Estilos). */
-.store-banner-image {
-  width: 100%;
-  max-height: 150px;
-  object-fit: cover;
-  border-radius: 12px;
-  display: block;
+
+/* ── Banner con IMAGEN: hero a todo ancho/alto, con logo (arriba-izq),
+   idioma (arriba-der) y buscador+voz superpuestos abajo. ── */
+.store-name-banner--img {
+  min-height: clamp(170px, 28vh, 300px);
+  padding: 12px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  justify-content: flex-end; /* el buscador queda abajo */
+  border-bottom: none;
+}
+/* Degradado para que el logo/idioma/buscador se lean sobre cualquier imagen */
+.store-name-banner--img::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 52%, rgba(0,0,0,0.42) 100%);
+  pointer-events: none;
+}
+.store-name-banner--img .store-banner-top {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 2;
+}
+.store-name-banner--img .store-banner-logo {
+  height: 48px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+}
+.store-name-banner--img .store-banner-search {
+  position: relative;
+  z-index: 2;
 }
 
 /* Botón "pedir hablando con la IA" a la izquierda del buscador. */

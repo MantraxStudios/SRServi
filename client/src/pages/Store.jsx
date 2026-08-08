@@ -5565,13 +5565,13 @@ function Store() {
         <div className="store-seasonal-banner">{seasonalTheme.banner}</div>
       )}
       {store?.store && (
-        <div className="store-name-banner">
-          {visualSettings?.bannerImage && (
-            <img src={getImageUrl(visualSettings.bannerImage)} alt="" className="store-banner-image" />
-          )}
+        <div
+          className={`store-name-banner${visualSettings?.bannerImage ? ' store-name-banner--img' : ''}`}
+          style={visualSettings?.bannerImage ? { backgroundImage: `url(${getImageUrl(visualSettings.bannerImage)})` } : undefined}
+        >
           <div className="store-banner-top">
             {store?.store?.logo_url && (
-              <img src={store.store.logo_url} alt={store?.store?.name} className="store-banner-logo" />
+              <img src={getImageUrl(store.store.logo_url)} alt={store?.store?.name} className="store-banner-logo" />
             )}
             <div className="store-name-banner-lang">
               <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: '#fff', border: '1px solid #eee6d8', borderRadius: '999px', padding: '6px 11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#232028', fontSize: '13px', fontWeight: 700, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
