@@ -1003,6 +1003,16 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE orders ADD COLUMN customer_comment TEXT DEFAULT NULL');
         console.log('✅ Columna customer_comment agregada a orders');
       }
+      // client_uid: identificador único generado por el cliente para pedidos
+      // creados OFFLINE en el tótem. Permite sincronizarlos sin duplicar al
+      // reconectar (idempotencia). Índice único → NULLs múltiples permitidos.
+      if (!orderColumnNames.includes('client_uid')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN client_uid VARCHAR(64) DEFAULT NULL');
+        try {
+          await pool.execute('CREATE UNIQUE INDEX idx_orders_client_uid ON orders (client_uid)');
+        } catch (_) { /* índice ya existe */ }
+        console.log('✅ Columna client_uid agregada a orders');
+      }
     } catch (orderMigrationError) {
       console.error('❌ Error migrando columnas de cupones en orders:', orderMigrationError.message);
     }
@@ -4279,7 +4289,27 @@ export async function deductExternalOrderInventory(storeId, externalItems, order
 
 export async function createOrder(storeId, orderData) {
   const { order_type, items, payment_method, coupon_code, table_number, delivery_address, delivery_customer_id, customer_email, customer_name, persons, event_name, show_time, customer_comment } = orderData;
-  
+
+  // Idempotencia para pedidos creados OFFLINE en el tótem: si ya existe un
+  // pedido con el mismo client_uid, devolverlo tal cual en vez de duplicarlo.
+  const clientUid = orderData.client_uid || null;
+  if (clientUid) {
+    try {
+      const [existing] = await pool.execute(
+        'SELECT id, order_number, total, status, payment_method FROM orders WHERE client_uid = ? LIMIT 1',
+        [clientUid]
+      );
+      if (existing.length) {
+        const e = existing[0];
+        return {
+          id: e.id, order_number: e.order_number, store_id: storeId,
+          total: e.total, status: e.status, payment_method: e.payment_method,
+          client_uid: clientUid, duplicate: true
+        };
+      }
+    } catch (_) { /* la columna client_uid puede no existir aún */ }
+  }
+
   let subtotal = 0;
   items.forEach(item => {
     subtotal += item.unit_price * item.quantity;
@@ -4319,6 +4349,14 @@ export async function createOrder(storeId, orderData) {
   );
   const orderId = result.insertId;
 
+  // Persistir el identificador offline (idempotencia). Se hace aparte del INSERT
+  // para no depender de que la columna exista en instalaciones antiguas.
+  if (clientUid) {
+    try {
+      await pool.execute('UPDATE orders SET client_uid = ? WHERE id = ?', [clientUid, orderId]);
+    } catch (_) { /* columna aún no migrada */ }
+  }
+
   if (couponData.coupon_id) {
     await pool.execute(
       'UPDATE coupons SET usage_count = usage_count + 1 WHERE id = ?',
@@ -4347,6 +4385,7 @@ export async function createOrder(storeId, orderData) {
     cash_approved: finalCashApproved,
     table_number: table_number || null,
     customer_comment: customer_comment || null,
+    client_uid: clientUid,
     items
   };
 

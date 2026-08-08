@@ -7555,7 +7555,7 @@ app.delete('/api/promos/:id', authenticateToken, async (req, res) => {
 app.post('/api/orders', async (req, res) => {
   try {
     const { store_id, items, order_type, payment_method, coupon_code, from_worker, delivery, table_number, persons, custom_total, total, terminal_id,
-            source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone, event_name, show_time, customer_comment } = req.body;
+            source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone, event_name, show_time, customer_comment, client_uid } = req.body;
 
     if (!store_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
@@ -7563,13 +7563,20 @@ app.post('/api/orders', async (req, res) => {
 
     // custom_total overrides computed total; fallback to `total` sent by client (includes tip)
     const resolvedTotal = custom_total ?? total ?? null;
-    console.log('Creating order:', { store_id, order_type, payment_method, table_number, terminal_id, resolvedTotal, source });
+    console.log('Creating order:', { store_id, order_type, payment_method, table_number, terminal_id, resolvedTotal, source, client_uid });
     const order = await createOrder(parseInt(store_id), {
       order_type, payment_method, items, coupon_code, from_worker, delivery, table_number, persons: persons || null,
       custom_total: resolvedTotal, terminal_id: terminal_id ? parseInt(terminal_id) : null,
       source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone,
-      event_name: event_name || null, show_time: show_time || null, customer_comment: customer_comment || null
+      event_name: event_name || null, show_time: show_time || null, customer_comment: customer_comment || null,
+      client_uid: client_uid || null
     });
+
+    // Pedido offline ya existente (sincronización repetida): no reprocesar hooks,
+    // impresiones ni sockets — solo confirmar al cliente que ya está registrado.
+    if (order && order.duplicate) {
+      return res.json(order);
+    }
 
     const socketId = userSockets.get(parseInt(store_id));
     if (socketId) {

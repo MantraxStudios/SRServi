@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { detectLanguage, t, LANGUAGES } from '../i18n';
 import { getSeasonalTheme } from '../utils/seasonalTheme';
 import { CATEGORY_ICON_LIST, getCategoryIcon } from '../utils/categoryIcons';
+import { queueOrder, flushPendingOrders, countPending, newClientUid } from '../utils/offlineOrders';
 import {
   faShoppingCart,
   faRobot,
@@ -1294,6 +1295,11 @@ function Store() {
   // Pago / TUU / QR). Detectamos si hay red para ocultar esas opciones y forzar
   // efectivo. navigator.onLine + un ping periódico al servidor de pagos remoto.
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  // Ventas hechas OFFLINE (server caído) que aún faltan por sincronizar.
+  const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
+  const refreshPendingCount = useCallback(async () => {
+    try { setPendingOfflineCount(await countPending()); } catch (_) {}
+  }, []);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [productInfo, setProductInfo] = useState(null);
   const [posSelectModalOpen, setPosSelectModalOpen] = useState(false);
@@ -2035,14 +2041,43 @@ function Store() {
     link.click();
   }, [store]);
 
-  // Conectividad: escuchar cambios de red para habilitar/ocultar pagos online.
+  // Conectividad: escuchar cambios de red para habilitar/ocultar pagos online
+  // y sincronizar las ventas hechas OFFLINE cuando vuelve la conexión.
   useEffect(() => {
-    const on = () => setIsOnline(true);
+    const syncOffline = async () => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+      try {
+        const synced = await flushPendingOrders(API);
+        // Si logramos enviar algo, el servidor está de vuelta.
+        if (synced > 0) setIsOnline(true);
+      } catch (_) {}
+      const remaining = await countPending();
+      setPendingOfflineCount(remaining);
+      // Cola vacía y con red del navegador → salir del estado offline (el evento
+      // 'online' no dispara si navigator.onLine nunca cambió, p.ej. server caído
+      // con WiFi arriba).
+      if (remaining === 0 && (typeof navigator === 'undefined' || navigator.onLine)) {
+        setIsOnline(true);
+      }
+    };
+    const on = () => { setIsOnline(true); syncOffline(); };
     const off = () => setIsOnline(false);
     window.addEventListener('online', on);
     window.addEventListener('offline', off);
-    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
-  }, []);
+    // Al montar: mostrar pendientes y, si hay red, intentar sincronizar.
+    refreshPendingCount();
+    if (typeof navigator === 'undefined' || navigator.onLine) syncOffline();
+    // Reintento periódico por si `online` no dispara (WebView) o el server
+    // sigue caído: cada 30 s intentamos vaciar la cola.
+    const iv = setInterval(() => {
+      if (typeof navigator === 'undefined' || navigator.onLine) syncOffline();
+    }, 30000);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+      clearInterval(iv);
+    };
+  }, [refreshPendingCount]);
 
   // Fetch screensaver config (public, no auth needed)
   useEffect(() => {
@@ -2384,6 +2419,13 @@ function Store() {
       setCashRegisterOpen(data.cash_register_open !== false);
       if (data.top_selling) setTopSellingIds(data.top_selling);
 
+      // Cachea el menú para poder vender OFFLINE si el servidor se cae. El
+      // service worker cachea la respuesta HTTP, pero este respaldo local sirve
+      // como red de seguridad (p.ej. WebView sin SW o caché purgada).
+      try {
+        localStorage.setItem(`srservi_menu_${code}`, JSON.stringify(deduplicatedData));
+      } catch (_) { /* cuota llena: no es crítico */ }
+
       // Tiempo promedio de preparación por producto
       fetch(`/api/public/${code}/prep-times`)
         .then(r => r.ok ? r.json() : {})
@@ -2539,7 +2581,22 @@ function Store() {
         }
       } catch { /* no qr provider, ignore */ }
     } catch (err) {
-      setError(err.message);
+      // Servidor caído / sin red: intentar levantar el menú cacheado para poder
+      // seguir vendiendo en efectivo OFFLINE en vez de mostrar pantalla de error.
+      let recovered = false;
+      try {
+        const cached = localStorage.getItem(`srservi_menu_${code}`);
+        if (cached) {
+          const cachedData = JSON.parse(cached);
+          if (cachedData?.products?.length) {
+            setStore(cachedData);
+            setCashRegisterOpen(true);
+            setIsOnline(false);
+            recovered = true;
+          }
+        }
+      } catch (_) { /* caché corrupta */ }
+      if (!recovered) setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -3304,6 +3361,54 @@ function Store() {
     alert(t('qrCodeCopied', lang) + ' ' + code);
   };
 
+  // Crea un pedido de forma resiliente: intenta enviarlo al servidor y, si no hay
+  // conexión (server caído / 5xx / fallo de red), lo guarda en la cola OFFLINE y
+  // devuelve un pedido sintético para imprimir el recibo y mostrar el éxito. La
+  // venta se sincroniza sola al volver la conexión (idempotencia por client_uid).
+  // Los errores de datos (4xx) SÍ se propagan: no tiene sentido encolarlos.
+  const submitOrderResilient = async (payload) => {
+    const body = { ...payload, client_uid: payload.client_uid || newClientUid() };
+    if (isOnline) {
+      try {
+        // Timeout corto: si el server está caído pero hay WiFi, la conexión puede
+        // colgarse. Abortamos a los 7 s y caemos a la cola OFFLINE.
+        const ctrl = new AbortController();
+        const to = setTimeout(() => ctrl.abort(), 7000);
+        let res;
+        try {
+          res = await fetch(API + '/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+            signal: ctrl.signal
+          });
+        } finally {
+          clearTimeout(to);
+        }
+        if (res.ok) return { order: await res.json(), offline: false };
+        if (res.status >= 400 && res.status < 500) {
+          const data = await res.json().catch(() => ({}));
+          const e = new Error(data.error || 'Error al procesar el pedido');
+          e.offlineSkip = true;
+          throw e;
+        }
+        // 5xx → servidor caído: caer al modo offline.
+      } catch (err) {
+        if (err.offlineSkip) throw err;   // error de datos: no encolar
+        // Fallo de red: continuar al modo offline.
+      }
+    }
+    // Modo OFFLINE: encolar y devolver pedido sintético.
+    await queueOrder(body);
+    setIsOnline(false);
+    refreshPendingCount();
+    const offlineNumber = 'OFF-' + body.client_uid.slice(-5).toUpperCase();
+    return {
+      order: { id: null, order_number: offlineNumber, total: body.total, offline: true, client_uid: body.client_uid },
+      offline: true
+    };
+  };
+
   const handleCheckout = async () => {
     if (cart.length === 0) return;
     setCartOpen(false);
@@ -3746,30 +3851,26 @@ function Store() {
         setPaymentTimeLeft(300);
         window.open(qrData.paymentUrl, '_blank');
 
-      // --- Cash ---
+      // --- Cash --- (resiliente: si el server está caído, se encola OFFLINE)
       } else {
-        const response = await fetch(API + '/api/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            store_id: storeId, order_type: orderType, payment_method: selectedMethod,
-            items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null,
-            terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
-            customer_comment: paymentComment || null
-          })
+        const { order, offline } = await submitOrderResilient({
+          store_id: storeId, order_type: orderType, payment_method: selectedMethod,
+          items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
+          total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+          table_number: tableNum ? parseInt(tableNum) : null,
+          terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
+          customer_comment: paymentComment || null
         });
-        if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
-        const order = await response.json();
         printAndroidReceipt(order.order_number, 'card');
+        // El id es null en modo offline, así que los handlers de socket que
+        // comparan por order.id nunca coinciden por error.
         setPendingOrderData({ order, storeId });
         setLastOrderNumber(order.order_number);
         setCashPaymentSuccess(true);
         setPaymentModalOpen(false);
 
-
-        if (billingTableId) { refreshTableOrders(); setBillingTableId(null); }
+        // Los pedidos de mesa dependen del servidor; solo refrescar si hubo red.
+        if (!offline && billingTableId) { refreshTableOrders(); setBillingTableId(null); }
         setCart([]);
         setCartOpen(false);
 
@@ -5584,6 +5685,24 @@ function Store() {
         ...(seasonalTheme ? { '--kiosk-accent': seasonalTheme.colors.accent, '--kiosk-orange': seasonalTheme.colors.primary, '--kiosk-accent-soft': seasonalTheme.colors.accent + '22' } : {}) }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
     >
+      {(!isOnline || pendingOfflineCount > 0) && (
+        <div
+          className="store-offline-banner"
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+            background: !isOnline ? '#b45309' : '#0f766e', color: '#fff',
+            padding: '6px 12px', fontSize: 13, fontWeight: 700, textAlign: 'center',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+          }}
+        >
+          <span>{!isOnline ? t('offlineMode', lang) : t('offlineSyncing', lang)}</span>
+          {pendingOfflineCount > 0 && (
+            <span style={{ background: 'rgba(255,255,255,0.25)', borderRadius: 999, padding: '1px 8px' }}>
+              {t('offlinePending', lang).replace('{n}', pendingOfflineCount)}
+            </span>
+          )}
+        </div>
+      )}
       {seasonalTheme && (
         <div className="store-seasonal-deco" aria-hidden="true">
           {Array.from({ length: 14 }).map((_, i) => (

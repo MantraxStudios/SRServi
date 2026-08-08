@@ -1,4 +1,4 @@
-const CACHE = 'srservi-v5';
+const CACHE = 'srservi-v6';
 
 const MAINTENANCE_HTML = `<!DOCTYPE html>
 <html lang="es">
@@ -75,21 +75,72 @@ self.addEventListener('fetch', e => {
 
   const isNavigate = e.request.mode === 'navigate';
   const isApi = url.pathname.startsWith('/api/');
+  const isUploads = url.pathname.startsWith('/uploads/');
 
-  // API requests: no cache, but show maintenance on navigate if server down
-  if (isApi) return;
+  // ── API pública del menú del tótem (network-first + fallback a caché) ──
+  // Cachear /api/public/* permite cargar el menú, productos, extras, etc. cuando
+  // el servidor se cae, para poder seguir vendiendo OFFLINE. El resto de la API
+  // (pagos, órdenes, etc.) NO se cachea.
+  if (isApi) {
+    if (url.pathname.startsWith('/api/public/')) {
+      e.respondWith(
+        fetch(e.request)
+          .then(res => {
+            if (res.ok && !isServerDown(res)) {
+              const clone = res.clone();
+              caches.open(CACHE).then(c => c.put(e.request, clone));
+            }
+            return res;
+          })
+          .catch(() =>
+            caches.match(e.request).then(cached =>
+              cached || new Response(JSON.stringify({ error: 'offline' }), {
+                status: 503, headers: { 'Content-Type': 'application/json' }
+              })
+            )
+          )
+      );
+    }
+    return;
+  }
 
+  // ── Imágenes subidas (cache-first): productos, logos, banners ──
+  if (isUploads) {
+    e.respondWith(
+      caches.open(CACHE).then(cache =>
+        cache.match(e.request).then(cached => {
+          if (cached) return cached;
+          return fetch(e.request).then(res => {
+            if (res.ok && res.status !== 206) cache.put(e.request, res.clone());
+            return res;
+          }).catch(() => cached || Response.error());
+        })
+      )
+    );
+    return;
+  }
+
+  // ── Navegación (shell de la SPA) ──
+  // Si el servidor está caído o no hay red, servir el shell cacheado para que la
+  // app React arranque en modo OFFLINE (el menú sale de la caché de /api/public).
+  // Solo si NO hay shell cacheado se muestra la pantalla de mantenimiento.
   if (isNavigate) {
     e.respondWith(
       fetch(e.request)
         .then(res => {
-          if (isServerDown(res)) return maintenanceResponse();
+          if (isServerDown(res)) {
+            return caches.match(e.request)
+              .then(c => c || caches.match('/index.html'))
+              .then(c => c || maintenanceResponse());
+          }
           const clone = res.clone();
           caches.open(CACHE).then(c => c.put(e.request, clone));
           return res;
         })
         .catch(() =>
-          caches.match(e.request).then(cached => cached || maintenanceResponse())
+          caches.match(e.request)
+            .then(c => c || caches.match('/index.html'))
+            .then(c => c || maintenanceResponse())
         )
     );
     return;
