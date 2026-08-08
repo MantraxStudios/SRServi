@@ -6,9 +6,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "cap:sync": "vite build && cap sync android",
-    "android:apk": "vite build && cap sync android && cd android && gradlew.bat assembleRelease",
-    "android:apk:debug": "vite build && cap sync android && cd android && gradlew.bat assembleDebug"
+    "cap:sync": "vite build && cap sync android && node scripts/trim-apk-assets.mjs",
+    "android:apk": "vite build && cap sync android && node scripts/trim-apk-assets.mjs && cd android && gradlew.bat clean assembleRelease",
+    "android:apk:debug": "vite build && cap sync android && node scripts/trim-apk-assets.mjs && cd android && gradlew.bat clean assembleDebug"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.1",

@@ -1,2 +1,8 @@
 /build/*
 !/build/.npmkeep
+
+# Assets web copiados por Capacitor (`cap sync`) — se regeneran solos y pueden
+# incluir archivos pesados (>100MB). No se versionan.
+/src/main/assets/public/
+/src/main/assets/capacitor.config.json
+/src/main/assets/capacitor.plugins.json

@@ -105,6 +105,7 @@ const catIcon = (name = '') => {
 };
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl, getProductImageUrl } from '../config.js';
+import { printOrderAndroid, autoConnectPrinter, hasAndroidPrinter, listAndroidPrinters, savePrinter, connectPrinter, printTest, getSavedPrinter, requestPrinterPermission } from '../utils/androidPrinter';
 import CameraModal from '../components/CameraModal';
 const LoyaltyCheckModal = lazy(() => import('../components/LoyaltyCheckModal'));
 import RecipeEditor from '../components/RecipeEditor';
@@ -3256,6 +3257,41 @@ function Store() {
     return cart.reduce((count, item) => count + item.quantity, 0);
   };
 
+  // Imprime el recibo en la impresora Bluetooth de la app offline (si existe).
+  // Se llama en los puntos de éxito de pago ANTES de vaciar el carrito.
+  const printAndroidReceipt = (orderNumber, paymentMethod) => {
+    if (!hasAndroidPrinter() || cart.length === 0) return;
+    try {
+      printOrderAndroid({
+        orderNumber: String(orderNumber || ''),
+        currency: colors.currency.symbol,
+        items: cart.map(i => ({
+          quantity: i.quantity,
+          name: i.product_name,
+          price: i.unit_price,
+          ingredients: i.selected_ingredients || [],
+          extras: i.selected_extras || [],
+          complements: (i.selected_complements || []).map(c => typeof c === 'string' ? c : (c?.name || c?.option_name || '')),
+        })),
+        subtotal: getCartTotal(),
+        discount: 0,
+        total: getCartTotal(),
+        paymentMethod: paymentMethod || '',
+        serviceType: orderType === 'takeout' ? 'llevar' : 'servir',
+        tableNumber: activeTable?.id || null,
+        couponCode: appliedCoupon?.code || null,
+      });
+    } catch { /* noop */ }
+  };
+
+  // App offline (Capacitor): conecta a la impresora Bluetooth guardada al abrir.
+  const [btPrinters, setBtPrinters] = useState([]);
+  const [btPrinterMac, setBtPrinterMac] = useState('');
+  useEffect(() => {
+    autoConnectPrinter();
+    if (hasAndroidPrinter()) { requestPrinterPermission(); setBtPrinterMac(getSavedPrinter()); setBtPrinters(listAndroidPrinters()); }
+  }, []);
+
   const copyCode = () => {
     navigator.clipboard.writeText(code);
     alert(t('qrCodeCopied', lang) + ' ' + code);
@@ -3429,6 +3465,7 @@ function Store() {
       });
       if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
       const order = await response.json();
+      printAndroidReceipt(order.order_number, 'cash');
       setPendingOrderData({ order, storeId });
       setLastOrderNumber(order.order_number);
       setCashPaymentSuccess(true);
@@ -3718,6 +3755,7 @@ function Store() {
         });
         if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
         const order = await response.json();
+        printAndroidReceipt(order.order_number, 'card');
         setPendingOrderData({ order, storeId });
         setLastOrderNumber(order.order_number);
         setCashPaymentSuccess(true);
@@ -3878,6 +3916,7 @@ function Store() {
 
     const onPaymentSuccess = (orderNumberOverride) => {
       setPaymentConfirmed(true);
+      printAndroidReceipt(orderNumberOverride || pendingOrderData.order.order_number, 'online');
       setLastOrderNumber(orderNumberOverride || pendingOrderData.order.order_number);
       if (billingTableId) { refreshTableOrders(); setBillingTableId(null); }
       setCart([]);
@@ -5446,17 +5485,12 @@ function Store() {
           {product.description && product.show_description !== false && (
             <p className="store-product-desc">{product.description}</p>
           )}
-          {prepTimes[product.id] > 0 && product.show_prep_time !== false && (
-            <div className="store-product-prep">
-              <FontAwesomeIcon icon={faClock} style={{ fontSize: 10 }} />
-              ~{prepTimes[product.id]} min
-            </div>
-          )}
           <div className={`store-product-details${isOutOfStock ? ' out-of-stock' : ''}`}>
             <span className="store-product-price">{colors.currency.symbol}{formatPrice(product.price)}</span>
-            {!isOutOfStock && (
-              <span className="store-product-add">
-                <FontAwesomeIcon icon={faPlus} />
+            {prepTimes[product.id] > 0 && product.show_prep_time !== false && (
+              <span className="store-product-prep">
+                <FontAwesomeIcon icon={faClock} style={{ fontSize: 10 }} />
+                ~{prepTimes[product.id]} min
               </span>
             )}
           </div>
@@ -5574,7 +5608,7 @@ function Store() {
               <img src={getImageUrl(store.store.logo_url)} alt={store?.store?.name} className="store-banner-logo" />
             )}
             <div className="store-name-banner-lang">
-              <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: '#fff', border: '1px solid #eee6d8', borderRadius: '999px', padding: '6px 11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#232028', fontSize: '13px', fontWeight: 700, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+              <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '999px', padding: '6px 11px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#fff', fontSize: '13px', fontWeight: 700, boxShadow: 'none', backdropFilter: 'blur(3px)' }}>
                 <FontAwesomeIcon icon={faGlobe} style={{ fontSize: '11px' }} />
                 <span>{LANGUAGES.find(l => l.code === lang)?.flag || '🌐'}</span>
               </button>
@@ -5606,7 +5640,7 @@ function Store() {
               )}
               <div style={{ position: 'relative', flex: 1 }}>
                 <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.8)', fontSize: 14, pointerEvents: 'none', zIndex: 1 }} />
-                <input ref={productSearchInputRef} type="text" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} placeholder="Buscar producto…" className="store-product-search-input" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 36px 10px 34px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(0,0,0,0.3)', color: '#fff', backdropFilter: 'blur(3px)', fontSize: 14, outline: 'none' }} />
+                <input ref={productSearchInputRef} type="text" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} placeholder="Buscar producto…" className="store-product-search-input" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 38px 10px 36px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(0,0,0,0.3)', color: '#fff', backdropFilter: 'blur(3px)', fontSize: 14, outline: 'none' }} />
                 {productSearch && (
                   <button type="button" onClick={() => { setProductSearch(''); productSearchInputRef.current?.focus(); }} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--store-text-secondary, #999)', fontSize: 15, padding: 6, lineHeight: 1 }} aria-label="Limpiar búsqueda">
                     <FontAwesomeIcon icon={faTimes} />
@@ -10216,6 +10250,24 @@ function Store() {
                   >
                     ▶ Probar voz
                   </button>
+                </div>
+              )}
+              {hasAndroidPrinter() && (
+                <div style={{ padding: '14px', borderRadius: '10px', border: '1px solid #e0e0e0', background: '#fafafa' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--store-primary)', marginBottom: '10px' }}>🖨️ Impresora Bluetooth</div>
+                  <select
+                    value={btPrinterMac}
+                    onChange={(e) => { const mac = e.target.value; setBtPrinterMac(mac); savePrinter(mac); if (mac) connectPrinter(mac); }}
+                    style={{ width: '100%', padding: '9px 10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                  >
+                    <option value="">Elegir impresora…</option>
+                    {btPrinters.map(p => <option key={p.mac} value={p.mac}>{p.name}</option>)}
+                  </select>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button onClick={() => { requestPrinterPermission(); setBtPrinters(listAndroidPrinters()); }} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>🔄 Buscar</button>
+                    <button onClick={() => { const ok = printTest(); if (!ok) alert('No se pudo imprimir. Revisá que la impresora esté encendida y elegida.'); }} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', background: 'var(--store-accent)', color: 'var(--store-primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>🖨️ Probar</button>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#888', marginTop: 6 }}>La impresora debe estar <b>emparejada</b> en los ajustes Bluetooth del equipo. El recibo se imprime solo al completar cada pedido.</div>
                 </div>
               )}
               <div style={{ padding: '14px', borderRadius: '10px', border: '1px solid #e0e0e0', background: '#fafafa' }}>

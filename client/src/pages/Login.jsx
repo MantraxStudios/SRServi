@@ -493,23 +493,13 @@ function Login() {
             Descargar App Windows (Tótem)
           </button>
           <a
-            href={`${API}/downloads/SRServi-POS-Setup.exe`}
+            href={`${API}/downloads/SRServi-POS-Offline.apk`}
             download
             className="btn btn-lg btn-full"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#1a1a1a', color: '#fff', border: '2px solid #22c55e', textDecoration: 'none' }}
           >
-            <FontAwesomeIcon icon={faDesktop} style={{ color: '#22c55e' }} />
-            Descargar POS Escritorio (Offline · Gratis)
-          </a>
-          <a
-            href="https://www.mediafire.com/file/0vyuh0m129gx6ky/SRServi-POS-Offline.apk/file"
-            target="_blank"
-            rel="noreferrer"
-            className="btn btn-lg btn-full"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#1a1a1a', color: '#fff', border: '2px solid #22c55e', textDecoration: 'none' }}
-          >
             <FontAwesomeIcon icon={faDownload} style={{ color: '#22c55e' }} />
-            Descargar App Android (APK · Offline · Gratis)
+            Descargar App Android (Offline · Gratis)
           </a>
           <button
             onClick={() => openDlModal('Cartelería TV', '🎬', 'cctv')}
