@@ -5501,7 +5501,7 @@ function Store() {
     )}
     <div
       ref={storeContainerRef}
-      className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}${scrolled ? ' store-scrolled' : ''}`}
+      className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}${scrolled ? ' store-scrolled' : ''}${cart.length === 0 ? ' cart-empty' : ''}`}
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom,
         ...(seasonalTheme ? { '--kiosk-accent': seasonalTheme.colors.accent, '--kiosk-orange': seasonalTheme.colors.primary, '--kiosk-accent-soft': seasonalTheme.colors.accent + '22' } : {}) }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
@@ -5841,6 +5841,9 @@ function Store() {
       )}
 
       <div className={`store-body${editMode && !previewMode ? ' editing' : ''}`} style={restaurantView && !activeTable ? { display: 'none' } : {}}>
+      {store?.store?.name && (
+        <div className="store-name-banner">{store.store.name}</div>
+      )}
       <div className="category-tabs">
         <div
           ref={categoryRef}
@@ -5911,7 +5914,7 @@ function Store() {
 
       <div className="store-main" onScroll={e => { const y = e.currentTarget.scrollTop; setScrolled(prev => prev ? y > 12 : y > 56); }}>
       {(!editMode || previewMode) && hasProducts && (
-        <div className="store-product-search-bar" style={{ display: 'flex', padding: '10px 16px', background: 'var(--kiosk-bg, #FAF4E9)' }}>
+        <div className="store-product-search-bar" style={{ display: 'flex', padding: '10px 16px 12px', background: 'var(--kiosk-bg, #FAF4E9)', borderRadius: '0 0 18px 18px', boxShadow: '0 6px 10px -6px rgba(0,0,0,0.18)' }}>
           <div style={{ position: 'relative', flex: 1 }}>
             <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--store-text-secondary, #999)', fontSize: 14, pointerEvents: 'none' }} />
             <input

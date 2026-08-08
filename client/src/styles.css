@@ -3338,6 +3338,33 @@ html body .store-container .store-product-card * {
   pointer-events: none;
 }
 
+/* Con el carrito vacío la barra está oculta: no reservamos su espacio (evita el
+   gran hueco en blanco abajo en el teléfono). */
+.store-container.cart-empty .store-main {
+  padding-bottom: 20px;
+}
+
+/* Banner con el nombre del negocio, centrado, arriba de las categorías. */
+.store-name-banner {
+  text-align: center;
+  font-weight: 800;
+  font-size: clamp(16px, 4.5vw, 22px);
+  color: var(--kiosk-dark, #232028);
+  background: var(--kiosk-bg, #FAF4E9);
+  padding: 8px 14px 6px;
+  letter-spacing: 0.2px;
+  line-height: 1.15;
+  border-bottom: 1px solid var(--kiosk-border, #F0E8D9);
+}
+
+/* En el teléfono ocultamos el texto "Ver carrito" para que no se superponga
+   con el precio en la barra angosta. */
+@media (max-width: 560px) {
+  .cart-bar-text { display: none; }
+  .cart-bar-right { gap: 10px; padding-left: 10px; }
+  .cart-bar { gap: 8px; }
+}
+
 /* Botón del asistente IA integrado en la barra del carrito */
 .cart-bar-ia {
   position: relative;
