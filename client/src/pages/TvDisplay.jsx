@@ -45,6 +45,7 @@ function TvDisplay() {
   const [highlightOrder, setHighlightOrder] = useState(null);
   const [started, setStarted] = useState(false);
   const prevReadyRef = useRef([]);
+  const firstLoadRef = useRef(true);
   const audioRef = useRef(null);
 
   useNoSleep();
@@ -63,22 +64,24 @@ function TvDisplay() {
       if (!res.ok) throw new Error('Tienda no encontrada');
       const json = await res.json();
 
-      // Detect newly ready orders for animation/sound
+      // Detect newly ready orders for animation/sound.
+      // En la primera carga NO sonamos (evita sonido al abrir la pantalla);
+      // a partir de ahí, cualquier pedido nuevo en "listos" reproduce el sonido,
+      // incluso si la lista pasó de 0 a 1.
       const prevReadyIds = new Set(prevReadyRef.current.map(o => o.id));
       const newReady = json.ready.filter(o => !prevReadyIds.has(o.id));
-      if (newReady.length > 0 && prevReadyRef.current.length >= 0) {
-        if (prevReadyRef.current.length > 0 || data.store) {
-          setHighlightOrder(newReady[0].order_number);
-          try {
-            if (audioRef.current) {
-              audioRef.current.currentTime = 0;
-              audioRef.current.play().catch(() => {});
-            }
-          } catch {}
-          setTimeout(() => setHighlightOrder(null), 5000);
-        }
+      if (newReady.length > 0 && !firstLoadRef.current) {
+        setHighlightOrder(newReady[0].order_number);
+        try {
+          if (audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(() => {});
+          }
+        } catch {}
+        setTimeout(() => setHighlightOrder(null), 5000);
       }
       prevReadyRef.current = json.ready;
+      firstLoadRef.current = false;
 
       localStorage.setItem(TV_CODE_KEY, code);
       setData(json);
