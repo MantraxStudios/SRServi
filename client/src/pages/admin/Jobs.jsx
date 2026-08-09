@@ -101,7 +101,7 @@ export default function Jobs() {
     // Título: BUSCAR TRABAJO
     ctx.fillStyle = txt;
     ctx.font = '800 46px Arial, sans-serif';
-    ctx.fillText('BUSCAR TRABAJO', W / 2, 110);
+    ctx.fillText('BUSCAS TRABAJO', W / 2, 110);
 
     // Subtítulo
     ctx.fillStyle = dim;
@@ -162,7 +162,7 @@ export default function Jobs() {
           boxShadow: '0 8px 26px rgba(0,0,0,0.16)',
         }}>
           <div style={{ border: `2px solid ${textColor === '#ffffff' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.25)'}`, borderRadius: 16, padding: '18px 14px', textAlign: 'center' }}>
-            <div style={{ color: textColor, fontWeight: 800, fontSize: 20, letterSpacing: 0.5, lineHeight: 1.1 }}>BUSCAR TRABAJO</div>
+            <div style={{ color: textColor, fontWeight: 800, fontSize: 20, letterSpacing: 0.5, lineHeight: 1.1 }}>BUSCAS TRABAJO</div>
             <div style={{ color: dimText, fontWeight: 600, fontSize: 11, marginTop: 5 }}>Únete a nuestro equipo</div>
             <div style={{ color: textColor, fontWeight: 800, fontSize: 17, margin: '14px 0 10px' }}>Postula aquí</div>
             <div style={{ background: '#fff', borderRadius: 12, padding: 12, display: 'inline-block', lineHeight: 0 }}>
