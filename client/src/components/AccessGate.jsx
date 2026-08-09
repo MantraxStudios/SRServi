@@ -53,12 +53,6 @@ export default function AccessGate({ token, onGoToPlans, onLogout }) {
           <strong> solicitar un acceso gratis</strong> justificando por qué lo necesitás (lo revisamos y aprobamos).
         </p>
 
-        <button onClick={onGoToPlans} style={s.primaryBtn}>
-          <FontAwesomeIcon icon={faCrown} /> Ver planes y contratar
-        </button>
-
-        <div style={s.divider}><span>o</span></div>
-
         {loading ? (
           <div style={{ color: '#9ca3af', fontSize: 13, padding: '10px 0' }}>Cargando...</div>
         ) : status === 'pending' ? (
@@ -82,6 +76,12 @@ export default function AccessGate({ token, onGoToPlans, onLogout }) {
             </button>
           </div>
         )}
+
+        <div style={s.divider}><span>o</span></div>
+
+        <button onClick={onGoToPlans} style={s.primaryBtn}>
+          <FontAwesomeIcon icon={faCrown} /> Ver planes y contratar
+        </button>
       </div>
     </div>
   );
