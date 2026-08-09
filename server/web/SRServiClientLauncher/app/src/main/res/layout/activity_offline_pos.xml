@@ -3,25 +3,25 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background"
+    android:background="@color/kiosk_bg"
     android:orientation="vertical">
 
-    <!-- Header -->
+    <!-- Header claro estilo tótem -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/bg_header"
+        android:background="@color/kiosk_card"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="20dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="18dp"
-        android:paddingBottom="18dp">
+        android:paddingStart="18dp"
+        android:paddingEnd="10dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp">
 
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/ivLogo"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
             android:layout_marginEnd="12dp"
             android:scaleType="centerCrop"
             android:visibility="gone"
@@ -38,7 +38,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="SRServi"
-                android:textColor="@color/gold"
+                android:textColor="@color/kiosk_dark"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
@@ -47,7 +47,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="● Modo Offline"
-                android:textColor="@color/success"
+                android:textColor="@color/kiosk_orange"
                 android:textSize="12sp" />
         </LinearLayout>
 
@@ -55,65 +55,68 @@
             android:id="@+id/tvDayTotal"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
+            android:layout_marginEnd="6dp"
             android:gravity="end"
             android:text=""
-            android:textColor="@color/text_secondary"
+            android:textColor="@color/kiosk_muted"
             android:textSize="12sp" />
 
         <ImageButton
+            android:id="@+id/btnPosConfig"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Configurar métodos de pago"
+            android:src="@android:drawable/ic_menu_preferences"
+            app:tint="@color/kiosk_dark" />
+
+        <ImageButton
             android:id="@+id/btnSync"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Sincronizar"
             android:src="@android:drawable/ic_popup_sync"
-            app:tint="@color/gold" />
+            app:tint="@color/kiosk_dark" />
 
         <ImageButton
             android:id="@+id/btnExit"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Salir"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
-            app:tint="@color/text_secondary" />
+            app:tint="@color/kiosk_muted" />
     </LinearLayout>
 
-    <!-- Search -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/kiosk_border" />
+
+    <!-- Buscador -->
     <EditText
         android:id="@+id/etSearch"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
+        android:layout_height="46dp"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
         android:layout_marginTop="12dp"
-        android:background="@drawable/bg_pill_dark"
+        android:background="@drawable/bg_search_kiosk"
         android:drawableStart="@android:drawable/ic_menu_search"
         android:drawablePadding="10dp"
-        android:drawableTint="@color/text_secondary"
+        android:drawableTint="@color/kiosk_muted"
         android:hint="Buscar producto…"
         android:imeOptions="actionSearch"
         android:inputType="text"
         android:maxLines="1"
         android:paddingStart="18dp"
         android:paddingEnd="18dp"
-        android:textColor="@color/text_primary"
-        android:textColorHint="@color/text_secondary"
+        android:textColor="@color/kiosk_dark"
+        android:textColorHint="@color/kiosk_muted"
         android:textSize="15sp" />
 
-    <!-- Categories -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvCategories"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:clipToPadding="false"
-        android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp" />
-
-    <!-- Products grid -->
+    <!-- Grilla de productos agrupada por categoría (3 columnas) -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -124,9 +127,9 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clipToPadding="false"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:paddingTop="12dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="6dp"
             android:paddingBottom="96dp" />
 
         <LinearLayout
@@ -142,7 +145,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Sin productos"
-                android:textColor="@color/text_secondary"
+                android:textColor="@color/kiosk_muted"
                 android:textSize="16sp" />
         </LinearLayout>
 
@@ -151,21 +154,21 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_gravity="center"
-            android:indeterminateTint="@color/gold"
+            android:indeterminateTint="@color/kiosk_orange"
             android:visibility="gone" />
     </FrameLayout>
 
-    <!-- Sticky cart bar -->
+    <!-- Barra de carrito -->
     <LinearLayout
         android:id="@+id/cartBar"
         android:layout_width="match_parent"
         android:layout_height="72dp"
-        android:background="@color/surface"
+        android:background="@color/kiosk_card"
         android:elevation="12dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="18dp"
-        android:paddingEnd="14dp">
+        android:paddingEnd="12dp">
 
         <LinearLayout
             android:id="@+id/cartSummary"
@@ -181,7 +184,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="🛒 0"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/kiosk_dark"
                 android:textSize="16sp" />
 
             <TextView
@@ -190,7 +193,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="14dp"
                 android:text="$0"
-                android:textColor="@color/gold"
+                android:textColor="@color/kiosk_dark"
                 android:textSize="22sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -200,11 +203,11 @@
             android:layout_width="wrap_content"
             android:layout_height="52dp"
             app:backgroundTint="@null"
-            android:background="@drawable/bg_pill_gold"
-            android:paddingStart="28dp"
-            android:paddingEnd="28dp"
+            android:background="@drawable/bg_pill_accent"
+            android:paddingStart="30dp"
+            android:paddingEnd="30dp"
             android:text="COBRAR"
-            android:textColor="@color/primary_dark"
+            android:textColor="@color/kiosk_dark"
             android:textSize="16sp"
             android:textStyle="bold"
             app:cornerRadius="16dp" />

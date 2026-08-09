@@ -7,6 +7,7 @@ import com.mantraxstudios.srservi.offline.StoreInfo
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.UUID
 import kotlin.math.roundToLong
 
 /**
@@ -45,8 +46,8 @@ object OfflinePaymentProcessor {
 
     /** ¿El proveedor cobra automáticamente vía API, o requiere confirmación manual del cajero? */
     fun isAutoCharge(provider: String): Boolean = when (provider.lowercase()) {
-        "mercadopago", "sumup", "square" -> true
-        else -> false // cash, tuu y otros → confirmación manual
+        "mercadopago", "sumup", "square", "tuu" -> true
+        else -> false // efectivo y proveedores desconocidos → confirmación manual
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -61,6 +62,7 @@ object OfflinePaymentProcessor {
                     "mercadopago" -> chargeMercadoPago(store, terminal, amount, orderType, cb)
                     "sumup" -> chargeSumUp(store, terminal, amount, orderType, cb)
                     "square" -> chargeSquare(store, terminal, amount, cb)
+                    "tuu" -> chargeTuu(terminal, amount, cb)
                     else -> PaymentResult.Approved // cash / manual
                 }
                 post(cb) { cb.onResult(result) }
@@ -203,7 +205,51 @@ object OfflinePaymentProcessor {
         return PaymentResult.Failed("Tiempo de espera agotado")
     }
 
-    // ── HTTP helper ─────────────────────────────────────────────────────────────
+    // ── TUU (Haulmer RemotePayment) ─────────────────────────────────────────────
+    private const val TUU_API = "https://integrations.payment.haulmer.com/RemotePayment/v2"
+
+    private fun chargeTuu(terminal: PosTerminal, amount: Double, cb: Callback): PaymentResult {
+        val apiKey = terminal.apiKey ?: return PaymentResult.Failed("Falta API Key de TUU")
+        val serial = terminal.deviceId ?: return PaymentResult.Failed("Falta serie del terminal TUU")
+        post(cb) { cb.onProgress("Enviando cobro al terminal TUU…") }
+
+        val idem = UUID.randomUUID().toString()
+        val payload = JSONObject().apply {
+            put("Amount", amount.roundToLong())
+            put("Device", serial)
+            put("IdempotencyKey", idem)
+            put("Description", "Pedido POS")
+            put("DteType", 0)
+            put("extraData", JSONObject().apply {
+                put("sourceName", "SRServi")
+                put("sourceVersion", "1.1.0")
+            })
+        }
+        val (code, body) = httpRequest(
+            "POST", "$TUU_API/Create",
+            mapOf("Content-Type" to "application/json", "X-API-Key" to apiKey),
+            payload.toString()
+        )
+        if (code !in 200..299) return PaymentResult.Failed("TUU: $body")
+        val key = JSONObject(body).optString("idempotencyKey", "").ifBlank { idem }
+
+        post(cb) { cb.onProgress("Esperando pago en el terminal…") }
+        var polls = 0
+        while (polls < MAX_POLLS) {
+            Thread.sleep(POLL_INTERVAL_MS)
+            polls++
+            val (sc, sb) = httpRequest("GET", "$TUU_API/GetPaymentRequest/$key", mapOf("X-API-Key" to apiKey), null)
+            if (sc !in 200..299) continue
+            when (JSONObject(sb).optString("status", "")) {
+                "Completed" -> return PaymentResult.Approved
+                "Canceled", "Failed" -> return PaymentResult.Canceled
+            }
+        }
+        return PaymentResult.Failed("Tiempo de espera agotado")
+    }
+
+    // ── HTTP helpers ─────────────────────────────────────────────────────────────
+    /** Igual que [httpRequest] pero con autenticación Bearer (MP / SumUp / Square). */
     private fun httpJson(
         method: String,
         url: String,
@@ -211,15 +257,26 @@ object OfflinePaymentProcessor {
         body: String?,
         extraHeaders: Map<String, String> = emptyMap()
     ): Pair<Int, String> {
+        val headers = HashMap<String, String>()
+        headers["Content-Type"] = "application/json"
+        headers["Authorization"] = "Bearer $bearer"
+        headers.putAll(extraHeaders)
+        return httpRequest(method, url, headers, body)
+    }
+
+    private fun httpRequest(
+        method: String,
+        url: String,
+        headers: Map<String, String>,
+        body: String?
+    ): Pair<Int, String> {
         var conn: HttpURLConnection? = null
         return try {
             conn = URL(url).openConnection() as HttpURLConnection
             conn.requestMethod = method
             conn.connectTimeout = 15000
             conn.readTimeout = 20000
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("Authorization", "Bearer $bearer")
-            for ((k, v) in extraHeaders) conn.setRequestProperty(k, v)
+            for ((k, v) in headers) conn.setRequestProperty(k, v)
             if (body != null) {
                 conn.doOutput = true
                 conn.outputStream.use { it.write(body.toByteArray()) }

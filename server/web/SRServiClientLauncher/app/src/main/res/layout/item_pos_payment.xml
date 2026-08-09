@@ -4,10 +4,10 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginTop="10dp"
-    app:cardBackgroundColor="@color/surface"
+    app:cardBackgroundColor="@color/kiosk_card"
     app:cardCornerRadius="16dp"
-    app:cardElevation="0dp"
-    app:strokeColor="@color/divider"
+    app:cardElevation="2dp"
+    app:strokeColor="@color/kiosk_border"
     app:strokeWidth="1dp">
 
     <LinearLayout
@@ -39,7 +39,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Método"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/kiosk_dark"
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
@@ -48,7 +48,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text=""
-                android:textColor="@color/text_secondary"
+                android:textColor="@color/kiosk_muted"
                 android:textSize="12sp" />
         </LinearLayout>
 
@@ -57,7 +57,7 @@
             android:layout_height="24dp"
             android:contentDescription="@null"
             android:src="@android:drawable/ic_media_play"
-            app:tint="@color/gold" />
+            app:tint="@color/kiosk_orange" />
     </LinearLayout>
 
 </com.google.android.material.card.MaterialCardView>

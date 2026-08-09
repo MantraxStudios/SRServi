@@ -43,6 +43,41 @@ data class OfflineExtra(
     val price: Double = 0.0
 )
 
+/** Ingrediente del producto. Los `includedByDefault` van pre-marcados y son gratis. */
+data class OfflineIngredient(
+    val id: Int = 0,
+    val name: String = "",
+    val price: Double = 0.0,
+    @SerializedName("included_by_default") val includedByDefault: Boolean = false
+)
+
+/** Opción de un grupo de complementos dinámico. */
+data class ComplementOption(
+    val id: Int = 0,
+    val name: String = "",
+    val price: Double = 0.0,
+    val image: String? = null
+)
+
+/** Grupo de complementos dinámico (sección personalizada) con reglas min/max. */
+data class ComplementGroup(
+    val id: Int = 0,
+    val name: String = "",
+    @SerializedName("min_select") val minSelect: Int = 0,
+    @SerializedName("max_select") val maxSelect: Int = 0, // 0 = sin límite
+    val required: Boolean = false,
+    val options: List<ComplementOption> = emptyList()
+)
+
+/** Complemento seleccionado dentro del carrito. */
+data class SelectedComplement(
+    val groupId: Int,
+    val groupName: String,
+    val optionId: Int,
+    val name: String,
+    val price: Double
+)
+
 data class OfflineProduct(
     val id: Int = 0,
     val name: String = "",
@@ -54,9 +89,20 @@ data class OfflineProduct(
     val stock: Int = 0,
     @SerializedName("unlimited_stock") val unlimitedStock: Boolean = true,
     @SerializedName("has_extras") val hasExtras: Boolean = false,
-    val extras: List<OfflineExtra> = emptyList()
+    @SerializedName("has_ingredients") val hasIngredients: Boolean = false,
+    @SerializedName("max_extras") val maxExtras: Int = 0,
+    @SerializedName("max_ingredients") val maxIngredients: Int = 0,
+    val extras: List<OfflineExtra> = emptyList(),
+    val ingredients: List<OfflineIngredient> = emptyList(),
+    @SerializedName("complement_groups") val complementGroups: List<ComplementGroup> = emptyList()
 ) {
     val outOfStock: Boolean get() = !unlimitedStock && stock <= 0
+
+    /** ¿Necesita abrir el modal de configuración (ingredientes/extras/complementos)? */
+    val needsConfig: Boolean
+        get() = (hasIngredients && ingredients.isNotEmpty()) ||
+                (hasExtras && extras.isNotEmpty()) ||
+                complementGroups.isNotEmpty()
 }
 
 /**
@@ -73,18 +119,49 @@ data class PosTerminal(
     @SerializedName("custom_url") val customUrl: String? = null
 )
 
-/** Una línea del carrito: producto + cantidad + extras seleccionados. */
+/** Una línea del carrito: producto + cantidad + ingredientes/extras/complementos. */
 data class CartLine(
     val product: OfflineProduct,
     var quantity: Int = 1,
-    val extras: List<OfflineExtra> = emptyList()
+    val extras: List<OfflineExtra> = emptyList(),
+    val ingredients: List<OfflineIngredient> = emptyList(),   // ingredientes seleccionados
+    val complements: List<SelectedComplement> = emptyList()
 ) {
-    /** Identificador estable de la línea (mismo producto + mismos extras se agrupan). */
+    /** Identificador estable: mismo producto + mismas selecciones se agrupan. */
     val signature: String
-        get() = product.id.toString() + "|" + extras.map { it.id }.sorted().joinToString(",")
+        get() = buildString {
+            append(product.id)
+            append("|e:"); append(extras.map { it.id }.sorted().joinToString(","))
+            append("|i:"); append(ingredients.map { it.id }.sorted().joinToString(","))
+            append("|c:"); append(complements.map { it.optionId }.sorted().joinToString(","))
+        }
 
-    val unitPrice: Double get() = product.price + extras.sumOf { it.price }
+    // Precio = base + ingredientes NO incluidos por defecto + extras + complementos.
+    val unitPrice: Double
+        get() = product.price +
+            ingredients.filter { !it.includedByDefault }.sumOf { it.price } +
+            extras.sumOf { it.price } +
+            complements.sumOf { it.price }
+
     val lineTotal: Double get() = unitPrice * quantity
+
+    /** Nombres de ingredientes tal como los imprime el tótem: "Sin X" (quitados) + agregados. */
+    fun ingredientLabels(): List<String> {
+        val removed = product.ingredients
+            .filter { it.includedByDefault && ingredients.none { s -> s.id == it.id } }
+            .map { "Sin ${it.name}" }
+        val added = ingredients.filter { !it.includedByDefault }.map { it.name }
+        return removed + added
+    }
+
+    /** Resumen corto de modificadores para la fila del carrito. */
+    fun modifierSummary(): String {
+        val parts = mutableListOf<String>()
+        parts.addAll(ingredientLabels())
+        parts.addAll(extras.map { it.name })
+        parts.addAll(complements.map { it.name })
+        return parts.joinToString(", ")
+    }
 }
 
 /** Registro local de una venta completada en modo offline. */

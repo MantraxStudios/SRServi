@@ -24,4 +24,14 @@
     <color name="gold">#C9A84C</color>
     <color name="gold_dark">#A68A3E</color>
     <color name="gold_light">#D4B86A</color>
+
+    <!-- Paleta del tótem (kiosk) — para que el Modo Offline calque Store.jsx -->
+    <color name="kiosk_bg">#FFFFFF</color>
+    <color name="kiosk_card">#FFFFFF</color>
+    <color name="kiosk_accent">#FFC42E</color>
+    <color name="kiosk_accent_soft">#FFF3D3</color>
+    <color name="kiosk_dark">#232028</color>
+    <color name="kiosk_muted">#8F8A80</color>
+    <color name="kiosk_orange">#F0810F</color>
+    <color name="kiosk_border">#F0E8D9</color>
 </resources>
