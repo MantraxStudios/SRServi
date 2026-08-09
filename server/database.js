@@ -1642,7 +1642,7 @@ async function migrateTables() {
         await pool.execute(
           `INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
           ('Gratis', 'Plan gratuito básico', 1, 0, 0, ?),
-          ('SOLO', 'Plan para negocios en crecimiento', 3, 40000, 40000, ?),
+          ('SOLO', 'Plan para negocios en crecimiento', 3, 38850, 38850, ?),
           ('Empresas', 'Plan para empresas con múltiples sucursales', 25, 80000, 80000, ?),
           ('Personalizado', 'Plan con funciones a medida y soporte dedicado', 25, 160000, 160000, ?)`,
           [GRATIS_FEATURES, SOLO_FEATURES, EMPRESAS_FEATURES, PERSONALIZADO_FEATURES]
@@ -1669,16 +1669,16 @@ async function migrateTables() {
         if (remainingPlans[0].count === 0) {
           await pool.execute(
             `INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
-            ('SOLO', 'Plan para negocios en crecimiento', 3, 40000, 40000, ?)`,
+            ('SOLO', 'Plan para negocios en crecimiento', 3, 38850, 38850, ?)`,
             [SOLO_FEATURES]
           );
           console.log('✅ Plan SOLO insertado');
         } else {
           await pool.execute(
-            'UPDATE plans SET max_stores = 3, price_monthly = 40000, price_yearly = 40000, features = ? WHERE name = ?',
+            'UPDATE plans SET max_stores = 3, price_monthly = 38850, price_yearly = 38850, features = ? WHERE name = ?',
             [SOLO_FEATURES, 'SOLO']
           );
-          console.log('ℹ️ Plan SOLO actualizado (máx. 3 tiendas, $40.000 CLP)');
+          console.log('ℹ️ Plan SOLO actualizado (máx. 3 tiendas, $38.850 CLP)');
         }
 
         const [empresasPlans] = await pool.execute("SELECT COUNT(*) as count FROM plans WHERE name = 'Empresas'");
@@ -5489,7 +5489,15 @@ export function planCapabilities(planName) {
 // Además respeta permisos otorgados por el superadmin (ej. cartelería sin premium).
 export async function getUserCapabilities(userId) {
   const plan = await getUserPlan(userId);
-  const caps = planCapabilities(plan?.plan_name);
+  let caps = planCapabilities(plan?.plan_name);
+  // Acceso gratis aprobado y AÚN vigente (dentro del mes): TODO desbloqueado,
+  // como un plan de pago, aunque el plan asignado se llame "Gratis".
+  if (plan && plan.plan_name === 'Gratis' && await hasApprovedFreePlan(userId)) {
+    caps = planCapabilities('SOLO');
+    caps.planName = 'Gratis';
+    caps.isFree = false;
+    caps.freeAccess = true; // acceso gratis con todo desbloqueado
+  }
   // Acceso a Cartelería (CCTV) sin requerir plan de pago, si el superadmin lo habilitó.
   try {
     const [rows] = await pool.execute('SELECT cctv_access FROM users WHERE id = ?', [userId]);

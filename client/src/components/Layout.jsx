@@ -285,9 +285,11 @@ function Layout() {
           // o acceso especial (cartelería). En cualquier otro caso (sin plan o "Gratis" sin
           // aprobación) → cuenta bloqueada: debe pagar o solicitar acceso gratis.
           const isPaid = !!planName && planName !== 'Gratis';
-          const approvedFree = !!data?.free_plan_approved;
+          // Solo cuenta como acceso libre si el mes de acceso gratis SIGUE VIGENTE.
+          // Cuando termina el mes (free_plan_ended) la cuenta se vuelve a bloquear.
+          const freeActive = !!data?.free_plan_active;
           const hasSpecial = !!data?.capabilities?.cctv;
-          setAccessBlocked(!isPaid && !approvedFree && !hasSpecial);
+          setAccessBlocked(!isPaid && !freeActive && !hasSpecial);
         })
         .catch(() => {});
     }

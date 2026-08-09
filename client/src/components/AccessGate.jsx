@@ -9,6 +9,7 @@ const GOLD = '#D4AF37';
 // solicitar acceso gratis (justificándolo → lo aprueba el superadmin).
 export default function AccessGate({ token, onGoToPlans, onLogout }) {
   const [req, setReq] = useState(null);
+  const [ended, setEnded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [biz, setBiz] = useState('');
   const [reason, setReason] = useState('');
@@ -17,7 +18,7 @@ export default function AccessGate({ token, onGoToPlans, onLogout }) {
   useEffect(() => {
     fetch(API + '/api/free-plan/request', { headers: { Authorization: 'Bearer ' + token } })
       .then(r => r.ok ? r.json() : null)
-      .then(d => setReq(d?.request || null))
+      .then(d => { setReq(d?.request || null); setEnded(!!d?.ended); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [token]);
@@ -55,6 +56,16 @@ export default function AccessGate({ token, onGoToPlans, onLogout }) {
 
         {loading ? (
           <div style={{ color: '#9ca3af', fontSize: 13, padding: '10px 0' }}>Cargando...</div>
+        ) : ended ? (
+          // El mes de acceso gratis ya terminó → ahora sí ofrecemos contratar un plan.
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ ...s.statusBox, background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa', marginBottom: 16 }}>
+              <FontAwesomeIcon icon={faGift} /> Tu <strong>mes de acceso gratis</strong> terminó. Para seguir usando SRServi, elegí un plan.
+            </div>
+            <button onClick={onGoToPlans} style={s.primaryBtn}>
+              <FontAwesomeIcon icon={faCrown} /> Ver planes y contratar
+            </button>
+          </div>
         ) : status === 'pending' ? (
           <div style={{ ...s.statusBox, background: '#fef9c3', color: '#a16207', border: '1px solid #fde047' }}>
             <FontAwesomeIcon icon={faGift} /> Tu solicitud de acceso gratis está <strong>en revisión</strong>. Te avisaremos cuando la aprobemos.
@@ -76,12 +87,6 @@ export default function AccessGate({ token, onGoToPlans, onLogout }) {
             </button>
           </div>
         )}
-
-        <div style={s.divider}><span>o</span></div>
-
-        <button onClick={onGoToPlans} style={s.primaryBtn}>
-          <FontAwesomeIcon icon={faCrown} /> Ver planes y contratar
-        </button>
       </div>
     </div>
   );

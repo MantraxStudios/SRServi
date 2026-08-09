@@ -2706,11 +2706,14 @@ app.get('/api/my-plan', authenticateToken, async (req, res) => {
     const plan = await getUserPlan(req.user.id);
     const storeInfo = await canUserCreateStore(req.user.id);
     const hasTrial = await hasClaimedTrial(req.user.id);
+    const approvedFree = await hasApprovedFreePlan(req.user.id);
     res.json({
       plan,
       has_claimed_trial: hasTrial,
       capabilities: await getUserCapabilities(req.user.id),
-      free_plan_approved: await hasApprovedFreePlan(req.user.id),
+      free_plan_approved: approvedFree,          // ¿alguna vez tuvo acceso gratis aprobado?
+      free_plan_active: approvedFree && !!plan,   // ¿el mes de acceso gratis sigue vigente?
+      free_plan_ended: approvedFree && !plan,     // ¿ya terminó el mes de acceso gratis?
       ...storeInfo
     });
   } catch (error) {
@@ -2835,7 +2838,13 @@ app.post('/api/free-plan/request', authenticateToken, async (req, res) => {
 app.get('/api/free-plan/request', authenticateToken, async (req, res) => {
   try {
     const request = await getMyFreePlanRequest(req.user.id);
-    res.json({ request });
+    // ¿El mes de acceso gratis ya terminó? (fue aprobado pero ya no hay plan activo)
+    let ended = false;
+    if (request?.status === 'approved') {
+      const plan = await getUserPlan(req.user.id);
+      ended = !plan;
+    }
+    res.json({ request, ended });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
