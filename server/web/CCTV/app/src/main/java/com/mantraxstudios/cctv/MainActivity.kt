@@ -1936,12 +1936,23 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
         }
     }
 
+    // Giro efectivo: NO se suman el giro remoto (panel web) y el local (menú del
+    // dispositivo). Antes se sumaban y, tras el primer poll (~10s), el giro del
+    // servidor se agregaba sobre el local y la pantalla se volteaba sola.
+    // Regla: online → manda el giro del panel web; si el panel está en 0 (o sin
+    // conexión) se respeta el giro configurado localmente.
+    val effectiveRotation = when {
+        offlineMode -> rotation
+        serverRotation != 0 -> serverRotation
+        else -> rotation
+    } % 360
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        RotatingContent(rotation = (rotation + serverRotation) % 360) {
+        RotatingContent(rotation = effectiveRotation) {
             if (displayMode == "all") {
                 MixedPlaylistScreen(items = mixedItems, volume = mediaVolume)
             } else if (displayMode == "images") {
