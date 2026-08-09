@@ -8047,6 +8047,60 @@ export async function saveStampCardConfig(storeId, { enabled, money_per_point })
   ]);
 }
 
+// ─── Wallet Passes: credenciales por tienda ──────────────────────────────────
+// Cada negocio configura SUS PROPIAS credenciales de Google/Apple Wallet, para
+// que los pases se emitan bajo su cuenta y no bajo una compartida por todos.
+let _walletCfgReady = false;
+async function ensureWalletConfigTable() {
+  if (_walletCfgReady) return;
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS store_wallet_config (
+      store_id INT PRIMARY KEY,
+      google_issuer_id VARCHAR(255) NULL,
+      google_sa_email VARCHAR(255) NULL,
+      google_sa_key TEXT NULL,
+      apple_pass_type_id VARCHAR(255) NULL,
+      apple_team_id VARCHAR(255) NULL,
+      apple_signer_cert TEXT NULL,
+      apple_signer_key TEXT NULL,
+      apple_signer_key_passphrase VARCHAR(255) NULL,
+      apple_wwdr TEXT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `).catch(e => console.error('wallet cfg table:', e.message));
+  _walletCfgReady = true;
+}
+
+const WALLET_CFG_FIELDS = [
+  'google_issuer_id', 'google_sa_email', 'google_sa_key',
+  'apple_pass_type_id', 'apple_team_id', 'apple_signer_cert',
+  'apple_signer_key', 'apple_signer_key_passphrase', 'apple_wwdr'
+];
+
+export async function getStoreWalletConfig(storeId) {
+  if (!storeId) return null;
+  await ensureWalletConfigTable();
+  const [rows] = await pool.execute('SELECT * FROM store_wallet_config WHERE store_id = ?', [storeId]);
+  return rows[0] || null;
+}
+
+export async function saveStoreWalletConfig(storeId, data) {
+  await ensureWalletConfigTable();
+  const vals = WALLET_CFG_FIELDS.map(f => {
+    const v = data[f];
+    return (v === undefined || v === null || v === '') ? null : String(v);
+  });
+  const cols = WALLET_CFG_FIELDS.join(', ');
+  const placeholders = WALLET_CFG_FIELDS.map(() => '?').join(', ');
+  const updates = WALLET_CFG_FIELDS.map(f => `${f} = VALUES(${f})`).join(', ');
+  await pool.execute(
+    `INSERT INTO store_wallet_config (store_id, ${cols}) VALUES (?, ${placeholders})
+     ON DUPLICATE KEY UPDATE ${updates}`,
+    [storeId, ...vals]
+  );
+}
+
 export async function getOrCreateStampCard(storeId, phone, name) {
   await ensureStampCardTables();
   const cleanPhone = (phone || '').replace(/\s+/g, '');

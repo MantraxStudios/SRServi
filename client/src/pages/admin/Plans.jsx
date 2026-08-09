@@ -343,8 +343,10 @@ function Plans() {
         )}
       </div>
 
-      {/* Banner de prueba gratis */}
-      {!myPlan?.has_claimed_trial && getCurrentPlanName() === 'Gratis' && (
+      {/* Banner de prueba gratis: solo cuando el plan Gratis YA TERMINÓ
+          (tuvo el Gratis aprobado y ya no tiene plan activo). Mientras el
+          Gratis siga vigente, este botón no se muestra. */}
+      {!myPlan?.has_claimed_trial && myPlan?.free_plan_approved && !myPlan?.plan && (
         <div className="plans-trial-banner">
           <div className="plans-trial-banner-text">
             <FontAwesomeIcon icon={faGift} style={{ fontSize: 22, marginRight: 10 }} />

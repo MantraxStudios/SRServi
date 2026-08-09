@@ -1,9 +1,11 @@
 // ─── Wallet Passes: Google Wallet + Apple Wallet ─────────────────────────────
 // Genera pases para la tarjeta de puntos (/tarjeta) para añadirla al teléfono.
 //
-// Ambas integraciones se activan SOLO si sus credenciales están en el .env.
-// Si faltan, isGoogleWalletEnabled()/isAppleWalletEnabled() devuelven false y
-// los botones no se muestran en la página de la tarjeta.
+// Las credenciales son POR TIENDA: cada negocio configura las suyas desde el
+// panel de administración (tabla store_wallet_config). Las funciones reciben un
+// objeto `creds` con esas credenciales. Si una tienda no configuró las suyas, se
+// usa como respaldo el .env global (útil para pruebas / cuenta por defecto).
+// Cada integración se activa SOLO si sus credenciales están completas.
 //
 // ── Variables de entorno ──
 //  Google Wallet (Android):
@@ -25,10 +27,33 @@ import sharp from 'sharp';
 
 const BASE_URL = process.env.BASE_URL || 'https://srservi2.srautomatic.com';
 
-// Normaliza un PEM que en el .env puede venir con "\n" literales.
+// Normaliza un PEM que puede venir con "\n" literales (del .env o de la BD).
 function pem(v) {
   if (!v) return '';
   return v.includes('\\n') ? v.replace(/\\n/g, '\n') : v;
+}
+
+// Resuelve las credenciales de Google Wallet de una tienda, con respaldo al .env.
+function resolveGoogle(creds) {
+  const c = creds || {};
+  return {
+    issuerId: c.google_issuer_id || process.env.GOOGLE_WALLET_ISSUER_ID || '',
+    saEmail: c.google_sa_email || process.env.GOOGLE_WALLET_SA_EMAIL || '',
+    saKey: c.google_sa_key || process.env.GOOGLE_WALLET_SA_KEY || '',
+  };
+}
+
+// Resuelve las credenciales de Apple Wallet de una tienda, con respaldo al .env.
+function resolveApple(creds) {
+  const c = creds || {};
+  return {
+    passTypeId: c.apple_pass_type_id || process.env.APPLE_WALLET_PASS_TYPE_ID || '',
+    teamId: c.apple_team_id || process.env.APPLE_WALLET_TEAM_ID || '',
+    signerCert: c.apple_signer_cert || process.env.APPLE_WALLET_SIGNER_CERT || '',
+    signerKey: c.apple_signer_key || process.env.APPLE_WALLET_SIGNER_KEY || '',
+    signerKeyPassphrase: c.apple_signer_key_passphrase || process.env.APPLE_WALLET_SIGNER_KEY_PASSPHRASE || '',
+    wwdr: c.apple_wwdr || process.env.APPLE_WALLET_WWDR || '',
+  };
 }
 
 const cardUrlOf = (card) => `${BASE_URL}/tarjeta/${card.token}`;
@@ -40,19 +65,19 @@ const moneyOf = (card) => {
 
 // ═══════════════════════ Google Wallet ═══════════════════════
 
-export function isGoogleWalletEnabled() {
-  return !!(process.env.GOOGLE_WALLET_ISSUER_ID &&
-            process.env.GOOGLE_WALLET_SA_EMAIL &&
-            process.env.GOOGLE_WALLET_SA_KEY);
+export function isGoogleWalletEnabled(creds) {
+  const g = resolveGoogle(creds);
+  return !!(g.issuerId && g.saEmail && g.saKey);
 }
 
 // Construye el enlace "Añadir a Google Wallet" (JWT firmado, clase incrustada).
-export function buildGoogleWalletSaveUrl(card) {
-  if (!isGoogleWalletEnabled()) throw new Error('Google Wallet no está configurado');
+export function buildGoogleWalletSaveUrl(card, creds) {
+  if (!isGoogleWalletEnabled(creds)) throw new Error('Google Wallet no está configurado');
 
-  const issuerId = process.env.GOOGLE_WALLET_ISSUER_ID;
-  const saEmail = process.env.GOOGLE_WALLET_SA_EMAIL;
-  const saKey = pem(process.env.GOOGLE_WALLET_SA_KEY);
+  const g = resolveGoogle(creds);
+  const issuerId = g.issuerId;
+  const saEmail = g.saEmail;
+  const saKey = pem(g.saKey);
 
   const classId = `${issuerId}.srservi_points`;
   const objectId = `${issuerId}.card_${card.token}`;
@@ -113,12 +138,9 @@ export function buildGoogleWalletSaveUrl(card) {
 
 // ═══════════════════════ Apple Wallet ═══════════════════════
 
-export function isAppleWalletEnabled() {
-  return !!(process.env.APPLE_WALLET_PASS_TYPE_ID &&
-            process.env.APPLE_WALLET_TEAM_ID &&
-            process.env.APPLE_WALLET_SIGNER_CERT &&
-            process.env.APPLE_WALLET_SIGNER_KEY &&
-            process.env.APPLE_WALLET_WWDR);
+export function isAppleWalletEnabled(creds) {
+  const a = resolveApple(creds);
+  return !!(a.passTypeId && a.teamId && a.signerCert && a.signerKey && a.wwdr);
 }
 
 // Genera un ícono PNG cuadrado con la inicial de la tienda (Apple exige icon.png).
@@ -133,17 +155,18 @@ async function makeIcon(text, size) {
 }
 
 // Construye el buffer del archivo .pkpass firmado.
-export async function buildApplePkpass(card) {
-  if (!isAppleWalletEnabled()) throw new Error('Apple Wallet no está configurado');
+export async function buildApplePkpass(card, creds) {
+  if (!isAppleWalletEnabled(creds)) throw new Error('Apple Wallet no está configurado');
 
+  const a = resolveApple(creds);
   const points = pointsOf(card);
   const money = moneyOf(card);
   const storeName = card.store_name || 'SRServi';
 
   const passJson = {
     formatVersion: 1,
-    passTypeIdentifier: process.env.APPLE_WALLET_PASS_TYPE_ID,
-    teamIdentifier: process.env.APPLE_WALLET_TEAM_ID,
+    passTypeIdentifier: a.passTypeId,
+    teamIdentifier: a.teamId,
     organizationName: 'SRServi',
     serialNumber: card.token,
     description: `Tarjeta de puntos - ${storeName}`,
@@ -185,15 +208,15 @@ export async function buildApplePkpass(card) {
     'logo.png': logo,
     'logo@2x.png': logo2x,
   }, {
-    wwdr: pem(process.env.APPLE_WALLET_WWDR),
-    signerCert: pem(process.env.APPLE_WALLET_SIGNER_CERT),
-    signerKey: pem(process.env.APPLE_WALLET_SIGNER_KEY),
-    signerKeyPassphrase: process.env.APPLE_WALLET_SIGNER_KEY_PASSPHRASE || undefined,
+    wwdr: pem(a.wwdr),
+    signerCert: pem(a.signerCert),
+    signerKey: pem(a.signerKey),
+    signerKeyPassphrase: a.signerKeyPassphrase || undefined,
   });
 
   return pass.getAsBuffer();
 }
 
-export function walletStatus() {
-  return { google: isGoogleWalletEnabled(), apple: isAppleWalletEnabled() };
+export function walletStatus(creds) {
+  return { google: isGoogleWalletEnabled(creds), apple: isAppleWalletEnabled(creds) };
 }

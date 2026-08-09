@@ -305,6 +305,8 @@ import {
   deleteLoyalCustomer,
   getStampCardConfig,
   saveStampCardConfig,
+  getStoreWalletConfig,
+  saveStoreWalletConfig,
   getStampCardByToken,
   getStampCardByCode,
   createOrGetStampCardByCode,
@@ -2772,6 +2774,13 @@ app.post('/api/offline/import', async (req, res) => {
 
 app.post('/api/claim-trial', authenticateToken, async (req, res) => {
   try {
+    // El mes gratis de premium solo se puede reclamar cuando el plan Gratis ya
+    // terminó: el usuario tuvo el plan Gratis aprobado y ya no tiene plan activo.
+    const approvedFree = await hasApprovedFreePlan(req.user.id);
+    const activePlan = await getUserPlan(req.user.id);
+    if (!approvedFree || activePlan) {
+      return res.status(403).json({ error: 'El mes gratis de premium solo está disponible cuando tu plan Gratis haya terminado.' });
+    }
     const result = await claimFreeTrial(req.user.id);
     res.json({ success: true, message: `¡Listo! Activamos 1 mes gratis del plan ${result.plan}`, ...result });
   } catch (error) {
@@ -16942,18 +16951,28 @@ app.post('/api/card/:token/customize', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Público: qué wallets están disponibles (para mostrar/ocultar los botones)
-app.get('/api/wallet/status', (req, res) => {
-  res.json(walletStatus());
+// Público: qué wallets están disponibles (para mostrar/ocultar los botones).
+// Se resuelve según las credenciales de la tienda de la tarjeta (?token=...).
+app.get('/api/wallet/status', async (req, res) => {
+  try {
+    let creds = null;
+    const token = req.query.token;
+    if (token) {
+      const card = await getStampCardByToken(token);
+      if (card?.store_id) creds = await getStoreWalletConfig(card.store_id);
+    }
+    res.json(walletStatus(creds));
+  } catch (e) { res.json(walletStatus(null)); }
 });
 
 // Público: añadir la tarjeta a Google Wallet (redirige al enlace "Save to Google Wallet")
 app.get('/api/card/:token/google-wallet', async (req, res) => {
   try {
-    if (!isGoogleWalletEnabled()) return res.status(503).json({ error: 'Google Wallet no está configurado' });
     const card = await getStampCardByToken(req.params.token);
     if (!card) return res.status(404).json({ error: 'Tarjeta no encontrada' });
-    const url = buildGoogleWalletSaveUrl(card);
+    const creds = card.store_id ? await getStoreWalletConfig(card.store_id) : null;
+    if (!isGoogleWalletEnabled(creds)) return res.status(503).json({ error: 'Google Wallet no está configurado' });
+    const url = buildGoogleWalletSaveUrl(card, creds);
     res.redirect(url);
   } catch (e) { console.error('google-wallet:', e.message); res.status(500).json({ error: e.message }); }
 });
@@ -16961,14 +16980,64 @@ app.get('/api/card/:token/google-wallet', async (req, res) => {
 // Público: descargar la tarjeta como .pkpass para Apple Wallet
 app.get('/api/card/:token/apple-wallet', async (req, res) => {
   try {
-    if (!isAppleWalletEnabled()) return res.status(503).json({ error: 'Apple Wallet no está configurado' });
     const card = await getStampCardByToken(req.params.token);
     if (!card) return res.status(404).json({ error: 'Tarjeta no encontrada' });
-    const buffer = await buildApplePkpass(card);
+    const creds = card.store_id ? await getStoreWalletConfig(card.store_id) : null;
+    if (!isAppleWalletEnabled(creds)) return res.status(503).json({ error: 'Apple Wallet no está configurado' });
+    const buffer = await buildApplePkpass(card, creds);
     res.set('Content-Type', 'application/vnd.apple.pkpass');
     res.set('Content-Disposition', `attachment; filename="tarjeta-${card.code}.pkpass"`);
     res.send(buffer);
   } catch (e) { console.error('apple-wallet:', e.message); res.status(500).json({ error: e.message }); }
+});
+
+// Admin: obtener las credenciales de wallet de una tienda (enmascaradas los secretos)
+app.get('/api/stamp-card/wallet-config', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const cfg = await getStoreWalletConfig(storeId);
+    // No devolver los secretos en claro; solo si ya hay algo guardado (para la UI)
+    const has = (v) => !!(v && String(v).length);
+    res.json({
+      google_issuer_id: cfg?.google_issuer_id || '',
+      google_sa_email: cfg?.google_sa_email || '',
+      google_sa_key_set: has(cfg?.google_sa_key),
+      apple_pass_type_id: cfg?.apple_pass_type_id || '',
+      apple_team_id: cfg?.apple_team_id || '',
+      apple_signer_cert_set: has(cfg?.apple_signer_cert),
+      apple_signer_key_set: has(cfg?.apple_signer_key),
+      apple_signer_key_passphrase_set: has(cfg?.apple_signer_key_passphrase),
+      apple_wwdr_set: has(cfg?.apple_wwdr),
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: guardar las credenciales de wallet de una tienda.
+// Los campos secretos vacíos NO se sobreescriben (se conserva lo ya guardado).
+app.put('/api/stamp-card/wallet-config', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+    const storeId = parseInt(store_id);
+    const existing = await getStoreWalletConfig(storeId) || {};
+    const b = req.body;
+    // Para secretos: si viene vacío/undefined, mantener el valor existente.
+    const keepSecret = (incoming, current) =>
+      (incoming === undefined || incoming === null || incoming === '') ? (current || null) : incoming;
+    await saveStoreWalletConfig(storeId, {
+      google_issuer_id: b.google_issuer_id ?? existing.google_issuer_id ?? null,
+      google_sa_email: b.google_sa_email ?? existing.google_sa_email ?? null,
+      google_sa_key: keepSecret(b.google_sa_key, existing.google_sa_key),
+      apple_pass_type_id: b.apple_pass_type_id ?? existing.apple_pass_type_id ?? null,
+      apple_team_id: b.apple_team_id ?? existing.apple_team_id ?? null,
+      apple_signer_cert: keepSecret(b.apple_signer_cert, existing.apple_signer_cert),
+      apple_signer_key: keepSecret(b.apple_signer_key, existing.apple_signer_key),
+      apple_signer_key_passphrase: keepSecret(b.apple_signer_key_passphrase, existing.apple_signer_key_passphrase),
+      apple_wwdr: keepSecret(b.apple_wwdr, existing.apple_wwdr),
+    });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Público: crear/abrir tarjeta por clave de 5 dígitos (desde la página /tarjeta)

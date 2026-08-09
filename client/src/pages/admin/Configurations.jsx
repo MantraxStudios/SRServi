@@ -79,6 +79,42 @@ function Row({ icon, label, sub, active, onToggle, children }) {
   );
 }
 
+// Campo de texto simple para credenciales de wallet (no secreto)
+function WalletField({ label, value, onChange, placeholder }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 }}>{label}</label>
+      <input
+        value={value || ''}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{ width: '100%', padding: '9px 11px', border: '1.5px solid #e5e7eb', borderRadius: 9, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+      />
+    </div>
+  );
+}
+
+// Campo secreto: si ya hay un valor guardado, muestra "guardado" y no lo revela.
+// El usuario solo escribe para reemplazarlo; si lo deja vacío, se conserva.
+function WalletSecret({ label, value, onChange, isSet, placeholder, multiline }) {
+  const Comp = multiline ? 'textarea' : 'input';
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 }}>
+        {label}
+        {isSet && <span style={{ fontSize: 10, fontWeight: 700, color: '#16a34a', background: '#dcfce7', padding: '1px 7px', borderRadius: 20 }}>Guardado</span>}
+      </label>
+      <Comp
+        value={value || ''}
+        onChange={e => onChange(e.target.value)}
+        placeholder={isSet ? '•••••• (dejar vacío para no cambiar)' : placeholder}
+        rows={multiline ? 3 : undefined}
+        style={{ width: '100%', padding: '9px 11px', border: '1.5px solid #e5e7eb', borderRadius: 9, fontSize: 13, outline: 'none', boxSizing: 'border-box', resize: multiline ? 'vertical' : undefined, fontFamily: multiline ? 'monospace' : 'inherit' }}
+      />
+    </div>
+  );
+}
+
 function SectionLabel({ children }) {
   return (
     <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', margin: '20px 0 4px' }}>
@@ -353,6 +389,10 @@ export default function Configurations() {
   const [stampCards, setStampCards] = useState([]);
   const [stampSaving, setStampSaving] = useState(false);
   const [stampSaved, setStampSaved] = useState(false);
+  const [walletCfg, setWalletCfg] = useState(null);
+  const [walletOpen, setWalletOpen] = useState(false);
+  const [walletSaving, setWalletSaving] = useState(false);
+  const [walletSaved, setWalletSaved] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -363,13 +403,14 @@ export default function Configurations() {
   const loadAll = async () => {
     setLoading(true);
     const token = localStorage.getItem('token');
-    const [cfgRes, devRes, ingRes, extRes, stampCfgRes, stampCardsRes] = await Promise.all([
+    const [cfgRes, devRes, ingRes, extRes, stampCfgRes, stampCardsRes, walletRes] = await Promise.all([
       fetch(`/api/store-configurations?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(API + `/api/store-devices?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`/api/ingredients?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`/api/extras?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`/api/stamp-card/config?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`/api/stamp-card/cards?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } })
+      fetch(`/api/stamp-card/cards?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`/api/stamp-card/wallet-config?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } })
     ]);
     const cfgData = await cfgRes.json();
     const devData = devRes.ok ? await devRes.json() : [];
@@ -377,6 +418,7 @@ export default function Configurations() {
     const extData = extRes.ok ? await extRes.json() : [];
     const stampCfgData = stampCfgRes.ok ? await stampCfgRes.json() : null;
     const stampCardsData = stampCardsRes.ok ? await stampCardsRes.json() : [];
+    const walletCfgData = walletRes.ok ? await walletRes.json() : null;
     setConfigs(Array.isArray(cfgData) ? cfgData : []);
     setDevices(Array.isArray(devData) ? devData : []);
     setIngredients(Array.isArray(ingData) ? ingData : []);
@@ -386,7 +428,41 @@ export default function Configurations() {
       money_per_point: Number(stampCfgData.money_per_point) || 1
     } : { enabled: false, money_per_point: 1 });
     setStampCards(Array.isArray(stampCardsData) ? stampCardsData : []);
+    setWalletCfg(walletCfgData || {});
     setLoading(false);
+  };
+
+  const saveWalletCfg = async () => {
+    if (!walletCfg) return;
+    setWalletSaving(true);
+    setWalletSaved(false);
+    const token = localStorage.getItem('token');
+    try {
+      // Solo enviamos los secretos si el usuario escribió algo nuevo (campos con
+      // sufijo _set indican que ya hay un valor guardado que no se toca).
+      const body = { store_id: selectedStore.id };
+      const w = walletCfg;
+      body.google_issuer_id = w.google_issuer_id || '';
+      body.google_sa_email = w.google_sa_email || '';
+      if (w.google_sa_key) body.google_sa_key = w.google_sa_key;
+      body.apple_pass_type_id = w.apple_pass_type_id || '';
+      body.apple_team_id = w.apple_team_id || '';
+      if (w.apple_signer_cert) body.apple_signer_cert = w.apple_signer_cert;
+      if (w.apple_signer_key) body.apple_signer_key = w.apple_signer_key;
+      if (w.apple_signer_key_passphrase) body.apple_signer_key_passphrase = w.apple_signer_key_passphrase;
+      if (w.apple_wwdr) body.apple_wwdr = w.apple_wwdr;
+      await fetch('/api/stamp-card/wallet-config', {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      setWalletSaved(true);
+      setTimeout(() => setWalletSaved(false), 2500);
+      // Refrescar para reflejar los _set y limpiar los secretos escritos
+      loadAll();
+    } finally {
+      setWalletSaving(false);
+    }
   };
 
   const saveStampCfg = async () => {
@@ -576,6 +652,59 @@ export default function Configurations() {
                       </div>
                     </div>
                   )}
+
+                  {/* ── Wallet: credenciales propias de la tienda ── */}
+                  <div style={{ marginTop: 18, borderTop: '1px solid #eee', paddingTop: 14 }}>
+                    <button
+                      type="button"
+                      onClick={() => setWalletOpen(o => !o)}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    >
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#111', textAlign: 'left' }}>
+                        Añadir al celular (Google / Apple Wallet)
+                        <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: '#9ca3af', marginTop: 2 }}>
+                          Usa TUS credenciales para que los pases salgan a nombre de tu negocio
+                        </span>
+                      </span>
+                      <FontAwesomeIcon icon={walletOpen ? faChevronUp : faChevronDown} style={{ color: '#9ca3af' }} />
+                    </button>
+
+                    {walletOpen && walletCfg && (
+                      <div style={{ marginTop: 14 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                          Google Wallet (Android)
+                        </div>
+                        <WalletField label="Issuer ID" value={walletCfg.google_issuer_id} onChange={v => setWalletCfg(p => ({ ...p, google_issuer_id: v }))} placeholder="Ej: 33000000000012345" />
+                        <WalletField label="Service Account (email)" value={walletCfg.google_sa_email} onChange={v => setWalletCfg(p => ({ ...p, google_sa_email: v }))} placeholder="cuenta@proyecto.iam.gserviceaccount.com" />
+                        <WalletSecret label="Private key (PEM)" isSet={walletCfg.google_sa_key_set} value={walletCfg.google_sa_key} onChange={v => setWalletCfg(p => ({ ...p, google_sa_key: v }))} multiline placeholder="-----BEGIN PRIVATE KEY-----..." />
+
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '16px 0 8px' }}>
+                          Apple Wallet (iPhone)
+                        </div>
+                        <WalletField label="Pass Type ID" value={walletCfg.apple_pass_type_id} onChange={v => setWalletCfg(p => ({ ...p, apple_pass_type_id: v }))} placeholder="pass.com.tunegocio.loyalty" />
+                        <WalletField label="Team ID" value={walletCfg.apple_team_id} onChange={v => setWalletCfg(p => ({ ...p, apple_team_id: v }))} placeholder="Ej: ABCDE12345" />
+                        <WalletSecret label="Certificado del Pass Type ID (PEM)" isSet={walletCfg.apple_signer_cert_set} value={walletCfg.apple_signer_cert} onChange={v => setWalletCfg(p => ({ ...p, apple_signer_cert: v }))} multiline placeholder="-----BEGIN CERTIFICATE-----..." />
+                        <WalletSecret label="Private key del certificado (PEM)" isSet={walletCfg.apple_signer_key_set} value={walletCfg.apple_signer_key} onChange={v => setWalletCfg(p => ({ ...p, apple_signer_key: v }))} multiline placeholder="-----BEGIN PRIVATE KEY-----..." />
+                        <WalletSecret label="Passphrase del key (si tiene)" isSet={walletCfg.apple_signer_key_passphrase_set} value={walletCfg.apple_signer_key_passphrase} onChange={v => setWalletCfg(p => ({ ...p, apple_signer_key_passphrase: v }))} placeholder="Opcional" />
+                        <WalletSecret label="Apple WWDR (PEM)" isSet={walletCfg.apple_wwdr_set} value={walletCfg.apple_wwdr} onChange={v => setWalletCfg(p => ({ ...p, apple_wwdr: v }))} multiline placeholder="-----BEGIN CERTIFICATE-----..." />
+
+                        <button
+                          type="button"
+                          disabled={walletSaving}
+                          onClick={saveWalletCfg}
+                          style={{
+                            width: '100%', marginTop: 12, padding: '11px', borderRadius: 10, border: 'none',
+                            background: walletSaved ? '#22c55e' : '#111', color: '#fff',
+                            fontWeight: 700, fontSize: 13.5, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                          }}
+                        >
+                          <FontAwesomeIcon icon={walletSaving ? faSync : faSave} spin={walletSaving} />
+                          {walletSaving ? 'Guardando...' : walletSaved ? '¡Guardado!' : 'Guardar credenciales de Wallet'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
 

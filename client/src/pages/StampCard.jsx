@@ -96,15 +96,16 @@ export default function StampCard() {
     return () => { alive = false; };
   }, [tokenParam]);
 
-  // Qué wallets están disponibles (según credenciales del servidor)
+  // Qué wallets están disponibles (según las credenciales de ESTA tienda)
   useEffect(() => {
+    if (!card?.token) return;
     let alive = true;
-    fetch(`${API}/api/wallet/status`)
+    fetch(`${API}/api/wallet/status?token=${encodeURIComponent(card.token)}`)
       .then(r => (r.ok ? r.json() : { google: false, apple: false }))
       .then(d => { if (alive) setWallets(d); })
       .catch(() => {});
     return () => { alive = false; };
-  }, []);
+  }, [card?.token]);
 
   // Socket: confirmación en vivo cuando la tarjeta se usa en el tótem/caja
   useEffect(() => {
