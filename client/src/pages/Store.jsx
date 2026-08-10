@@ -1115,6 +1115,9 @@ function Store() {
   const apkAutoTimerRef = useRef(null);
   const deliveryMode = searchParams.get('delivery') === 'true';
   const tuuModePayFromUrl = searchParams.get('tuumodepay') === 'true';
+  // Modo POS offline nativo (WebView de OfflinePosActivity): activa la estética
+  // translúcida en la barra del carrito, el buscador y el panel del carrito.
+  const posOffline = searchParams.get('pos_offline') === '1';
   const qrReturnResult = searchParams.get('x_result');
   const qrReturnRef = searchParams.get('x_reference');
   const mpReturnOrder = searchParams.get('mp_order');
@@ -5680,7 +5683,7 @@ function Store() {
     )}
     <div
       ref={storeContainerRef}
-      className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}${scrolled ? ' store-scrolled' : ''}${cart.length === 0 ? ' cart-empty' : ''}`}
+      className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}${scrolled ? ' store-scrolled' : ''}${cart.length === 0 ? ' cart-empty' : ''}${posOffline ? ' store-pos-offline' : ''}`}
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom,
         ...(seasonalTheme ? { '--kiosk-accent': seasonalTheme.colors.accent, '--kiosk-orange': seasonalTheme.colors.primary, '--kiosk-accent-soft': seasonalTheme.colors.accent + '22' } : {}) }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}

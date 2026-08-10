@@ -4135,6 +4135,32 @@ html body .store-container .store-product-card * {
   transform: translateY(0);
 }
 
+/* ──────────────────────────────────────────────────────────────
+   Modo POS offline nativo (WebView de OfflinePosActivity, ?pos_offline=1):
+   estética translúcida (glass) en la barra del carrito, el buscador y el
+   panel del carrito, para dejar ver el fondo/cámara del dispositivo.
+   ────────────────────────────────────────────────────────────── */
+.store-pos-offline .cart-bar {
+  background: rgba(30, 27, 36, 0.55) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+.store-pos-offline .store-product-search-input {
+  background: rgba(255, 255, 255, 0.14) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(140%) !important;
+  backdrop-filter: blur(10px) saturate(140%) !important;
+}
+.store-pos-offline .store-cart-sheet {
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
+  backdrop-filter: blur(26px) saturate(160%);
+}
+.store-pos-offline .store-cart-header,
+.store-pos-offline .store-cart-footer {
+  background: transparent;
+}
+
 .store-cart-handle {
   display: flex;
   justify-content: center;
