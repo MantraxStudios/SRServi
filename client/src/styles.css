@@ -2439,7 +2439,7 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: center;
   gap: 4px;
   padding: 4px;
-  border-radius: 12px;
+  border-radius: 20px;
   border: none;
   background-color: var(--kiosk-card, #fff);
   color: var(--kiosk-dark, #232028);
@@ -2675,7 +2675,7 @@ h1, h2, h3, h4, h5, h6 {
     width: 100%;
     padding: 15px 18px;
     font-size: 15px;
-    border-radius: 16px;
+    border-radius: 22px;
     text-align: left;
   }
 
@@ -2748,11 +2748,12 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Siempre 3 columnas (mismo formato en tablet, tótem y editor).
-   En pantallas anchas solo crece muy poco el espaciado, no la cantidad de columnas. */
+/* Pantallas anchas / horizontales (tablet landscape, PC, tótem grande):
+   las columnas crecen con el ancho disponible en vez de quedar fijas en 3,
+   así las tarjetas de producto no terminan gigantes en 1920x1080. */
 @media (min-width: 900px) {
   .products-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 10px 8px;
     padding: 4px 10px;
   }
@@ -2760,15 +2761,17 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (min-width: 1200px) {
   .products-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 7px;
-    padding: 7px 12px;
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+    gap: 10px;
+    padding: 8px 14px;
   }
 }
 
 @media (min-width: 1700px) {
   .products-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+    gap: 12px;
+    padding: 10px 16px;
   }
 }
 
@@ -2830,8 +2833,10 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* En modo edición mostramos el MISMO formato que ve el cliente en la tablet:
-   siempre 3 columnas, en todas las pantallas (no más columnas chicas).
+/* En modo edición mostramos el mismo formato que ve el cliente en la tablet
+   (3 columnas fijas) en portrait/mobile. En pantallas anchas del editor
+   (PC/tablet landscape) las columnas crecen con el ancho disponible, igual
+   que en la tienda del cliente, para que las tarjetas no queden gigantes.
    minmax(0,1fr) evita que los tracks crezcan por el contenido y desborden. */
 .store-body.editing .products-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2842,7 +2847,13 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (min-width: 1024px) {
   .store-body.editing .products-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+  }
+}
+
+@media (min-width: 1700px) {
+  .store-body.editing .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
   }
 }
 
