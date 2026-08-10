@@ -72,6 +72,7 @@ import {
   faThLarge,
   faFont,
 } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 // Icono de categoría: usa el icono personalizado si está asignado,
 // si no, cae en la heurística por nombre (estilo kiosko).
@@ -1940,6 +1941,9 @@ function Store() {
   const [cashPaymentSuccess, setCashPaymentSuccess] = useState(false);
   const [paymentTimeLeft, setPaymentTimeLeft] = useState(60);
   const [paymentComment, setPaymentComment] = useState('');
+  // Teléfono del cliente para avisarle por WhatsApp cuando su pedido esté listo
+  // (solo si la tienda activó la función whatsapp_ready_notify).
+  const [customerPhone, setCustomerPhone] = useState('');
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [showCommentKb, setShowCommentKb] = useState(false);
   const [pendingCommentMethod, setPendingCommentMethod] = useState(null);
@@ -1970,6 +1974,7 @@ function Store() {
     // Record stamp card purchase / redeem
     recordStampPurchase();
     setPaymentComment('');
+    setCustomerPhone('');
     const toRatingTimer = setTimeout(() => {
       setPaymentConfirmed(false);
       setOrderRating(null);
@@ -1994,6 +1999,7 @@ function Store() {
     // Record stamp card purchase / redeem
     recordStampPurchase();
     setPaymentComment('');
+    setCustomerPhone('');
     const toRatingTimer = setTimeout(() => {
       setCashPaymentSuccess(false);
       setCart([]);
@@ -3688,7 +3694,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: deliveryMode,
+            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null,
             terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
             customer_comment: paymentComment || null
@@ -3726,7 +3732,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: deliveryMode,
+            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null,
             terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
             customer_comment: paymentComment || null
@@ -3762,7 +3768,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: selectedMethod,
             items: cartItems, selected_terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
-            coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: deliveryMode,
+            coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
           })
         });
@@ -3780,7 +3786,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: deliveryMode,
+            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
           })
         });
@@ -3828,7 +3834,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: deliveryMode,
+            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
           })
         });
@@ -3862,7 +3868,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: deliveryMode,
+            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
           })
         });
@@ -3892,7 +3898,7 @@ function Store() {
         const { order, offline } = await submitOrderResilient({
           store_id: storeId, order_type: orderType, payment_method: selectedMethod,
           items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-          total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: deliveryMode,
+          total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: deliveryMode,
           table_number: tableNum ? parseInt(tableNum) : null,
           terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
           customer_comment: paymentComment || null
@@ -3975,7 +3981,7 @@ function Store() {
         body: JSON.stringify({
           store_id: storeId, order_type: orderType, payment_method: 'card',
           items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-          total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: false, table_number: null, terminal_id: null,
+          total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: false, table_number: null, terminal_id: null,
           customer_comment: paymentComment || null
         })
       });
@@ -7916,6 +7922,25 @@ function Store() {
                   style={{ width: '100%', padding: '10px 12px', background: 'var(--store-bg, #f9fafb)', border: '1.5px solid rgba(0,0,0,0.1)', borderRadius: 10, color: 'var(--store-primary, #111)', fontSize: 13, outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}
                 />
               </div>
+
+            {/* Teléfono para avisar por WhatsApp cuando el pedido esté listo. */}
+            {!!store?.store?.whatsapp_ready_notify && (
+              <div style={{ marginBottom: 12, padding: '12px 14px', borderRadius: 12, background: 'rgba(37,211,102,0.08)', border: '1.5px solid rgba(37,211,102,0.35)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <FontAwesomeIcon icon={faWhatsapp} style={{ color: '#25D366', fontSize: 16 }} />
+                  <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--store-primary, #111)' }}>{t('notifyWhenReady', lang)}</span>
+                </div>
+                <p style={{ fontSize: 12, color: '#888', margin: '0 0 8px' }}>{t('notifyWhenReadyDesc', lang)}</p>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  value={customerPhone}
+                  onChange={e => setCustomerPhone(e.target.value.replace(/[^0-9+ ]/g, ''))}
+                  placeholder={t('phonePlaceholder', lang)}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '11px 13px', borderRadius: 10, border: '1.5px solid rgba(0,0,0,0.12)', background: 'var(--store-bg, #f9fafb)', color: 'var(--store-primary, #111)', fontSize: 15, outline: 'none' }}
+                />
+              </div>
+            )}
 
             <button onClick={handleCheckout} className="store-cart-checkout-btn store-glow-pulse">
               <FontAwesomeIcon icon={faCheck} />

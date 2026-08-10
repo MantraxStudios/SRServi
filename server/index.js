@@ -1745,7 +1745,7 @@ app.post('/api/stores', authenticateToken, upload.single('logo'), async (req, re
 
 app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req, res) => {
   try {
-    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, remove_logo, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status, complements_label, extras_label, worker_show_prices, worker_panel_tabs, ranking_store_ids } = req.body;
+    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, remove_logo, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status, complements_label, extras_label, worker_show_prices, worker_panel_tabs, ranking_store_ids, whatsapp_ready_notify } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
@@ -1776,7 +1776,8 @@ app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req,
       extras_label,
       worker_show_prices,
       worker_panel_tabs,
-      ranking_store_ids
+      ranking_store_ids,
+      whatsapp_ready_notify
     });
     res.json(store);
   } catch (error) {
@@ -8386,6 +8387,32 @@ app.put('/api/orders/:id/status', authenticateToken, async (req, res) => {
     if (io_instance) {
       io_instance.to(`store_${store_id}`).emit('order_updated', order);
     }
+
+    // Aviso al cliente por WhatsApp cuando su pedido está listo para retirar (si
+    // la tienda activó la función y el cliente dejó su teléfono en el tótem). Se
+    // dispara con 'ready' (pantalla de cocina) o 'completed' (panel del worker),
+    // lo que ocurra primero; ready_notified evita reenviarlo dos veces. No
+    // bloquea la respuesta: si WhatsApp no está conectado o falla, se ignora.
+    if ((status === 'ready' || status === 'completed') && order.customer_phone && !order.ready_notified) {
+      (async () => {
+        try {
+          const store = await getStoreById(parseInt(store_id));
+          if (!store?.whatsapp_ready_notify) return;
+          if (!getWhatsAppStatus(parseInt(store_id)).connected) return;
+          const num = String(order.customer_phone).replace(/[^0-9]/g, '');
+          if (!num) return;
+          const ref = order.order_number || order.id;
+          const msg = `🎉 ¡Tu pedido en *${store.name}* ya está listo!\n\n` +
+            `📋 Número de orden: *#${ref}*\n\n` +
+            `Puedes pasar a retirarlo. ¡Gracias por tu compra! 🙌`;
+          await sendWhatsAppMessage(parseInt(store_id), num, msg);
+          try { await pool.execute('UPDATE orders SET ready_notified = 1 WHERE id = ?', [order.id]); } catch (_) { /* columna aún no migrada */ }
+        } catch (e) {
+          console.error(`[WhatsApp:${store_id}] No se pudo avisar pedido listo:`, e.message);
+        }
+      })();
+    }
+
     res.json(order);
   } catch (error) {
     res.status(500).json({ error: error.message });

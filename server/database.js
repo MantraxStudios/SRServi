@@ -1019,6 +1019,12 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE orders ADD COLUMN tip_amount DECIMAL(10, 2) NOT NULL DEFAULT 0');
         console.log('✅ Columna tip_amount agregada a orders');
       }
+      // ready_notified: evita reenviar el aviso "pedido listo" por WhatsApp al
+      // cliente si el pedido pasa por 'ready' y luego 'completed'.
+      if (!orderColumnNames.includes('ready_notified')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN ready_notified BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna ready_notified agregada a orders');
+      }
     } catch (orderMigrationError) {
       console.error('❌ Error migrando columnas de cupones en orders:', orderMigrationError.message);
     }
@@ -2482,7 +2488,7 @@ export async function createStore(userId, data) {
 }
 
 export async function updateStore(storeId, userId, data) {
-  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status, complements_label, extras_label, worker_show_prices, worker_panel_tabs, ranking_store_ids } = data;
+  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status, complements_label, extras_label, worker_show_prices, worker_panel_tabs, ranking_store_ids, whatsapp_ready_notify } = data;
 
   // Ensure columns exist
   try {
@@ -2498,6 +2504,8 @@ export async function updateStore(storeId, userId, data) {
     if (!names.includes('worker_show_prices')) await pool.execute('ALTER TABLE stores ADD COLUMN worker_show_prices BOOLEAN DEFAULT TRUE');
     if (!names.includes('worker_panel_tabs')) await pool.execute("ALTER TABLE stores ADD COLUMN worker_panel_tabs TEXT DEFAULT NULL");
     if (!names.includes('ranking_store_ids')) await pool.execute("ALTER TABLE stores ADD COLUMN ranking_store_ids TEXT DEFAULT NULL");
+    // Aviso por WhatsApp al cliente cuando su pedido está listo (pide el teléfono en el tótem).
+    if (!names.includes('whatsapp_ready_notify')) await pool.execute('ALTER TABLE stores ADD COLUMN whatsapp_ready_notify BOOLEAN DEFAULT FALSE');
   } catch { /* ignore */ }
 
   let query = `UPDATE stores SET name = ?, primary_color = ?, secondary_color = ?, accent_color = ?, header_color = ?, currency_code = ?, currency_symbol = ?, currency_name = ?`;
@@ -2568,6 +2576,11 @@ export async function updateStore(storeId, userId, data) {
   if (ranking_store_ids !== undefined) {
     query += `, ranking_store_ids = ?`;
     params.push(typeof ranking_store_ids === 'string' ? ranking_store_ids : JSON.stringify(ranking_store_ids));
+  }
+
+  if (whatsapp_ready_notify !== undefined) {
+    query += `, whatsapp_ready_notify = ?`;
+    params.push(whatsapp_ready_notify === true || whatsapp_ready_notify === 'true' || whatsapp_ready_notify === 1 || whatsapp_ready_notify === '1' ? 1 : 0);
   }
 
   query += ` WHERE id = ? AND user_id = ?`;
