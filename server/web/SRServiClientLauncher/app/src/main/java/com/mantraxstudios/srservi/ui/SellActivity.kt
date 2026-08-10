@@ -41,6 +41,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.mantraxstudios.srservi.R
 import com.mantraxstudios.srservi.admin.SRServiDeviceAdminReceiver
+import com.mantraxstudios.srservi.offline.OfflineRepository
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
@@ -53,6 +54,21 @@ class SellActivity : AppCompatActivity() {
     private var inLockTask = false
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var connectionErrorDialogShown = false
+    private var currentStoreCode: String = ""
+
+    // Sincroniza el menú/terminales en segundo plano MIENTRAS hay conexión, para
+    // que el Modo Offline ya tenga datos frescos cuando el servidor se caiga
+    // (si solo sincronizáramos al entrar en offline, la primera vez que se cae
+    // el servidor no habría nada en caché).
+    private val syncHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val syncRunnable = object : Runnable {
+        override fun run() {
+            if (currentStoreCode.isNotBlank()) {
+                Thread { OfflineRepository.sync(this@SellActivity, currentStoreCode) }.start()
+            }
+            syncHandler.postDelayed(this, OFFLINE_SYNC_INTERVAL_MS)
+        }
+    }
 
     private val fileChooserLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -73,6 +89,7 @@ class SellActivity : AppCompatActivity() {
         private const val BASE_URL = "https://srservi2.srautomatic.com"
         private const val EXIT_PIN = "1234"
         private const val REQ_MEDIA_PERMS = 4711
+        private const val OFFLINE_SYNC_INTERVAL_MS = 5 * 60 * 1000L
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,11 +115,13 @@ class SellActivity : AppCompatActivity() {
 
         val storeCode = getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
             .getString("store_code", "")
+        currentStoreCode = storeCode?.trim()?.uppercase() ?: ""
         val ver = com.mantraxstudios.srservi.SRServiConfig.APP_VERSION
         val sellUrl = if (!storeCode.isNullOrBlank()) "$BASE_URL/store/$storeCode?app_version=$ver" else "$BASE_URL?app_version=$ver"
         webView.loadUrl(sellUrl)
 
         sendHeartbeat(storeCode ?: "", ver)
+        if (currentStoreCode.isNotBlank()) syncHandler.post(syncRunnable)
 
         // Hidden exit: long-press the top-left corner
         findViewById<View>(R.id.exitHotspot).setOnLongClickListener {
@@ -503,6 +522,7 @@ class SellActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        syncHandler.removeCallbacks(syncRunnable)
         stopKioskLock()
         webView.destroy()
         super.onDestroy()

@@ -2411,11 +2411,14 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Category tabs (mobile: horizontal pills / desktop: sidebar) */
 .category-tabs {
-  padding: 6px 8px 4px;
+  padding: 4px 8px 4px;
   background: transparent;
   flex-shrink: 0;
 }
 
+/* padding (no margin) porque overflow-x:auto obliga a overflow-y:auto
+   (spec de CSS), y eso recorta el box-shadow de los tabs contra el borde
+   del contenedor si no hay espacio interno para que "respire". */
 .category-tabs-list {
   display: flex;
   flex-wrap: nowrap;
@@ -2423,6 +2426,7 @@ h1, h2, h3, h4, h5, h6 {
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  padding: 8px 4px 12px;
 }
 
 .category-tabs-list::-webkit-scrollbar {
