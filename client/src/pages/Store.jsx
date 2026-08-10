@@ -3688,7 +3688,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null,
             terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
             customer_comment: paymentComment || null
@@ -3726,7 +3726,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null,
             terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
             customer_comment: paymentComment || null
@@ -3762,7 +3762,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: selectedMethod,
             items: cartItems, selected_terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
-            coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+            coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
           })
         });
@@ -3780,7 +3780,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
           })
         });
@@ -3828,7 +3828,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
           })
         });
@@ -3862,7 +3862,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
           })
         });
@@ -3892,7 +3892,7 @@ function Store() {
         const { order, offline } = await submitOrderResilient({
           store_id: storeId, order_type: orderType, payment_method: selectedMethod,
           items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-          total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+          total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: deliveryMode,
           table_number: tableNum ? parseInt(tableNum) : null,
           terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
           customer_comment: paymentComment || null
@@ -3975,7 +3975,7 @@ function Store() {
         body: JSON.stringify({
           store_id: storeId, order_type: orderType, payment_method: 'card',
           items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-          total: Number(finalTotal).toFixed(2), delivery: false, table_number: null, terminal_id: null,
+          total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), delivery: false, table_number: null, terminal_id: null,
           customer_comment: paymentComment || null
         })
       });

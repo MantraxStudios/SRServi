@@ -7572,7 +7572,7 @@ app.delete('/api/promos/:id', authenticateToken, async (req, res) => {
 app.post('/api/orders', async (req, res) => {
   try {
     const { store_id, items, order_type, payment_method, coupon_code, from_worker, delivery, table_number, persons, custom_total, total, terminal_id,
-            source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone, event_name, show_time, customer_comment, client_uid } = req.body;
+            source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone, event_name, show_time, customer_comment, client_uid, tip_amount } = req.body;
 
     if (!store_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
@@ -7586,7 +7586,7 @@ app.post('/api/orders', async (req, res) => {
       custom_total: resolvedTotal, terminal_id: terminal_id ? parseInt(terminal_id) : null,
       source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone,
       event_name: event_name || null, show_time: show_time || null, customer_comment: customer_comment || null,
-      client_uid: client_uid || null
+      client_uid: client_uid || null, tip_amount: tip_amount || 0
     });
 
     // Pedido offline ya existente (sincronización repetida): no reprocesar hooks,

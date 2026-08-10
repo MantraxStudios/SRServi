@@ -1013,6 +1013,12 @@ async function migrateTables() {
         } catch (_) { /* índice ya existe */ }
         console.log('✅ Columna client_uid agregada a orders');
       }
+      // tip_amount: monto de propina incluido en `total`. Se guarda por separado
+      // para poder reportarlo en Analíticas sin restarlo de los ingresos.
+      if (!orderColumnNames.includes('tip_amount')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN tip_amount DECIMAL(10, 2) NOT NULL DEFAULT 0');
+        console.log('✅ Columna tip_amount agregada a orders');
+      }
     } catch (orderMigrationError) {
       console.error('❌ Error migrando columnas de cupones en orders:', orderMigrationError.message);
     }
@@ -4357,6 +4363,15 @@ export async function createOrder(storeId, orderData) {
     } catch (_) { /* columna aún no migrada */ }
   }
 
+  // Propina incluida en el total. Se guarda aparte para reportarla en Analíticas.
+  // UPDATE separado del INSERT por compatibilidad con instalaciones antiguas.
+  const tipAmount = Math.max(0, Number(orderData.tip_amount) || 0);
+  if (tipAmount > 0) {
+    try {
+      await pool.execute('UPDATE orders SET tip_amount = ? WHERE id = ?', [tipAmount, orderId]);
+    } catch (_) { /* columna aún no migrada */ }
+  }
+
   if (couponData.coupon_id) {
     await pool.execute(
       'UPDATE coupons SET usage_count = usage_count + 1 WHERE id = ?',
@@ -5686,12 +5701,22 @@ export async function getAnalytics(storeId, dateRange = 'week', startDate = null
     }
   }
 
+  // tip_amount puede no existir en instalaciones muy antiguas: si falta, se
+  // reporta 0 en vez de romper la consulta.
+  let tipCol = 'tip_amount';
+  try {
+    const [tc] = await pool.execute("SHOW COLUMNS FROM orders LIKE 'tip_amount'");
+    if (!tc.length) tipCol = '0';
+  } catch (_) { tipCol = '0'; }
+
   const totalOrdersQuery = `
     SELECT COUNT(*) as total,
            SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') THEN 1 ELSE 0 END) as completed,
            SUM(CASE WHEN status IN ('pending', 'waiting') AND payment_process = 0 THEN 1 ELSE 0 END) as pending,
            SUM(CASE WHEN status IN ('cancelled', 'canceled') THEN 1 ELSE 0 END) as cancelled,
-           SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') THEN total ELSE 0 END) as revenue
+           SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') THEN total ELSE 0 END) as revenue,
+           SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') THEN ${tipCol} ELSE 0 END) as tips,
+           SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') AND ${tipCol} > 0 THEN 1 ELSE 0 END) as tipped_orders
     FROM orders o
     WHERE store_id = ? ${dateFilterO}
   `;
@@ -5712,7 +5737,9 @@ export async function getAnalytics(storeId, dateRange = 'week', startDate = null
     pendingOrders: totals[0].pending || 0,
     cancelledOrders: totals[0].cancelled || 0,
     revenue: parseFloat(totals[0].revenue || 0),
-    avgOrder: parseFloat(avgResult[0].avg_order || 0)
+    avgOrder: parseFloat(avgResult[0].avg_order || 0),
+    tips: parseFloat(totals[0].tips || 0),
+    tippedOrders: parseInt(totals[0].tipped_orders || 0)
   };
 }
 

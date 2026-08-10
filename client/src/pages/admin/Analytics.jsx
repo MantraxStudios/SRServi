@@ -18,7 +18,8 @@ import {
   faFilter,
   faSortAmountDown,
   faSearch,
-  faArrowDown
+  faArrowDown,
+  faHandHoldingUsd
 } from '@fortawesome/free-solid-svg-icons';
 
 function Analytics() {
@@ -118,7 +119,7 @@ function Analytics() {
       ]);
 
       const [summaryData, salesData, ordersData, dowData] = await Promise.all([
-        summaryRes.ok ? summaryRes.json() : { totalOrders: 0, completedOrders: 0, pendingOrders: 0, cancelledOrders: 0, revenue: 0, avgOrder: 0 },
+        summaryRes.ok ? summaryRes.json() : { totalOrders: 0, completedOrders: 0, pendingOrders: 0, cancelledOrders: 0, revenue: 0, avgOrder: 0, tips: 0, tippedOrders: 0 },
         salesRes.ok ? salesRes.json() : [],
         ordersRes.ok ? ordersRes.json() : [],
         dowRes.ok ? dowRes.json() : [],
@@ -233,8 +234,9 @@ function Analytics() {
               { icon: faDollarSign, color: '#22c55e', cls: 'revenue', label: 'Ingresos', value: formatCurrency(summary?.revenue || 0) },
               { icon: faShoppingCart, color: '#3b82f6', cls: 'orders', label: 'Pedidos', value: summary?.totalOrders || 0 },
               { icon: faChartLine, color: 'var(--gold)', cls: 'average', label: 'Ticket Prom.', value: formatCurrency(summary?.avgOrder || 0) },
+              { icon: faHandHoldingUsd, color: '#10b981', cls: 'tips', label: 'Propinas', value: formatCurrency(summary?.tips || 0), sub: summary?.tippedOrders ? `${summary.tippedOrders} ${summary.tippedOrders === 1 ? 'pedido' : 'pedidos'}` : 'Sin propinas' },
               { icon: faClock, color: '#f59e0b', cls: 'pending', label: 'Pendientes', value: summary?.pendingOrders || 0 },
-            ].map(({ icon, color, cls, label, value }) => (
+            ].map(({ icon, color, cls, label, value, sub }) => (
               <div key={label} className="analytics-stat-card">
                 <div className="flex items-center gap-3">
                   <div className={`analytics-stat-icon ${cls}`} style={{ flexShrink: 0 }}>
@@ -243,6 +245,7 @@ function Analytics() {
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <p className="analytics-stat-label">{label}</p>
                     <p className="analytics-stat-value">{value}</p>
+                    {sub && <p className="analytics-stat-label" style={{ marginTop: 2, opacity: 0.7 }}>{sub}</p>}
                   </div>
                 </div>
               </div>
