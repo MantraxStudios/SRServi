@@ -7085,8 +7085,8 @@ function Store() {
       <PluginSlot name="store-footer" context={{ storeId: store?.store?.id, code }} />
 
       {hasProducts && !adminEditToken && (
-      <div className={`cart-bar${cart.length > 0 ? '' : ' cart-bar-hidden'}`}>
-        <div className="cart-bar-left" onClick={() => setCartOpen(true)}>
+      <div className={`cart-bar${cart.length > 0 ? '' : ' cart-bar-hidden'}`} onClick={() => setCartOpen(true)}>
+        <div className="cart-bar-left">
           <div className="cart-bar-icon">
             <FontAwesomeIcon icon={faShoppingCart} />
             <span className="cart-bar-count">{getCartCount()}</span>
