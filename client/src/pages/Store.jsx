@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { detectLanguage, t, LANGUAGES } from '../i18n';
@@ -1095,6 +1096,30 @@ function SESection({ icon, title, hint, children }) {
   );
 }
 
+// Perf: O(n) en vez de filter+findIndex (O(n²)), que en catálogos grandes
+// era notable en dispositivos flojos cada vez que se recargaba la tienda.
+const dedupById = (list) => {
+  if (!list || list.length === 0) return list || [];
+  const seen = new Set();
+  const out = [];
+  for (const item of list) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    out.push(item);
+  }
+  return out;
+};
+
+// Salvapantallas: mismo diseño mínimo por defecto que ve el admin en el editor
+// (admin/Screensaver.jsx → defaultLayout) cuando todavía no personalizó nada.
+// Antes había un diseño "de fábrica" completamente distinto (carrito, "Auto
+// Servicio", branding de SRServi.com) que aparecía en vivo aunque el admin no
+// lo hubiera puesto en el editor — esto lo reemplaza para que sea WYSIWYG.
+const DEFAULT_SS_ELEMENTS = [
+  { id: 'default-title', type: 'text', content: '¡HOLA! COMPRA AQUÍ', xPct: 50, yPct: 40, fontSize: 7, color: '#ffffff', bold: true, italic: false, align: 'center' },
+  { id: 'default-cta', type: 'button', content: 'Toca para comenzar', xPct: 50, yPct: 82, fontSize: 4, color: '#000000', bg: '#D4AF37', bold: true, italic: false, align: 'center', padX: 6, padY: 3, radius: 50 },
+];
+
 function Store() {
   const { code } = useParams();
   const navigate = useNavigate();
@@ -1115,9 +1140,6 @@ function Store() {
   const apkAutoTimerRef = useRef(null);
   const deliveryMode = searchParams.get('delivery') === 'true';
   const tuuModePayFromUrl = searchParams.get('tuumodepay') === 'true';
-  // Modo POS offline nativo (WebView de OfflinePosActivity): activa la estética
-  // translúcida en la barra del carrito, el buscador y el panel del carrito.
-  const posOffline = searchParams.get('pos_offline') === '1';
   const qrReturnResult = searchParams.get('x_result');
   const qrReturnRef = searchParams.get('x_reference');
   const mpReturnOrder = searchParams.get('mp_order');
@@ -1271,6 +1293,8 @@ function Store() {
   const [restartingSending, setRestartingSending] = useState(false);
   const [pinOptionsModalOpen, setPinOptionsModalOpen] = useState(false);
   const [totemZoom, setTotemZoom] = useState(() => parseFloat(localStorage.getItem('srservi_totem_zoom') || '1'));
+  // Tema Glass (estilo iOS): desactivado por defecto, se activa desde el menú del PIN.
+  const [glassTheme, setGlassTheme] = useState(() => localStorage.getItem('srservi_glass_theme') === '1');
   // Voz del asistente (TTS) — por dispositivo (las voces disponibles dependen del equipo)
   const [ttsVoices, setTtsVoices] = useState([]);
   const [ttsVoice, setTtsVoice] = useState(() => localStorage.getItem('srservi_tts_voice') || '');
@@ -1542,6 +1566,8 @@ function Store() {
   const ssWakeGuardRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const categoryRef = useRef(null);
+  const scrolledRafRef = useRef(null);
+  const fetchStoreDebounceRef = useRef(null);
   const productsAreaRef = useRef(null);
   const storeIdRef = useRef(null);
   const storeContainerRef = useRef(null);
@@ -1795,6 +1821,8 @@ function Store() {
     let startScrollLeft = 0;
     let isDragging = false;
     let moved = false;
+    let raf = null;
+    let pendingScrollLeft = null;
 
     const onTouchStart = (e) => {
       startX = e.touches[0].clientX;
@@ -1808,7 +1836,13 @@ function Store() {
       const dx = startX - e.touches[0].clientX;
       if (Math.abs(dx) > 5) {
         moved = true;
-        container.scrollLeft = startScrollLeft + dx;
+        pendingScrollLeft = startScrollLeft + dx;
+        if (raf == null) {
+          raf = requestAnimationFrame(() => {
+            raf = null;
+            if (pendingScrollLeft != null) container.scrollLeft = pendingScrollLeft;
+          });
+        }
       }
     };
 
@@ -1835,6 +1869,7 @@ function Store() {
       container.removeEventListener('touchmove', onTouchMove);
       container.removeEventListener('touchend', onTouchEnd);
       container.removeEventListener('click', onClickCapture, true);
+      if (raf) cancelAnimationFrame(raf);
     };
   }, []);
 
@@ -2144,8 +2179,18 @@ function Store() {
       socket.emit('presence_join', { store_code: code, panel: 'store' });
     });
 
+    // Perf: varios de estos eventos pueden llegar en ráfaga (ej. import
+    // masivo de ingredientes/extras). Los agrupamos en un solo fetchStore
+    // en vez de refetchear + re-renderizar todo el catálogo por cada uno.
+    const scheduleFetchStore = () => {
+      if (fetchStoreDebounceRef.current) clearTimeout(fetchStoreDebounceRef.current);
+      fetchStoreDebounceRef.current = setTimeout(() => {
+        fetchStoreDebounceRef.current = null;
+        fetchStore();
+      }, 400);
+    };
+
     socket.on('product_created', (product) => {
-      console.log('Producto creado en tiempo real:', product);
       setStore(prev => {
         if (!prev) return prev;
         return {
@@ -2156,7 +2201,6 @@ function Store() {
     });
 
     socket.on('product_updated', (product) => {
-      console.log('Producto actualizado en tiempo real:', product);
       setStore(prev => {
         if (!prev) return prev;
         return {
@@ -2167,7 +2211,6 @@ function Store() {
     });
 
     socket.on('product_deleted', (data) => {
-      console.log('Producto eliminado en tiempo real:', data);
       setStore(prev => {
         if (!prev) return prev;
         return {
@@ -2182,17 +2225,16 @@ function Store() {
       setNewOrderCount(prev => prev + 1);
     });
 
-    socket.on('category_created', () => fetchStore());
-    socket.on('category_updated', () => fetchStore());
-    socket.on('category_deleted', () => fetchStore());
-    socket.on('ingredient_created', () => fetchStore());
-    socket.on('ingredient_updated', () => fetchStore());
-    socket.on('ingredient_deleted', () => fetchStore());
-    socket.on('extra_created', () => fetchStore());
-    socket.on('extra_updated', () => fetchStore());
-    socket.on('extra_deleted', () => fetchStore());
+    socket.on('category_created', scheduleFetchStore);
+    socket.on('category_updated', scheduleFetchStore);
+    socket.on('category_deleted', scheduleFetchStore);
+    socket.on('ingredient_created', scheduleFetchStore);
+    socket.on('ingredient_updated', scheduleFetchStore);
+    socket.on('ingredient_deleted', scheduleFetchStore);
+    socket.on('extra_created', scheduleFetchStore);
+    socket.on('extra_updated', scheduleFetchStore);
+    socket.on('extra_deleted', scheduleFetchStore);
     socket.on('inventory_updated', (data) => {
-      console.log('Inventario actualizado en tiempo real:', data);
       setStore(prev => {
         if (!prev) return prev;
         const updatedProducts = prev.products.map(product => {
@@ -2286,6 +2328,7 @@ function Store() {
     return () => {
       socket.disconnect();
       socketRef.current = null;
+      if (fetchStoreDebounceRef.current) clearTimeout(fetchStoreDebounceRef.current);
     };
   }, [code, terminalFromUrl]);
 
@@ -2397,18 +2440,10 @@ function Store() {
       }
 
       const data = await response.json();
-      const uniqueProducts = (data.products || []).filter((product, index, self) =>
-        index === self.findIndex((p) => p.id === product.id)
-      );
-      const uniqueCategories = (data.categories || []).filter((cat, index, self) =>
-        index === self.findIndex((c) => c.id === cat.id)
-      );
-      const uniqueIngredients = (data.ingredients || []).filter((ing, index, self) =>
-        index === self.findIndex((i) => i.id === ing.id)
-      );
-      const uniqueExtras = (data.extras || []).filter((ext, index, self) =>
-        index === self.findIndex((e) => e.id === ext.id)
-      );
+      const uniqueProducts = dedupById(data.products);
+      const uniqueCategories = dedupById(data.categories);
+      const uniqueIngredients = dedupById(data.ingredients);
+      const uniqueExtras = dedupById(data.extras);
       const deduplicatedData = {
         ...data,
         products: uniqueProducts,
@@ -2416,8 +2451,6 @@ function Store() {
         ingredients: uniqueIngredients,
         extras: uniqueExtras
       };
-      console.log('Store data received:', deduplicatedData);
-      console.log('Number of products:', deduplicatedData.products?.length || 0);
       setStore(deduplicatedData);
       setCashRegisterOpen(data.cash_register_open !== false);
       if (data.top_selling) setTopSellingIds(data.top_selling);
@@ -5538,6 +5571,18 @@ function Store() {
 
   const hasProducts = (store?.products || []).length > 0;
 
+  // Throttlea vía rAF: en dispositivos flojos, leer scrollTop y actualizar
+  // estado en CADA evento de scroll (sin batchear) genera jank perceptible.
+  const handleStoreMainScroll = (e) => {
+    if (scrolledRafRef.current) return;
+    const target = e.currentTarget;
+    scrolledRafRef.current = requestAnimationFrame(() => {
+      scrolledRafRef.current = null;
+      const y = target.scrollTop;
+      setScrolled(prev => prev ? y > 12 : y > 56);
+    });
+  };
+
   const renderProductCard = (product) => {
     const isUnlimited = product.unlimited_stock === true || product.unlimited_stock === 1 || product.unlimited_stock === '1';
     const isOutOfStock = !isUnlimited && product.stock === 0;
@@ -5683,7 +5728,7 @@ function Store() {
     )}
     <div
       ref={storeContainerRef}
-      className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}${scrolled ? ' store-scrolled' : ''}${cart.length === 0 ? ' cart-empty' : ''}${posOffline ? ' store-pos-offline' : ''}`}
+      className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}${scrolled ? ' store-scrolled' : ''}${cart.length === 0 ? ' cart-empty' : ''}${glassTheme ? ' glass-theme' : ''}`}
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom,
         ...(seasonalTheme ? { '--kiosk-accent': seasonalTheme.colors.accent, '--kiosk-orange': seasonalTheme.colors.primary, '--kiosk-accent-soft': seasonalTheme.colors.accent + '22' } : {}) }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
@@ -5741,10 +5786,10 @@ function Store() {
                 <FontAwesomeIcon icon={faGlobe} style={{ fontSize: '11px' }} />
                 <span>{LANGUAGES.find(l => l.code === lang)?.flag || '🌐'}</span>
               </button>
-              {showLangPicker && (
+              {showLangPicker && createPortal(
                 <>
-                  <div onClick={() => setShowLangPicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
-                  <div style={{ position: 'fixed', top: '52px', right: '12px', background: '#fff', borderRadius: '10px', boxShadow: '0 4px 24px rgba(0,0,0,0.25)', overflow: 'hidden', minWidth: '150px', zIndex: 9999 }}>
+                  <div onClick={() => setShowLangPicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 99998 }} />
+                  <div style={{ position: 'fixed', top: '52px', right: '12px', background: '#fff', borderRadius: '20px', boxShadow: '0 4px 24px rgba(0,0,0,0.25)', overflow: 'hidden', minWidth: '150px', zIndex: 99999 }}>
                     {LANGUAGES.map(l => (
                       <button key={l.code} onClick={() => { setLang(l.code); localStorage.setItem('srservi_lang', l.code); setShowLangPicker(false); }}
                         style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '12px 16px', border: 'none', background: lang === l.code ? '#f5f5f5' : '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: lang === l.code ? '700' : '400', borderBottom: '1px solid #f0f0f0' }}>
@@ -5752,7 +5797,8 @@ function Store() {
                       </button>
                     ))}
                   </div>
-                </>
+                </>,
+                document.body
               )}
             </div>
           </div>
@@ -6101,7 +6147,7 @@ function Store() {
 
       </div>
 
-      <div className="store-main" onScroll={e => { const y = e.currentTarget.scrollTop; setScrolled(prev => prev ? y > 12 : y > 56); }}>
+      <div className="store-main" onScroll={handleStoreMainScroll}>
       {!hasProducts && (
         <div className="store-empty">
           <div className="store-empty-icon" style={{ background: `linear-gradient(135deg, ${colors.accent}20, ${colors.accent}40)` }}>
@@ -7041,8 +7087,8 @@ function Store() {
       <PluginSlot name="store-footer" context={{ storeId: store?.store?.id, code }} />
 
       {hasProducts && !adminEditToken && (
-      <div className={`cart-bar${cart.length > 0 ? '' : ' cart-bar-hidden'}`}>
-        <div className="cart-bar-left" onClick={() => setCartOpen(true)}>
+      <div className={`cart-bar${cart.length > 0 ? '' : ' cart-bar-hidden'}`} onClick={() => setCartOpen(true)}>
+        <div className="cart-bar-left">
           <div className="cart-bar-icon">
             <FontAwesomeIcon icon={faShoppingCart} />
             <span className="cart-bar-count">{getCartCount()}</span>
@@ -10255,207 +10301,260 @@ function Store() {
         </div>
       )}
       {/* PIN Options modal - shown after correct PIN entry */}
-      {pinOptionsModalOpen && (
+      {pinOptionsModalOpen && (() => {
+        // Modal de administración (no forma parte de la marca de la tienda):
+        // paleta fija en blanco y negro, sin depender de --store-accent/primary.
+        const bw = {
+          action: { padding: '14px 16px', borderRadius: '12px', border: '1.5px solid #e5e7eb', background: '#fff', color: '#111', fontSize: '15px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', boxSizing: 'border-box' },
+          actionActive: { padding: '14px 16px', borderRadius: '12px', border: '1.5px solid #111', background: '#111', color: '#fff', fontSize: '15px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', boxSizing: 'border-box' },
+          sectionLabel: { fontSize: '11px', fontWeight: '800', color: '#999', textTransform: 'uppercase', letterSpacing: '0.6px', margin: '4px 2px 2px' },
+          card: { padding: '14px', borderRadius: '12px', border: '1px solid #e5e7eb', background: '#fafafa' },
+          cardTitle: { fontSize: '13px', fontWeight: '700', color: '#111', marginBottom: '10px' },
+        };
+        return (
         <div className="store-modal-overlay" onClick={() => setPinOptionsModalOpen(false)} style={ticketMode ? { zIndex: 10001 } : undefined}>
           <div className="store-pin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '320px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <FontAwesomeIcon icon={faLock} style={{ fontSize: '28px', color: 'var(--store-accent)', marginBottom: '8px' }} />
-              <h3 style={{ margin: 0, color: 'var(--store-primary)' }}>¿Qué deseas hacer?</h3>
+            <div style={{ textAlign: 'center', marginBottom: '22px' }}>
+              <FontAwesomeIcon icon={faLock} style={{ fontSize: '26px', color: '#111', marginBottom: '8px' }} />
+              <h3 style={{ margin: 0, color: '#111', fontSize: '18px', fontWeight: '800' }}>¿Qué deseas hacer?</h3>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {ticketMode && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={bw.sectionLabel}>Acciones</div>
+                {ticketMode && (
+                  <button
+                    onClick={() => {
+                      setPinOptionsModalOpen(false);
+                      setTicketMode(false); localStorage.removeItem('srservi_ticket_mode');
+                    }}
+                    style={bw.action}
+                  >
+                    <FontAwesomeIcon icon={faStore} /> Salir del modo Ticketería
+                  </button>
+                )}
+                <button
+                  onClick={async () => {
+                    setPinOptionsModalOpen(false);
+                    setPosSelectLoading(true);
+                    setPosSelectModalOpen(true);
+                    try {
+                      const res = await fetch(`/api/public/pos-devices/${code}`);
+                      const list = res.ok ? await res.json() : [];
+                      setPosSelectList(Array.isArray(list) ? list : []);
+                    } catch { setPosSelectList([]); }
+                    setPosSelectLoading(false);
+                  }}
+                  style={bw.action}
+                >
+                  Cambiar POS
+                </button>
+                {!ticketMode && (
+                  <button
+                    onClick={() => {
+                      setPinOptionsModalOpen(false);
+                      setTicketMode(true); localStorage.setItem('srservi_ticket_mode', '1');
+                    }}
+                    style={bw.action}
+                  >
+                    <FontAwesomeIcon icon={faTicketAlt} /> Modo Ticketería
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    const next = !restaurantMode;
+                    setRestaurantMode(next);
+                    localStorage.setItem('srservi_restaurant_mode', next ? '1' : '0');
+                    if (next && tables.length === 0) setTableMapEditing(true);
+                    setActiveTable(null);
+                    setCart([]);
+                    setPinOptionsModalOpen(false);
+                  }}
+                  style={restaurantMode ? bw.actionActive : bw.action}
+                >
+                  <FontAwesomeIcon icon={faUtensils} /> {restaurantMode ? 'Salir modo Restaurante' : 'Modo Restaurante'}
+                </button>
                 <button
                   onClick={() => {
                     setPinOptionsModalOpen(false);
-                    setTicketMode(false); localStorage.removeItem('srservi_ticket_mode');
+                    setEditMode(true);
                   }}
-                  style={{ padding: '14px', borderRadius: '10px', border: '2px solid #2563eb', background: '#eff6ff', color: '#1d4ed8', fontSize: '15px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  style={bw.actionActive}
                 >
-                  <FontAwesomeIcon icon={faStore} /> Salir del modo Ticketería
+                  Editar tótem
                 </button>
-              )}
-              <button
-                onClick={async () => {
-                  setPinOptionsModalOpen(false);
-                  setPosSelectLoading(true);
-                  setPosSelectModalOpen(true);
-                  try {
-                    const res = await fetch(`/api/public/pos-devices/${code}`);
-                    const list = res.ok ? await res.json() : [];
-                    setPosSelectList(Array.isArray(list) ? list : []);
-                  } catch { setPosSelectList([]); }
-                  setPosSelectLoading(false);
-                }}
-                style={{ padding: '14px', borderRadius: '10px', border: '2px solid var(--store-primary)', background: '#fff', color: 'var(--store-primary)', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}
-              >
-                Cambiar POS
-              </button>
-              <button
-                onClick={() => {
-                  setPinOptionsModalOpen(false);
-                  setTicketMode(true); localStorage.setItem('srservi_ticket_mode', '1');
-                }}
-                style={{ padding: '14px', borderRadius: '10px', border: '2px solid #C8A415', background: '#fffbeb', color: '#92760a', fontSize: '15px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-              >
-                <FontAwesomeIcon icon={faTicketAlt} /> Modo Ticketería
-              </button>
-              <button
-                onClick={() => {
-                  const next = !restaurantMode;
-                  setRestaurantMode(next);
-                  localStorage.setItem('srservi_restaurant_mode', next ? '1' : '0');
-                  if (next && tables.length === 0) setTableMapEditing(true);
-                  setActiveTable(null);
-                  setCart([]);
-                  setPinOptionsModalOpen(false);
-                }}
-                style={{ padding: '14px', borderRadius: '10px', border: '2px solid #16a34a', background: restaurantMode ? '#16a34a' : '#f0fdf4', color: restaurantMode ? '#fff' : '#166534', fontSize: '15px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-              >
-                <FontAwesomeIcon icon={faUtensils} /> {restaurantMode ? 'Salir modo Restaurante' : 'Modo Restaurante'}
-              </button>
-              <button
-                onClick={() => {
-                  setPinOptionsModalOpen(false);
-                  setEditMode(true);
-                }}
-                style={{ padding: '14px', borderRadius: '10px', border: '2px solid var(--store-accent)', background: 'var(--store-primary)', color: 'var(--store-secondary)', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}
-              >
-                Editar tótem
-              </button>
-              <div style={{ marginTop: '8px', padding: '14px', borderRadius: '10px', border: '1px solid #e0e0e0', background: '#fafafa' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--store-primary)' }}>Zoom del tótem</span>
-                  <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--store-accent)', minWidth: '42px', textAlign: 'right' }}>{Math.round(totemZoom * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="20"
-                  max="200"
-                  step="5"
-                  value={Math.round(totemZoom * 100)}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) / 100;
-                    setTotemZoom(val);
-                    localStorage.setItem('srservi_totem_zoom', String(val));
-                  }}
-                  style={{ width: '100%', accentColor: 'var(--store-accent)' }}
-                />
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#aaa', marginTop: '2px' }}>
-                  <span>20%</span><span>100%</span><span>200%</span>
-                </div>
               </div>
-              {ttsVoices.length > 0 && (
-                <div style={{ padding: '14px', borderRadius: '10px', border: '1px solid #e0e0e0', background: '#fafafa' }}>
-                  <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--store-primary)', marginBottom: '10px' }}>Voz del asistente</div>
-                  <select
-                    value={ttsVoice}
-                    onChange={(e) => { setTtsVoice(e.target.value); localStorage.setItem('srservi_tts_voice', e.target.value); }}
-                    style={{ width: '100%', padding: '9px 10px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontSize: '13px', color: '#333', marginBottom: '10px' }}
-                  >
-                    <option value="">Automática (mejor voz en español)</option>
-                    {ttsVoices.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}
-                  </select>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <span style={{ fontSize: '13px', color: '#555' }}>Velocidad</span>
-                    <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--store-accent)' }}>{ttsRate.toFixed(1)}x</span>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={bw.sectionLabel}>Ajustes del tótem</div>
+
+                <div style={bw.card}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={bw.cardTitle}>Zoom del tótem</span>
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#111', minWidth: '42px', textAlign: 'right' }}>{Math.round(totemZoom * 100)}%</span>
                   </div>
                   <input
-                    type="range" min="0.6" max="1.6" step="0.1" value={ttsRate}
-                    onChange={(e) => { const r = parseFloat(e.target.value); setTtsRate(r); localStorage.setItem('srservi_tts_rate', String(r)); }}
-                    style={{ width: '100%', accentColor: 'var(--store-accent)' }}
-                  />
-                  <button
-                    onClick={() => {
-                      try {
-                        window.speechSynthesis.cancel();
-                        const u = new SpeechSynthesisUtterance('Hola, soy tu asistente. Así sueno con esta voz.');
-                        const chosen = ttsVoices.find(v => v.voiceURI === ttsVoice);
-                        if (chosen) { u.voice = chosen; u.lang = chosen.lang; } else { u.lang = 'es-ES'; }
-                        u.rate = ttsRate; u.pitch = 1;
-                        window.speechSynthesis.speak(u);
-                      } catch { /* noop */ }
+                    type="range"
+                    min="20"
+                    max="200"
+                    step="5"
+                    value={Math.round(totemZoom * 100)}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) / 100;
+                      setTotemZoom(val);
+                      localStorage.setItem('srservi_totem_zoom', String(val));
                     }}
-                    style={{ width: '100%', marginTop: '10px', padding: '9px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: 'var(--store-primary)', color: '#fff', fontSize: '13px', fontWeight: '600' }}
-                  >
-                    ▶ Probar voz
-                  </button>
-                </div>
-              )}
-              {hasAndroidPrinter() && (
-                <div style={{ padding: '14px', borderRadius: '10px', border: '1px solid #e0e0e0', background: '#fafafa' }}>
-                  <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--store-primary)', marginBottom: '10px' }}>🖨️ Impresora Bluetooth</div>
-                  <select
-                    value={btPrinterMac}
-                    onChange={(e) => { const mac = e.target.value; setBtPrinterMac(mac); savePrinter(mac); if (mac) connectPrinter(mac); }}
-                    style={{ width: '100%', padding: '9px 10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
-                  >
-                    <option value="">Elegir impresora…</option>
-                    {btPrinters.map(p => <option key={p.mac} value={p.mac}>{p.name}</option>)}
-                  </select>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                    <button onClick={() => { requestPrinterPermission(); setBtPrinters(listAndroidPrinters()); }} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>🔄 Buscar</button>
-                    <button onClick={() => { const ok = printTest(); if (!ok) alert('No se pudo imprimir. Revisá que la impresora esté encendida y elegida.'); }} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', background: 'var(--store-accent)', color: 'var(--store-primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>🖨️ Probar</button>
+                    style={{ width: '100%', accentColor: '#111' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#aaa', marginTop: '2px' }}>
+                    <span>20%</span><span>100%</span><span>200%</span>
                   </div>
-                  <div style={{ fontSize: 11, color: '#888', marginTop: 6 }}>La impresora debe estar <b>emparejada</b> en los ajustes Bluetooth del equipo. El recibo se imprime solo al completar cada pedido.</div>
                 </div>
-              )}
-              <div style={{ padding: '14px', borderRadius: '10px', border: '1px solid #e0e0e0', background: '#fafafa' }}>
-                <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--store-primary)', marginBottom: '10px' }}>Métodos de pago</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+
+                <div style={bw.card}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '13px', color: '#555' }}>Tarjeta</span>
+                    <div>
+                      <div style={bw.cardTitle}>Tema Glass (iOS)</div>
+                      <div style={{ fontSize: '11px', color: '#888', marginTop: '-6px' }}>Categorías, tarjetas y barra de carrito con efecto cristal</div>
+                    </div>
                     <button
                       onClick={() => {
-                        const next = !localAcceptCard;
-                        setLocalAcceptCard(next);
-                        localStorage.setItem('srservi_accept_card', String(next));
+                        const next = !glassTheme;
+                        setGlassTheme(next);
+                        localStorage.setItem('srservi_glass_theme', next ? '1' : '0');
                       }}
                       style={{
-                        width: '48px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer',
-                        background: localAcceptCard ? 'var(--store-primary)' : '#ccc',
+                        width: '48px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer', flexShrink: 0, marginLeft: '10px',
+                        background: glassTheme ? '#111' : '#ccc',
                         position: 'relative', transition: 'background 0.2s'
                       }}
                     >
                       <span style={{
                         display: 'block', width: '20px', height: '20px', borderRadius: '50%', background: '#fff',
                         position: 'absolute', top: '3px', transition: 'left 0.2s',
-                        left: localAcceptCard ? '25px' : '3px'
+                        left: glassTheme ? '25px' : '3px'
                       }} />
                     </button>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '13px', color: '#555' }}>Efectivo</span>
+                </div>
+
+                {ttsVoices.length > 0 && (
+                  <div style={bw.card}>
+                    <div style={bw.cardTitle}>Voz del asistente</div>
+                    <select
+                      value={ttsVoice}
+                      onChange={(e) => { setTtsVoice(e.target.value); localStorage.setItem('srservi_tts_voice', e.target.value); }}
+                      style={{ width: '100%', padding: '9px 10px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontSize: '13px', color: '#333', marginBottom: '10px' }}
+                    >
+                      <option value="">Automática (mejor voz en español)</option>
+                      {ttsVoices.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}
+                    </select>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '13px', color: '#555' }}>Velocidad</span>
+                      <span style={{ fontSize: '13px', fontWeight: '700', color: '#111' }}>{ttsRate.toFixed(1)}x</span>
+                    </div>
+                    <input
+                      type="range" min="0.6" max="1.6" step="0.1" value={ttsRate}
+                      onChange={(e) => { const r = parseFloat(e.target.value); setTtsRate(r); localStorage.setItem('srservi_tts_rate', String(r)); }}
+                      style={{ width: '100%', accentColor: '#111' }}
+                    />
                     <button
                       onClick={() => {
-                        const next = !localAcceptCash;
-                        setLocalAcceptCash(next);
-                        localStorage.setItem('srservi_accept_cash', String(next));
+                        try {
+                          window.speechSynthesis.cancel();
+                          const u = new SpeechSynthesisUtterance('Hola, soy tu asistente. Así sueno con esta voz.');
+                          const chosen = ttsVoices.find(v => v.voiceURI === ttsVoice);
+                          if (chosen) { u.voice = chosen; u.lang = chosen.lang; } else { u.lang = 'es-ES'; }
+                          u.rate = ttsRate; u.pitch = 1;
+                          window.speechSynthesis.speak(u);
+                        } catch { /* noop */ }
                       }}
-                      style={{
-                        width: '48px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer',
-                        background: localAcceptCash ? 'var(--store-primary)' : '#ccc',
-                        position: 'relative', transition: 'background 0.2s'
-                      }}
+                      style={{ width: '100%', marginTop: '10px', padding: '9px', borderRadius: '8px', border: 'none', cursor: 'pointer', background: '#111', color: '#fff', fontSize: '13px', fontWeight: '600' }}
                     >
-                      <span style={{
-                        display: 'block', width: '20px', height: '20px', borderRadius: '50%', background: '#fff',
-                        position: 'absolute', top: '3px', transition: 'left 0.2s',
-                        left: localAcceptCash ? '25px' : '3px'
-                      }} />
+                      ▶ Probar voz
                     </button>
+                  </div>
+                )}
+
+                {hasAndroidPrinter() && (
+                  <div style={bw.card}>
+                    <div style={bw.cardTitle}>Impresora Bluetooth</div>
+                    <select
+                      value={btPrinterMac}
+                      onChange={(e) => { const mac = e.target.value; setBtPrinterMac(mac); savePrinter(mac); if (mac) connectPrinter(mac); }}
+                      style={{ width: '100%', padding: '9px 10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                    >
+                      <option value="">Elegir impresora…</option>
+                      {btPrinters.map(p => <option key={p.mac} value={p.mac}>{p.name}</option>)}
+                    </select>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <button onClick={() => { requestPrinterPermission(); setBtPrinters(listAndroidPrinters()); }} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', color: '#111', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Buscar</button>
+                      <button onClick={() => { const ok = printTest(); if (!ok) alert('No se pudo imprimir. Revisá que la impresora esté encendida y elegida.'); }} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', background: '#111', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>Probar</button>
+                    </div>
+                    <div style={{ fontSize: 11, color: '#888', marginTop: 6 }}>La impresora debe estar <b>emparejada</b> en los ajustes Bluetooth del equipo. El recibo se imprime solo al completar cada pedido.</div>
+                  </div>
+                )}
+
+                <div style={bw.card}>
+                  <div style={bw.cardTitle}>Métodos de pago</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '13px', color: '#555' }}>Tarjeta</span>
+                      <button
+                        onClick={() => {
+                          const next = !localAcceptCard;
+                          setLocalAcceptCard(next);
+                          localStorage.setItem('srservi_accept_card', String(next));
+                        }}
+                        style={{
+                          width: '48px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer',
+                          background: localAcceptCard ? '#111' : '#ccc',
+                          position: 'relative', transition: 'background 0.2s'
+                        }}
+                      >
+                        <span style={{
+                          display: 'block', width: '20px', height: '20px', borderRadius: '50%', background: '#fff',
+                          position: 'absolute', top: '3px', transition: 'left 0.2s',
+                          left: localAcceptCard ? '25px' : '3px'
+                        }} />
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '13px', color: '#555' }}>Efectivo</span>
+                      <button
+                        onClick={() => {
+                          const next = !localAcceptCash;
+                          setLocalAcceptCash(next);
+                          localStorage.setItem('srservi_accept_cash', String(next));
+                        }}
+                        style={{
+                          width: '48px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer',
+                          background: localAcceptCash ? '#111' : '#ccc',
+                          position: 'relative', transition: 'background 0.2s'
+                        }}
+                      >
+                        <span style={{
+                          display: 'block', width: '20px', height: '20px', borderRadius: '50%', background: '#fff',
+                          position: 'absolute', top: '3px', transition: 'left 0.2s',
+                          left: localAcceptCash ? '25px' : '3px'
+                        }} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
+
               <button
                 onClick={() => setPinOptionsModalOpen(false)}
-                style={{ padding: '10px', borderRadius: '8px', border: 'none', background: 'transparent', color: '#999', fontSize: '14px', cursor: 'pointer' }}
+                style={{ padding: '10px', borderRadius: '8px', border: 'none', background: 'transparent', color: '#999', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}
               >
                 Cancelar
               </button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* POS selection modal - from within the totem */}
       {posSelectModalOpen && (
@@ -10600,11 +10699,14 @@ function Store() {
           if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
         };
         const ssIsVideo = /\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(screensaverCfg.media_url || '');
-        // Layout personalizado creado desde el editor admin (opcional)
+        // Layout personalizado creado desde el editor admin (opcional). Si no
+        // hay uno guardado, usamos el mismo default mínimo que ve el admin en
+        // el editor (nunca el diseño "de fábrica" con branding ajeno a lo que
+        // el admin configuró).
         let ssLayout = null;
         try { ssLayout = screensaverCfg.layout ? JSON.parse(screensaverCfg.layout) : null; } catch { ssLayout = null; }
-        const hasCustom = ssLayout && Array.isArray(ssLayout.elements) && ssLayout.elements.length > 0;
-        const clickAnywhere = ssLayout ? ssLayout.clickAnywhere !== false : false;
+        const ssElements = (ssLayout && Array.isArray(ssLayout.elements) && ssLayout.elements.length > 0) ? ssLayout.elements : DEFAULT_SS_ELEMENTS;
+        const clickAnywhere = ssLayout ? ssLayout.clickAnywhere !== false : true;
         const renderSSEl = (el) => {
           const isBtn = el.type === 'button';
           const style = {
@@ -10620,9 +10722,9 @@ function Store() {
 
         return (
           <div
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99990, background: '#000', overflow: 'hidden', cursor: (hasCustom && clickAnywhere) ? 'pointer' : 'default' }}
-            onClick={(hasCustom && clickAnywhere) ? dismissSS : undefined}
-            onTouchStart={(hasCustom && clickAnywhere) ? dismissSS : undefined}
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99990, background: '#000', overflow: 'hidden', cursor: clickAnywhere ? 'pointer' : 'default' }}
+            onClick={clickAnywhere ? dismissSS : undefined}
+            onTouchStart={clickAnywhere ? dismissSS : undefined}
           >
 
             {/* Full-screen background media (imagen o video) */}
@@ -10655,101 +10757,14 @@ function Store() {
                 oscurecido sutil abajo para que se lea el botón, dejando el video limpio. */}
             <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: screensaverCfg.media_url ? 'linear-gradient(to bottom, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%)' : 'linear-gradient(160deg, #0a0a0a 0%, #111 100%)' }} />
 
-            {/* ══════════ Layout personalizado (editor) ══════════ */}
-            {hasCustom ? (
-              <>
-                {ssLayout.elements.map(renderSSEl)}
-                {!clickAnywhere && (
-                  <div style={{ position: 'absolute', bottom: 18, left: 0, right: 0, textAlign: 'center', fontSize: 'clamp(11px,1.6vw,15px)', color: 'rgba(255,255,255,0.45)', letterSpacing: 2, textTransform: 'uppercase' }}>
-                    Toca un botón para continuar
-                  </div>
-                )}
-              </>
-            ) : (<>
-
-            {/* ══════════ Layout principal centrado (diseño por defecto) ══════════ */}
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, padding: '40px 48px 160px' }}>
-
-              {/* Logo circular flotante */}
-              <div style={{ width: 110, height: 110, borderRadius: '50%', overflow: 'hidden', border: '3px solid #D4AF37', flexShrink: 0, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'ss-float 4s ease-in-out infinite', boxShadow: '0 0 0 6px rgba(212,175,55,0.12)', marginBottom: 24 }}>
-                {screensaverCfg.store_logo
-                  ? <img src={API + screensaverCfg.store_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
-                  : <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 40, color: '#D4AF37' }} />
-                }
+            {/* Elementos: los del editor si el admin personalizó, si no el
+                default mínimo (mismo que ve en el editor, sin branding extra) */}
+            {ssElements.map(renderSSEl)}
+            {!clickAnywhere && (
+              <div style={{ position: 'absolute', bottom: 18, left: 0, right: 0, textAlign: 'center', fontSize: 'clamp(11px,1.6vw,15px)', color: 'rgba(255,255,255,0.45)', letterSpacing: 2, textTransform: 'uppercase' }}>
+                Toca un botón para continuar
               </div>
-
-              {/* Nombre tienda */}
-              {screensaverCfg.store_name && (
-                <div style={{ fontSize: 'clamp(28px,5.5vw,62px)', fontWeight: '900', color: '#fff', textAlign: 'center', lineHeight: 1.1, letterSpacing: '-0.5px', marginBottom: 18, textShadow: '0 2px 18px rgba(0,0,0,0.65)' }}>
-                  {screensaverCfg.store_name}
-                </div>
-              )}
-
-              {/* Llamado a la acción central */}
-              <div style={{ fontSize: 'clamp(20px,3.5vw,34px)', fontWeight: '900', color: '#D4AF37', textAlign: 'center', letterSpacing: '0.5px', marginBottom: 24, textShadow: '0 2px 16px rgba(0,0,0,0.7)' }}>
-                HOLA!! COMPRA AQUÍ
-              </div>
-
-              {/* Línea dorada */}
-              <div style={{ width: 64, height: 2, background: 'linear-gradient(90deg,transparent,#D4AF37,transparent)', borderRadius: 2, marginBottom: 28 }} />
-
-              {/* Carrito FA + créditos */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 'clamp(28px,4vw,40px)', color: '#D4AF37', animation: 'ss-cart 2s ease-in-out infinite', marginBottom: 4 }} />
-                <span style={{ fontSize: 'clamp(17px,2.8vw,26px)', fontWeight: '800', color: '#D4AF37', letterSpacing: '1px' }}>
-                  Auto Servicio
-                </span>
-                <span style={{ fontSize: 'clamp(10px,1.3vw,13px)', color: 'rgba(255,255,255,0.35)', letterSpacing: '3px', textTransform: 'uppercase', fontWeight: 500 }}>
-                  Desarrollado por SRServi.com
-                </span>
-              </div>
-            </div>
-
-            {/* ══════════ Footer CTA centrado ══════════ */}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)' }}>
-              <button
-                onClick={dismissSS}
-                onTouchStart={dismissSS}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-                  background: 'rgba(10,10,10,0.85)',
-                  backdropFilter: 'blur(16px)',
-                  WebkitBackdropFilter: 'blur(16px)',
-                  border: '1.5px solid rgba(212,175,55,0.6)',
-                  borderRadius: 50,
-                  padding: '0 26px 0 10px',
-                  height: 70,
-                  cursor: 'pointer',
-                  boxShadow: '0 0 0 4px rgba(212,175,55,0.08), 0 8px 32px rgba(0,0,0,0.5)',
-                  animation: 'ss-glow 2.5s ease-in-out infinite',
-                }}
-              >
-                {/* Logo mini circular */}
-                <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', border: '2px solid #D4AF37', flexShrink: 0, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {screensaverCfg.store_logo
-                    ? <img src={API + screensaverCfg.store_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
-                    : <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 15, color: '#D4AF37' }} />
-                  }
-                </div>
-
-                {/* Texto subrayado dorado */}
-                <span style={{ fontSize: 'clamp(18px,3vw,28px)', fontWeight: '800', color: '#fff', letterSpacing: '0.4px', borderBottom: '2.5px solid #D4AF37', paddingBottom: 3, whiteSpace: 'nowrap' }}>
-                  Toca aquí para continuar
-                </span>
-
-                {/* Chevron animado */}
-                <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 13, color: '#D4AF37', animation: 'ss-arrow 0.9s ease-in-out infinite', flexShrink: 0 }} />
-              </button>
-            </div>
-
-            </>)}
-
-            <style>{`
-              @keyframes ss-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
-              @keyframes ss-cart  { 0%,100%{transform:translateX(0) scale(1)} 45%{transform:translateX(8px) scale(1.04)} }
-              @keyframes ss-arrow { 0%,100%{transform:translateX(0)} 50%{transform:translateX(5px)} }
-              @keyframes ss-glow  { 0%,100%{box-shadow:0 0 0 4px rgba(212,175,55,0.08),0 8px 32px rgba(0,0,0,0.5)} 50%{box-shadow:0 0 0 6px rgba(212,175,55,0.18),0 8px 40px rgba(212,175,55,0.2)} }
-            `}</style>
+            )}
           </div>
         );
       })()}

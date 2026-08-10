@@ -492,15 +492,6 @@ function Login() {
             <FontAwesomeIcon icon={faDesktop} style={{ color: '#D4AF37' }} />
             Descargar App Windows (Tótem)
           </button>
-          <a
-            href={`${API}/downloads/SRServi-POS-Offline.apk`}
-            download
-            className="btn btn-lg btn-full"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#1a1a1a', color: '#fff', border: '2px solid #22c55e', textDecoration: 'none' }}
-          >
-            <FontAwesomeIcon icon={faDownload} style={{ color: '#22c55e' }} />
-            Descargar App Android (Offline · Gratis)
-          </a>
           <button
             onClick={() => openDlModal('Cartelería TV', '🎬', 'cctv')}
             className="btn btn-lg btn-full"

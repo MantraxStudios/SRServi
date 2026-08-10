@@ -2777,12 +2777,11 @@ app.post('/api/offline/import', async (req, res) => {
 
 app.post('/api/claim-trial', authenticateToken, async (req, res) => {
   try {
-    // El mes gratis de premium solo se puede reclamar cuando el plan Gratis ya
-    // terminó: el usuario tuvo el plan Gratis aprobado y ya no tiene plan activo.
-    const approvedFree = await hasApprovedFreePlan(req.user.id);
+    // Prueba gratis self-service: cualquier usuario sin plan activo puede
+    // reclamarla al entrar (una sola vez por cuenta, sin aprobación).
     const activePlan = await getUserPlan(req.user.id);
-    if (!approvedFree || activePlan) {
-      return res.status(403).json({ error: 'El mes gratis de premium solo está disponible cuando tu plan Gratis haya terminado.' });
+    if (activePlan) {
+      return res.status(403).json({ error: 'Ya tienes un plan activo.' });
     }
     const result = await claimFreeTrial(req.user.id);
     res.json({ success: true, message: `¡Listo! Activamos 1 mes gratis del plan ${result.plan}`, ...result });

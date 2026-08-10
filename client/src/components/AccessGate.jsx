@@ -5,23 +5,47 @@ import { faLock, faGift, faCrown, faSignOutAlt } from '@fortawesome/free-solid-s
 const API = 'https://srservi2.srautomatic.com';
 const GOLD = '#D4AF37';
 
-// Pantalla de bloqueo para cuentas sin plan activo: pide un plan o permite
-// solicitar acceso gratis (justificándolo → lo aprueba el superadmin).
+// Pantalla de bloqueo para cuentas sin plan activo. Orden correcto:
+// 1) al entrar, reclamar el mes gratis self-service (sin aprobación);
+// 2) cuando ese mes termina, recién ahí se ofrece el formulario de acceso
+//    gratis (lo revisa y aprueba el superadmin) o contratar un plan.
 export default function AccessGate({ token, onGoToPlans, onLogout }) {
   const [req, setReq] = useState(null);
   const [ended, setEnded] = useState(false);
+  const [hasClaimedTrial, setHasClaimedTrial] = useState(true);
   const [loading, setLoading] = useState(true);
   const [biz, setBiz] = useState('');
   const [reason, setReason] = useState('');
   const [sending, setSending] = useState(false);
+  const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {
-    fetch(API + '/api/free-plan/request', { headers: { Authorization: 'Bearer ' + token } })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { setReq(d?.request || null); setEnded(!!d?.ended); })
-      .catch(() => {})
+    Promise.all([
+      fetch(API + '/api/free-plan/request', { headers: { Authorization: 'Bearer ' + token } })
+        .then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(API + '/api/my-plan', { headers: { Authorization: 'Bearer ' + token } })
+        .then(r => r.ok ? r.json() : null).catch(() => null),
+    ])
+      .then(([reqData, planData]) => {
+        setReq(reqData?.request || null);
+        setEnded(!!reqData?.ended);
+        setHasClaimedTrial(!!planData?.has_claimed_trial);
+      })
       .finally(() => setLoading(false));
   }, [token]);
+
+  const claimTrial = async () => {
+    setClaiming(true);
+    try {
+      const r = await fetch(API + '/api/claim-trial', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + token }
+      });
+      const d = await r.json();
+      if (r.ok) window.location.reload();
+      else alert(d.error || 'No se pudo activar la prueba gratis');
+    } catch { alert('Error de conexión'); }
+    finally { setClaiming(false); }
+  };
 
   const submit = async () => {
     if (!reason.trim()) return;
@@ -50,12 +74,25 @@ export default function AccessGate({ token, onGoToPlans, onLogout }) {
         <div style={s.iconBox}><FontAwesomeIcon icon={faLock} style={{ fontSize: 26, color: GOLD }} /></div>
         <h1 style={s.title}>Tu cuenta está bloqueada</h1>
         <p style={s.sub}>
-          Para usar SRServi necesitás un plan activo. Podés <strong>contratar un plan</strong> o
-          <strong> solicitar un acceso gratis</strong> justificando por qué lo necesitás (lo revisamos y aprobamos).
+          {loading || hasClaimedTrial ? (
+            <>Para usar SRServi necesitás un plan activo. Podés <strong>contratar un plan</strong> o
+            <strong> solicitar un acceso gratis</strong> justificando por qué lo necesitás (lo revisamos y aprobamos).</>
+          ) : (
+            <>Para usar SRServi necesitás un plan activo. ¡Reclamá tu <strong>mes gratis</strong> ahora, sin tarjeta y sin aprobación!</>
+          )}
         </p>
 
         {loading ? (
           <div style={{ color: '#9ca3af', fontSize: 13, padding: '10px 0' }}>Cargando...</div>
+        ) : !hasClaimedTrial ? (
+          // Al entrar, primero se ofrece el mes gratis self-service. El
+          // formulario de acceso gratis (con aprobación) recién aparece
+          // cuando ese mes termine.
+          <div style={{ textAlign: 'center' }}>
+            <button onClick={claimTrial} disabled={claiming} style={s.primaryBtn}>
+              <FontAwesomeIcon icon={faGift} /> {claiming ? 'Activando...' : 'Reclamar 1 mes gratis'}
+            </button>
+          </div>
         ) : ended ? (
           // El mes de acceso gratis ya terminó → ahora sí ofrecemos contratar un plan.
           <div style={{ textAlign: 'center' }}>

@@ -2407,15 +2407,22 @@ h1, h2, h3, h4, h5, h6 {
   padding-bottom: 110px;
   scrollbar-width: thin;
   scrollbar-color: rgba(0,0,0,0.12) transparent;
+  /* Difumina el borde superior: sin esto, los productos se cortan de golpe
+     justo contra las categorías al hacer scroll hacia arriba. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 26px, #000 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 26px, #000 100%);
 }
 
 /* Category tabs (mobile: horizontal pills / desktop: sidebar) */
 .category-tabs {
-  padding: 6px 8px 4px;
+  padding: 4px 8px 4px;
   background: transparent;
   flex-shrink: 0;
 }
 
+/* padding (no margin) porque overflow-x:auto obliga a overflow-y:auto
+   (spec de CSS), y eso recorta el box-shadow de los tabs contra el borde
+   del contenedor si no hay espacio interno para que "respire". */
 .category-tabs-list {
   display: flex;
   flex-wrap: nowrap;
@@ -2423,6 +2430,7 @@ h1, h2, h3, h4, h5, h6 {
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  padding: 8px 4px 12px;
 }
 
 .category-tabs-list::-webkit-scrollbar {
@@ -2439,15 +2447,15 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: center;
   gap: 4px;
   padding: 4px;
-  border-radius: 12px;
-  border: 2px solid var(--kiosk-accent, #FFC42E);   /* borde amarillo 2px */
+  border-radius: 20px;
+  border: none;
   background-color: var(--kiosk-card, #fff);
   color: var(--kiosk-dark, #232028);
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
-  transition: background-color var(--transition), border-color var(--transition), transform var(--transition);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: background-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
   outline: none;
 }
 
@@ -2490,11 +2498,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .category-tab.active {
-  border-color: var(--kiosk-accent, #FFC42E);
   background-color: var(--kiosk-accent, #FFC42E);
   color: var(--kiosk-dark, #232028);
   font-weight: 800;
-  box-shadow: 0 4px 12px rgba(255, 196, 46, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
 .category-tab.active .category-tab-icon {
@@ -2676,7 +2683,7 @@ h1, h2, h3, h4, h5, h6 {
     width: 100%;
     padding: 15px 18px;
     font-size: 15px;
-    border-radius: 16px;
+    border-radius: 22px;
     text-align: left;
   }
 
@@ -2749,11 +2756,12 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Siempre 3 columnas (mismo formato en tablet, tótem y editor).
-   En pantallas anchas solo crece muy poco el espaciado, no la cantidad de columnas. */
+/* Pantallas anchas / horizontales (tablet landscape, PC, tótem grande):
+   las columnas crecen con el ancho disponible en vez de quedar fijas en 3,
+   así las tarjetas de producto no terminan gigantes en 1920x1080. */
 @media (min-width: 900px) {
   .products-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 10px 8px;
     padding: 4px 10px;
   }
@@ -2761,15 +2769,17 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (min-width: 1200px) {
   .products-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 7px;
-    padding: 7px 12px;
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+    gap: 10px;
+    padding: 8px 14px;
   }
 }
 
 @media (min-width: 1700px) {
   .products-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+    gap: 12px;
+    padding: 10px 16px;
   }
 }
 
@@ -2831,8 +2841,10 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* En modo edición mostramos el MISMO formato que ve el cliente en la tablet:
-   siempre 3 columnas, en todas las pantallas (no más columnas chicas).
+/* En modo edición mostramos el mismo formato que ve el cliente en la tablet
+   (3 columnas fijas) en portrait/mobile. En pantallas anchas del editor
+   (PC/tablet landscape) las columnas crecen con el ancho disponible, igual
+   que en la tienda del cliente, para que las tarjetas no queden gigantes.
    minmax(0,1fr) evita que los tracks crezcan por el contenido y desborden. */
 .store-body.editing .products-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2843,7 +2855,13 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (min-width: 1024px) {
   .store-body.editing .products-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+  }
+}
+
+@media (min-width: 1700px) {
+  .store-body.editing .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
   }
 }
 
@@ -3360,6 +3378,7 @@ html body .store-container .store-product-card * {
   border: 1px solid rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(12px);
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  cursor: pointer;
 }
 
 /* Oculta la barra del carrito hasta que haya al menos 1 producto (entra deslizando). */
@@ -13702,4 +13721,85 @@ html body .store-container .store-product-card * {
   .se-tab span { display: none; }
   .se-tab { font-size: 15px; }
   .se-preset-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ============================================================
+   Tema Glass (estilo iOS) — opcional, desactivado por defecto.
+   Se activa por tienda/dispositivo desde el menú del PIN
+   (.store-container.glass-theme, ver pinOptionsModalOpen en Store.jsx).
+   Fondo con degradé suave para que el desenfoque de las tarjetas
+   "cristal" tenga algo detrás que refractar, como el fondo del
+   Centro de Control / pantalla de bloqueo de iOS.
+   ============================================================ */
+.store-container.glass-theme {
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 0%, rgba(255, 214, 153, 0.55), transparent 60%),
+    radial-gradient(ellipse 70% 55% at 100% 20%, rgba(173, 196, 255, 0.5), transparent 60%),
+    radial-gradient(ellipse 70% 60% at 20% 100%, rgba(255, 176, 214, 0.4), transparent 60%),
+    radial-gradient(ellipse 60% 55% at 90% 95%, rgba(178, 235, 220, 0.45), transparent 60%),
+    linear-gradient(160deg, #f4f1ea 0%, #eef1f6 100%);
+}
+
+.store-container.glass-theme .store-name-banner {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(26px) saturate(180%);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.10);
+}
+
+.store-container.glass-theme .category-tabs {
+  background: transparent;
+}
+
+.store-container.glass-theme .category-tab {
+  background-color: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 16px rgba(31, 38, 135, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.store-container.glass-theme .category-tab.active {
+  /* rgba fija primero: si el WebView no soporta color-mix() (equipos viejos),
+     la declaración inválida se ignora y queda esta como respaldo. */
+  background-color: rgba(255, 196, 46, 0.55);
+  background-color: color-mix(in srgb, var(--kiosk-accent, #FFC42E) 55%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 6px 20px rgba(255, 196, 46, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.store-container.glass-theme .store-product-wrapper {
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 8px 24px rgba(31, 38, 135, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+@media (hover: hover) {
+  .store-container.glass-theme .store-product-wrapper:hover {
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 12px 30px rgba(31, 38, 135, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+}
+
+.store-container.glass-theme .category-section-title {
+  color: var(--kiosk-dark, #232028);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.4);
+}
+
+.store-container.glass-theme .cart-bar {
+  background: rgba(30, 27, 20, 0.55);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 16px 44px rgba(20, 16, 10, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.store-container.glass-theme .store-promo-card {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
 }

@@ -75,6 +75,7 @@
             android:textColor="@color/primary_dark"
             android:textSize="20sp"
             android:textStyle="bold"
+            android:visibility="gone"
             app:backgroundTint="@null"
             app:cornerRadius="28dp" />
 

@@ -20,6 +20,8 @@ import android.webkit.DownloadListener
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -39,6 +41,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.mantraxstudios.srservi.R
 import com.mantraxstudios.srservi.admin.SRServiDeviceAdminReceiver
+import com.mantraxstudios.srservi.offline.OfflineRepository
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
@@ -50,6 +53,22 @@ class SellActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private var inLockTask = false
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private var connectionErrorDialogShown = false
+    private var currentStoreCode: String = ""
+
+    // Sincroniza el menú/terminales en segundo plano MIENTRAS hay conexión, para
+    // que el Modo Offline ya tenga datos frescos cuando el servidor se caiga
+    // (si solo sincronizáramos al entrar en offline, la primera vez que se cae
+    // el servidor no habría nada en caché).
+    private val syncHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val syncRunnable = object : Runnable {
+        override fun run() {
+            if (currentStoreCode.isNotBlank()) {
+                Thread { OfflineRepository.sync(this@SellActivity, currentStoreCode) }.start()
+            }
+            syncHandler.postDelayed(this, OFFLINE_SYNC_INTERVAL_MS)
+        }
+    }
 
     private val fileChooserLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -70,6 +89,7 @@ class SellActivity : AppCompatActivity() {
         private const val BASE_URL = "https://srservi2.srautomatic.com"
         private const val EXIT_PIN = "1234"
         private const val REQ_MEDIA_PERMS = 4711
+        private const val OFFLINE_SYNC_INTERVAL_MS = 5 * 60 * 1000L
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,11 +115,13 @@ class SellActivity : AppCompatActivity() {
 
         val storeCode = getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
             .getString("store_code", "")
+        currentStoreCode = storeCode?.trim()?.uppercase() ?: ""
         val ver = com.mantraxstudios.srservi.SRServiConfig.APP_VERSION
         val sellUrl = if (!storeCode.isNullOrBlank()) "$BASE_URL/store/$storeCode?app_version=$ver" else "$BASE_URL?app_version=$ver"
         webView.loadUrl(sellUrl)
 
         sendHeartbeat(storeCode ?: "", ver)
+        if (currentStoreCode.isNotBlank()) syncHandler.post(syncRunnable)
 
         // Hidden exit: long-press the top-left corner
         findViewById<View>(R.id.exitHotspot).setOnLongClickListener {
@@ -207,6 +229,17 @@ class SellActivity : AppCompatActivity() {
                 view.loadUrl(url)
                 return true
             }
+
+            override fun onReceivedError(
+                view: WebView,
+                request: WebResourceRequest,
+                error: WebResourceError
+            ) {
+                super.onReceivedError(view, request, error)
+                if (request.isForMainFrame) {
+                    showConnectionErrorDialog()
+                }
+            }
         }
 
         webView.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
@@ -259,6 +292,34 @@ class SellActivity : AppCompatActivity() {
                 return true
             }
         }
+    }
+
+    private fun showConnectionErrorDialog() {
+        if (connectionErrorDialogShown) return
+        connectionErrorDialogShown = true
+
+        val storeCode = getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
+            .getString("store_code", "")
+
+        AlertDialog.Builder(this)
+            .setTitle("Sin conexión con el servidor")
+            .setMessage("No se pudo conectar con el servidor. ¿Querés cambiar al modo offline o mantenerte esperando la conexión?")
+            .setCancelable(false)
+            .setPositiveButton("Cambiar a modo offline") { _, _ ->
+                connectionErrorDialogShown = false
+                stopKioskLock()
+                if (storeCode.isNullOrBlank()) {
+                    Toast.makeText(this, getString(R.string.sell_no_code), Toast.LENGTH_SHORT).show()
+                } else {
+                    startActivity(Intent(this, OfflinePosActivity::class.java))
+                    finish()
+                }
+            }
+            .setNegativeButton("Mantenerme") { _, _ ->
+                connectionErrorDialogShown = false
+                webView.reload()
+            }
+            .show()
     }
 
     private fun promptExitPin() {
@@ -461,6 +522,7 @@ class SellActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        syncHandler.removeCallbacks(syncRunnable)
         stopKioskLock()
         webView.destroy()
         super.onDestroy()
