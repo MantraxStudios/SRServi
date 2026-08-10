@@ -1293,6 +1293,8 @@ function Store() {
   const [restartingSending, setRestartingSending] = useState(false);
   const [pinOptionsModalOpen, setPinOptionsModalOpen] = useState(false);
   const [totemZoom, setTotemZoom] = useState(() => parseFloat(localStorage.getItem('srservi_totem_zoom') || '1'));
+  // Tema Glass (estilo iOS): desactivado por defecto, se activa desde el menú del PIN.
+  const [glassTheme, setGlassTheme] = useState(() => localStorage.getItem('srservi_glass_theme') === '1');
   // Voz del asistente (TTS) — por dispositivo (las voces disponibles dependen del equipo)
   const [ttsVoices, setTtsVoices] = useState([]);
   const [ttsVoice, setTtsVoice] = useState(() => localStorage.getItem('srservi_tts_voice') || '');
@@ -5726,7 +5728,7 @@ function Store() {
     )}
     <div
       ref={storeContainerRef}
-      className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}${scrolled ? ' store-scrolled' : ''}${cart.length === 0 ? ' cart-empty' : ''}`}
+      className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}${scrolled ? ' store-scrolled' : ''}${cart.length === 0 ? ' cart-empty' : ''}${glassTheme ? ' glass-theme' : ''}`}
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom,
         ...(seasonalTheme ? { '--kiosk-accent': seasonalTheme.colors.accent, '--kiosk-orange': seasonalTheme.colors.primary, '--kiosk-accent-soft': seasonalTheme.colors.accent + '22' } : {}) }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
@@ -10406,6 +10408,33 @@ function Store() {
                   />
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#aaa', marginTop: '2px' }}>
                     <span>20%</span><span>100%</span><span>200%</span>
+                  </div>
+                </div>
+
+                <div style={bw.card}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={bw.cardTitle}>Tema Glass (iOS)</div>
+                      <div style={{ fontSize: '11px', color: '#888', marginTop: '-6px' }}>Categorías, tarjetas y barra de carrito con efecto cristal</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const next = !glassTheme;
+                        setGlassTheme(next);
+                        localStorage.setItem('srservi_glass_theme', next ? '1' : '0');
+                      }}
+                      style={{
+                        width: '48px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer', flexShrink: 0, marginLeft: '10px',
+                        background: glassTheme ? '#111' : '#ccc',
+                        position: 'relative', transition: 'background 0.2s'
+                      }}
+                    >
+                      <span style={{
+                        display: 'block', width: '20px', height: '20px', borderRadius: '50%', background: '#fff',
+                        position: 'absolute', top: '3px', transition: 'left 0.2s',
+                        left: glassTheme ? '25px' : '3px'
+                      }} />
+                    </button>
                   </div>
                 </div>
 

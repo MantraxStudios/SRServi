@@ -13696,3 +13696,84 @@ html body .store-container .store-product-card * {
   .se-tab { font-size: 15px; }
   .se-preset-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ============================================================
+   Tema Glass (estilo iOS) — opcional, desactivado por defecto.
+   Se activa por tienda/dispositivo desde el menú del PIN
+   (.store-container.glass-theme, ver pinOptionsModalOpen en Store.jsx).
+   Fondo con degradé suave para que el desenfoque de las tarjetas
+   "cristal" tenga algo detrás que refractar, como el fondo del
+   Centro de Control / pantalla de bloqueo de iOS.
+   ============================================================ */
+.store-container.glass-theme {
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 0%, rgba(255, 214, 153, 0.55), transparent 60%),
+    radial-gradient(ellipse 70% 55% at 100% 20%, rgba(173, 196, 255, 0.5), transparent 60%),
+    radial-gradient(ellipse 70% 60% at 20% 100%, rgba(255, 176, 214, 0.4), transparent 60%),
+    radial-gradient(ellipse 60% 55% at 90% 95%, rgba(178, 235, 220, 0.45), transparent 60%),
+    linear-gradient(160deg, #f4f1ea 0%, #eef1f6 100%);
+}
+
+.store-container.glass-theme .store-name-banner {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(26px) saturate(180%);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.10);
+}
+
+.store-container.glass-theme .category-tabs {
+  background: transparent;
+}
+
+.store-container.glass-theme .category-tab {
+  background-color: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 16px rgba(31, 38, 135, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.store-container.glass-theme .category-tab.active {
+  /* rgba fija primero: si el WebView no soporta color-mix() (equipos viejos),
+     la declaración inválida se ignora y queda esta como respaldo. */
+  background-color: rgba(255, 196, 46, 0.55);
+  background-color: color-mix(in srgb, var(--kiosk-accent, #FFC42E) 55%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 6px 20px rgba(255, 196, 46, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.store-container.glass-theme .store-product-wrapper {
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 8px 24px rgba(31, 38, 135, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+@media (hover: hover) {
+  .store-container.glass-theme .store-product-wrapper:hover {
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 12px 30px rgba(31, 38, 135, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+}
+
+.store-container.glass-theme .category-section-title {
+  color: var(--kiosk-dark, #232028);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.4);
+}
+
+.store-container.glass-theme .cart-bar {
+  background: rgba(30, 27, 20, 0.55);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 16px 44px rgba(20, 16, 10, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.store-container.glass-theme .store-promo-card {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
