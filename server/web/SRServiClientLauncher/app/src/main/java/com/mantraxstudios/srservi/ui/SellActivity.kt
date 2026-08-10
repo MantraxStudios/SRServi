@@ -20,6 +20,8 @@ import android.webkit.DownloadListener
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -50,6 +52,7 @@ class SellActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private var inLockTask = false
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private var connectionErrorDialogShown = false
 
     private val fileChooserLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -207,6 +210,17 @@ class SellActivity : AppCompatActivity() {
                 view.loadUrl(url)
                 return true
             }
+
+            override fun onReceivedError(
+                view: WebView,
+                request: WebResourceRequest,
+                error: WebResourceError
+            ) {
+                super.onReceivedError(view, request, error)
+                if (request.isForMainFrame) {
+                    showConnectionErrorDialog()
+                }
+            }
         }
 
         webView.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
@@ -259,6 +273,34 @@ class SellActivity : AppCompatActivity() {
                 return true
             }
         }
+    }
+
+    private fun showConnectionErrorDialog() {
+        if (connectionErrorDialogShown) return
+        connectionErrorDialogShown = true
+
+        val storeCode = getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
+            .getString("store_code", "")
+
+        AlertDialog.Builder(this)
+            .setTitle("Sin conexión con el servidor")
+            .setMessage("No se pudo conectar con el servidor. ¿Querés cambiar al modo offline o mantenerte esperando la conexión?")
+            .setCancelable(false)
+            .setPositiveButton("Cambiar a modo offline") { _, _ ->
+                connectionErrorDialogShown = false
+                stopKioskLock()
+                if (storeCode.isNullOrBlank()) {
+                    Toast.makeText(this, getString(R.string.sell_no_code), Toast.LENGTH_SHORT).show()
+                } else {
+                    startActivity(Intent(this, OfflinePosActivity::class.java))
+                    finish()
+                }
+            }
+            .setNegativeButton("Mantenerme") { _, _ ->
+                connectionErrorDialogShown = false
+                webView.reload()
+            }
+            .show()
     }
 
     private fun promptExitPin() {

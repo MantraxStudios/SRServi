@@ -2440,14 +2440,14 @@ h1, h2, h3, h4, h5, h6 {
   gap: 4px;
   padding: 4px;
   border-radius: 12px;
-  border: 2px solid var(--kiosk-accent, #FFC42E);   /* borde amarillo 2px */
+  border: none;
   background-color: var(--kiosk-card, #fff);
   color: var(--kiosk-dark, #232028);
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
-  transition: background-color var(--transition), border-color var(--transition), transform var(--transition);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: background-color var(--transition), box-shadow var(--transition), transform var(--transition);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
   outline: none;
 }
 
@@ -2490,11 +2490,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .category-tab.active {
-  border-color: var(--kiosk-accent, #FFC42E);
   background-color: var(--kiosk-accent, #FFC42E);
   color: var(--kiosk-dark, #232028);
   font-weight: 800;
-  box-shadow: 0 4px 12px rgba(255, 196, 46, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
 .category-tab.active .category-tab-icon {
