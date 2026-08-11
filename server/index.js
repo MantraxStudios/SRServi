@@ -7603,6 +7603,14 @@ app.post('/api/orders', async (req, res) => {
     if (socketId) {
       io.to(socketId).emit('new_order', order);
     }
+
+    // Pedido en efectivo desde el tótem: aviso por WhatsApp con el número de
+    // orden apenas se registra, para que el cliente se lo muestre a la
+    // cajera (no aplica a delivery ni a pedidos cargados por un worker).
+    if (payment_method === 'cash' && !delivery && !from_worker) {
+      notifyOrderStatusWhatsApp(store_id, order.id, 'placed');
+    }
+
     // Broadcast para superadmin
     io.emit('superadmin_new_order', {
       id: order.id, order_number: order.order_number, store_id: order.store_id,
@@ -8367,13 +8375,15 @@ app.get('/api/orders/store/:storeId/find', async (req, res) => {
 
 // Aviso al cliente por WhatsApp según el avance de su pedido (si la tienda
 // activó whatsapp_ready_notify y el cliente dejó su teléfono en el tótem):
-// 'preparing' cuando se empieza a preparar (pago con tarjeta confirmado o
-// efectivo aprobado en el WorkerPanel) y 'ready'/'completed' cuando está listo
-// para retirar — lo que ocurra primero. preparing_notified / ready_notified
-// evitan reenviarlo dos veces. No bloquea al llamador: si WhatsApp no está
-// conectado o algo falla, se registra y se ignora.
+// 'placed' apenas se registra un pedido en efectivo (para que le muestre el
+// número a la cajera), 'preparing' cuando se empieza a preparar (pago con
+// tarjeta confirmado o efectivo aprobado en el WorkerPanel) y 'ready'/
+// 'completed' cuando está listo para retirar — lo que ocurra primero.
+// placed_notified / preparing_notified / ready_notified evitan reenviar cada
+// aviso dos veces. No bloquea al llamador: si WhatsApp no está conectado o
+// algo falla, se registra y se ignora.
 async function notifyOrderStatusWhatsApp(storeId, orderId, status) {
-  if (status !== 'preparing' && status !== 'ready' && status !== 'completed') return;
+  if (!['placed', 'preparing', 'ready', 'completed'].includes(status)) return;
   const sid = parseInt(storeId);
   try {
     const [rows] = await pool.execute('SELECT * FROM orders WHERE id = ?', [orderId]);
@@ -8384,7 +8394,8 @@ async function notifyOrderStatusWhatsApp(storeId, orderId, status) {
       return;
     }
     const isReadyStage = status === 'ready' || status === 'completed';
-    if (isReadyStage ? order.ready_notified : order.preparing_notified) {
+    const col = status === 'placed' ? 'placed_notified' : isReadyStage ? 'ready_notified' : 'preparing_notified';
+    if (order[col]) {
       console.log(`[WhatsApp:${sid}] Aviso omitido para orden #${orderId}: ya se había notificado antes (${status}).`);
       return;
     }
@@ -8403,7 +8414,11 @@ async function notifyOrderStatusWhatsApp(storeId, orderId, status) {
       return;
     }
     const ref = order.order_number || order.id;
-    const msg = isReadyStage
+    const msg = status === 'placed'
+      ? `🧾 ¡Recibimos tu pedido en *${store.name}*!\n\n` +
+        `📋 Número de orden: *#${ref}*\n\n` +
+        `💵 Muéstrale este número a la cajera para pagar en efectivo. ¡Gracias!`
+      : isReadyStage
       ? `🎉 ¡Tu pedido en *${store.name}* ya está listo!\n\n` +
         `📋 Número de orden: *#${ref}*\n\n` +
         `Puedes pasar a retirarlo. ¡Gracias por tu compra! 🙌`
@@ -8412,7 +8427,6 @@ async function notifyOrderStatusWhatsApp(storeId, orderId, status) {
         `Te avisaremos por acá apenas esté listo. 🙌`;
     await sendWhatsAppMessage(sid, num, msg);
     console.log(`[WhatsApp:${sid}] Aviso de "${status}" enviado a ${num} (orden #${orderId}).`);
-    const col = isReadyStage ? 'ready_notified' : 'preparing_notified';
     try { await pool.execute(`UPDATE orders SET ${col} = 1 WHERE id = ?`, [orderId]); } catch (_) { /* columna aún no migrada */ }
   } catch (e) {
     console.error(`[WhatsApp:${sid}] No se pudo avisar estado "${status}" (orden #${orderId}):`, e.message);

@@ -1031,6 +1031,12 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE orders ADD COLUMN preparing_notified BOOLEAN NOT NULL DEFAULT FALSE');
         console.log('✅ Columna preparing_notified agregada a orders');
       }
+      // placed_notified: evita reenviar el aviso de "pedido recibido, muéstrale
+      // el número a la cajera" por WhatsApp para pedidos en efectivo.
+      if (!orderColumnNames.includes('placed_notified')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN placed_notified BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna placed_notified agregada a orders');
+      }
     } catch (orderMigrationError) {
       console.error('❌ Error migrando columnas de cupones en orders:', orderMigrationError.message);
     }
