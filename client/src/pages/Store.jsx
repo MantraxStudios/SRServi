@@ -3487,6 +3487,11 @@ function Store() {
   const handleCheckout = async () => {
     if (cart.length === 0) return;
 
+    // Cerrar el carrito antes de mostrar cualquier modal de checkout: el carrito
+    // tiene z-index más alto que .modal-overlay, así que si queda abierto tapa
+    // por completo al modal del teléfono (quedaba "detrás" y no se veía).
+    setCartOpen(false);
+
     // Si la tienda pide avisar por WhatsApp cuando el pedido esté listo, primero
     // hay que pedir el teléfono del cliente en su propio modal (teclado numérico)
     // antes de mostrar cualquier otro modal de pago. Solo se pregunta una vez
@@ -3495,8 +3500,6 @@ function Store() {
       setPhoneModalOpen(true);
       return;
     }
-
-    setCartOpen(false);
 
     // Modo restaurante: solo confirmar pedido, agregar a mesa, sin cobrar
     if (restaurantMode && activeTable) {
