@@ -2520,8 +2520,19 @@ export async function updateStore(storeId, userId, data) {
     if (!names.includes('whatsapp_ready_notify')) await pool.execute('ALTER TABLE stores ADD COLUMN whatsapp_ready_notify BOOLEAN DEFAULT FALSE');
   } catch { /* ignore */ }
 
-  let query = `UPDATE stores SET name = ?, primary_color = ?, secondary_color = ?, accent_color = ?, header_color = ?, currency_code = ?, currency_symbol = ?, currency_name = ?`;
-  let params = [name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name];
+  let query = `UPDATE stores SET name = ?`;
+  let params = [name];
+
+  // Los campos de color/moneda son opcionales: sólo se actualizan si vienen en el body.
+  // (Evita romper el UPDATE con parámetros undefined cuando se guarda un solo ajuste,
+  //  p.ej. el toggle whatsapp_ready_notify, que sólo manda { name, whatsapp_ready_notify }.)
+  if (primary_color !== undefined) { query += `, primary_color = ?`; params.push(primary_color); }
+  if (secondary_color !== undefined) { query += `, secondary_color = ?`; params.push(secondary_color); }
+  if (accent_color !== undefined) { query += `, accent_color = ?`; params.push(accent_color); }
+  if (header_color !== undefined) { query += `, header_color = ?`; params.push(header_color); }
+  if (currency_code !== undefined) { query += `, currency_code = ?`; params.push(currency_code); }
+  if (currency_symbol !== undefined) { query += `, currency_symbol = ?`; params.push(currency_symbol); }
+  if (currency_name !== undefined) { query += `, currency_name = ?`; params.push(currency_name); }
 
   if (logo_url !== undefined) {
     query += `, logo_url = ?`;

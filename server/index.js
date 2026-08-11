@@ -7692,7 +7692,7 @@ app.post('/api/orders', async (req, res) => {
 
 app.post('/api/orders/process-payment', async (req, res) => {
   try {
-    const { store_id, items, order_type, payment_method, selected_terminal_id, coupon_code, table_number, custom_total, customer_comment } = req.body;
+    const { store_id, items, order_type, payment_method, selected_terminal_id, coupon_code, table_number, custom_total, customer_comment, tip_amount } = req.body;
 
     if (!store_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
@@ -7738,7 +7738,8 @@ app.post('/api/orders/process-payment', async (req, res) => {
         terminal_id: selected_terminal_id ? parseInt(selected_terminal_id) : null,
         table_number,
         custom_total,
-        customer_comment: customer_comment || null
+        customer_comment: customer_comment || null,
+        tip_amount: tip_amount || 0
       });
 
       const socketId = userSockets.get(parseInt(store_id));
