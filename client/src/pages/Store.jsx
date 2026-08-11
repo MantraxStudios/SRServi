@@ -74,6 +74,33 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
+// Códigos telefónicos para el selector de país del modal de WhatsApp.
+// Chile primero (default del tótem), luego el resto alfabético por nombre.
+const COUNTRY_CODES = [
+  { code: '56', name: 'Chile' },
+  { code: '54', name: 'Argentina' },
+  { code: '591', name: 'Bolivia' },
+  { code: '55', name: 'Brasil' },
+  { code: '1', name: 'Canadá' },
+  { code: '57', name: 'Colombia' },
+  { code: '506', name: 'Costa Rica' },
+  { code: '53', name: 'Cuba' },
+  { code: '593', name: 'Ecuador' },
+  { code: '503', name: 'El Salvador' },
+  { code: '34', name: 'España' },
+  { code: '1', name: 'Estados Unidos' },
+  { code: '502', name: 'Guatemala' },
+  { code: '504', name: 'Honduras' },
+  { code: '52', name: 'México' },
+  { code: '505', name: 'Nicaragua' },
+  { code: '507', name: 'Panamá' },
+  { code: '595', name: 'Paraguay' },
+  { code: '51', name: 'Perú' },
+  { code: '1', name: 'República Dominicana' },
+  { code: '598', name: 'Uruguay' },
+  { code: '58', name: 'Venezuela' },
+];
+
 // Icono de categoría: usa el icono personalizado si está asignado,
 // si no, cae en la heurística por nombre (estilo kiosko).
 const catIconFor = (catObj) => {
@@ -1954,6 +1981,8 @@ function Store() {
   // las opciones de pago — no vive en el carrito.
   const [customerPhone, setCustomerPhone] = useState('');
   const [phoneModalOpen, setPhoneModalOpen] = useState(false);
+  // Código de país del teléfono del modal de WhatsApp — Chile por defecto.
+  const [phoneCountryCode, setPhoneCountryCode] = useState('56');
   // Ref (no state) porque se lee de forma síncrona justo después de escribirlo,
   // al volver a llamar handleCheckout() desde el modal — con useState el cierre
   // seguiría viendo el valor viejo por el batching de React.
@@ -1965,6 +1994,7 @@ function Store() {
       phoneAskedRef.current = false;
       setCustomerPhone('');
       setPhoneDigits('');
+      setPhoneCountryCode('56');
     }
   }, [cart.length]);
   const [showCommentModal, setShowCommentModal] = useState(false);
@@ -8035,7 +8065,19 @@ function Store() {
               padding: '14px 16px', borderRadius: 12, background: 'var(--store-bg, #f9fafb)',
               border: '1.5px solid rgba(0,0,0,0.12)', marginBottom: 18, minHeight: 26
             }}>
-              <span style={{ fontWeight: 700, fontSize: 20, color: 'var(--store-primary, #111)' }}>+56</span>
+              <select
+                value={phoneCountryCode}
+                onChange={(e) => setPhoneCountryCode(e.target.value)}
+                style={{
+                  fontWeight: 700, fontSize: 16, color: 'var(--store-primary, #111)',
+                  border: 'none', background: 'transparent', cursor: 'pointer', outline: 'none',
+                  maxWidth: 120
+                }}
+              >
+                {COUNTRY_CODES.map(c => (
+                  <option key={`${c.name}-${c.code}`} value={c.code}>+{c.code} ({c.name})</option>
+                ))}
+              </select>
               <span style={{ fontWeight: 700, fontSize: 20, letterSpacing: 2, color: phoneDigits ? 'var(--store-primary, #111)' : '#bbb' }}>
                 {phoneDigits || t('phonePlaceholder', lang)}
               </span>
@@ -8086,7 +8128,7 @@ function Store() {
                 disabled={!phoneDigits.trim()}
                 onClick={() => {
                   setPhoneModalOpen(false);
-                  setCustomerPhone('+56' + phoneDigits);
+                  setCustomerPhone('+' + phoneCountryCode + phoneDigits);
                   phoneAskedRef.current = true;
                   handleCheckout();
                 }}
