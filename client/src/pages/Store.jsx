@@ -1129,6 +1129,7 @@ function Store() {
   const configFromUrl = searchParams.get('config');
   const adminEditToken = searchParams.get('admin_edit');
   const appVersionFromUrl = searchParams.get('app_version');
+  const posOfflineMode = searchParams.get('pos_offline') === '1';
   const { setMenuOpen } = useStore() || {};
   const [apkUpdateNeeded, setApkUpdateNeeded] = useState(() => sessionStorage.getItem('apk_downloaded') === '1');
   const [apkUpdateDismissed, setApkUpdateDismissed] = useState(false);
@@ -1945,6 +1946,7 @@ function Store() {
   // (solo si la tienda activó la función whatsapp_ready_notify).
   const [customerPhone, setCustomerPhone] = useState('');
   const [phoneVkbOpen, setPhoneVkbOpen] = useState(false);
+  const [pendingCheckoutAfterPhone, setPendingCheckoutAfterPhone] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [showCommentKb, setShowCommentKb] = useState(false);
   const [pendingCommentMethod, setPendingCommentMethod] = useState(null);
@@ -3454,6 +3456,16 @@ function Store() {
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
+
+    // Si la tienda pide avisar por WhatsApp cuando el pedido esté listo, primero
+    // hay que pedir el teléfono del cliente (con su propio teclado) antes de
+    // mostrar cualquier otro modal de pago.
+    if (!!store?.store?.whatsapp_ready_notify && !(restaurantMode && activeTable) && !customerPhone.trim()) {
+      setPendingCheckoutAfterPhone(true);
+      setPhoneVkbOpen(true);
+      return;
+    }
+
     setCartOpen(false);
 
     // Modo restaurante: solo confirmar pedido, agregar a mesa, sin cobrar
@@ -5735,7 +5747,7 @@ function Store() {
     )}
     <div
       ref={storeContainerRef}
-      className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}${scrolled ? ' store-scrolled' : ''}${cart.length === 0 ? ' cart-empty' : ''}${glassTheme ? ' glass-theme' : ''}`}
+      className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}${scrolled ? ' store-scrolled' : ''}${cart.length === 0 ? ' cart-empty' : ''}${glassTheme ? ' glass-theme' : ''}${posOfflineMode ? ' store-pos-offline' : ''}`}
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom,
         ...(seasonalTheme ? { '--kiosk-accent': seasonalTheme.colors.accent, '--kiosk-orange': seasonalTheme.colors.primary, '--kiosk-accent-soft': seasonalTheme.colors.accent + '22' } : {}) }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
@@ -7947,7 +7959,13 @@ function Store() {
                   <VirtualKeyboard
                     value={customerPhone}
                     onChange={(v) => setCustomerPhone(v.replace(/[^0-9+ ]/g, ''))}
-                    onClose={() => setPhoneVkbOpen(false)}
+                    onClose={(finalValue) => {
+                      setPhoneVkbOpen(false);
+                      if (pendingCheckoutAfterPhone) {
+                        setPendingCheckoutAfterPhone(false);
+                        if ((finalValue || '').trim()) handleCheckout();
+                      }
+                    }}
                     placeholder={t('phonePlaceholder', lang)}
                   />
                 )}
