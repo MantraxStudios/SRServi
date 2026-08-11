@@ -1764,6 +1764,7 @@ function Store() {
     setCartOpen(false);
     setPaymentModalOpen(false);
     setCashPaymentSuccess(false);
+    setCashOrderApproved(false);
   };
 
   // minimarket redirect removed — handled within the store view directly
@@ -1940,6 +1941,11 @@ function Store() {
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [paymentCancelled, setPaymentCancelled] = useState(false);
   const [cashPaymentSuccess, setCashPaymentSuccess] = useState(false);
+  // El pedido en efectivo no arranca en cocina hasta que el worker confirma el
+  // pago en el WorkerPanel (evita preparar pedidos que nunca se pagan). Este
+  // flag se prende en vivo por socket ('cash_approved') y cambia el mensaje de
+  // "pague en caja" a "enviado a preparación" sin cerrar la pantalla.
+  const [cashOrderApproved, setCashOrderApproved] = useState(false);
   const [paymentTimeLeft, setPaymentTimeLeft] = useState(60);
   const [paymentComment, setPaymentComment] = useState('');
   // Teléfono del cliente para avisarle por WhatsApp cuando su pedido esté listo
@@ -2019,6 +2025,7 @@ function Store() {
     setCustomerPhone('');
     const toRatingTimer = setTimeout(() => {
       setCashPaymentSuccess(false);
+      setCashOrderApproved(false);
       setCart([]);
       setCartOpen(false);
       setPaymentModalOpen(false);
@@ -2305,6 +2312,15 @@ function Store() {
         setLastOrderNumber(data.order_number || pendingOrderDataRef.current.order.order_number);
         setCart([]);
         setCartOpen(false);
+      }
+    });
+
+    // El worker confirmó el efectivo en el WorkerPanel → recién ahí el pedido
+    // pasa a preparación. Actualiza en vivo la pantalla del cliente si sigue
+    // viendo la pantalla de "pague en caja" de este mismo pedido.
+    socket.on('cash_approved', (order) => {
+      if (order?.id && pendingOrderDataRef?.current?.order?.id === order.id) {
+        setCashOrderApproved(true);
       }
     });
 
@@ -3935,6 +3951,7 @@ function Store() {
         // comparan por order.id nunca coinciden por error.
         setPendingOrderData({ order, storeId });
         setLastOrderNumber(order.order_number);
+        setCashOrderApproved(false);
         setCashPaymentSuccess(true);
         setPaymentModalOpen(false);
 
@@ -8816,12 +8833,15 @@ function Store() {
       {cashPaymentSuccess && (
         <div className="modal-overlay">
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
-            <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '60px', marginBottom: '20px', color: 'var(--success)' }} />
+            <FontAwesomeIcon
+              icon={cashOrderApproved ? faCheckCircle : faClock}
+              style={{ fontSize: '60px', marginBottom: '20px', color: cashOrderApproved ? 'var(--success)' : '#f59e0b' }}
+            />
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
               {lastTableNumber != null ? `${t('serveAtTable', lang)} #${lastTableNumber}` : t('takeout', lang)}
             </h2>
             <p className="text-muted" style={{ marginBottom: '20px', fontSize: '16px' }}>
-              {t('cashAtCounter', lang)}
+              {cashOrderApproved ? t('pleaseWait', lang) : t('cashAtCounter', lang)}
             </p>
             {lastOrderNumber && (
               <div style={{
@@ -8844,16 +8864,19 @@ function Store() {
                 <FontAwesomeIcon icon={faDownload} /> {t('downloadReceipt', lang)}
               </button>
             )}
-            <p style={{
-              color: '#999',
-              fontSize: '13px',
-              fontStyle: 'italic'
-            }}>
-              {t('cashAtCounter', lang)}
-            </p>
+            {!cashOrderApproved && (
+              <p style={{
+                color: '#999',
+                fontSize: '13px',
+                fontStyle: 'italic'
+              }}>
+                {t('cashAtCounter', lang)}
+              </p>
+            )}
             <button
               onClick={() => {
                 setCashPaymentSuccess(false);
+                setCashOrderApproved(false);
                 setOrderRating(null);
                 setShowRatingStep(true);
               }}

@@ -8394,24 +8394,40 @@ app.put('/api/orders/:id/status', authenticateToken, async (req, res) => {
     // dispara con 'ready' (pantalla de cocina) o 'completed' (panel del worker),
     // lo que ocurra primero; ready_notified evita reenviarlo dos veces. No
     // bloquea la respuesta: si WhatsApp no está conectado o falla, se ignora.
-    if ((status === 'ready' || status === 'completed') && order.customer_phone && !order.ready_notified) {
-      (async () => {
-        try {
-          const store = await getStoreById(parseInt(store_id));
-          if (!store?.whatsapp_ready_notify) return;
-          if (!getWhatsAppStatus(parseInt(store_id)).connected) return;
-          const num = String(order.customer_phone).replace(/[^0-9]/g, '');
-          if (!num) return;
-          const ref = order.order_number || order.id;
-          const msg = `🎉 ¡Tu pedido en *${store.name}* ya está listo!\n\n` +
-            `📋 Número de orden: *#${ref}*\n\n` +
-            `Puedes pasar a retirarlo. ¡Gracias por tu compra! 🙌`;
-          await sendWhatsAppMessage(parseInt(store_id), num, msg);
-          try { await pool.execute('UPDATE orders SET ready_notified = 1 WHERE id = ?', [order.id]); } catch (_) { /* columna aún no migrada */ }
-        } catch (e) {
-          console.error(`[WhatsApp:${store_id}] No se pudo avisar pedido listo:`, e.message);
-        }
-      })();
+    if (status === 'ready' || status === 'completed') {
+      if (!order.customer_phone) {
+        console.log(`[WhatsApp:${store_id}] Aviso omitido para orden #${order.id}: sin customer_phone (el cliente no dejó teléfono en el tótem).`);
+      } else if (order.ready_notified) {
+        console.log(`[WhatsApp:${store_id}] Aviso omitido para orden #${order.id}: ya se había notificado antes.`);
+      } else {
+        (async () => {
+          try {
+            const store = await getStoreById(parseInt(store_id));
+            if (!store?.whatsapp_ready_notify) {
+              console.log(`[WhatsApp:${store_id}] Aviso omitido para orden #${order.id}: whatsapp_ready_notify está apagado en la tienda.`);
+              return;
+            }
+            if (!getWhatsAppStatus(parseInt(store_id)).connected) {
+              console.log(`[WhatsApp:${store_id}] Aviso omitido para orden #${order.id}: WhatsApp no está conectado en este servidor.`);
+              return;
+            }
+            const num = String(order.customer_phone).replace(/[^0-9]/g, '');
+            if (!num) {
+              console.log(`[WhatsApp:${store_id}] Aviso omitido para orden #${order.id}: customer_phone no tiene dígitos válidos ("${order.customer_phone}").`);
+              return;
+            }
+            const ref = order.order_number || order.id;
+            const msg = `🎉 ¡Tu pedido en *${store.name}* ya está listo!\n\n` +
+              `📋 Número de orden: *#${ref}*\n\n` +
+              `Puedes pasar a retirarlo. ¡Gracias por tu compra! 🙌`;
+            await sendWhatsAppMessage(parseInt(store_id), num, msg);
+            console.log(`[WhatsApp:${store_id}] Aviso de pedido listo enviado a ${num} (orden #${order.id}).`);
+            try { await pool.execute('UPDATE orders SET ready_notified = 1 WHERE id = ?', [order.id]); } catch (_) { /* columna aún no migrada */ }
+          } catch (e) {
+            console.error(`[WhatsApp:${store_id}] No se pudo avisar pedido listo (orden #${order.id}):`, e.message);
+          }
+        })();
+      }
     }
 
     res.json(order);
