@@ -142,7 +142,6 @@ function Settings() {
     complements_label: '',
     extras_label: '',
     worker_show_prices: true,
-    whatsapp_ready_notify: false,
   });
   const [saveState, setSaveState] = useState('idle'); // idle | saving | saved | error
   const [error, setError] = useState('');
@@ -184,7 +183,6 @@ function Settings() {
         complements_label: selectedStore.complements_label ?? '',
         extras_label:      selectedStore.extras_label      ?? '',
         worker_show_prices: selectedStore.worker_show_prices ?? true,
-        whatsapp_ready_notify: selectedStore.whatsapp_ready_notify ?? false,
       };
       lastSavedRef.current = JSON.stringify(loaded); // baseline so loading doesn't trigger a save
       setFormData(loaded);
@@ -496,15 +494,6 @@ function Settings() {
                   <div style={{ fontSize: 13, color: '#6b7280' }}>Badge de llama y reordenamiento de los más vendidos</div>
                 </div>
                 <Toggle checked={!!formData.show_top_selling} onChange={v => setFormData(p => ({ ...p, show_top_selling: v }))} />
-              </div>
-
-              {/* Aviso por WhatsApp cuando el pedido está listo */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '14px 0', borderBottom: '1px solid #f3f4f6' }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 3 }}>Avisar por WhatsApp cuando el pedido esté listo 💬</div>
-                  <div style={{ fontSize: 13, color: '#6b7280' }}>El tótem pedirá el teléfono del cliente y le enviará un WhatsApp con su número de orden al marcarlo como listo/completado. Requiere el WhatsApp de la tienda conectado.</div>
-                </div>
-                <Toggle checked={!!formData.whatsapp_ready_notify} onChange={v => setFormData(p => ({ ...p, whatsapp_ready_notify: v }))} />
               </div>
 
               {/* Inactivity timeout */}

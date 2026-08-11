@@ -1944,6 +1944,7 @@ function Store() {
   // Teléfono del cliente para avisarle por WhatsApp cuando su pedido esté listo
   // (solo si la tienda activó la función whatsapp_ready_notify).
   const [customerPhone, setCustomerPhone] = useState('');
+  const [phoneVkbOpen, setPhoneVkbOpen] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [showCommentKb, setShowCommentKb] = useState(false);
   const [pendingCommentMethod, setPendingCommentMethod] = useState(null);
@@ -7931,14 +7932,25 @@ function Store() {
                   <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--store-primary, #111)' }}>{t('notifyWhenReady', lang)}</span>
                 </div>
                 <p style={{ fontSize: 12, color: '#888', margin: '0 0 8px' }}>{t('notifyWhenReadyDesc', lang)}</p>
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  value={customerPhone}
-                  onChange={e => setCustomerPhone(e.target.value.replace(/[^0-9+ ]/g, ''))}
-                  placeholder={t('phonePlaceholder', lang)}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '11px 13px', borderRadius: 10, border: '1.5px solid rgba(0,0,0,0.12)', background: 'var(--store-bg, #f9fafb)', color: 'var(--store-primary, #111)', fontSize: 15, outline: 'none' }}
-                />
+                <div
+                  onClick={() => setPhoneVkbOpen(true)}
+                  style={{
+                    width: '100%', boxSizing: 'border-box', padding: '11px 13px', borderRadius: 10,
+                    border: '1.5px solid rgba(0,0,0,0.12)', background: 'var(--store-bg, #f9fafb)',
+                    color: customerPhone ? 'var(--store-primary, #111)' : '#aaa', fontSize: 15,
+                    cursor: 'pointer', letterSpacing: customerPhone ? '1px' : 'normal', fontWeight: customerPhone ? 700 : 400,
+                  }}
+                >
+                  {customerPhone || t('phonePlaceholder', lang)}
+                </div>
+                {phoneVkbOpen && (
+                  <VirtualKeyboard
+                    value={customerPhone}
+                    onChange={(v) => setCustomerPhone(v.replace(/[^0-9+ ]/g, ''))}
+                    onClose={() => setPhoneVkbOpen(false)}
+                    placeholder={t('phonePlaceholder', lang)}
+                  />
+                )}
               </div>
             )}
 

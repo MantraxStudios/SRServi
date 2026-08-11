@@ -58,7 +58,7 @@ export default function Autonomous() {
     Promise.all([
       fetch(`${API}/api/brain/config?store_id=${storeId}`, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()),
       fetch(`${API}/api/brain/log?store_id=${storeId}`, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()),
-      fetch(`${API}/api/whatsapp/status`, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()).catch(() => null),
+      fetch(`${API}/api/whatsapp/status?store_id=${storeId}`, { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()).catch(() => null),
     ]).then(([cfg, lg, wa]) => {
       if (cfg && !cfg.error) setConfig(cfg);
       if (Array.isArray(lg)) setLog(lg);

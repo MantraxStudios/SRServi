@@ -92,6 +92,10 @@ function WhatsApp() {
   const [botInfoSaving, setBotInfoSaving] = useState(false);
   const [botInfoMsg, setBotInfoMsg] = useState(null);
 
+  // Aviso por WhatsApp al cliente cuando su pedido está listo
+  const [readyNotify, setReadyNotify] = useState(false);
+  const [readyNotifySaving, setReadyNotifySaving] = useState(false);
+
   // León IA Autónomo
   const [brainConfig, setBrainConfig] = useState({
     enabled: false, auto_promotions: true, worker_reminders: true,
@@ -249,6 +253,35 @@ function WhatsApp() {
     pollRef.current = setInterval(() => fetchStatus(selectedStore), 4000);
     return () => clearInterval(pollRef.current);
   }, [selectedStore]);
+
+  useEffect(() => {
+    const store = stores.find(s => String(s.id) === String(selectedStore));
+    if (store) setReadyNotify(!!store.whatsapp_ready_notify);
+  }, [selectedStore, stores]);
+
+  const toggleReadyNotify = async () => {
+    if (!selectedStore) return;
+    const store = stores.find(s => String(s.id) === String(selectedStore));
+    const next = !readyNotify;
+    setReadyNotify(next);
+    setReadyNotifySaving(true);
+    try {
+      const res = await fetch(`${API}/api/stores/${selectedStore}`, {
+        method: 'PUT', headers,
+        body: JSON.stringify({ name: store?.name, whatsapp_ready_notify: next })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setStores(prev => prev.map(s => String(s.id) === String(selectedStore) ? { ...s, whatsapp_ready_notify: updated.whatsapp_ready_notify } : s));
+      } else {
+        setReadyNotify(!next);
+      }
+    } catch {
+      setReadyNotify(!next);
+    } finally {
+      setReadyNotifySaving(false);
+    }
+  };
 
   useEffect(() => {
     if (!selectedStore) return;
@@ -560,6 +593,37 @@ function WhatsApp() {
                   : <><FontAwesomeIcon icon={faLink} style={{ marginRight: 7 }} />Conectar WhatsApp</>
                 }
               </button>
+            </div>
+          )}
+        </div>
+
+        {/* Aviso al cliente cuando su pedido está listo */}
+        <div style={card}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 12, background: '#f0fdf4',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            }}>
+              <FontAwesomeIcon icon={faBell} style={{ color: '#25D366', fontSize: 18 }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>Avisar cuando el pedido esté listo</div>
+              <div style={{ fontSize: 13, color: '#6b7280' }}>El tótem pedirá el teléfono del cliente y le enviará un WhatsApp al marcarlo como listo/completado.</div>
+            </div>
+            <button
+              onClick={toggleReadyNotify}
+              disabled={readyNotifySaving || !selectedStore}
+              style={{ background: 'none', border: 'none', cursor: readyNotifySaving ? 'not-allowed' : 'pointer', fontSize: 28, color: readyNotify ? '#25D366' : '#ccc', flexShrink: 0 }}
+            >
+              <FontAwesomeIcon icon={readyNotify ? faToggleOn : faToggleOff} />
+            </button>
+          </div>
+          {readyNotify && !status?.connected && (
+            <div style={{
+              background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8,
+              padding: '10px 14px', fontSize: 13, color: '#92400e'
+            }}>
+              ⚠️ WhatsApp no está conectado. El aviso no se enviará hasta conectar WhatsApp.
             </div>
           )}
         </div>
