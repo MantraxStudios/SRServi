@@ -1402,7 +1402,8 @@ app.get('/api/public/:code', async (req, res) => {
         hide_decimals: store.hide_decimals ?? false,
         show_top_selling: store.show_top_selling ?? true,
         complements_label: store.complements_label || null,
-        extras_label: store.extras_label || null
+        extras_label: store.extras_label || null,
+        whatsapp_ready_notify: !!store.whatsapp_ready_notify
       },
       products,
       categories,
