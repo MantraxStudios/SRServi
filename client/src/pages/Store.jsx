@@ -1943,10 +1943,24 @@ function Store() {
   const [paymentTimeLeft, setPaymentTimeLeft] = useState(60);
   const [paymentComment, setPaymentComment] = useState('');
   // Teléfono del cliente para avisarle por WhatsApp cuando su pedido esté listo
-  // (solo si la tienda activó la función whatsapp_ready_notify).
+  // (solo si la tienda activó la función whatsapp_ready_notify). Se pide en un
+  // modal propio con teclado numérico al confirmar el pedido, antes de mostrar
+  // las opciones de pago — no vive en el carrito.
   const [customerPhone, setCustomerPhone] = useState('');
-  const [phoneVkbOpen, setPhoneVkbOpen] = useState(false);
-  const [pendingCheckoutAfterPhone, setPendingCheckoutAfterPhone] = useState(false);
+  const [phoneModalOpen, setPhoneModalOpen] = useState(false);
+  // Ref (no state) porque se lee de forma síncrona justo después de escribirlo,
+  // al volver a llamar handleCheckout() desde el modal — con useState el cierre
+  // seguiría viendo el valor viejo por el batching de React.
+  const phoneAskedRef = useRef(false);
+  const [phoneDigits, setPhoneDigits] = useState('');
+
+  useEffect(() => {
+    if (cart.length === 0) {
+      phoneAskedRef.current = false;
+      setCustomerPhone('');
+      setPhoneDigits('');
+    }
+  }, [cart.length]);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [showCommentKb, setShowCommentKb] = useState(false);
   const [pendingCommentMethod, setPendingCommentMethod] = useState(null);
@@ -3458,11 +3472,11 @@ function Store() {
     if (cart.length === 0) return;
 
     // Si la tienda pide avisar por WhatsApp cuando el pedido esté listo, primero
-    // hay que pedir el teléfono del cliente (con su propio teclado) antes de
-    // mostrar cualquier otro modal de pago.
-    if (!!store?.store?.whatsapp_ready_notify && !(restaurantMode && activeTable) && !customerPhone.trim()) {
-      setPendingCheckoutAfterPhone(true);
-      setPhoneVkbOpen(true);
+    // hay que pedir el teléfono del cliente en su propio modal (teclado numérico)
+    // antes de mostrar cualquier otro modal de pago. Solo se pregunta una vez
+    // por pedido — se puede confirmar u omitir.
+    if (!!store?.store?.whatsapp_ready_notify && !(restaurantMode && activeTable) && !phoneAskedRef.current) {
+      setPhoneModalOpen(true);
       return;
     }
 
@@ -7936,42 +7950,6 @@ function Store() {
                 />
               </div>
 
-            {/* Teléfono para avisar por WhatsApp cuando el pedido esté listo. */}
-            {!!store?.store?.whatsapp_ready_notify && (
-              <div style={{ marginBottom: 12, padding: '12px 14px', borderRadius: 12, background: 'rgba(37,211,102,0.08)', border: '1.5px solid rgba(37,211,102,0.35)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <FontAwesomeIcon icon={faWhatsapp} style={{ color: '#25D366', fontSize: 16 }} />
-                  <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--store-primary, #111)' }}>{t('notifyWhenReady', lang)}</span>
-                </div>
-                <p style={{ fontSize: 12, color: '#888', margin: '0 0 8px' }}>{t('notifyWhenReadyDesc', lang)}</p>
-                <div
-                  onClick={() => setPhoneVkbOpen(true)}
-                  style={{
-                    width: '100%', boxSizing: 'border-box', padding: '11px 13px', borderRadius: 10,
-                    border: '1.5px solid rgba(0,0,0,0.12)', background: 'var(--store-bg, #f9fafb)',
-                    color: customerPhone ? 'var(--store-primary, #111)' : '#aaa', fontSize: 15,
-                    cursor: 'pointer', letterSpacing: customerPhone ? '1px' : 'normal', fontWeight: customerPhone ? 700 : 400,
-                  }}
-                >
-                  {customerPhone || t('phonePlaceholder', lang)}
-                </div>
-                {phoneVkbOpen && (
-                  <VirtualKeyboard
-                    value={customerPhone}
-                    onChange={(v) => setCustomerPhone(v.replace(/[^0-9+ ]/g, ''))}
-                    onClose={(finalValue) => {
-                      setPhoneVkbOpen(false);
-                      if (pendingCheckoutAfterPhone) {
-                        setPendingCheckoutAfterPhone(false);
-                        if ((finalValue || '').trim()) handleCheckout();
-                      }
-                    }}
-                    placeholder={t('phonePlaceholder', lang)}
-                  />
-                )}
-              </div>
-            )}
-
             <button onClick={handleCheckout} className="store-cart-checkout-btn store-glow-pulse">
               <FontAwesomeIcon icon={faCheck} />
               {t('confirmOrder', lang)} - {colors.currency.symbol}{formatPrice(selectedTerminalProvider === 'square' ? getFinalTotal() : getCartSubtotal())}
@@ -8021,6 +7999,84 @@ function Store() {
             }}
           />
         </Suspense>
+      )}
+
+      {phoneModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal text-center" style={{ maxWidth: '360px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 6 }}>
+              <FontAwesomeIcon icon={faWhatsapp} style={{ color: '#25D366', fontSize: 20 }} />
+              <h2 style={{ color: 'var(--store-primary)', fontSize: 20, margin: 0 }}>{t('notifyWhenReady', lang)}</h2>
+            </div>
+            <p className="text-muted" style={{ marginBottom: 18, fontSize: 13 }}>{t('notifyWhenReadyDesc', lang)}</p>
+
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '14px 16px', borderRadius: 12, background: 'var(--store-bg, #f9fafb)',
+              border: '1.5px solid rgba(0,0,0,0.12)', marginBottom: 18, minHeight: 26
+            }}>
+              <span style={{ fontWeight: 700, fontSize: 20, color: 'var(--store-primary, #111)' }}>+56</span>
+              <span style={{ fontWeight: 700, fontSize: 20, letterSpacing: 2, color: phoneDigits ? 'var(--store-primary, #111)' : '#bbb' }}>
+                {phoneDigits || t('phonePlaceholder', lang)}
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 18 }}>
+              {['1','2','3','4','5','6','7','8','9'].map(d => (
+                <button
+                  key={d} type="button"
+                  onClick={() => setPhoneDigits(p => p.length < 12 ? p + d : p)}
+                  style={{ padding: '16px 0', fontSize: 20, fontWeight: 700, borderRadius: 12, border: '1.5px solid rgba(0,0,0,0.1)', background: 'var(--store-bg, #f9fafb)', color: 'var(--store-primary, #111)', cursor: 'pointer' }}
+                >
+                  {d}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setPhoneDigits(p => p.slice(0, -1))}
+                style={{ padding: '16px 0', fontSize: 18, borderRadius: 12, border: 'none', background: 'transparent', color: 'var(--store-primary, #111)', cursor: 'pointer' }}
+              >
+                ⌫
+              </button>
+              <button
+                type="button"
+                onClick={() => setPhoneDigits(p => p.length < 12 ? p + '0' : p)}
+                style={{ padding: '16px 0', fontSize: 20, fontWeight: 700, borderRadius: 12, border: '1.5px solid rgba(0,0,0,0.1)', background: 'var(--store-bg, #f9fafb)', color: 'var(--store-primary, #111)', cursor: 'pointer' }}
+              >
+                0
+              </button>
+              <span />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPhoneModalOpen(false);
+                  setCustomerPhone('');
+                  phoneAskedRef.current = true;
+                  handleCheckout();
+                }}
+                style={{ flex: 1, padding: '13px', borderRadius: 10, border: '1.5px solid rgba(0,0,0,0.12)', background: 'transparent', color: 'var(--store-primary, #111)', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
+              >
+                {t('skip', lang)}
+              </button>
+              <button
+                type="button"
+                disabled={!phoneDigits.trim()}
+                onClick={() => {
+                  setPhoneModalOpen(false);
+                  setCustomerPhone('+56' + phoneDigits);
+                  phoneAskedRef.current = true;
+                  handleCheckout();
+                }}
+                style={{ flex: 1.4, padding: '13px', borderRadius: 10, border: 'none', background: '#25D366', color: '#fff', fontWeight: 700, fontSize: 14, cursor: phoneDigits.trim() ? 'pointer' : 'not-allowed', opacity: phoneDigits.trim() ? 1 : 0.5 }}
+              >
+                {t('confirm', lang)}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {paymentModalOpen && (
