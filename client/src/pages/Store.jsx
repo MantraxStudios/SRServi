@@ -74,6 +74,10 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
+// Distancia de scroll (px) sobre la que el banner del tótem se desvanece por
+// completo al bajar — ver handleStoreMainScroll.
+const BANNER_FADE_DIST = 64;
+
 // Códigos telefónicos para el selector de país del modal de WhatsApp.
 // Chile primero (default del tótem), luego el resto alfabético por nombre.
 const COUNTRY_CODES = [
@@ -1596,6 +1600,7 @@ function Store() {
   const longPressTimerRef = useRef(null);
   const categoryRef = useRef(null);
   const scrolledRafRef = useRef(null);
+  const bannerRef = useRef(null);
   const fetchStoreDebounceRef = useRef(null);
   const productsAreaRef = useRef(null);
   const storeIdRef = useRef(null);
@@ -5656,13 +5661,25 @@ function Store() {
 
   // Throttlea vía rAF: en dispositivos flojos, leer scrollTop y actualizar
   // estado en CADA evento de scroll (sin batchear) genera jank perceptible.
+  //
+  // El desvanecido del banner va atado 1:1 al scroll (opacity + transform,
+  // escritos directo al DOM vía ref, sin pasar por React ni por transición
+  // CSS) para que se esconda GRADUALMENTE a medida que bajás, no de golpe.
+  // El colapso real de layout (max-height, que sí reclama el espacio para la
+  // lista de productos) recién se dispara cuando el banner ya quedó invisible
+  // (progress===1), así el único reflow ocurre en un frame donde no se ve.
   const handleStoreMainScroll = (e) => {
     if (scrolledRafRef.current) return;
     const target = e.currentTarget;
     scrolledRafRef.current = requestAnimationFrame(() => {
       scrolledRafRef.current = null;
       const y = target.scrollTop;
-      setScrolled(prev => prev ? y > 12 : y > 56);
+      const progress = Math.min(1, Math.max(0, y / BANNER_FADE_DIST));
+      if (bannerRef.current) {
+        bannerRef.current.style.opacity = String(1 - progress);
+        bannerRef.current.style.transform = `translateY(${-progress * 14}px)`;
+      }
+      setScrolled(y >= BANNER_FADE_DIST);
     });
   };
 
@@ -5857,6 +5874,7 @@ function Store() {
       )}
       {store?.store && (
         <div
+          ref={bannerRef}
           className={`store-name-banner${visualSettings?.bannerImage ? ' store-name-banner--img' : ''}`}
           style={visualSettings?.bannerImage ? { backgroundImage: `url(${getImageUrl(visualSettings.bannerImage)})` } : undefined}
         >

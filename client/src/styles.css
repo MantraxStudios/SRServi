@@ -2135,10 +2135,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Al deslizar hacia abajo se oculta TODO el banner (imagen, logo, idioma,
-   buscador y botón de voz): quedan arriba solo las categorías. El alto
-   colapsa de golpe (sin animar max-height/padding, que fuerzan reflow del
-   área de productos en cada frame y se traban en gama baja); lo único que
-   se anima es opacity+transform, que van por compositor y no re-layoutean. */
+   buscador y botón de voz): quedan arriba solo las categorías. El desvanecido
+   (opacity/transform) lo maneja JS frame a frame atado al scroll (ver
+   handleStoreMainScroll en Store.jsx) para que sea gradual y no de golpe; acá
+   solo queda el colapso de ALTO real (max-height/padding), que se dispara sin
+   transición porque para cuando esto aplica el banner ya quedó invisible por
+   JS — animarlo con CSS forzaba reflow del área de productos en cada frame y
+   se trababa en gama baja. */
 .store-container.store-scrolled .store-seasonal-banner,
 .store-container.store-scrolled .store-promos {
   display: none;
@@ -2146,12 +2149,10 @@ h1, h2, h3, h4, h5, h6 {
 .store-container.store-scrolled .store-name-banner {
   max-height: 0 !important;
   min-height: 0 !important;   /* anula el min-height del hero para que colapse */
-  opacity: 0;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
   border-bottom: none;
   pointer-events: none;
-  transform: translateY(-6px);
 }
 
 .store-header {
@@ -3412,10 +3413,13 @@ html body .store-container .store-product-card * {
   gap: 8px;
   max-height: 180px;   /* ~alto real del banner compacto (sin imagen) */
   transform: translateY(0);
-  /* Solo opacity/transform se animan (compositor, sin reflow); max-height,
-     min-height y padding cambian de golpe — animarlos fuerza layout del
-     área de productos en cada frame y se ve entrecortado en gama baja. */
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  /* opacity/transform NO llevan transición CSS: se escriben directo al DOM
+     cuadro a cuadro atados al scroll (ver handleStoreMainScroll en
+     Store.jsx), así el desvanecido queda perfectamente sincronizado con el
+     dedo del usuario en vez de perseguir un valor que ya cambió (eso se
+     sentía "mareado"/con retraso). max-height/min-height/padding cambian de
+     golpe — animarlos con CSS fuerza layout del área de productos en cada
+     frame y se traba en gama baja. */
   will-change: opacity, transform;
 }
 .store-banner-top {
