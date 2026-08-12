@@ -191,6 +191,7 @@ import {
   getAllStoresWithOwnerEmail,
   getOrdersByHour,
   getRecentOrders,
+  getOrderDetail,
   getWorkerPaymentMethods,
   createWorkerPaymentMethod,
   updateWorkerPaymentMethod,
@@ -3525,6 +3526,28 @@ app.get('/api/analytics/recent-orders', authenticateToken, async (req, res) => {
     }
     const orders = await getRecentOrders(parseInt(storeId), limit);
     res.json(orders);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Detalle de un pedido (items + desglose) para el drill-down de Analíticas
+app.get('/api/analytics/order/:orderId', authenticateToken, async (req, res) => {
+  try {
+    const storeId = req.query.store_id;
+    const orderId = parseInt(req.params.orderId);
+    if (!storeId) {
+      return res.status(400).json({ error: 'Store ID es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
+    const order = await getOrderDetail(parseInt(storeId), orderId);
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido no encontrado' });
+    }
+    res.json(order);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

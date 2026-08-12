@@ -3579,8 +3579,11 @@ function Store() {
     }
 
     // Si solo hay un método de pago activo, ir directo sin propina
-    // (excepto en modo TUU Android, que necesita mostrar el modal con los botones TUU)
-    if (!deliveryMode && !(tuuModePayFromUrl && androidBridgeAvailable)) {
+    // (excepto en modo TUU Android, que necesita mostrar el modal con los botones TUU,
+    //  y salvo que el local tenga propina configurada: en ese caso mostramos el modal
+    //  para que la propina se pueda cobrar aunque haya un solo método de pago).
+    const hasConfiguredTip = (parseFloat(selectedConfiguration?.tip_percentage) || 0) > 0;
+    if (!deliveryMode && !hasConfiguredTip && !(tuuModePayFromUrl && androidBridgeAvailable)) {
       const methodCount = [localAcceptCard, localAcceptCash].filter(Boolean).length;
       if (methodCount === 1) {
         setTipEnabled(false);

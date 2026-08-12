@@ -19,7 +19,12 @@ import {
   faSortAmountDown,
   faSearch,
   faArrowDown,
-  faHandHoldingUsd
+  faHandHoldingUsd,
+  faReceipt,
+  faCreditCard,
+  faTag,
+  faUtensils,
+  faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
 
 function Analytics() {
@@ -40,6 +45,8 @@ function Analytics() {
   const [topLimit, setTopLimit] = useState(10);
   const [productSearch, setProductSearch] = useState('');
   const [bottomProducts, setBottomProducts] = useState([]);
+  const [detailOrder, setDetailOrder] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const isCustomRangeReady = dateRange !== 'custom' || (customStart && customEnd);
 
@@ -114,7 +121,7 @@ function Analytics() {
       const [summaryRes, salesRes, ordersRes, dowRes] = await Promise.all([
         fetch(`/api/analytics/summary?store_id=${storeId}&${rangeQueryParams()}`, { headers }),
         fetch(`/api/analytics/sales-by-day?store_id=${storeId}&${rangeQueryParams()}`, { headers }),
-        fetch(`/api/analytics/recent-orders?store_id=${storeId}&limit=10`, { headers }),
+        fetch(`/api/analytics/recent-orders?store_id=${storeId}&limit=25`, { headers }),
         fetch(`/api/analytics/sales-by-dow?store_id=${storeId}&${rangeQueryParams()}`, { headers }),
       ]);
 
@@ -134,6 +141,56 @@ function Analytics() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const openOrderDetail = async (orderId) => {
+    setDetailLoading(true);
+    setDetailOrder({ id: orderId });
+    try {
+      const headers = { 'Authorization': `Bearer ${token}` };
+      const res = await fetch(`/api/analytics/order/${orderId}?store_id=${selectedStore.id}`, { headers });
+      if (res.ok) {
+        setDetailOrder(await res.json());
+      } else {
+        setDetailOrder(null);
+      }
+    } catch (err) {
+      console.error('Error fetching order detail:', err);
+      setDetailOrder(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const paymentMethodLabel = (pm) => {
+    const map = {
+      cash: 'Efectivo', card: 'Tarjeta', pending: 'Por pagar',
+      free: 'Sin costo', mp_checkout: 'Mercado Pago', qr: 'QR',
+    };
+    return map[pm] || pm || '—';
+  };
+
+  const orderTypeLabel = (ot) => {
+    const map = { serve: 'Para servir', takeout: 'Para llevar', delivery: 'Delivery' };
+    return map[ot] || ot || '—';
+  };
+
+  const formatDateTime = (dateStr) => {
+    return new Date(dateStr).toLocaleString('es-ES', {
+      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+    });
+  };
+
+  const modifiersText = (item) => {
+    const toNames = (arr) => (Array.isArray(arr) ? arr : [])
+      .map(x => (typeof x === 'string' ? x : (x?.name || '')))
+      .filter(Boolean);
+    const parts = [
+      ...toNames(item.selected_ingredients),
+      ...toNames(item.selected_complements),
+      ...toNames(item.selected_extras).map(n => `+ ${n}`),
+    ];
+    return parts.join(' · ');
   };
 
   const formatCurrency = (value) => {
@@ -361,14 +418,29 @@ function Analytics() {
               <div className="analytics-recent-orders">
                 {recentOrders.length > 0 ? recentOrders.map((order) => {
                   const status = getStatusInfo(order.status);
+                  const tip = Number(order.tip_amount) || 0;
                   return (
-                    <div key={order.id} className="analytics-order-row">
-                      <div>
-                        <div className="analytics-order-id">
-                          #{order.id}
+                    <div
+                      key={order.id}
+                      className="analytics-order-row"
+                      onClick={() => openOrderDetail(order.id)}
+                      style={{ cursor: 'pointer' }}
+                      title="Ver detalle del pedido"
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div className="analytics-order-id" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          #{order.order_number || order.id}
+                          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 10, opacity: 0.4 }} />
                         </div>
                         <div className="analytics-order-items">
                           {order.items_count} {order.items_count === 1 ? 'producto' : 'productos'}
+                          {' · '}{paymentMethodLabel(order.payment_method)}
+                          {tip > 0 && (
+                            <span style={{ marginLeft: 6, color: '#10b981', fontWeight: 700 }}>
+                              <FontAwesomeIcon icon={faHandHoldingUsd} style={{ marginRight: 3, fontSize: 10 }} />
+                              {formatCurrency(tip)}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">
@@ -595,6 +667,136 @@ function Analytics() {
             })()}
           </div>
         </>
+      )}
+
+      {/* ── Modal: detalle del pedido ── */}
+      {detailOrder && (
+        <div
+          onClick={() => setDetailOrder(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, padding: 16,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--background)', color: 'var(--foreground)',
+              border: '1px solid var(--border)', borderRadius: 16,
+              width: '100%', maxWidth: 460, maxHeight: '85vh', overflowY: 'auto',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.35)',
+            }}
+          >
+            {/* Cabecera */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 18px', borderBottom: '1px solid var(--border)',
+              position: 'sticky', top: 0, background: 'var(--background)', zIndex: 1,
+            }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <FontAwesomeIcon icon={faReceipt} style={{ color: '#3b82f6' }} />
+                Pedido #{detailOrder.order_number || detailOrder.id}
+              </h3>
+              <button
+                onClick={() => setDetailOrder(null)}
+                style={{
+                  background: 'var(--muted)', border: 'none', borderRadius: 8,
+                  width: 30, height: 30, cursor: 'pointer', color: 'var(--foreground)',
+                }}
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+
+            {detailLoading ? (
+              <div style={{ padding: 40, textAlign: 'center' }}>
+                <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 24 }} />
+              </div>
+            ) : (
+              <div style={{ padding: 18 }}>
+                {/* Meta */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                  {[
+                    { icon: faCreditCard, label: paymentMethodLabel(detailOrder.payment_method) },
+                    { icon: faUtensils, label: orderTypeLabel(detailOrder.order_type) },
+                    ...(detailOrder.table_number ? [{ icon: faTag, label: `Mesa ${detailOrder.table_number}` }] : []),
+                    { icon: faClock, label: detailOrder.created_at ? formatDateTime(detailOrder.created_at) : '—' },
+                  ].map((m, i) => (
+                    <span key={i} style={{
+                      fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 20,
+                      background: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 5,
+                    }}>
+                      <FontAwesomeIcon icon={m.icon} style={{ fontSize: 10, opacity: 0.7 }} />
+                      {m.label}
+                    </span>
+                  ))}
+                </div>
+
+                {(detailOrder.customer_name || detailOrder.customer_phone) && (
+                  <div style={{ fontSize: 13, color: 'var(--muted-foreground)', marginBottom: 14 }}>
+                    Cliente: {detailOrder.customer_name || ''} {detailOrder.customer_phone ? `(${detailOrder.customer_phone})` : ''}
+                  </div>
+                )}
+
+                {/* Items */}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                  {(detailOrder.items || []).map((item, i) => {
+                    const mods = modifiersText(item);
+                    const lineTotal = (Number(item.unit_price) || 0) * (Number(item.quantity) || 0);
+                    return (
+                      <div key={i} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px dashed var(--border)' }}>
+                        <span style={{ fontWeight: 800, color: '#3b82f6', minWidth: 26 }}>{item.quantity}×</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600 }}>{item.product_name || 'Producto'}</div>
+                          {mods && <div style={{ fontSize: 12, color: 'var(--muted-foreground)', marginTop: 2 }}>{mods}</div>}
+                        </div>
+                        <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{formatCurrency(lineTotal)}</span>
+                      </div>
+                    );
+                  })}
+                  {(!detailOrder.items || detailOrder.items.length === 0) && (
+                    <div style={{ fontSize: 13, color: 'var(--muted-foreground)', padding: '8px 0' }}>Sin líneas de producto</div>
+                  )}
+                </div>
+
+                {/* Totales */}
+                <div style={{ marginTop: 14, fontSize: 14 }}>
+                  {(() => {
+                    const tip = Number(detailOrder.tip_amount) || 0;
+                    const discount = Number(detailOrder.discount_total) || 0;
+                    const subtotal = Number(detailOrder.subtotal) || 0;
+                    const rows = [
+                      { label: 'Subtotal', value: formatCurrency(subtotal) },
+                      ...(discount > 0 ? [{ label: `Descuento${detailOrder.coupon_code ? ` (${detailOrder.coupon_code})` : ''}`, value: `- ${formatCurrency(discount)}`, color: '#ef4444' }] : []),
+                      ...(tip > 0 ? [{ label: 'Propina', value: formatCurrency(tip), color: '#10b981' }] : []),
+                    ];
+                    return (
+                      <>
+                        {rows.map((r, i) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: r.color || 'var(--muted-foreground)' }}>
+                            <span>{r.label}</span>
+                            <span style={{ fontWeight: 600 }}>{r.value}</span>
+                          </div>
+                        ))}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, marginTop: 6, borderTop: '1px solid var(--border)', fontWeight: 800, fontSize: 16 }}>
+                          <span>Total</span>
+                          <span>{formatCurrency(detailOrder.total)}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {detailOrder.customer_comment && (
+                  <div style={{ marginTop: 14, padding: 10, background: 'var(--muted)', borderRadius: 10, fontSize: 13 }}>
+                    <strong>Comentario:</strong> {detailOrder.customer_comment}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

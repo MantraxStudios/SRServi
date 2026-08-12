@@ -5994,11 +5994,30 @@ export async function getOrdersByHour(storeId, dateRange = 'week') {
 }
 
 export async function getRecentOrders(storeId, limit = 10) {
+  // tip_amount puede faltar en instalaciones muy antiguas: si no existe se
+  // reporta 0 para no romper la consulta.
+  let tipCol = 'o.tip_amount';
+  try {
+    const [tc] = await pool.execute("SHOW COLUMNS FROM orders LIKE 'tip_amount'");
+    if (!tc.length) tipCol = '0';
+  } catch (_) { tipCol = '0'; }
+
   const query = `
-    SELECT 
+    SELECT
       o.id,
+      o.order_number,
       o.status,
+      o.subtotal,
+      o.discount_total,
+      o.coupon_code,
+      ${tipCol} as tip_amount,
       o.total,
+      o.payment_method,
+      o.order_type,
+      o.table_number,
+      o.customer_name,
+      o.customer_phone,
+      o.source,
       o.created_at,
       COUNT(oi.id) as items_count
     FROM orders o
@@ -6011,6 +6030,32 @@ export async function getRecentOrders(storeId, limit = 10) {
 
   const [rows] = await pool.execute(query, [storeId]);
   return rows;
+}
+
+// Detalle completo de un pedido para Analíticas: cabecera (totales, propina,
+// método de pago) + líneas con producto, cantidad, precio y modificadores.
+export async function getOrderDetail(storeId, orderId) {
+  let tipCol = 'o.tip_amount';
+  try {
+    const [tc] = await pool.execute("SHOW COLUMNS FROM orders LIKE 'tip_amount'");
+    if (!tc.length) tipCol = '0';
+  } catch (_) { tipCol = '0'; }
+
+  const [rows] = await pool.execute(
+    `SELECT o.id, o.order_number, o.status, o.subtotal, o.discount_total, o.coupon_code,
+            ${tipCol} as tip_amount, o.total, o.payment_method, o.order_type,
+            o.table_number, o.persons, o.customer_name, o.customer_phone, o.customer_email,
+            o.customer_comment, o.source, o.created_at
+     FROM orders o
+     WHERE o.id = ? AND o.store_id = ?
+     LIMIT 1`,
+    [orderId, storeId]
+  );
+  if (!rows.length) return null;
+
+  const order = rows[0];
+  order.items = await getOrderItems(orderId);
+  return order;
 }
 
 // ============================================================
