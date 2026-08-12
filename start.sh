@@ -358,6 +358,23 @@ cd client
 npm run build -- --mode "$VITE_MODE"
 cd ..
 
+# Telefonía IA (opcional) — levanta Asterisk + bot + Whisper + Ollama vía Docker.
+# Best-effort: solo si la carpeta existe, hay Docker y telephony/.env está creado.
+# Nunca frena el arranque de SRServi si falla (por eso el || true).
+echo "[+] Verificando Telefonía IA (Llamadas IA)..."
+if [ -d "$SCRIPT_DIR/telephony" ]; then
+    if [ ! -f "$SCRIPT_DIR/telephony/.env" ]; then
+        echo "  ⏭  telephony/.env no existe — omitido (copia telephony/.env.example y complétalo para activarlo)"
+    elif ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+        echo "  ⏭  Docker no disponible — telefonía omitida"
+    else
+        echo "  Levantando stack de telefonía (telephony/start.sh)..."
+        bash "$SCRIPT_DIR/telephony/start.sh" || echo "  ⚠ telephony/start.sh terminó con error — revisa: cd telephony && docker compose logs"
+    fi
+else
+    echo "  ⏭  Sin carpeta telephony/ — omitido"
+fi
+
 # Log dentro del proyecto (en /tmp el kernel bloquea sobrescribir
 # archivos de otro usuario aunque seas root — fs.protected_regular)
 LOG_DIR="$SCRIPT_DIR/logs"
