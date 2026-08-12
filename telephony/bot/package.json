@@ -1,0 +1,16 @@
+{
+  "name": "srservi-voice-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Agente de voz IA open source para recibir llamadas (Asterisk AudioSocket + Whisper + Ollama + Piper) e integrarlo con SRServi.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

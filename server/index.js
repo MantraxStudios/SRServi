@@ -192,6 +192,17 @@ import {
   getOrdersByHour,
   getRecentOrders,
   getOrderDetail,
+  getTelephonyConfig,
+  saveTelephonyConfig,
+  getTelephonyConfigByDid,
+  createCallLog,
+  updateCallLog,
+  getCallLogs,
+  saveAiCallOrder,
+  getAiCallOrders,
+  getAiCallOrderById,
+  updateAiCallOrderStatus,
+  lookupCallerCustomer,
   getWorkerPaymentMethods,
   createWorkerPaymentMethod,
   updateWorkerPaymentMethod,
@@ -3548,6 +3559,195 @@ app.get('/api/analytics/order/:orderId', authenticateToken, async (req, res) => 
       return res.status(404).json({ error: 'Pedido no encontrado' });
     }
     res.json(order);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== TELEFONÍA IA (recepción de llamadas) ====================
+// Panel admin: cada tienda registra los datos de su número + ajustes del agente
+// de voz, y consulta las llamadas con su transcripción y el pedido detectado.
+
+const TELEPHONY_BOT_TOKEN = process.env.TELEPHONY_BOT_TOKEN || '';
+
+// Middleware para el bot de voz (servicio externo en /telephony). Se autentica
+// con un token compartido, no con el JWT de usuario.
+function authenticateBot(req, res, next) {
+  const token = (req.headers['x-bot-token'] || '').trim();
+  if (!TELEPHONY_BOT_TOKEN || token !== TELEPHONY_BOT_TOKEN) {
+    return res.status(401).json({ error: 'Bot no autorizado' });
+  }
+  next();
+}
+
+// No exponer credenciales del troncal al frontend salvo al dueño (que las cargó).
+app.get('/api/telephony/config', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id es requerido' });
+    if (!await verifyStoreOwnership(storeId, req.user.id)) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
+    res.json(await getTelephonyConfig(storeId));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/telephony/config', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.body.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id es requerido' });
+    if (!await verifyStoreOwnership(storeId, req.user.id)) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
+    const saved = await saveTelephonyConfig(storeId, req.body);
+    res.json(saved);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Historial de llamadas
+app.get('/api/telephony/calls', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id es requerido' });
+    if (!await verifyStoreOwnership(storeId, req.user.id)) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
+    res.json(await getCallLogs(storeId, parseInt(req.query.limit) || 50));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Pedidos captados por la IA en llamadas
+app.get('/api/telephony/ai-orders', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id es requerido' });
+    if (!await verifyStoreOwnership(storeId, req.user.id)) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
+    res.json(await getAiCallOrders(storeId, parseInt(req.query.limit) || 50));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/telephony/ai-orders/:id', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id es requerido' });
+    if (!await verifyStoreOwnership(storeId, req.user.id)) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
+    const order = await getAiCallOrderById(storeId, parseInt(req.params.id));
+    if (!order) return res.status(404).json({ error: 'No encontrado' });
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.patch('/api/telephony/ai-orders/:id', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id || req.body.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id es requerido' });
+    if (!await verifyStoreOwnership(storeId, req.user.id)) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
+    const valid = ['new', 'reviewed', 'confirmed', 'discarded'];
+    if (!valid.includes(req.body.status)) return res.status(400).json({ error: 'Estado inválido' });
+    await updateAiCallOrderStatus(storeId, parseInt(req.params.id), req.body.status);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── Endpoints para el BOT de voz (servicio /telephony, auth por token) ──
+
+// El bot pregunta a qué tienda pertenece un número entrante y obtiene el
+// contexto (menú + ajustes) para atender la llamada con la IA.
+app.get('/api/telephony/bot/context', authenticateBot, async (req, res) => {
+  try {
+    const did = req.query.did;
+    const cfg = await getTelephonyConfigByDid(did);
+    if (!cfg) return res.status(404).json({ error: 'Número no registrado o deshabilitado' });
+
+    const store = await getStoreById(cfg.store_id);
+    const [products] = await pool.execute(
+      `SELECT p.id, p.name, p.price, c.name AS category
+       FROM products p LEFT JOIN categories c ON c.id = p.category_id
+       WHERE p.store_id = ?
+       ORDER BY c.name, p.name LIMIT 300`,
+      [cfg.store_id]
+    ).catch(() => [[]]);
+
+    const caller = await lookupCallerCustomer(cfg.store_id, req.query.from);
+
+    res.json({
+      store_id: cfg.store_id,
+      store_name: store?.name || '',
+      language: cfg.language || 'es',
+      greeting_text: cfg.greeting_text || `¡Hola! Gracias por llamar a ${store?.name || 'nuestra tienda'}. ¿Qué le gustaría pedir?`,
+      system_prompt: cfg.system_prompt || '',
+      ollama_model: cfg.ollama_model || 'llama3',
+      piper_voice: cfg.piper_voice || 'es_ES-carlfm-x_low',
+      max_seconds: cfg.max_seconds || 300,
+      forward_number: cfg.forward_number || null,
+      menu: products,
+      caller,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/telephony/bot/call-start', authenticateBot, async (req, res) => {
+  try {
+    const { store_id, call_uid, from_number, to_number } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const id = await createCallLog(parseInt(store_id), {
+      call_uid, from_number, to_number, direction: 'inbound', status: 'answered',
+    });
+    // Aviso en tiempo real al panel (sala de la tienda)
+    io.to(`store_${store_id}`).emit('incoming_call', { call_log_id: id, from_number, to_number });
+    res.json({ call_log_id: id });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Fin de la llamada: el bot envía la transcripción y el pedido estructurado.
+app.post('/api/telephony/bot/call-end', authenticateBot, async (req, res) => {
+  try {
+    const { store_id, call_log_id, call_uid, from_number, duration_sec, transcript, order, summary, customer_name, status } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+
+    if (call_uid) {
+      await updateCallLog(call_uid, {
+        status: status || 'completed', duration_sec, ended: true,
+      }).catch(() => {});
+    }
+
+    let aiOrderId = null;
+    const hasContent = (transcript && transcript.trim()) || (order && (Array.isArray(order.items) ? order.items.length : order.items));
+    if (hasContent) {
+      aiOrderId = await saveAiCallOrder(parseInt(store_id), {
+        call_log_id: call_log_id || null,
+        from_number,
+        customer_name: customer_name || null,
+        transcript: transcript || null,
+        order_json: order || null,
+        summary: summary || null,
+        total: order?.total || 0,
+      });
+      io.to(`store_${store_id}`).emit('ai_call_order', { id: aiOrderId, from_number, summary, total: order?.total || 0 });
+    }
+    res.json({ success: true, ai_order_id: aiOrderId });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

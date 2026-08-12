@@ -1,0 +1,79 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SRServi · Telefonía IA (100% open source)
+#
+#   asterisk  → recibe la llamada del troncal SIP y la manda al bot (AudioSocket)
+#   bot       → agente de voz: VAD + Whisper (STT) + Ollama (LLM) + Piper (TTS)
+#   whisper   → transcripción (faster-whisper, GPU)
+#   ollama    → LLM local (Llama 3 / Mistral, GPU)
+#
+# Requiere: Docker + NVIDIA Container Toolkit (para GPU en whisper y ollama).
+# Copia .env.example a .env y complétalo antes de levantar.
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+  asterisk:
+    image: andrius/asterisk:latest
+    container_name: srservi-asterisk
+    # Host networking: imprescindible para SIP/RTP (evita problemas de NAT/puertos)
+    network_mode: host
+    volumes:
+      - ./asterisk/pjsip.conf:/etc/asterisk/pjsip.conf:ro
+      - ./asterisk/extensions.conf:/etc/asterisk/extensions.conf:ro
+      - ./asterisk/modules.conf:/etc/asterisk/modules.conf:ro
+    restart: unless-stopped
+    depends_on:
+      - bot
+
+  bot:
+    build: ./bot
+    container_name: srservi-voice-bot
+    ports:
+      - "8090:8090"   # HTTP /new (dialplan)
+      - "8091:8091"   # AudioSocket TCP
+    environment:
+      HTTP_PORT: "8090"
+      AS_PORT: "8091"
+      WHISPER_URL: "http://whisper:9000"
+      OLLAMA_URL: "http://ollama:11434"
+      SRSERVI_URL: "${SRSERVI_URL}"
+      TELEPHONY_BOT_TOKEN: "${TELEPHONY_BOT_TOKEN}"
+      VAD_THRESHOLD: "${VAD_THRESHOLD:-600}"
+    restart: unless-stopped
+    depends_on:
+      - whisper
+      - ollama
+
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:latest-gpu
+    container_name: srservi-whisper
+    environment:
+      ASR_MODEL: "${WHISPER_MODEL:-small}"
+      ASR_ENGINE: "faster_whisper"
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: srservi-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  ollama_data:

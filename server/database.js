@@ -9224,3 +9224,238 @@ export async function updateSalesLeadStatus(id, status, notes) {
 export async function deleteSalesLead(id) {
   await pool.execute('DELETE FROM sales_leads WHERE id = ?', [id]);
 }
+
+// ─── Telefonía IA (recepción de llamadas + agente de voz) ──────────────────────
+// Cada tienda registra los datos de su número (troncal SIP) y la configuración
+// del agente de voz (saludo, idioma, modelo LLM, voz TTS). El bot de voz (ver
+// carpeta /telephony) atiende la llamada, transcribe con Whisper, entiende el
+// pedido con un LLM local (Ollama) y responde con voz (Piper), y al final guarda
+// la transcripción + el pedido estructurado para que se vean en el panel.
+
+let _telephonyReady = false;
+async function ensureTelephonyTables() {
+  if (_telephonyReady) return;
+
+  // Configuración por tienda: datos del número/troncal + ajustes de la IA
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS telephony_config (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL UNIQUE,
+      enabled BOOLEAN DEFAULT FALSE,
+      -- Datos del número / troncal SIP que registra la tienda
+      did_number VARCHAR(50),
+      trunk_host VARCHAR(255),
+      trunk_port INT DEFAULT 5060,
+      trunk_username VARCHAR(255),
+      trunk_password VARCHAR(255),
+      trunk_from_domain VARCHAR(255),
+      -- Ajustes del agente de voz IA
+      language VARCHAR(10) DEFAULT 'es',
+      greeting_text TEXT,
+      system_prompt TEXT,
+      ollama_model VARCHAR(120) DEFAULT 'llama3',
+      piper_voice VARCHAR(120) DEFAULT 'es_ES-carlfm-x_low',
+      max_seconds INT DEFAULT 300,
+      forward_number VARCHAR(50),
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_teleconf_store (store_id),
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Registro de llamadas recibidas
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS call_logs (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      call_uid VARCHAR(120) UNIQUE,
+      direction ENUM('inbound','outbound') DEFAULT 'inbound',
+      from_number VARCHAR(50),
+      to_number VARCHAR(50),
+      status ENUM('ringing','answered','completed','missed','failed') DEFAULT 'ringing',
+      duration_sec INT DEFAULT 0,
+      recording_path VARCHAR(500),
+      started_at TIMESTAMP NULL DEFAULT NULL,
+      ended_at TIMESTAMP NULL DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_calllog_store (store_id),
+      INDEX idx_calllog_created (store_id, created_at),
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Pedido/mensaje transcrito por la IA a partir de la llamada
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS ai_call_orders (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      call_log_id INT NULL,
+      from_number VARCHAR(50),
+      customer_name VARCHAR(255),
+      transcript MEDIUMTEXT,
+      order_json JSON NULL,
+      summary TEXT,
+      total DECIMAL(10,2) DEFAULT 0,
+      status ENUM('new','reviewed','confirmed','discarded') DEFAULT 'new',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_aicall_store (store_id, created_at),
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
+  _telephonyReady = true;
+}
+
+export async function getTelephonyConfig(storeId) {
+  await ensureTelephonyTables();
+  const [rows] = await pool.execute('SELECT * FROM telephony_config WHERE store_id = ?', [storeId]);
+  if (rows[0]) return rows[0];
+  return {
+    store_id: storeId, enabled: false, did_number: null, trunk_host: null,
+    trunk_port: 5060, trunk_username: null, trunk_password: null, trunk_from_domain: null,
+    language: 'es', greeting_text: null, system_prompt: null,
+    ollama_model: 'llama3', piper_voice: 'es_ES-carlfm-x_low', max_seconds: 300, forward_number: null,
+  };
+}
+
+export async function saveTelephonyConfig(storeId, cfg) {
+  await ensureTelephonyTables();
+  const {
+    enabled, did_number, trunk_host, trunk_port, trunk_username, trunk_password,
+    trunk_from_domain, language, greeting_text, system_prompt, ollama_model,
+    piper_voice, max_seconds, forward_number,
+  } = cfg;
+  await pool.execute(`
+    INSERT INTO telephony_config
+      (store_id, enabled, did_number, trunk_host, trunk_port, trunk_username, trunk_password,
+       trunk_from_domain, language, greeting_text, system_prompt, ollama_model, piper_voice, max_seconds, forward_number)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      enabled = VALUES(enabled), did_number = VALUES(did_number), trunk_host = VALUES(trunk_host),
+      trunk_port = VALUES(trunk_port), trunk_username = VALUES(trunk_username),
+      trunk_password = VALUES(trunk_password), trunk_from_domain = VALUES(trunk_from_domain),
+      language = VALUES(language), greeting_text = VALUES(greeting_text),
+      system_prompt = VALUES(system_prompt), ollama_model = VALUES(ollama_model),
+      piper_voice = VALUES(piper_voice), max_seconds = VALUES(max_seconds),
+      forward_number = VALUES(forward_number)
+  `, [
+    storeId, enabled ? 1 : 0, did_number || null, trunk_host || null,
+    parseInt(trunk_port) || 5060, trunk_username || null, trunk_password || null,
+    trunk_from_domain || null, language || 'es', greeting_text || null, system_prompt || null,
+    ollama_model || 'llama3', piper_voice || 'es_ES-carlfm-x_low', parseInt(max_seconds) || 300,
+    forward_number || null,
+  ]);
+  return getTelephonyConfig(storeId);
+}
+
+// Busca la tienda dueña de un número entrante (DID) para que el bot sepa a qué
+// tienda pertenece la llamada.
+export async function getTelephonyConfigByDid(did) {
+  await ensureTelephonyTables();
+  const norm = String(did || '').replace(/[^0-9]/g, '');
+  const [rows] = await pool.execute(
+    `SELECT * FROM telephony_config
+     WHERE enabled = 1 AND REPLACE(REPLACE(REPLACE(did_number,'+',''),' ',''),'-','') LIKE ?
+     LIMIT 1`,
+    [`%${norm}%`]
+  );
+  return rows[0] || null;
+}
+
+export async function createCallLog(storeId, data) {
+  await ensureTelephonyTables();
+  const [res] = await pool.execute(
+    `INSERT INTO call_logs (store_id, call_uid, direction, from_number, to_number, status, started_at)
+     VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+    [storeId, data.call_uid || null, data.direction || 'inbound',
+     data.from_number || null, data.to_number || null, data.status || 'ringing']
+  );
+  return res.insertId;
+}
+
+export async function updateCallLog(callUid, data) {
+  await ensureTelephonyTables();
+  const fields = [];
+  const params = [];
+  if (data.status !== undefined) { fields.push('status = ?'); params.push(data.status); }
+  if (data.duration_sec !== undefined) { fields.push('duration_sec = ?'); params.push(parseInt(data.duration_sec) || 0); }
+  if (data.recording_path !== undefined) { fields.push('recording_path = ?'); params.push(data.recording_path); }
+  if (data.ended !== undefined) { fields.push('ended_at = NOW()'); }
+  if (!fields.length) return;
+  params.push(callUid);
+  await pool.execute(`UPDATE call_logs SET ${fields.join(', ')} WHERE call_uid = ?`, params);
+}
+
+export async function getCallLogs(storeId, limit = 50) {
+  await ensureTelephonyTables();
+  const [rows] = await pool.execute(
+    `SELECT c.*, a.id AS ai_order_id, a.summary AS ai_summary, a.total AS ai_total, a.status AS ai_status
+     FROM call_logs c
+     LEFT JOIN ai_call_orders a ON a.call_log_id = c.id
+     WHERE c.store_id = ?
+     ORDER BY c.created_at DESC
+     LIMIT ${parseInt(limit)}`,
+    [storeId]
+  );
+  return rows;
+}
+
+export async function saveAiCallOrder(storeId, data) {
+  await ensureTelephonyTables();
+  const orderJson = data.order_json != null ? JSON.stringify(data.order_json) : null;
+  const [res] = await pool.execute(
+    `INSERT INTO ai_call_orders
+       (store_id, call_log_id, from_number, customer_name, transcript, order_json, summary, total, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new')`,
+    [storeId, data.call_log_id || null, data.from_number || null, data.customer_name || null,
+     data.transcript || null, orderJson, data.summary || null, Number(data.total) || 0]
+  );
+  return res.insertId;
+}
+
+export async function getAiCallOrders(storeId, limit = 50) {
+  await ensureTelephonyTables();
+  const [rows] = await pool.execute(
+    `SELECT * FROM ai_call_orders WHERE store_id = ? ORDER BY created_at DESC LIMIT ${parseInt(limit)}`,
+    [storeId]
+  );
+  return rows.map(r => ({ ...r, order_json: safeJson(r.order_json) }));
+}
+
+export async function getAiCallOrderById(storeId, id) {
+  await ensureTelephonyTables();
+  const [rows] = await pool.execute(
+    `SELECT a.*, c.from_number AS call_from, c.duration_sec, c.started_at AS call_started
+     FROM ai_call_orders a LEFT JOIN call_logs c ON c.id = a.call_log_id
+     WHERE a.store_id = ? AND a.id = ? LIMIT 1`,
+    [storeId, id]
+  );
+  if (!rows[0]) return null;
+  return { ...rows[0], order_json: safeJson(rows[0].order_json) };
+}
+
+export async function updateAiCallOrderStatus(storeId, id, status) {
+  await ensureTelephonyTables();
+  await pool.execute('UPDATE ai_call_orders SET status = ? WHERE store_id = ? AND id = ?', [status, storeId, id]);
+}
+
+// Cruza el número entrante con los pedidos históricos para el "screen-pop"
+export async function lookupCallerCustomer(storeId, phone) {
+  const norm = String(phone || '').replace(/[^0-9]/g, '');
+  if (norm.length < 6) return null;
+  const [rows] = await pool.execute(
+    `SELECT customer_name, COUNT(*) AS order_count, COALESCE(SUM(total),0) AS total_spent, MAX(created_at) AS last_order
+     FROM orders
+     WHERE store_id = ? AND REPLACE(REPLACE(customer_phone,'+',''),' ','') LIKE ?
+     GROUP BY customer_name
+     ORDER BY last_order DESC LIMIT 1`,
+    [storeId, `%${norm}%`]
+  );
+  return rows[0] || null;
+}
+
+function safeJson(v) {
+  if (v == null) return null;
+  if (typeof v === 'object') return v;
+  try { return JSON.parse(v); } catch { return null; }
+}

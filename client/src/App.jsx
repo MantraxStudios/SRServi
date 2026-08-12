@@ -33,6 +33,7 @@ import Configurations from './pages/admin/Configurations';
 import Market from './pages/admin/Market';
 import Plans from './pages/admin/Plans';
 import Analytics from './pages/admin/Analytics';
+import Calls from './pages/admin/Calls';
 import WorkerConfig from './pages/admin/WorkerConfig';
 import StorePin from './pages/admin/StorePin';
 import Plugins from './pages/admin/Plugins';
@@ -323,6 +324,7 @@ function App() {
             <Route path="market" element={<Market />} />
             <Route path="plans" element={<Plans />} />
             <Route path="analytics" element={<PermissionGate section="analytics"><Analytics /></PermissionGate>} />
+            <Route path="calls" element={<Calls />} />
             <Route path="worker-config" element={<WorkerConfig />} />
             <Route path="store-pin" element={<StorePin />} />
             <Route path="plugins" element={<Plugins />} />
