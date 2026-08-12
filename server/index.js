@@ -10966,6 +10966,160 @@ async function startServer() {
       tuuActivePolls.set(idempotencyKey, intervalId);
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    // RECONCILIADOR DE PAGOS CON TARJETA
+    // Al reiniciar el server se pierden los setInterval en memoria (TUU/Square)
+    // y los pagos que el cliente SÍ realizó quedan sin confirmar → el trabajador
+    // los tenía que confirmar a mano. Este job vuelve a preguntarle a cada
+    // proveedor (TUU, Square, MercadoPago, SumUp) el estado REAL de los pagos
+    // pendientes y confirma/cancela la orden de forma IDEMPOTENTE: solo actúa si
+    // la orden sigue sin pagar (payment_process = 0), así nunca cobra/confirma dos
+    // veces aunque el trabajador ya lo hubiera hecho manualmente.
+    // ══════════════════════════════════════════════════════════════════════
+    const RECONCILE_WINDOW_MIN = parseInt(process.env.PAYMENT_RECONCILE_WINDOW_MIN || '1440'); // 24h
+    const RECONCILE_EVERY_MS = parseInt(process.env.PAYMENT_RECONCILE_EVERY_MS || '120000');   // 2 min
+    let reconcileRunning = false;
+
+    // Marca una orden como pagada de forma idempotente + avisa al tótem/panel y
+    // dispara el WhatsApp. Devuelve true solo si ESTE llamado fue el que la
+    // confirmó (evita efectos duplicados si ya estaba pagada).
+    async function reconcileMarkOrderPaid(storeId, orderId, refs = {}) {
+      if (!orderId) return false;
+      const [before] = await pool.execute(
+        'SELECT payment_process FROM orders WHERE id = ? AND store_id = ?', [orderId, storeId]
+      );
+      if (!before[0] || before[0].payment_process === 1) return false; // no existe o ya confirmada
+      const [upd] = await pool.execute(
+        `UPDATE orders SET status = 'preparing', payment_process = 1, cash_approved = TRUE,
+           sequence_id = COALESCE(sequence_id, ?), reference_id = COALESCE(reference_id, ?)
+         WHERE id = ? AND store_id = ? AND payment_process = 0`,
+        [refs.sequenceId || null, refs.transactionRef || null, orderId, storeId]
+      );
+      if (!upd.affectedRows) return false; // otra ruta la confirmó en la carrera → no duplicar
+      const [after] = await pool.execute('SELECT * FROM orders WHERE id = ? AND store_id = ?', [orderId, storeId]);
+      const paidOrder = after[0];
+      const items = await getOrderItems(parseInt(orderId)).catch(() => null);
+      const room = `store_${parseInt(storeId)}`;
+      io.to(room).emit('payment_confirmed', { ...paidOrder, items });
+      notifyOrderStatusWhatsApp(storeId, orderId, 'preparing');
+      console.log(`[reconcile] ✔ Pago recuperado: orden #${orderId} tienda ${storeId}`);
+      return true;
+    }
+
+    async function reconcileTuu(since) {
+      const [txs] = await pool.execute(
+        `SELECT * FROM tuu_transactions WHERE status IN ('Pending','Timeout')
+         AND created_at >= ? ORDER BY created_at DESC LIMIT 200`, [since]
+      );
+      for (const tx of txs) {
+        try {
+          const userId = await tuuGetUserIdFromStore(tx.store_id);
+          const cfg = userId ? await tuuGetConfig(userId) : null;
+          if (!cfg?.api_key) continue;
+          const data = await tuuCheckStatus(cfg.api_key, tx.idempotency_key);
+          if (data.status === 'Completed') {
+            await pool.execute(
+              'UPDATE tuu_transactions SET status = ?, transaction_ref = ?, updated_at = NOW() WHERE idempotency_key = ?',
+              ['Completed', data.transactionReference || null, tx.idempotency_key]
+            );
+            await reconcileMarkOrderPaid(tx.store_id, tx.order_id, { sequenceId: data.sequenceNumber, transactionRef: data.transactionReference });
+            io.to(`store_${parseInt(tx.store_id)}`).emit('tuu_payment_update', { idempotencyKey: tx.idempotency_key, orderId: tx.order_id, status: 'Completed', transactionRef: data.transactionReference, sequenceNumber: data.sequenceNumber });
+          } else if (data.status === 'Canceled' || data.status === 'Failed') {
+            await pool.execute('UPDATE tuu_transactions SET status = ?, updated_at = NOW() WHERE idempotency_key = ?', [data.status, tx.idempotency_key]);
+            if (tx.order_id) await pool.execute("UPDATE orders SET status = 'canceled' WHERE id = ? AND payment_process = 0", [tx.order_id]).catch(() => {});
+          } else if ((data.status === 'Pending') && !tuuActivePolls.has(tx.idempotency_key)) {
+            // Sigue pendiente y no hay polling vivo (murió en el reinicio) → re-armar.
+            tuuStartPolling(cfg.api_key, tx.idempotency_key, parseInt(tx.store_id), tx.order_id);
+          }
+        } catch (e) { console.error('[reconcile-tuu]', tx.idempotency_key, e.message); }
+      }
+    }
+
+    async function reconcileSquare(since) {
+      const [cos] = await pool.execute(
+        `SELECT * FROM sq_checkouts WHERE status IN ('PENDING','Pending','Timeout')
+         AND created_at >= ? ORDER BY created_at DESC LIMIT 200`, [since]
+      );
+      for (const co of cos) {
+        try {
+          const [sr] = await pool.execute('SELECT user_id FROM stores WHERE id = ?', [co.store_id]);
+          const userId = sr[0]?.user_id;
+          if (!userId) continue;
+          const cfg = await squareGetConfig(userId, co.store_id);
+          if (!cfg?.access_token) continue;
+          const r = await fetch('https://connect.squareup.com/v2/terminals/checkouts/' + encodeURIComponent(co.checkout_id), {
+            headers: { 'Authorization': 'Bearer ' + cfg.access_token, 'Square-Version': '2026-01-22' }
+          });
+          const d = await r.json();
+          const st = d?.checkout?.status || 'UNKNOWN';
+          if (st === 'COMPLETED') {
+            await pool.execute('UPDATE sq_checkouts SET status = ? WHERE checkout_id = ?', ['Completed', co.checkout_id]);
+            await reconcileMarkOrderPaid(co.store_id, co.order_id, {});
+            io.to(`store_${parseInt(co.store_id)}`).emit('square_payment_update', { checkoutId: co.checkout_id, orderId: co.order_id, status: 'Completed' });
+          } else if (st === 'CANCELED' || st === 'CANCEL_REQUESTED') {
+            await pool.execute('UPDATE sq_checkouts SET status = ? WHERE checkout_id = ?', ['Canceled', co.checkout_id]);
+            if (co.order_id) await pool.execute("UPDATE orders SET status = 'canceled' WHERE id = ? AND payment_process = 0", [co.order_id]).catch(() => {});
+          }
+          // Si sigue PENDING/IN_PROGRESS se re-evalúa en el próximo tick.
+        } catch (e) { console.error('[reconcile-square]', co.checkout_id, e.message); }
+      }
+    }
+
+    // Órdenes con tarjeta pendientes que ya tienen checkout de proveedor (MP/SumUp).
+    async function reconcileMpSumup(since) {
+      const [orders] = await pool.execute(
+        `SELECT * FROM orders WHERE payment_method = 'card' AND payment_process = 0
+         AND status NOT IN ('canceled','completed') AND mp_order_id IS NOT NULL
+         AND created_at >= ? ORDER BY created_at DESC LIMIT 200`, [since]
+      );
+      for (const order of orders) {
+        try {
+          const storeId = order.store_id;
+          // ── SumUp ──
+          if (order.terminal_id) {
+            const terminal = await getPosTerminalForStore(storeId, order.terminal_id).catch(() => null);
+            if (terminal?.provider === 'sumup') {
+              const d = await getSumUpCheckoutStatus(order.mp_order_id, terminal.api_key);
+              const raw = (d.status || '').toUpperCase();
+              if (raw === 'PAID') await reconcileMarkOrderPaid(storeId, order.id, {});
+              else if (raw === 'FAILED' || raw === 'EXPIRED') await pool.execute("UPDATE orders SET status = 'canceled' WHERE id = ? AND payment_process = 0", [order.id]).catch(() => {});
+              continue;
+            }
+          }
+          // ── MercadoPago ──
+          const store = await getStoreById(storeId).catch(() => null);
+          let token = store?.mercadopago_access_token || store?.mp_access_token;
+          if (order.terminal_id) {
+            const [pr] = await pool.execute("SELECT api_key FROM pos_terminals WHERE id = ? AND provider = 'mercadopago'", [order.terminal_id]);
+            if (pr[0]?.api_key) token = pr[0].api_key;
+          }
+          if (!token) continue;
+          const mp = await getMercadoPagoOrderStatus(order.mp_order_id, token).catch(() => null);
+          if (!mp) continue;
+          const MP_APPROVED = ['processed', 'action_required'];
+          const rawStatus = mp.transactions?.payments?.[0]?.status || mp.status;
+          if (MP_APPROVED.includes(rawStatus) || MP_APPROVED.includes(mp.status)) {
+            await reconcileMarkOrderPaid(storeId, order.id, {});
+          } else if (['canceled', 'expired', 'failed'].includes(mp.status)) {
+            await pool.execute("UPDATE orders SET status = 'canceled' WHERE id = ? AND payment_process = 0", [order.id]).catch(() => {});
+          }
+        } catch (e) { console.error('[reconcile-mp/sumup] orden', order.id, e.message); }
+      }
+    }
+
+    async function reconcilePendingPayments() {
+      if (reconcileRunning) return; // evita solapamiento si un tick tarda
+      reconcileRunning = true;
+      const since = new Date(Date.now() - RECONCILE_WINDOW_MIN * 60000);
+      try {
+        await reconcileTuu(since).catch(e => console.error('[reconcile-tuu] query:', e.message));
+        await reconcileSquare(since).catch(e => console.error('[reconcile-square] query:', e.message));
+        await reconcileMpSumup(since).catch(e => console.error('[reconcile-mp/sumup] query:', e.message));
+      } finally {
+        reconcileRunning = false;
+      }
+    }
+
     app.get('/api/tuu/config', async (req, res) => {
       try {
         const storeId = parseInt(req.query.store_id);
@@ -15445,6 +15599,18 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     server.listen(PORT, HOST, () => {
       console.log(`Servidor corriendo en http://${HOST}:${PORT}`);
     });
+
+    // Reconciliador de pagos con tarjeta: recupera pagos que quedaron sin
+    // confirmar cuando el server se reinició. Corre al arrancar (tras 8s, para
+    // dar tiempo a que la DB/plugins estén listos) y luego cada RECONCILE_EVERY_MS.
+    setTimeout(() => {
+      reconcilePendingPayments()
+        .then(() => console.log('[reconcile] Chequeo inicial de pagos completado'))
+        .catch(e => console.error('[reconcile] arranque:', e.message));
+    }, 8000);
+    setInterval(() => {
+      reconcilePendingPayments().catch(e => console.error('[reconcile] tick:', e.message));
+    }, RECONCILE_EVERY_MS);
 
     if (!OFFLINE) {
       // Instagram Python service — se inicia automáticamente con el servidor
