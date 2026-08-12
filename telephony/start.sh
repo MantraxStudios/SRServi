@@ -49,9 +49,8 @@ ok ".env presente"
 if grep -q "cambia-esto-por-un-token" .env; then
   warn "El TELEPHONY_BOT_TOKEN sigue con el valor de ejemplo — cámbialo por uno real (debe coincidir con el del server SRServi)."
 fi
-if grep -qE 'SIP_HOST|SIP_USER|SIP_PASSWORD' asterisk/pjsip.conf; then
-  warn "asterisk/pjsip.conf todavía tiene SIP_HOST/SIP_USER/SIP_PASSWORD sin reemplazar — el troncal NO se registrará hasta completarlos."
-fi
+# Nota: pjsip.conf se GENERA automáticamente desde el panel (sync-trunks.sh);
+# no hace falta editarlo a mano. Cada tienda carga su troncal en Llamadas IA.
 
 # ── 2. Levantar el stack ─────────────────────────────────────────────────────
 log "Construyendo y levantando contenedores"
@@ -95,9 +94,23 @@ else
   warn "El bot no respondió. Revisa: $DC logs bot"
 fi
 
-# ── 5. Estado del troncal SIP ────────────────────────────────────────────────
-log "Estado del troncal SIP (Asterisk)"
+# ── 5. Sincronizar troncales del panel y ver estado ──────────────────────────
+log "Sincronizando troncales SIP desde el panel (sync-trunks.sh)"
 sleep 3
+bash ./sync-trunks.sh || warn "No pude sincronizar troncales — reintenta luego con ./sync-trunks.sh"
+
+# Watcher en segundo plano: resincroniza cada 60s cuando un cliente agrega o
+# cambia su troncal en el panel. No arranca otro si ya hay uno corriendo.
+if pgrep -f "sync-trunks.sh --watch" >/dev/null 2>&1; then
+  ok "Watcher de troncales ya estaba corriendo"
+else
+  mkdir -p logs
+  nohup bash ./sync-trunks.sh --watch >> logs/sync-trunks.log 2>&1 &
+  disown 2>/dev/null || true
+  ok "Watcher de troncales iniciado (cada 60s) → telephony/logs/sync-trunks.log"
+fi
+
+log "Estado del troncal SIP (Asterisk)"
 docker exec srservi-asterisk asterisk -rx "pjsip show registrations" 2>/dev/null \
   || warn "No pude consultar Asterisk todavía. Reintenta: docker exec -it srservi-asterisk asterisk -rx \"pjsip show registrations\""
 
@@ -105,12 +118,14 @@ docker exec srservi-asterisk asterisk -rx "pjsip show registrations" 2>/dev/null
 log "Listo"
 cat <<'EOF'
   Todo levantado. Siguientes pasos:
-   1. En el registro de arriba, el troncal debe verse "Registered".
-   2. Configura la tienda en SRServi → Llamadas IA (DID, saludo, instrucciones, modelo, voz).
-   3. Llama a tu número (DID) desde el teléfono: la IA contesta y toma el pedido.
+   1. En el registro de arriba, cada troncal activo debe verse "Registered".
+   2. Cada tienda configura su troncal en SRServi → Llamadas IA (DID, host, usuario, clave).
+   3. Cuando una tienda agrega/cambia su troncal, corre ./sync-trunks.sh (o déjalo en watch).
+   4. Llama al número (DID) desde el teléfono: la IA contesta y toma el pedido.
 
   Comandos útiles:
-   - Ver logs en vivo:   docker compose logs -f bot
-   - Detener todo:       docker compose down
-   - Reiniciar el bot:   docker compose restart bot
+   - Sincronizar troncales:  ./sync-trunks.sh   (--watch para auto-cada-60s)
+   - Ver logs en vivo:       docker compose logs -f bot
+   - Detener todo:           docker compose down
+   - Reiniciar el bot:       docker compose restart bot
 EOF

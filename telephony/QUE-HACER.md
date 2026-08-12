@@ -26,11 +26,13 @@ voz IA. La explicación técnica completa está en [`README.md`](./README.md).
 - [ ] Edita `.env`: `SRSERVI_URL`, `TELEPHONY_BOT_TOKEN` (el **mismo** del paso 1),
       `WHISPER_MODEL` (`small` recomendado).
 
-## 3. Datos del troncal en Asterisk
+## 3. Troncales (automático, NO se edita a mano)
 
-- [ ] En `asterisk/pjsip.conf` reemplaza `SIP_HOST`, `SIP_USER`, `SIP_PASSWORD`
-      con los datos de tu proveedor.
-- [ ] (Varias tiendas/números: duplica los bloques o usa Asterisk Realtime — ver README.)
+- [ ] Nada que hacer aquí: `asterisk/pjsip.conf` se **genera solo** desde el panel.
+      Cada tienda carga su propio troncal (host/usuario/clave/DID) en
+      **SRServi → Llamadas IA** y `sync-trunks.sh` lo aplica a Asterisk.
+- [ ] Cuando una tienda agrega o cambia su troncal, corre `./sync-trunks.sh`
+      (o déjalo en segundo plano con `./sync-trunks.sh --watch`).
 
 ## 4. Levantar
 
@@ -76,7 +78,8 @@ voz IA. La explicación técnica completa está en [`README.md`](./README.md).
 |---|---|
 | Guía técnica completa | `telephony/README.md` |
 | Bot de voz (IA) | `telephony/bot/` |
-| Config Asterisk | `telephony/asterisk/` |
+| Config Asterisk (auto-generada) | `telephony/asterisk/pjsip.conf` (la escribe `gen-pjsip.mjs`) |
+| Sincronizar troncales del panel | `telephony/sync-trunks.sh` |
 | Orquestación | `telephony/docker-compose.yml` |
 | Panel admin | `client/src/pages/admin/Calls.jsx` (`/admin/calls`) |
 | Backend (tablas + endpoints) | `server/database.js`, `server/index.js` (`/api/telephony/*`) |

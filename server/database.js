@@ -9348,6 +9348,22 @@ export async function saveTelephonyConfig(storeId, cfg) {
   return getTelephonyConfig(storeId);
 }
 
+// Devuelve los troncales SIP de todas las tiendas con el agente activo y datos
+// de troncal cargados. Lo consume el generador de config de Asterisk
+// (telephony/gen-pjsip.mjs) para registrar cada número dinámicamente, sin editar
+// pjsip.conf a mano por cada cliente.
+export async function getActiveTrunks() {
+  await ensureTelephonyTables();
+  const [rows] = await pool.execute(
+    `SELECT store_id, did_number, trunk_host, trunk_port, trunk_username,
+            trunk_password, trunk_from_domain
+     FROM telephony_config
+     WHERE enabled = 1 AND trunk_host IS NOT NULL AND trunk_host <> ''
+       AND trunk_username IS NOT NULL AND trunk_username <> ''`
+  );
+  return rows;
+}
+
 // Busca la tienda dueña de un número entrante (DID) para que el bot sepa a qué
 // tienda pertenece la llamada.
 export async function getTelephonyConfigByDid(did) {

@@ -195,6 +195,7 @@ import {
   getTelephonyConfig,
   saveTelephonyConfig,
   getTelephonyConfigByDid,
+  getActiveTrunks,
   createCallLog,
   updateCallLog,
   getCallLogs,
@@ -3668,6 +3669,18 @@ app.patch('/api/telephony/ai-orders/:id', authenticateToken, async (req, res) =>
 });
 
 // ── Endpoints para el BOT de voz (servicio /telephony, auth por token) ──
+
+// Lista los troncales SIP de las tiendas con el agente activo. La usa el
+// generador de Asterisk (telephony/gen-pjsip.mjs) para registrar cada número
+// automáticamente: cada cliente carga SU troncal en el panel y Asterisk se
+// configura solo, sin editar pjsip.conf a mano.
+app.get('/api/telephony/bot/trunks', authenticateBot, async (req, res) => {
+  try {
+    res.json(await getActiveTrunks());
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // El bot pregunta a qué tienda pertenece un número entrante y obtiene el
 // contexto (menú + ajustes) para atender la llamada con la IA.
