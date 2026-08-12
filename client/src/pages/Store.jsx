@@ -8243,7 +8243,9 @@ function Store() {
                   </div>
                 )}
                 <div className="flex flex-col" style={{ gap: '15px' }}>
-                  {tuuModePayFromUrl && androidBridgeAvailable && isOnline && (
+                  {/* Puente nativo (app launcher): cobra vía Bluetooth/terminal. Funciona
+                      aunque el tótem esté offline; solo aparece si existe AndroidBridge. */}
+                  {tuuModePayFromUrl && androidBridgeAvailable && (
                     <>
                       <button
                         onClick={() => handleAndroidTuuPayment(2)}
@@ -8262,6 +8264,16 @@ function Store() {
                       >
                         <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '26px' }} />
                         <span className="font-bold" style={{ fontSize: '18px' }}>CRÉDITO TUU</span>
+                      </button>
+                      {/* Efectivo: imprescindible en el POS offline (venta en cola PWA). */}
+                      <button
+                        onClick={() => processPayment('cash')}
+                        disabled={processingPayment}
+                        className="btn btn-lg btn-full store-glow-pulse"
+                        style={{ backgroundColor: '#1a1a1a', color: '#16a34a', border: '3px solid #16a34a', borderRadius: '15px' }}
+                      >
+                        <FontAwesomeIcon icon={faMoneyBillWave} style={{ fontSize: '26px' }} />
+                        <span className="font-bold" style={{ fontSize: '18px' }}>{t('cash', lang)}</span>
                       </button>
                     </>
                   )}

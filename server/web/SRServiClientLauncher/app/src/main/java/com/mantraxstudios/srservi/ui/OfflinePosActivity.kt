@@ -30,6 +30,7 @@ import com.mantraxstudios.srservi.SRServiConfig
 import com.mantraxstudios.srservi.admin.SRServiDeviceAdminReceiver
 import com.mantraxstudios.srservi.offline.OfflineRepository
 import com.mantraxstudios.srservi.offline.StoreInfo
+import com.mantraxstudios.srservi.payment.BluetoothReceiverClient
 import com.mantraxstudios.srservi.payment.OfflinePaymentProcessor
 
 /**
@@ -78,12 +79,12 @@ class OfflinePosActivity : AppCompatActivity() {
         requestMediaPermissions()
         setupWebView()
 
-        // Carga el tótem NORMAL → UI 100% idéntica y todos los métodos de pago del tótem.
-        // (No forzamos tuumodepay para no ocultar MP/SumUp/Square en tiendas que no usan TUU.)
-        // Los cobros con máquina los hace el tótem vía tu server; offline la venta en efectivo
-        // funciona por la PWA. `pos_offline=1` queda como marcador para futuros ajustes.
+        // Carga el tótem con `tuumodepay=true` → el cobro con tarjeta usa el puente nativo
+        // (AndroidBridge.processTuuPayment), que envía el pago por Bluetooth al equipo
+        // SRServiReceiver (o cobra directo si no hay receptor). El efectivo offline sigue
+        // funcionando por la PWA (botón añadido en el modal de pago del tótem).
         val ver = SRServiConfig.APP_VERSION
-        webView.loadUrl("$BASE_URL/store/$code?pos_offline=1&app_version=$ver")
+        webView.loadUrl("$BASE_URL/store/$code?pos_offline=1&tuumodepay=true&app_version=$ver")
 
         findViewById<View>(R.id.exitHotspot).setOnLongClickListener { promptExitPin(); true }
 
@@ -153,6 +154,36 @@ class OfflinePosActivity : AppCompatActivity() {
                 return
             }
             val store = OfflineRepository.loadStore(this@OfflinePosActivity)?.store ?: StoreInfo()
+
+            // 1) Si hay un equipo SRServiReceiver emparejado, delegamos el cobro por Bluetooth:
+            //    el tótem envía el pago + credenciales del terminal y espera el resultado.
+            if (BluetoothReceiverClient.isReceiverAvailable(this@OfflinePosActivity)) {
+                Thread {
+                    val r = BluetoothReceiverClient.pay(
+                        ctx = this@OfflinePosActivity,
+                        provider = terminal.provider,
+                        amount = amount.toDouble(),
+                        currency = store.currencyCode,
+                        token = terminal.apiKey,
+                        deviceId = terminal.deviceId,
+                        orderRef = orderRef,
+                        method = method
+                    )
+                    if (r.available) {
+                        sendTuuResult(r.approved)
+                    } else {
+                        // Receptor desapareció justo ahora → cobro directo como respaldo.
+                        chargeDirect(store, terminal, amount)
+                    }
+                }.start()
+                return
+            }
+
+            // 2) Sin receptor Bluetooth → cobro directo desde el tótem (comportamiento previo).
+            chargeDirect(store, terminal, amount)
+        }
+
+        private fun chargeDirect(store: StoreInfo, terminal: com.mantraxstudios.srservi.offline.PosTerminal, amount: Int) {
             OfflinePaymentProcessor.process(store, terminal, amount.toDouble(), "pos", object : OfflinePaymentProcessor.Callback {
                 override fun onProgress(message: String) { /* el tótem ya muestra su propio spinner */ }
                 override fun onResult(result: OfflinePaymentProcessor.PaymentResult) {
