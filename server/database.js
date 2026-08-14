@@ -9363,18 +9363,16 @@ export async function saveTelephonyConfig(storeId, cfg) {
   return getTelephonyConfig(storeId);
 }
 
-// Devuelve los troncales SIP de todas las tiendas con el agente activo y datos
-// de troncal cargados. Lo consume el generador de config de Asterisk
-// (telephony/gen-pjsip.mjs) para registrar cada número dinámicamente, sin editar
-// pjsip.conf a mano por cada cliente.
+// Devuelve los números (DID) de las tiendas con el agente activo. Con Sinch como
+// troncal ÚNICO global, ya no hay credenciales SIP por tienda: el troncal se
+// configura una sola vez en telephony/.env (SINCH_SIP_*). Esta lista sirve solo
+// para diagnóstico / saber qué DIDs están enrutados.
 export async function getActiveTrunks() {
   await ensureTelephonyTables();
   const [rows] = await pool.execute(
-    `SELECT store_id, did_number, trunk_host, trunk_port, trunk_username,
-            trunk_password, trunk_from_domain
+    `SELECT store_id, did_number
      FROM telephony_config
-     WHERE enabled = 1 AND trunk_host IS NOT NULL AND trunk_host <> ''
-       AND trunk_username IS NOT NULL AND trunk_username <> ''`
+     WHERE enabled = 1 AND did_number IS NOT NULL AND did_number <> ''`
   );
   return rows;
 }

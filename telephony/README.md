@@ -1,13 +1,14 @@
 # SRServi · Telefonía IA (recepción de llamadas, 100% open source)
 
 Agente de voz que **contesta el teléfono, entiende el pedido hablando con el
-cliente y lo deja escrito en el panel** (pestaña **Llamadas IA**). Todo con
-software libre: **Asterisk + Whisper + Ollama + Piper**. Lo único con costo es el
-**número (troncal SIP)**, que cada tienda registra desde el panel.
+cliente y lo deja escrito en el panel** (pestaña **Llamadas IA**). La IA es
+software libre: **Asterisk + Whisper + Ollama + Piper**. El **troncal SIP es único
+para toda la plataforma: Sinch** (credenciales globales en `telephony/.env`). Cada
+tienda solo asocia su **número (DID)** de Sinch desde el panel.
 
 ```
-Cliente marca tu número
-      │  (red telefónica → tu proveedor SIP)
+Cliente marca tu número (DID de Sinch)
+      │  (red telefónica → Sinch → tu troncal SIP único)
       ▼
 [ Asterisk ]  ──AudioSocket──►  [ bot de voz ]
                                    │  Whisper (voz→texto)
@@ -21,7 +22,8 @@ Cliente marca tu número
 
 - Servidor Linux con **GPU NVIDIA** (elegido para LLM local rápido).
 - **Docker** + **Docker Compose** + **NVIDIA Container Toolkit**.
-- Un **número + troncal SIP** de un proveedor (el dato que registra la tienda).
+- Una **cuenta de Sinch con SIP Trunk** (credenciales globales de la plataforma) y
+  uno o más **números (DID)** que se asignan a cada tienda.
 - El backend de SRServi accesible por HTTPS desde el servidor.
 
 ## 1. Configura el token compartido en SRServi
@@ -42,19 +44,24 @@ cp .env.example .env
 # edita .env: SRSERVI_URL, TELEPHONY_BOT_TOKEN (igual al del server), WHISPER_MODEL
 ```
 
-## 3. Datos del número en Asterisk
+## 3. Troncal SIP único de Sinch
 
-Los datos del troncal se cargan por tienda en el panel, pero Asterisk necesita
-registrarse contra el proveedor. Edita `asterisk/pjsip.conf` y reemplaza:
+El troncal es **el mismo para todas las tiendas** (Sinch). No se edita
+`pjsip.conf` a mano ni se configura por tienda: se define UNA vez en
+`telephony/.env` con los datos de tu SIP Trunk de Sinch:
 
-- `SIP_HOST` → host del proveedor (ej. `sip.miproveedor.com`)
-- `SIP_USER` → usuario SIP
-- `SIP_PASSWORD` → contraseña SIP
+```
+SINCH_SIP_HOST=sip.sinch.com
+SINCH_SIP_PORT=5060
+SINCH_SIP_USER=<usuario del trunk>
+SINCH_SIP_PASSWORD=<clave del trunk>
+SINCH_SIP_FROM_DOMAIN=          # opcional, si Sinch lo exige
+```
 
-> **Varias tiendas / varios números:** duplica los bloques (`trunk2`, `reg2`,
-> `identify2`…) apuntando a cada proveedor, o usa **Asterisk Realtime** (pjsip
-> desde MySQL) para leerlos dinámicamente. El enrutado por DID ya distingue la
-> tienda: el bot resuelve a qué tienda pertenece el número llamado (`did`).
+`sync-trunks.sh` (vía `gen-pjsip.mjs`) genera `pjsip.conf` con ese único troncal y
+recarga Asterisk. El enrutado por **DID** distingue la tienda: el bot resuelve a
+qué tienda pertenece el número llamado. Para varias tiendas, asigna varios DID de
+Sinch (uno por tienda) y cárgalos en el panel de cada una.
 
 ## 4. Levanta todo
 
@@ -78,7 +85,8 @@ docker exec -it srservi-asterisk asterisk -rx "pjsip show registrations"
 En **SRServi → Llamadas IA**:
 
 1. Activa **Agente de voz activo**.
-2. Ingresa el **número (DID)** y los datos del troncal.
+2. Ingresa el **número (DID)** que tienes asignado en Sinch (el troncal ya está
+   configurado a nivel plataforma; no se piden credenciales SIP aquí).
 3. Escribe el **saludo** y las **instrucciones** para la IA.
 4. Elige **modelo** (`llama3`) y **voz** (Piper).
 5. Guarda.

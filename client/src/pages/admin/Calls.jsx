@@ -126,34 +126,18 @@ export default function Calls() {
         </div>
 
         <h3 style={{ fontSize: 14, fontWeight: 700, color: '#374151', margin: '4px 0 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FontAwesomeIcon icon={faPhone} style={{ color: '#3b82f6' }} /> Datos del número (troncal SIP)
+          <FontAwesomeIcon icon={faPhone} style={{ color: '#3b82f6' }} /> Tu número de teléfono (Sinch)
         </h3>
+        <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 10, padding: '10px 12px', fontSize: 12.5, color: '#1e40af', marginBottom: 14, lineHeight: 1.5 }}>
+          Las llamadas funcionan con <b>Sinch</b> (proveedor único). Solo indica el <b>número (DID)</b> que
+          tienes asignado en Sinch; la conexión SIP ya está configurada en la plataforma.
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18 }}>
           <div style={{ gridColumn: '1 / -1' }}>
-            <label style={labelStyle}>Número (DID) que te dio el proveedor</label>
+            <label style={labelStyle}>Número (DID) asignado en Sinch</label>
             <input style={inputStyle} placeholder="+56 2 1234 5678" value={cfg.did_number || ''} onChange={e => set('did_number', e.target.value)} />
           </div>
-          <div>
-            <label style={labelStyle}>Servidor / host del proveedor</label>
-            <input style={inputStyle} placeholder="sip.miproveedor.com" value={cfg.trunk_host || ''} onChange={e => set('trunk_host', e.target.value)} />
-          </div>
-          <div>
-            <label style={labelStyle}>Puerto</label>
-            <input style={inputStyle} type="number" placeholder="5060" value={cfg.trunk_port || 5060} onChange={e => set('trunk_port', e.target.value)} />
-          </div>
-          <div>
-            <label style={labelStyle}>Usuario SIP</label>
-            <input style={inputStyle} value={cfg.trunk_username || ''} onChange={e => set('trunk_username', e.target.value)} />
-          </div>
-          <div>
-            <label style={labelStyle}>Contraseña SIP</label>
-            <input style={inputStyle} type="password" value={cfg.trunk_password || ''} onChange={e => set('trunk_password', e.target.value)} />
-          </div>
-          <div>
-            <label style={labelStyle}>Dominio (from domain) — opcional</label>
-            <input style={inputStyle} placeholder="miproveedor.com" value={cfg.trunk_from_domain || ''} onChange={e => set('trunk_from_domain', e.target.value)} />
-          </div>
-          <div>
+          <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}>Derivar a número humano — opcional</label>
             <input style={inputStyle} placeholder="+56 9 ..." value={cfg.forward_number || ''} onChange={e => set('forward_number', e.target.value)} />
           </div>

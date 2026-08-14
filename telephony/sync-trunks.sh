@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# SRServi · Sincroniza los troncales SIP del panel con Asterisk.
+# SRServi · Regenera el troncal SIP (Sinch) de Asterisk.
 #
-#   1. Lee la lista de troncales del backend (por tienda) y regenera pjsip.conf.
+#   1. Genera pjsip.conf con el troncal ÚNICO de Sinch (credenciales de .env).
 #   2. Recarga Asterisk (pjsip reload) para aplicar sin cortar llamadas activas.
 #
-# Cada cliente carga SU troncal en SRServi → Llamadas IA; este script hace que
-# Asterisk lo tome solo, sin editar archivos a mano.
+# El troncal es global (Sinch) y se define en telephony/.env (SINCH_SIP_*). Las
+# tiendas solo asocian su número (DID) en el panel; no hay troncal por tienda.
 #
 # Uso:
 #   ./sync-trunks.sh            → sincroniza una vez

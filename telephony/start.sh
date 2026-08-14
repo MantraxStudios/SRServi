@@ -49,8 +49,12 @@ ok ".env presente"
 if grep -q "cambia-esto-por-un-token" .env; then
   warn "El TELEPHONY_BOT_TOKEN sigue con el valor de ejemplo — cámbialo por uno real (debe coincidir con el del server SRServi)."
 fi
-# Nota: pjsip.conf se GENERA automáticamente desde el panel (sync-trunks.sh);
-# no hace falta editarlo a mano. Cada tienda carga su troncal en Llamadas IA.
+if ! grep -qE '^SINCH_SIP_USER=.+' .env; then
+  warn "Falta configurar el troncal de Sinch en .env (SINCH_SIP_USER / SINCH_SIP_PASSWORD). Sin eso no hay registro SIP."
+fi
+# Nota: pjsip.conf se GENERA automáticamente (sync-trunks.sh) desde el troncal
+# ÚNICO de Sinch en .env. No hace falta editarlo a mano. Cada tienda solo asocia
+# su número (DID) en el panel → Llamadas IA.
 
 # ── 2. Levantar el stack ─────────────────────────────────────────────────────
 log "Construyendo y levantando contenedores"
@@ -118,13 +122,13 @@ docker exec srservi-asterisk asterisk -rx "pjsip show registrations" 2>/dev/null
 log "Listo"
 cat <<'EOF'
   Todo levantado. Siguientes pasos:
-   1. En el registro de arriba, cada troncal activo debe verse "Registered".
-   2. Cada tienda configura su troncal en SRServi → Llamadas IA (DID, host, usuario, clave).
-   3. Cuando una tienda agrega/cambia su troncal, corre ./sync-trunks.sh (o déjalo en watch).
+   1. En el registro de arriba, el troncal "sinch" debe verse "Registered".
+   2. El troncal de Sinch se configura UNA sola vez en telephony/.env (SINCH_SIP_*).
+   3. Cada tienda solo asocia su número (DID) de Sinch en SRServi → Llamadas IA.
    4. Llama al número (DID) desde el teléfono: la IA contesta y toma el pedido.
 
   Comandos útiles:
-   - Sincronizar troncales:  ./sync-trunks.sh   (--watch para auto-cada-60s)
+   - Regenerar troncal Sinch: ./sync-trunks.sh   (--watch para auto-cada-60s)
    - Ver logs en vivo:       docker compose logs -f bot
    - Detener todo:           docker compose down
    - Reiniciar el bot:       docker compose restart bot
