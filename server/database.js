@@ -5737,13 +5737,16 @@ export async function getAnalytics(storeId, dateRange = 'week', startDate = null
     }
   }
 
-  // tip_amount puede no existir en instalaciones muy antiguas: si falta, se
-  // reporta 0 en vez de romper la consulta.
-  let tipCol = 'tip_amount';
+  // La propina normalmente NO se guarda en la columna tip_amount (queda 0): va
+  // incluida en el total del pedido. Por eso se estima igual que el Excel del
+  // WorkerPanel: diferencia positiva entre el total pagado y el subtotal de los
+  // ítems (unit_price * quantity). Así Analíticas coincide con el Excel.
+  // COALESCE con tip_amount por si alguna instalación sí lo persiste.
+  let tipExpr = 'GREATEST(o.total - COALESCE(oi.item_sub, 0), 0)';
   try {
     const [tc] = await pool.execute("SHOW COLUMNS FROM orders LIKE 'tip_amount'");
-    if (!tc.length) tipCol = '0';
-  } catch (_) { tipCol = '0'; }
+    if (tc.length) tipExpr = 'GREATEST(GREATEST(o.total - COALESCE(oi.item_sub, 0), 0), COALESCE(o.tip_amount, 0))';
+  } catch (_) { /* columna tip_amount ausente: se usa solo la diferencia */ }
 
   const totalOrdersQuery = `
     SELECT COUNT(*) as total,
@@ -5751,9 +5754,14 @@ export async function getAnalytics(storeId, dateRange = 'week', startDate = null
            SUM(CASE WHEN status IN ('pending', 'waiting') AND payment_process = 0 THEN 1 ELSE 0 END) as pending,
            SUM(CASE WHEN status IN ('cancelled', 'canceled') THEN 1 ELSE 0 END) as cancelled,
            SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') THEN total ELSE 0 END) as revenue,
-           SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') THEN ${tipCol} ELSE 0 END) as tips,
-           SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') AND ${tipCol} > 0 THEN 1 ELSE 0 END) as tipped_orders
+           SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') THEN ${tipExpr} ELSE 0 END) as tips,
+           SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') AND ${tipExpr} > 0.5 THEN 1 ELSE 0 END) as tipped_orders
     FROM orders o
+    LEFT JOIN (
+      SELECT order_id, SUM(unit_price * quantity) AS item_sub
+      FROM order_items
+      GROUP BY order_id
+    ) oi ON oi.order_id = o.id
     WHERE store_id = ? ${dateFilterO}
   `;
 
@@ -5775,7 +5783,14 @@ export async function getAnalytics(storeId, dateRange = 'week', startDate = null
     revenue: parseFloat(totals[0].revenue || 0),
     avgOrder: parseFloat(avgResult[0].avg_order || 0),
     tips: parseFloat(totals[0].tips || 0),
-    tippedOrders: parseInt(totals[0].tipped_orders || 0)
+    tippedOrders: parseInt(totals[0].tipped_orders || 0),
+    // % de propina sobre las ventas netas (ingresos sin la propina)
+    tipsPct: (() => {
+      const tips = parseFloat(totals[0].tips || 0);
+      const revenue = parseFloat(totals[0].revenue || 0);
+      const base = revenue - tips;
+      return base > 0 ? (tips / base) * 100 : 0;
+    })()
   };
 }
 

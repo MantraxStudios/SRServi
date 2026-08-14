@@ -291,7 +291,7 @@ function Analytics() {
               { icon: faDollarSign, color: '#22c55e', cls: 'revenue', label: 'Ingresos', value: formatCurrency(summary?.revenue || 0) },
               { icon: faShoppingCart, color: '#3b82f6', cls: 'orders', label: 'Pedidos', value: summary?.totalOrders || 0 },
               { icon: faChartLine, color: 'var(--gold)', cls: 'average', label: 'Ticket Prom.', value: formatCurrency(summary?.avgOrder || 0) },
-              { icon: faHandHoldingUsd, color: '#10b981', cls: 'tips', label: 'Propinas', value: formatCurrency(summary?.tips || 0), sub: summary?.tippedOrders ? `${summary.tippedOrders} ${summary.tippedOrders === 1 ? 'pedido' : 'pedidos'}` : 'Sin propinas' },
+              { icon: faHandHoldingUsd, color: '#10b981', cls: 'tips', label: 'Propinas', value: formatCurrency(summary?.tips || 0), sub: summary?.tippedOrders ? `${summary.tippedOrders} ${summary.tippedOrders === 1 ? 'pedido' : 'pedidos'} · ${(summary?.tipsPct || 0).toFixed(1).replace(/\.0$/, '')}%` : 'Sin propinas' },
               { icon: faClock, color: '#f59e0b', cls: 'pending', label: 'Pendientes', value: summary?.pendingOrders || 0 },
             ].map(({ icon, color, cls, label, value, sub }) => (
               <div key={label} className="analytics-stat-card">

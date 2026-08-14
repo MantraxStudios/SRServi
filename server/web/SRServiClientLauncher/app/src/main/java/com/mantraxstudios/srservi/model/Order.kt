@@ -1,5 +1,6 @@
 package com.mantraxstudios.srservi.model
 
+import com.google.gson.annotations.JsonAdapter
 import com.google.gson.annotations.SerializedName
 
 data class OrdersResponse(
@@ -41,7 +42,7 @@ data class OrderItem(
     @SerializedName("product_name") val productName: String,
     val quantity: Int,
     @SerializedName("unit_price") val unitPrice: Double,
-    @SerializedName("selected_ingredients") val selectedIngredients: List<String> = emptyList(),
-    @SerializedName("selected_extras") val selectedExtras: List<String> = emptyList(),
-    @SerializedName("selected_complements") val selectedComplements: List<String> = emptyList()
+    @SerializedName("selected_ingredients") @JsonAdapter(FlexibleNameListAdapter::class) val selectedIngredients: List<String> = emptyList(),
+    @SerializedName("selected_extras") @JsonAdapter(FlexibleNameListAdapter::class) val selectedExtras: List<String> = emptyList(),
+    @SerializedName("selected_complements") @JsonAdapter(FlexibleNameListAdapter::class) val selectedComplements: List<String> = emptyList()
 )
