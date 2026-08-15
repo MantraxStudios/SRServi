@@ -44,5 +44,9 @@ data class OrderItem(
     @SerializedName("unit_price") val unitPrice: Double,
     @SerializedName("selected_ingredients") @JsonAdapter(FlexibleNameListAdapter::class) val selectedIngredients: List<String> = emptyList(),
     @SerializedName("selected_extras") @JsonAdapter(FlexibleNameListAdapter::class) val selectedExtras: List<String> = emptyList(),
-    @SerializedName("selected_complements") @JsonAdapter(FlexibleNameListAdapter::class) val selectedComplements: List<String> = emptyList()
+    @SerializedName("selected_complements") @JsonAdapter(FlexibleNameListAdapter::class) val selectedComplements: List<String> = emptyList(),
+    // Detalle con la categoría/grupo de cada opción, para agrupar en la boleta.
+    // El server los envía en selected_extras_detail / selected_complements_detail.
+    @SerializedName("selected_extras_detail") @JsonAdapter(SelectedOptionListAdapter::class) val selectedExtrasDetail: List<SelectedOption> = emptyList(),
+    @SerializedName("selected_complements_detail") @JsonAdapter(SelectedOptionListAdapter::class) val selectedComplementsDetail: List<SelectedOption> = emptyList()
 )

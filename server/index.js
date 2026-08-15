@@ -8475,6 +8475,16 @@ app.get('/api/store/:code/orders', async (req, res) => {
       [store.id]
     );
 
+    // Mapa nombre-de-extra -> categoría, para agrupar los extras en la boleta
+    // por la categoría que definió el administrador (no solo "Extras").
+    let extraCatMap = new Map();
+    try {
+      const storeExtras = await getExtras(store.id);
+      extraCatMap = new Map(
+        (storeExtras || []).map(e => [String(e.name || '').trim().toLowerCase(), e.category_name || ''])
+      );
+    } catch { extraCatMap = new Map(); }
+
     const orders = [];
     for (const order of rows) {
       const [items] = await pool.execute(
@@ -8490,6 +8500,25 @@ app.get('/api/store/:code/orders', async (req, res) => {
           return JSON.parse(raw || '[]')
             .map(x => (typeof x === 'string' ? x : (x?.name || '')))
             .filter(Boolean);
+        } catch { return []; }
+      };
+      // Igual que namesOf pero conserva la categoría/grupo de cada opción para que
+      // la boleta pueda encabezar cada categoría personalizada que creó el admin.
+      // Para extras la categoría se resuelve por nombre; para complementos (secciones)
+      // viene en el propio objeto (group_name).
+      const detailOf = (raw, byName) => {
+        try {
+          return JSON.parse(raw || '[]').map(x => {
+            if (typeof x === 'string') {
+              const name = x.trim();
+              const group = byName ? (extraCatMap.get(name.toLowerCase()) || '') : '';
+              return { name, group };
+            }
+            const name = String(x?.name || '').trim();
+            const group = x?.group_name || x?.group
+              || (byName ? (extraCatMap.get(name.toLowerCase()) || '') : '');
+            return { name, group: group || '' };
+          }).filter(o => o.name);
         } catch { return []; }
       };
       orders.push({
@@ -8522,7 +8551,10 @@ app.get('/api/store/:code/orders', async (req, res) => {
           unit_price: parseFloat(item.unit_price),
           selected_ingredients: namesOf(item.selected_ingredients),
           selected_extras: namesOf(item.selected_extras),
-          selected_complements: namesOf(item.selected_complements)
+          selected_complements: namesOf(item.selected_complements),
+          // Detalle con categoría/grupo para agrupar en la boleta impresa
+          selected_extras_detail: detailOf(item.selected_extras, true),
+          selected_complements_detail: detailOf(item.selected_complements, false)
         }))
       });
     }

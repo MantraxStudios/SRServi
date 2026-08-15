@@ -232,6 +232,41 @@ class BluetoothPrinterManager(private val context: Context) {
         if (successCount == 0) throw lastError ?: IOException("Error al imprimir")
     }
 
+    /**
+     * Imprime las opciones (extras / complementos) agrupadas por la categoría que
+     * definió el administrador. Si una opción no trae categoría se agrupa bajo el
+     * rótulo por defecto (Extras / Complementos). Usa el detalle con categorías si
+     * está disponible; si no, cae al listado plano (compatibilidad con el server viejo).
+     */
+    private fun printGroupedOptions(
+        builder: ReceiptBuilder,
+        detail: List<com.mantraxstudios.srservi.model.SelectedOption>,
+        fallbackNames: List<String>,
+        defaultLabel: String
+    ) {
+        val options = if (detail.isNotEmpty()) {
+            detail
+        } else {
+            fallbackNames.map { com.mantraxstudios.srservi.model.SelectedOption(it, "") }
+        }
+        if (options.isEmpty()) return
+
+        // Agrupa conservando el orden de aparición de cada categoría.
+        val grouped = LinkedHashMap<String, MutableList<String>>()
+        for (opt in options) {
+            val header = opt.group.ifBlank { defaultLabel }
+            grouped.getOrPut(header) { mutableListOf() }.add(opt.name)
+        }
+        for ((header, names) in grouped) {
+            builder.addText("  $header:")
+            builder.addNewLine()
+            for (name in names) {
+                builder.addText("  - $name")
+                builder.addNewLine()
+            }
+        }
+    }
+
     private fun buildReceipt(order: Order): ByteArray {
         if (order.orderType == "ticketeria") {
             return buildTicketeriaReceipt(order)
@@ -279,23 +314,8 @@ class BluetoothPrinterManager(private val context: Context) {
                 }
             }
 
-            if (item.selectedExtras.isNotEmpty()) {
-                builder.addText("  Extras:")
-                builder.addNewLine()
-                for (extra in item.selectedExtras) {
-                    builder.addText("  - $extra")
-                    builder.addNewLine()
-                }
-            }
-
-            if (item.selectedComplements.isNotEmpty()) {
-                builder.addText("  Complementos:")
-                builder.addNewLine()
-                for (complement in item.selectedComplements) {
-                    builder.addText("  - $complement")
-                    builder.addNewLine()
-                }
-            }
+            printGroupedOptions(builder, item.selectedExtrasDetail, item.selectedExtras, "Extras")
+            printGroupedOptions(builder, item.selectedComplementsDetail, item.selectedComplements, "Complementos")
         }
 
         builder.addSeparator()

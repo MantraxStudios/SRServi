@@ -410,12 +410,8 @@ class PrintQueueActivity : AppCompatActivity() {
                 if (item.selectedIngredients.isNotEmpty()) {
                     text.append("\n  Ingredientes: ${item.selectedIngredients.joinToString(", ")}")
                 }
-                if (item.selectedExtras.isNotEmpty()) {
-                    text.append("\n  Extras: ${item.selectedExtras.joinToString(", ")}")
-                }
-                if (item.selectedComplements.isNotEmpty()) {
-                    text.append("\n  Complementos: ${item.selectedComplements.joinToString(", ")}")
-                }
+                appendGroupedOptions(text, item.selectedExtrasDetail, item.selectedExtras, "Extras")
+                appendGroupedOptions(text, item.selectedComplementsDetail, item.selectedComplements, "Complementos")
 
                 itemView.text = text.toString()
                 itemView.setTextColor(getColor(R.color.text_primary))
@@ -428,5 +424,32 @@ class PrintQueueActivity : AppCompatActivity() {
         }
 
         override fun getItemCount(): Int = orders.size
+    }
+}
+
+/**
+ * Agrega al texto de vista previa las opciones agrupadas por la categoría que
+ * definió el administrador (misma lógica que la boleta impresa).
+ */
+private fun appendGroupedOptions(
+    text: StringBuilder,
+    detail: List<com.mantraxstudios.srservi.model.SelectedOption>,
+    fallbackNames: List<String>,
+    defaultLabel: String
+) {
+    val options = if (detail.isNotEmpty()) {
+        detail
+    } else {
+        fallbackNames.map { com.mantraxstudios.srservi.model.SelectedOption(it, "") }
+    }
+    if (options.isEmpty()) return
+
+    val grouped = LinkedHashMap<String, MutableList<String>>()
+    for (opt in options) {
+        val header = opt.group.ifBlank { defaultLabel }
+        grouped.getOrPut(header) { mutableListOf() }.add(opt.name)
+    }
+    for ((header, names) in grouped) {
+        text.append("\n  $header: ${names.joinToString(", ")}")
     }
 }
