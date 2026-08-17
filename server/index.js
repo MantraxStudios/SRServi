@@ -392,7 +392,9 @@ const mpClient = new MercadoPagoConfig({
 console.log('MercadoPago Token configured:', !!process.env.MP_ACCESS_TOKEN);
 
 app.use(cors());
-app.use(express.json({ limit: '1gb' }));
+// verify: guarda el cuerpo crudo (req.rawBody) para poder validar firmas HMAC de
+// webhooks (p. ej. el callback de la Voice API de Sinch, que firma el body exacto).
+app.use(express.json({ limit: '1gb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ limit: '1gb', extended: true }));
 
 const userSockets = new Map();
@@ -3670,10 +3672,9 @@ app.patch('/api/telephony/ai-orders/:id', authenticateToken, async (req, res) =>
 
 // ── Endpoints para el BOT de voz (servicio /telephony, auth por token) ──
 
-// Lista los troncales SIP de las tiendas con el agente activo. La usa el
-// generador de Asterisk (telephony/gen-pjsip.mjs) para registrar cada número
-// automáticamente: cada cliente carga SU troncal en el panel y Asterisk se
-// configura solo, sin editar pjsip.conf a mano.
+// Lista los números (DID) de las tiendas con el agente activo. Con la Voice API
+// de Sinch no hay troncales/registros SIP por tienda: sirve solo para diagnóstico
+// (saber qué DIDs están enrutados). El INVITE entrante lo acepta Asterisk por IP.
 app.get('/api/telephony/bot/trunks', authenticateBot, async (req, res) => {
   try {
     res.json(await getActiveTrunks());
@@ -3763,6 +3764,115 @@ app.post('/api/telephony/bot/call-end', authenticateBot, async (req, res) => {
     res.json({ success: true, ai_order_id: aiOrderId });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ── Callback de la Voice API de Sinch (NO es SIP trunking) ──────────────────
+// La plataforma usa la Voice API: número (DID) + Application Key/Secret. Cuando
+// entra una llamada, Sinch hace un POST FIRMADO a esta URL (Incoming Call Event).
+// Respondemos con SVAML `connectSip` para entregar la llamada a NUESTRO Asterisk
+// (mismo servidor), que a su vez habla con el bot de voz (Whisper/Ollama/Piper).
+// Configura esta URL como "Callback URL" en la Voice API app del panel de Sinch:
+//   https://TU_DOMINIO/api/telephony/sinch/callback
+const SINCH_APP_KEY = process.env.SINCH_APP_KEY || '';
+const SINCH_APP_SECRET = process.env.SINCH_APP_SECRET || '';
+// Host público de NUESTRO Asterisk al que Sinch enviará el INVITE del connectSip.
+// Asterisk corre en el mismo servidor que SRServi, así que por defecto usamos el
+// host de la propia petición; se puede fijar con TELEPHONY_SIP_HOST.
+const TELEPHONY_SIP_HOST = process.env.TELEPHONY_SIP_HOST || '';
+const TELEPHONY_SIP_PORT = parseInt(process.env.TELEPHONY_SIP_PORT) || 5060;
+const TELEPHONY_SIP_TRANSPORT = (process.env.TELEPHONY_SIP_TRANSPORT || 'udp').toLowerCase();
+
+// Valida la firma de un callback de la Voice API de Sinch.
+// StringToSign = Verbo \n Content-MD5 \n Content-Type \n x-timestamp:<ts> \n path
+// Signature = Base64(HMAC-SHA256(Base64Decode(AppSecret), UTF8(StringToSign)))
+// Authorization: "application <AppKey>:<Signature>"
+function verifySinchSignature(req) {
+  if (!SINCH_APP_KEY || !SINCH_APP_SECRET) return false;
+  try {
+    const auth = String(req.headers['authorization'] || '');
+    const m = auth.match(/^application\s+([^:]+):(.+)$/i);
+    if (!m) return false;
+    const [, key, sig] = m;
+    if (key !== SINCH_APP_KEY) return false;
+
+    const body = req.rawBody || Buffer.from(JSON.stringify(req.body || {}), 'utf8');
+    const contentMd5 = crypto.createHash('md5').update(body).digest('base64');
+    const contentType = req.headers['content-type'] || 'application/json';
+    const timestamp = req.headers['x-timestamp'] || '';
+    const path = req.originalUrl.split('?')[0];
+
+    const stringToSign = [
+      req.method,
+      contentMd5,
+      contentType,
+      `x-timestamp:${timestamp}`,
+      path,
+    ].join('\n');
+
+    const secret = Buffer.from(SINCH_APP_SECRET, 'base64');
+    const expected = crypto.createHmac('sha256', secret).update(stringToSign, 'utf8').digest('base64');
+
+    const a = Buffer.from(sig);
+    const b = Buffer.from(expected);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
+app.post('/api/telephony/sinch/callback', async (req, res) => {
+  try {
+    if (!verifySinchSignature(req)) {
+      return res.status(401).json({ error: 'Firma inválida' });
+    }
+    const evt = req.body || {};
+    const event = evt.event || '';
+
+    // Incoming Call Event: decidir qué hacer con la llamada entrante.
+    if (event === 'ice') {
+      // El número marcado (DID) puede venir en distintos campos según el flujo.
+      const did = evt.to?.endpoint || evt.to?.number || evt.did || '';
+      const from = evt.cli?.endpoint || evt.cli || evt.from || '';
+      const cfg = await getTelephonyConfigByDid(did);
+
+      if (!cfg) {
+        // Número no asociado a ninguna tienda con agente activo: colgamos.
+        return res.json({ action: { name: 'hangup' } });
+      }
+
+      const host = (TELEPHONY_SIP_HOST || req.hostname || '').trim();
+      if (!host) {
+        return res.json({ action: { name: 'hangup' } });
+      }
+
+      // Entrega la llamada a nuestro Asterisk. El DID va como usuario del URI SIP
+      // para que el dialplan sepa a qué tienda pertenece (mismo enrutado por DID).
+      const normDid = String(did).replace(/[^0-9]/g, '');
+      const endpoint = TELEPHONY_SIP_PORT === 5060
+        ? `${normDid}@${host}`
+        : `${normDid}@${host}:${TELEPHONY_SIP_PORT}`;
+
+      return res.json({
+        action: {
+          name: 'connectSip',
+          destination: { type: 'sip', endpoint },
+          transport: TELEPHONY_SIP_TRANSPORT,
+          maxDuration: cfg.max_seconds || 300,
+          cli: from || undefined,
+          suppressCallbacks: false,
+        },
+      });
+    }
+
+    // ACE (answered) / DICE (disconnected) / NOTIFY: solo acusamos recibo. El
+    // registro de la llamada y la transcripción los maneja el bot vía sus propios
+    // endpoints (/api/telephony/bot/*) una vez la llamada llega a Asterisk.
+    return res.json({});
+  } catch (error) {
+    console.error('[sinch/callback]', error.message);
+    // Nunca dejamos la llamada colgada por un error interno: respondemos vacío.
+    res.json({});
   }
 });
 

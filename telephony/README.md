@@ -2,13 +2,22 @@
 
 Agente de voz que **contesta el teléfono, entiende el pedido hablando con el
 cliente y lo deja escrito en el panel** (pestaña **Llamadas IA**). La IA es
-software libre: **Asterisk + Whisper + Ollama + Piper**. El **troncal SIP es único
-para toda la plataforma: Sinch** (credenciales globales en `telephony/.env`). Cada
-tienda solo asocia su **número (DID)** de Sinch desde el panel.
+software libre: **Asterisk + Whisper + Ollama + Piper**.
+
+**Sinch se usa por su _Voice API_ (NO SIP trunking):** número (DID) +
+**Application Key/Secret** + **Callback**. Cuando entra una llamada, Sinch hace un
+POST **firmado** al backend SRServi; SRServi responde con SVAML `connectSip` y
+Sinch entrega la llamada a este Asterisk. Cada tienda solo asocia su **número
+(DID)** desde el panel.
 
 ```
 Cliente marca tu número (DID de Sinch)
-      │  (red telefónica → Sinch → tu troncal SIP único)
+      │
+      ▼
+[ Sinch Voice API ] ──POST firmado (Incoming Call Event)──► [ backend SRServi ]
+      ▲                                                         │ verifica firma (App Secret)
+      │            responde SVAML: connectSip  ◄───────────────┘ resuelve tienda por DID
+      │  (INVITE desde media servers de Sinch)
       ▼
 [ Asterisk ]  ──AudioSocket──►  [ bot de voz ]
                                    │  Whisper (voz→texto)
@@ -22,19 +31,38 @@ Cliente marca tu número (DID de Sinch)
 
 - Servidor Linux con **GPU NVIDIA** (elegido para LLM local rápido).
 - **Docker** + **Docker Compose** + **NVIDIA Container Toolkit**.
-- Una **cuenta de Sinch con SIP Trunk** (credenciales globales de la plataforma) y
-  uno o más **números (DID)** que se asignan a cada tienda.
-- El backend de SRServi accesible por HTTPS desde el servidor.
+- Una **cuenta de Sinch con una Voice API app** (Application Key + Secret) y uno o
+  más **números (DID)** que se asignan a cada tienda.
+- El backend de SRServi accesible por **HTTPS** desde internet (Sinch debe poder
+  llegar a la URL del callback).
 
-## 1. Configura el token compartido en SRServi
+## 1. Configura SRServi (backend Node)
 
 En el `.env` del **servidor SRServi** agrega (y reinicia el server):
 
 ```
+# Token compartido con el bot de voz (servicio de esta carpeta)
 TELEPHONY_BOT_TOKEN=un-token-largo-y-secreto
+
+# Credenciales GLOBALES de la Voice API de Sinch (una sola cuenta para todo)
+SINCH_APP_KEY=tu-application-key
+SINCH_APP_SECRET=tu-application-secret
+
+# Host público de ESTE Asterisk (mismo servidor que SRServi) al que Sinch
+# enviará el INVITE del connectSip. Ej: srservi2.srautomatic.com
+TELEPHONY_SIP_HOST=tu-dominio-publico
+# Opcionales (por defecto udp / 5060):
+# TELEPHONY_SIP_PORT=5060
+# TELEPHONY_SIP_TRANSPORT=udp
 ```
 
-Ese mismo valor va en el `.env` de esta carpeta.
+Luego, en el **panel de Sinch → tu Voice API app**, configura el **Callback URL**:
+
+```
+https://TU_DOMINIO/api/telephony/sinch/callback
+```
+
+`TELEPHONY_BOT_TOKEN` también va en el `.env` de esta carpeta.
 
 ## 2. Configura este stack
 
@@ -44,24 +72,30 @@ cp .env.example .env
 # edita .env: SRSERVI_URL, TELEPHONY_BOT_TOKEN (igual al del server), WHISPER_MODEL
 ```
 
-## 3. Troncal SIP único de Sinch
+## 3. SIP entrante desde Sinch (sin troncal, sin registro)
 
-El troncal es **el mismo para todas las tiendas** (Sinch). No se edita
-`pjsip.conf` a mano ni se configura por tienda: se define UNA vez en
-`telephony/.env` con los datos de tu SIP Trunk de Sinch:
+Como la integración es por **Voice API + `connectSip`**, Asterisk NO se registra
+en ningún lado: solo **acepta el INVITE entrante** que Sinch abre desde sus media
+servers. `sync-trunks.sh` (vía `gen-pjsip.mjs`) genera un `pjsip.conf` con un
+endpoint que confía en la **IP de origen de Sinch** (identify por CIDR). No hay
+usuario/clave SIP.
+
+Por defecto se permiten **todos** los rangos de Sinch. Para acotar (Chile =
+Sudamérica) puedes fijar en `telephony/.env`:
 
 ```
-SINCH_SIP_HOST=sip.sinch.com
-SINCH_SIP_PORT=5060
-SINCH_SIP_USER=<usuario del trunk>
-SINCH_SIP_PASSWORD=<clave del trunk>
-SINCH_SIP_FROM_DOMAIN=          # opcional, si Sinch lo exige
+SINCH_SIP_IPS=206.146.138.0/28      # opcional; por defecto, todos los de Sinch
+SIP_BIND_PORT=5060                  # puerto SIP alcanzable desde internet
 ```
 
-`sync-trunks.sh` (vía `gen-pjsip.mjs`) genera `pjsip.conf` con ese único troncal y
-recarga Asterisk. El enrutado por **DID** distingue la tienda: el bot resuelve a
-qué tienda pertenece el número llamado. Para varias tiendas, asigna varios DID de
-Sinch (uno por tienda) y cárgalos en el panel de cada una.
+> **Firewall:** abre a estos rangos de Sinch el puerto **5060/udp** (señalización)
+> y **10000–60000/udp** (RTP). Rangos de señalización: Europa `206.146.136.0/28`,
+> Norteamérica `206.146.133.0/28`, **Sudamérica `206.146.138.0/28`**, Sudeste Asia
+> `206.146.139.0/28`, Australia `206.146.141.0/28`.
+
+El enrutado por **DID** distingue la tienda: el DID viaja como usuario del URI SIP
+del `connectSip`, y el dialplan/bot resuelve a qué tienda pertenece. Para varias
+tiendas, asigna varios DID de Sinch (uno por tienda) y cárgalos en el panel.
 
 ## 4. Levanta todo
 
@@ -77,7 +111,9 @@ Verifica:
 docker compose ps
 curl http://localhost:8090/health        # bot -> {"ok":true}
 curl http://localhost:9000/docs          # whisper (swagger)
-docker exec -it srservi-asterisk asterisk -rx "pjsip show registrations"
+# No hay registros SIP (Voice API). Verifica el endpoint/identify entrantes:
+docker exec -it srservi-asterisk asterisk -rx "pjsip show endpoint trunk_sinch"
+docker exec -it srservi-asterisk asterisk -rx "pjsip show identifies"
 ```
 
 ## 5. Configura la tienda en el panel
@@ -85,8 +121,8 @@ docker exec -it srservi-asterisk asterisk -rx "pjsip show registrations"
 En **SRServi → Llamadas IA**:
 
 1. Activa **Agente de voz activo**.
-2. Ingresa el **número (DID)** que tienes asignado en Sinch (el troncal ya está
-   configurado a nivel plataforma; no se piden credenciales SIP aquí).
+2. Ingresa el **número (DID)** que tienes asignado en Sinch (las credenciales de
+   la Voice API son globales y viven en el `.env` del server; aquí no se piden).
 3. Escribe el **saludo** y las **instrucciones** para la IA.
 4. Elige **modelo** (`llama3`) y **voz** (Piper).
 5. Guarda.
@@ -96,7 +132,11 @@ Llama al número: la IA contesta, toma el pedido y aparece en la lista con su
 
 ## Cómo funciona (resumen técnico)
 
-- **Asterisk** contesta y, por dialplan (`extensions.conf`), pide un UUID al bot
+- **Sinch Voice API** hace un POST firmado (HMAC-SHA256 con el App Secret) a
+  `/api/telephony/sinch/callback` al entrar la llamada. SRServi valida la firma,
+  resuelve la tienda por DID y responde SVAML `connectSip` hacia este Asterisk.
+- **Asterisk** recibe el INVITE de los media servers de Sinch (aceptado por IP,
+  sin registro) y, por dialplan (`extensions.conf`), pide un UUID al bot
   (`GET /new?from=&did=`) y entrega el audio con `AudioSocket()`.
 - **bot** (`bot/index.js`): protocolo AudioSocket (`audiosocket.js`), VAD por
   energía, turnos de conversación, y al colgar extrae el pedido en JSON.

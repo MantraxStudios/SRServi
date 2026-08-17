@@ -1,13 +1,28 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// SRServi · Genera asterisk/pjsip.conf con UN ÚNICO troncal SIP: Sinch.
+// SRServi · Genera asterisk/pjsip.conf para recibir llamadas de la Voice API de Sinch.
 //
-// Todas las tiendas usan el mismo proveedor (Sinch). Las credenciales del
-// troncal son GLOBALES y viven en el .env de esta carpeta (SINCH_SIP_*), no por
-// tienda. Cada tienda solo asocia su número (DID) en el panel (Llamadas IA); el
-// bot resuelve a qué tienda pertenece cada llamada por el DID llamado.
+// IMPORTANTE: la plataforma usa la *Voice API* de Sinch (número + Application
+// Key/Secret + Callback), NO Elastic SIP Trunking. Por eso NO hay registro SIP ni
+// usuario/clave digest. El flujo es:
 //
-// Uso:  node gen-pjsip.mjs        (lee SINCH_SIP_* del entorno / .env)
-// Lo invoca sync-trunks.sh, que además recarga Asterisk (pjsip reload).
+//   1. Entra la llamada al DID → Sinch hace un POST firmado al backend SRServi
+//      (/api/telephony/sinch/callback).
+//   2. SRServi responde SVAML `connectSip` apuntando a ESTE Asterisk.
+//   3. Sinch abre un INVITE desde sus MEDIA SERVERS hacia nosotros.
+//
+// Por lo tanto aquí solo definimos un endpoint que ACEPTA el INVITE entrante de
+// Sinch, identificado por la IP de sus media servers (identify por CIDR). El
+// ruteo por DID lo hace el dialplan (extensions.conf, contexto from-trunk).
+//
+// IPs de señalización SIP de Sinch (doc oficial "SIP Trunking / firewall"):
+//   Europa         206.146.136.0/28
+//   Norteamérica   206.146.133.0/28
+//   Sudamérica     206.146.138.0/28   ← Chile
+//   Sudeste Asia   206.146.139.0/28
+//   Australia      206.146.141.0/28
+// Se pueden sobreescribir con SINCH_SIP_IPS (lista separada por comas).
+//
+// Uso:  node gen-pjsip.mjs        (lo invoca sync-trunks.sh, que recarga Asterisk)
 // ─────────────────────────────────────────────────────────────────────────────
 import { writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -16,54 +31,45 @@ import { dirname, join } from 'path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT = join(__dirname, 'asterisk', 'pjsip.conf');
 
+// CIDRs de señalización de Sinch. Por defecto todos (Sinch recomienda permitir
+// todas sus IPs por redundancia entre zonas); se puede acotar con SINCH_SIP_IPS.
+const DEFAULT_SINCH_IPS = [
+  '206.146.136.0/28',
+  '206.146.133.0/28',
+  '206.146.138.0/28',
+  '206.146.139.0/28',
+  '206.146.141.0/28',
+];
+
 const {
-  SINCH_SIP_HOST = 'sip.sinch.com',
-  SINCH_SIP_PORT = '5060',
-  SINCH_SIP_USER = '',
-  SINCH_SIP_PASSWORD = '',
-  SINCH_SIP_FROM_DOMAIN = '',
+  SINCH_SIP_IPS = '',
+  SIP_BIND_PORT = '5060',
 } = process.env;
+
+const sinchIps = (SINCH_SIP_IPS.trim()
+  ? SINCH_SIP_IPS.split(',').map(s => s.trim()).filter(Boolean)
+  : DEFAULT_SINCH_IPS);
+
+const bindPort = parseInt(SIP_BIND_PORT) || 5060;
 
 const HEADER = `;──────────────────────────────────────────────────────────────────────────────
 ; SRServi · pjsip.conf GENERADO AUTOMÁTICAMENTE por gen-pjsip.mjs — NO EDITAR.
-; Un único troncal SIP global: Sinch. Credenciales en telephony/.env (SINCH_SIP_*).
+; Recibe llamadas de la Voice API de Sinch (connectSip). Sin registro ni digest:
+; se acepta el INVITE entrante por la IP de los media servers de Sinch (identify).
 ; Regenera con: ./sync-trunks.sh  (o se ejecuta solo en start.sh)
 ;──────────────────────────────────────────────────────────────────────────────
 
 [transport-udp]
 type = transport
 protocol = udp
-bind = 0.0.0.0:5060
+bind = 0.0.0.0:${bindPort}
 `;
 
-function sinchTrunkBlock() {
-  const host = String(SINCH_SIP_HOST || '').trim();
-  const port = parseInt(SINCH_SIP_PORT) || 5060;
-  const user = String(SINCH_SIP_USER || '').trim();
-  const pass = String(SINCH_SIP_PASSWORD || '');
-  const fromDomain = String(SINCH_SIP_FROM_DOMAIN || host).trim();
-  if (!host || !user) return null;
-
-  const serverUri = `sip:${host}:${port}`;
+function sinchInboundBlock() {
+  const matchLines = sinchIps.map(ip => `match = ${ip}`).join('\n');
 
   return `
-; ── Troncal SIP único: Sinch ─────────────────────────────────────────────────
-[reg_sinch]
-type = registration
-transport = transport-udp
-outbound_auth = auth_sinch
-server_uri = ${serverUri}
-client_uri = sip:${user}@${host}
-retry_interval = 60
-forbidden_retry_interval = 300
-expiration = 3600
-
-[auth_sinch]
-type = auth
-auth_type = userpass
-username = ${user}
-password = ${pass}
-
+; ── Entrante de Sinch (Voice API · connectSip) ───────────────────────────────
 [trunk_sinch]
 type = endpoint
 transport = transport-udp
@@ -71,34 +77,28 @@ context = from-trunk
 disallow = all
 allow = ulaw
 allow = alaw
-outbound_auth = auth_sinch
-aors = aor_sinch
-from_user = ${user}
-from_domain = ${fromDomain}
 direct_media = no
+; Sin autenticación SIP: la llamada ya fue autorizada por firma en el callback.
+; La confianza se basa en identificar la IP de origen (Sinch media servers).
+rtp_symmetric = yes
+force_rport = yes
+rewrite_contact = yes
 
 [aor_sinch]
 type = aor
-contact = ${serverUri}
+max_contacts = 0
 
+; Identifica el INVITE entrante de Sinch por IP de origen y lo mapea al endpoint.
 [identify_sinch]
 type = identify
 endpoint = trunk_sinch
-match = ${host}
+${matchLines}
 `;
 }
 
 function main() {
-  const block = sinchTrunkBlock();
-
-  if (!block) {
-    console.error('[gen-pjsip] Faltan credenciales de Sinch en el .env (SINCH_SIP_USER / SINCH_SIP_PASSWORD / SINCH_SIP_HOST).');
-    writeFileSync(OUT, HEADER + '\n; (Sin credenciales de Sinch: completa SINCH_SIP_* en telephony/.env y vuelve a correr sync-trunks.sh)\n');
-    process.exit(1);
-  }
-
-  writeFileSync(OUT, HEADER + block);
-  console.log(`[gen-pjsip] Troncal Sinch escrito en ${OUT} (host ${SINCH_SIP_HOST}).`);
+  writeFileSync(OUT, HEADER + sinchInboundBlock());
+  console.log(`[gen-pjsip] pjsip.conf escrito en ${OUT}. Entrante Voice API de Sinch por IP: ${sinchIps.join(', ')}`);
 }
 
 main();

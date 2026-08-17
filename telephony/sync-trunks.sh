@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# SRServi · Regenera el troncal SIP (Sinch) de Asterisk.
+# SRServi · Regenera la config SIP entrante (Sinch Voice API) de Asterisk.
 #
-#   1. Genera pjsip.conf con el troncal ÚNICO de Sinch (credenciales de .env).
+#   1. Genera pjsip.conf con el endpoint que ACEPTA el INVITE entrante de Sinch
+#      (por IP de sus media servers; sin registro ni digest).
 #   2. Recarga Asterisk (pjsip reload) para aplicar sin cortar llamadas activas.
 #
-# El troncal es global (Sinch) y se define en telephony/.env (SINCH_SIP_*). Las
-# tiendas solo asocian su número (DID) en el panel; no hay troncal por tienda.
+# Sinch usa la Voice API (número + App Key/Secret + callback), no un SIP trunk.
+# El callback lo recibe el backend SRServi y responde connectSip hacia este
+# Asterisk. Las tiendas solo asocian su número (DID) en el panel.
 #
 # Uso:
 #   ./sync-trunks.sh            → sincroniza una vez
