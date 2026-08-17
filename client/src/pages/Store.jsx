@@ -2754,6 +2754,24 @@ function Store() {
     colors.header = seasonalTheme.colors.header;
   }
 
+  // La lluvia de emojis (14 glyphs de color animados con rotate infinito) repinta
+  // cada frame y causa un lag inmenso en tótems/Android de pocos recursos. Solo la
+  // mostramos si el dispositivo tiene músculo suficiente; en gama baja mantenemos
+  // los colores del tema + el banner (que no cuestan nada). Detección barata y
+  // conservadora: pocos núcleos o poca RAM => sin lluvia. Se calcula una sola vez.
+  const seasonalDecoAllowed = useMemo(() => {
+    if (typeof navigator === 'undefined') return true;
+    const cores = navigator.hardwareConcurrency || 0;
+    const mem = navigator.deviceMemory || 0; // GB, solo Chromium
+    if (cores && cores <= 4) return false;
+    if (mem && mem <= 4) return false;
+    const prefersReduced = typeof window !== 'undefined' && window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) return false;
+    return true;
+  }, []);
+  const showSeasonalDeco = seasonalTheme && seasonalDecoAllowed;
+
   // Custom labels for the product personalization steps (admin-configurable)
   const complementsLabel = (store?.store?.complements_label || '').trim() || t('complements', lang);
   const extrasLabel = (store?.store?.extras_label || '').trim() || t('extras', lang);
@@ -5854,7 +5872,7 @@ function Store() {
           )}
         </div>
       )}
-      {seasonalTheme && (
+      {showSeasonalDeco && (
         <div className="store-seasonal-deco" aria-hidden="true">
           {Array.from({ length: 14 }).map((_, i) => (
             <span
