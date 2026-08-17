@@ -2760,10 +2760,13 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Pantallas anchas / horizontales (tablet landscape, PC, tótem grande):
+/* Pantallas anchas y HORIZONTALES (tablet landscape, PC, tótem apaisado):
    las columnas crecen con el ancho disponible en vez de quedar fijas en 3,
-   así las tarjetas de producto no terminan gigantes en 1920x1080. */
-@media (min-width: 900px) {
+   así las tarjetas de producto no terminan gigantes en 1920x1080.
+   Solo en orientation: landscape — en pantallas VERTICALES grandes (tótem
+   portrait) el ancho también supera 900px, pero ahí deben quedar 3 columnas,
+   no llenarse de muchas columnas pequeñas como si fuera horizontal. */
+@media (min-width: 900px) and (orientation: landscape) {
   .products-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 10px 8px;
@@ -2771,7 +2774,7 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1200px) and (orientation: landscape) {
   .products-grid {
     grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
     gap: 10px;
@@ -2779,7 +2782,7 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-@media (min-width: 1700px) {
+@media (min-width: 1700px) and (orientation: landscape) {
   .products-grid {
     grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
     gap: 12px;
@@ -2857,13 +2860,13 @@ h1, h2, h3, h4, h5, h6 {
   max-width: 100%;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (orientation: landscape) {
   .store-body.editing .products-grid {
     grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
   }
 }
 
-@media (min-width: 1700px) {
+@media (min-width: 1700px) and (orientation: landscape) {
   .store-body.editing .products-grid {
     grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
   }
