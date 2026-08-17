@@ -8543,6 +8543,7 @@ app.get('/api/store/:code/orders', async (req, res) => {
         service_type: order.order_type === 'takeout' ? 'llevar' : 'servir',
         event_name: order.event_name || null,
         show_time: order.show_time || null,
+        customer_comment: order.customer_comment || null,
         items: items.map(item => ({
           id: item.id,
           product_id: item.product_id,

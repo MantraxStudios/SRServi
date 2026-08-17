@@ -348,6 +348,18 @@ class BluetoothPrinterManager(private val context: Context) {
             builder.addNewLine()
         }
 
+        // Comentario que dejó el cliente al pagar en el tótem (Store.jsx -> customer_comment)
+        if (!order.customerComment.isNullOrBlank()) {
+            builder.addSeparator()
+            builder.alignLeft()
+            builder.setBold(true)
+            builder.addText("NOTA:")
+            builder.setBold(false)
+            builder.addNewLine()
+            builder.addText(order.customerComment.trim())
+            builder.addNewLine()
+        }
+
         builder.addSeparator()
         builder.alignCenter()
         builder.setBold(true)
