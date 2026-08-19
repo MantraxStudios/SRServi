@@ -5,9 +5,9 @@
 #   ./start.sh            → levanta asterisk + bot + whisper + ollama y verifica
 #   OLLAMA_MODEL=mistral ./start.sh   → descarga otro modelo (por defecto llama3)
 #
-# Hace: valida requisitos → construye/levanta el docker compose → descarga el
-# modelo del LLM (una sola vez) → espera a que cada servicio responda → muestra
-# el estado del troncal SIP.
+# Hace: valida requisitos → construye/levanta el docker compose (reconstruye el
+# bot, con las voces Piper) → descarga el modelo del LLM (una sola vez) → espera a
+# que cada servicio responda → muestra el estado del SIP entrante de Twilio.
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -49,12 +49,10 @@ ok ".env presente"
 if grep -q "cambia-esto-por-un-token" .env; then
   warn "El TELEPHONY_BOT_TOKEN sigue con el valor de ejemplo — cámbialo por uno real (debe coincidir con el del server SRServi)."
 fi
-if ! grep -qE '^SINCH_SIP_USER=.+' .env; then
-  warn "Falta configurar el troncal de Sinch en .env (SINCH_SIP_USER / SINCH_SIP_PASSWORD). Sin eso no hay registro SIP."
-fi
-# Nota: pjsip.conf se GENERA automáticamente (sync-trunks.sh) desde el troncal
-# ÚNICO de Sinch en .env. No hace falta editarlo a mano. Cada tienda solo asocia
-# su número (DID) en el panel → Llamadas IA.
+# Con TWILIO NO hay troncal con usuario/clave: el Auth Token (TWILIO_AUTH_TOKEN) y
+# TELEPHONY_SIP_HOST viven en el .env del SERVER SRServi, no aquí. Este stack solo
+# acepta el INVITE entrante por la IP de señalización de Twilio; pjsip.conf lo genera
+# sync-trunks.sh. Cada tienda solo asocia su número (DID) de Twilio en el panel.
 
 # ── 2. Levantar el stack ─────────────────────────────────────────────────────
 log "Construyendo y levantando contenedores"
@@ -114,21 +112,23 @@ else
   ok "Watcher de troncales iniciado (cada 60s) → telephony/logs/sync-trunks.log"
 fi
 
-log "Estado del troncal SIP (Asterisk)"
-docker exec srservi-asterisk asterisk -rx "pjsip show registrations" 2>/dev/null \
-  || warn "No pude consultar Asterisk todavía. Reintenta: docker exec -it srservi-asterisk asterisk -rx \"pjsip show registrations\""
+log "Estado del SIP entrante (Asterisk)"
+docker exec srservi-asterisk asterisk -rx "pjsip show identifies" 2>/dev/null \
+  || warn "No pude consultar Asterisk todavía. Reintenta: docker exec -it srservi-asterisk asterisk -rx \"pjsip show identifies\""
 
 # ── Resumen ──────────────────────────────────────────────────────────────────
 log "Listo"
 cat <<'EOF'
   Todo levantado. Siguientes pasos:
-   1. En el registro de arriba, el troncal "sinch" debe verse "Registered".
-   2. El troncal de Sinch se configura UNA sola vez en telephony/.env (SINCH_SIP_*).
-   3. Cada tienda solo asocia su número (DID) de Sinch en SRServi → Llamadas IA.
+   1. Arriba debe verse el "identify" entrante de Twilio (NO hay registrations:
+      Twilio abre el INVITE por IP, no registra un troncal).
+   2. El Auth Token de Twilio (TWILIO_AUTH_TOKEN) y TELEPHONY_SIP_HOST van en el
+      .env del SERVER SRServi, no en este stack.
+   3. Cada tienda solo asocia su número (DID) de Twilio en SRServi → Llamadas IA.
    4. Llama al número (DID) desde el teléfono: la IA contesta y toma el pedido.
 
   Comandos útiles:
-   - Regenerar troncal Sinch: ./sync-trunks.sh   (--watch para auto-cada-60s)
+   - Regenerar SIP entrante:  ./sync-trunks.sh   (--watch para auto-cada-60s)
    - Ver logs en vivo:       docker compose logs -f bot
    - Detener todo:           docker compose down
    - Reiniciar el bot:       docker compose restart bot

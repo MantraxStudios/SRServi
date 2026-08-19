@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# SRServi · Regenera la config SIP entrante (Sinch Voice API) de Asterisk.
+# SRServi · Regenera la config SIP entrante (Twilio Programmable Voice) de Asterisk.
 #
-#   1. Genera pjsip.conf con el endpoint que ACEPTA el INVITE entrante de Sinch
-#      (por IP de sus media servers; sin registro ni digest).
+#   1. Genera pjsip.conf con el endpoint que ACEPTA el INVITE entrante de Twilio
+#      (por IP de señalización de Twilio; sin registro ni digest).
 #   2. Recarga Asterisk (pjsip reload) para aplicar sin cortar llamadas activas.
 #
-# Sinch usa la Voice API (número + App Key/Secret + callback), no un SIP trunk.
-# El callback lo recibe el backend SRServi y responde connectSip hacia este
+# Twilio usa Programmable Voice (número + Auth Token + webhook), no un SIP trunk.
+# El webhook lo recibe el backend SRServi y responde TwiML <Dial><Sip> hacia este
 # Asterisk. Las tiendas solo asocian su número (DID) en el panel.
 #
 # Uso:

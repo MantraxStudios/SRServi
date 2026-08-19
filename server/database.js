@@ -9279,9 +9279,12 @@ async function ensureTelephonyTables() {
       greeting_text TEXT,
       system_prompt TEXT,
       ollama_model VARCHAR(120) DEFAULT 'llama3',
-      piper_voice VARCHAR(120) DEFAULT 'es_ES-carlfm-x_low',
+      piper_voice VARCHAR(120) DEFAULT 'es_MX-claude-high',
       max_seconds INT DEFAULT 300,
       forward_number VARCHAR(50),
+      -- Auth Token de la cuenta de Twilio de ESTA tienda (cada tienda compra su
+      -- propio Twilio). Se usa para validar la firma X-Twilio-Signature del webhook.
+      twilio_auth_token VARCHAR(255),
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_teleconf_store (store_id),
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
@@ -9328,6 +9331,18 @@ async function ensureTelephonyTables() {
     )
   `);
 
+  // Migración: agrega twilio_auth_token si la tabla ya existía sin esa columna.
+  const [col] = await pool.execute(
+    `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'telephony_config'
+       AND COLUMN_NAME = 'twilio_auth_token'`
+  );
+  if (!col[0].n) {
+    await pool.execute(
+      `ALTER TABLE telephony_config ADD COLUMN twilio_auth_token VARCHAR(255) NULL AFTER forward_number`
+    );
+  }
+
   _telephonyReady = true;
 }
 
@@ -9339,7 +9354,8 @@ export async function getTelephonyConfig(storeId) {
     store_id: storeId, enabled: false, did_number: null, trunk_host: null,
     trunk_port: 5060, trunk_username: null, trunk_password: null, trunk_from_domain: null,
     language: 'es', greeting_text: null, system_prompt: null,
-    ollama_model: 'llama3', piper_voice: 'es_ES-carlfm-x_low', max_seconds: 300, forward_number: null,
+    ollama_model: 'llama3', piper_voice: 'es_MX-claude-high', max_seconds: 300, forward_number: null,
+    twilio_auth_token: null,
   };
 }
 
@@ -9348,13 +9364,22 @@ export async function saveTelephonyConfig(storeId, cfg) {
   const {
     enabled, did_number, trunk_host, trunk_port, trunk_username, trunk_password,
     trunk_from_domain, language, greeting_text, system_prompt, ollama_model,
-    piper_voice, max_seconds, forward_number,
+    piper_voice, max_seconds, forward_number, twilio_auth_token,
   } = cfg;
+
+  // El Auth Token es sensible y el panel NO lo devuelve al leer; por eso, si llega
+  // vacío en el guardado, CONSERVAMOS el que ya estaba (no lo borramos al guardar
+  // otros ajustes). Solo se reemplaza cuando el usuario escribe uno nuevo.
+  const prev = await getTelephonyConfig(storeId);
+  const token = (twilio_auth_token && String(twilio_auth_token).trim())
+    ? String(twilio_auth_token).trim()
+    : (prev.twilio_auth_token || null);
+
   await pool.execute(`
     INSERT INTO telephony_config
       (store_id, enabled, did_number, trunk_host, trunk_port, trunk_username, trunk_password,
-       trunk_from_domain, language, greeting_text, system_prompt, ollama_model, piper_voice, max_seconds, forward_number)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       trunk_from_domain, language, greeting_text, system_prompt, ollama_model, piper_voice, max_seconds, forward_number, twilio_auth_token)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       enabled = VALUES(enabled), did_number = VALUES(did_number), trunk_host = VALUES(trunk_host),
       trunk_port = VALUES(trunk_port), trunk_username = VALUES(trunk_username),
@@ -9362,21 +9387,21 @@ export async function saveTelephonyConfig(storeId, cfg) {
       language = VALUES(language), greeting_text = VALUES(greeting_text),
       system_prompt = VALUES(system_prompt), ollama_model = VALUES(ollama_model),
       piper_voice = VALUES(piper_voice), max_seconds = VALUES(max_seconds),
-      forward_number = VALUES(forward_number)
+      forward_number = VALUES(forward_number), twilio_auth_token = VALUES(twilio_auth_token)
   `, [
     storeId, enabled ? 1 : 0, did_number || null, trunk_host || null,
     parseInt(trunk_port) || 5060, trunk_username || null, trunk_password || null,
     trunk_from_domain || null, language || 'es', greeting_text || null, system_prompt || null,
-    ollama_model || 'llama3', piper_voice || 'es_ES-carlfm-x_low', parseInt(max_seconds) || 300,
-    forward_number || null,
+    ollama_model || 'llama3', piper_voice || 'es_MX-claude-high', parseInt(max_seconds) || 300,
+    forward_number || null, token,
   ]);
   return getTelephonyConfig(storeId);
 }
 
-// Devuelve los números (DID) de las tiendas con el agente activo. Con Sinch como
-// troncal ÚNICO global, ya no hay credenciales SIP por tienda: el troncal se
-// configura una sola vez en telephony/.env (SINCH_SIP_*). Esta lista sirve solo
-// para diagnóstico / saber qué DIDs están enrutados.
+// Devuelve los números (DID) de las tiendas con el agente activo. Con Twilio como
+// proveedor ÚNICO global, no hay credenciales SIP por tienda: el Auth Token vive en
+// el .env del server y las IPs entrantes en telephony/.env (TWILIO_SIP_IPS). Esta
+// lista sirve solo para diagnóstico / saber qué DIDs están enrutados.
 export async function getActiveTrunks() {
   await ensureTelephonyTables();
   const [rows] = await pool.execute(

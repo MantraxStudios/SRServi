@@ -393,7 +393,7 @@ console.log('MercadoPago Token configured:', !!process.env.MP_ACCESS_TOKEN);
 
 app.use(cors());
 // verify: guarda el cuerpo crudo (req.rawBody) para poder validar firmas HMAC de
-// webhooks (p. ej. el callback de la Voice API de Sinch, que firma el body exacto).
+// webhooks que firman el body exacto (Twilio firma la URL + parámetros del POST).
 app.use(express.json({ limit: '1gb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ limit: '1gb', extended: true }));
 
@@ -3591,7 +3591,10 @@ app.get('/api/telephony/config', authenticateToken, async (req, res) => {
     if (!await verifyStoreOwnership(storeId, req.user.id)) {
       return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
-    res.json(await getTelephonyConfig(storeId));
+    const cfg = await getTelephonyConfig(storeId);
+    // Nunca devolvemos el Auth Token al panel; solo si está configurado o no.
+    const { twilio_auth_token, ...safe } = cfg;
+    res.json({ ...safe, twilio_auth_token: '', twilio_auth_token_set: !!twilio_auth_token });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -3672,9 +3675,9 @@ app.patch('/api/telephony/ai-orders/:id', authenticateToken, async (req, res) =>
 
 // ── Endpoints para el BOT de voz (servicio /telephony, auth por token) ──
 
-// Lista los números (DID) de las tiendas con el agente activo. Con la Voice API
-// de Sinch no hay troncales/registros SIP por tienda: sirve solo para diagnóstico
-// (saber qué DIDs están enrutados). El INVITE entrante lo acepta Asterisk por IP.
+// Lista los números (DID) de las tiendas con el agente activo. Con Twilio no hay
+// troncales/registros SIP por tienda: sirve solo para diagnóstico (saber qué DIDs
+// están enrutados). El INVITE entrante lo acepta Asterisk por IP de Twilio.
 app.get('/api/telephony/bot/trunks', authenticateBot, async (req, res) => {
   try {
     res.json(await getActiveTrunks());
@@ -3767,52 +3770,69 @@ app.post('/api/telephony/bot/call-end', authenticateBot, async (req, res) => {
   }
 });
 
-// ── Callback de la Voice API de Sinch (NO es SIP trunking) ──────────────────
-// La plataforma usa la Voice API: número (DID) + Application Key/Secret. Cuando
-// entra una llamada, Sinch hace un POST FIRMADO a esta URL (Incoming Call Event).
-// Respondemos con SVAML `connectSip` para entregar la llamada a NUESTRO Asterisk
-// (mismo servidor), que a su vez habla con el bot de voz (Whisper/Ollama/Piper).
-// Configura esta URL como "Callback URL" en la Voice API app del panel de Sinch:
-//   https://TU_DOMINIO/api/telephony/sinch/callback
-const SINCH_APP_KEY = process.env.SINCH_APP_KEY || '';
-const SINCH_APP_SECRET = process.env.SINCH_APP_SECRET || '';
-// Host público de NUESTRO Asterisk al que Sinch enviará el INVITE del connectSip.
-// Asterisk corre en el mismo servidor que SRServi, así que por defecto usamos el
-// host de la propia petición; se puede fijar con TELEPHONY_SIP_HOST.
+// ── Webhook de voz de Twilio (Programmable Voice) ───────────────────────────
+// CADA TIENDA compra su propio Twilio, así que el Auth Token es POR TIENDA: se
+// ingresa en el panel (Llamadas IA) y se guarda en telephony_config.twilio_auth_token.
+// Cuando entra una llamada, Twilio hace un POST (form-urlencoded, firmado con
+// X-Twilio-Signature) a esta URL. Resolvemos la tienda por el DID (To), validamos la
+// firma con el Auth Token de ESA tienda y respondemos TwiML <Dial><Sip> para entregar
+// la llamada a NUESTRO Asterisk, que a su vez habla con el bot (Whisper/Ollama/Piper).
+// Configura esta URL como "A CALL COMES IN" (Voice webhook, HTTP POST) del número
+// en el panel de Twilio:
+//   https://TU_DOMINIO/api/telephony/twilio/callback
+// TWILIO_AUTH_TOKEN (env) es solo un FALLBACK opcional para un despliegue de una
+// sola cuenta Twilio compartida; en multi-tienda se usa el token de cada tienda.
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
+// URL pública EXACTA que Twilio invoca (tal cual la pusiste en el panel). Se usa
+// para validar la firma; si no se fija, se reconstruye desde la petición.
+const TWILIO_WEBHOOK_URL = process.env.TWILIO_WEBHOOK_URL || '';
+// Host público de NUESTRO Asterisk al que Twilio enviará el INVITE del <Sip>.
+// Asterisk corre en el mismo servidor que SRServi; por defecto usamos el host de
+// la propia petición. Fíjalo con TELEPHONY_SIP_HOST (recomendado en producción).
 const TELEPHONY_SIP_HOST = process.env.TELEPHONY_SIP_HOST || '';
 const TELEPHONY_SIP_PORT = parseInt(process.env.TELEPHONY_SIP_PORT) || 5060;
-const TELEPHONY_SIP_TRANSPORT = (process.env.TELEPHONY_SIP_TRANSPORT || 'udp').toLowerCase();
+// Transporte del URI SIP en el TwiML (minúscula, como parámetro de URI): udp|tcp|tls.
+const TELEPHONY_SIP_TRANSPORT = (() => {
+  const t = String(process.env.TELEPHONY_SIP_TRANSPORT || 'udp').toLowerCase();
+  return ['udp', 'tcp', 'tls'].includes(t) ? t : 'udp';
+})();
 
-// Valida la firma de un callback de la Voice API de Sinch.
-// StringToSign = Verbo \n Content-MD5 \n Content-Type \n x-timestamp:<ts> \n path
-// Signature = Base64(HMAC-SHA256(Base64Decode(AppSecret), UTF8(StringToSign)))
-// Authorization: "application <AppKey>:<Signature>"
-function verifySinchSignature(req) {
-  if (!SINCH_APP_KEY || !SINCH_APP_SECRET) return false;
+// Normaliza un número a E.164 (con prefijo +). Twilio ya entrega From/To en E.164,
+// pero saneamos por si acaso; si no es válido devolvemos null.
+function toE164(num) {
+  const digits = String(num || '').replace(/[^0-9]/g, '');
+  if (digits.length < 7 || digits.length > 15) return null;
+  return `+${digits}`;
+}
+
+function xmlEscape(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
+// URL pública que Twilio firmó. Twilio firma la URL EXACTA configurada en su panel.
+function twilioRequestUrl(req) {
+  if (TWILIO_WEBHOOK_URL) return TWILIO_WEBHOOK_URL;
+  const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+  const host = req.headers['x-forwarded-host'] || req.headers['host'] || '';
+  return `${proto}://${host}${req.originalUrl}`;
+}
+
+// Valida X-Twilio-Signature con el Auth Token de la tienda dueña del DID.
+// Signature = Base64( HMAC-SHA1( AuthToken, URL + concat(sortedParamKey + value) ) )
+function verifyTwilioSignature(req, authToken) {
+  if (!authToken) return false;
   try {
-    const auth = String(req.headers['authorization'] || '');
-    const m = auth.match(/^application\s+([^:]+):(.+)$/i);
-    if (!m) return false;
-    const [, key, sig] = m;
-    if (key !== SINCH_APP_KEY) return false;
-
-    const body = req.rawBody || Buffer.from(JSON.stringify(req.body || {}), 'utf8');
-    const contentMd5 = crypto.createHash('md5').update(body).digest('base64');
-    const contentType = req.headers['content-type'] || 'application/json';
-    const timestamp = req.headers['x-timestamp'] || '';
-    const path = req.originalUrl.split('?')[0];
-
-    const stringToSign = [
-      req.method,
-      contentMd5,
-      contentType,
-      `x-timestamp:${timestamp}`,
-      path,
-    ].join('\n');
-
-    const secret = Buffer.from(SINCH_APP_SECRET, 'base64');
-    const expected = crypto.createHmac('sha256', secret).update(stringToSign, 'utf8').digest('base64');
-
+    const sig = String(req.headers['x-twilio-signature'] || '');
+    if (!sig) return false;
+    const params = req.body || {};
+    let data = twilioRequestUrl(req);
+    for (const key of Object.keys(params).sort()) {
+      data += key + (params[key] == null ? '' : params[key]);
+    }
+    const expected = crypto.createHmac('sha1', authToken)
+      .update(Buffer.from(data, 'utf-8')).digest('base64');
     const a = Buffer.from(sig);
     const b = Buffer.from(expected);
     return a.length === b.length && crypto.timingSafeEqual(a, b);
@@ -3821,58 +3841,52 @@ function verifySinchSignature(req) {
   }
 }
 
-app.post('/api/telephony/sinch/callback', async (req, res) => {
+app.post('/api/telephony/twilio/callback', async (req, res) => {
+  const twiml = (body) => res
+    .type('text/xml')
+    .send(`<?xml version="1.0" encoding="UTF-8"?>\n<Response>${body}</Response>`);
+  const reject = () => res.status(403).type('text/xml')
+    .send('<?xml version="1.0" encoding="UTF-8"?>\n<Response><Reject reason="rejected"/></Response>');
   try {
-    if (!verifySinchSignature(req)) {
-      return res.status(401).json({ error: 'Firma inválida' });
-    }
-    const evt = req.body || {};
-    const event = evt.event || '';
+    // Twilio envía form-urlencoded: To = número llamado (DID), From = quien llama.
+    // Resolvemos la tienda por el DID ANTES de validar, para saber con qué Auth
+    // Token verificar la firma (solo es una lectura; la firma sigue siendo el gate).
+    const did = req.body.To || req.body.Called || '';
+    const from = req.body.From || req.body.Caller || '';
+    const cfg = await getTelephonyConfigByDid(did);
 
-    // Incoming Call Event: decidir qué hacer con la llamada entrante.
-    if (event === 'ice') {
-      // El número marcado (DID) puede venir en distintos campos según el flujo.
-      const did = evt.to?.endpoint || evt.to?.number || evt.did || '';
-      const from = evt.cli?.endpoint || evt.cli || evt.from || '';
-      const cfg = await getTelephonyConfigByDid(did);
+    // Número no asociado a ninguna tienda con agente activo: rechazamos.
+    if (!cfg) return reject();
 
-      if (!cfg) {
-        // Número no asociado a ninguna tienda con agente activo: colgamos.
-        return res.json({ action: { name: 'hangup' } });
-      }
-
-      const host = (TELEPHONY_SIP_HOST || req.hostname || '').trim();
-      if (!host) {
-        return res.json({ action: { name: 'hangup' } });
-      }
-
-      // Entrega la llamada a nuestro Asterisk. El DID va como usuario del URI SIP
-      // para que el dialplan sepa a qué tienda pertenece (mismo enrutado por DID).
-      const normDid = String(did).replace(/[^0-9]/g, '');
-      const endpoint = TELEPHONY_SIP_PORT === 5060
-        ? `${normDid}@${host}`
-        : `${normDid}@${host}:${TELEPHONY_SIP_PORT}`;
-
-      return res.json({
-        action: {
-          name: 'connectSip',
-          destination: { type: 'sip', endpoint },
-          transport: TELEPHONY_SIP_TRANSPORT,
-          maxDuration: cfg.max_seconds || 300,
-          cli: from || undefined,
-          suppressCallbacks: false,
-        },
-      });
+    // Auth Token de ESTA tienda (o el global de .env como fallback opcional).
+    const authToken = cfg.twilio_auth_token || TWILIO_AUTH_TOKEN;
+    if (!verifyTwilioSignature(req, authToken)) {
+      // Firma inválida o sin token configurado: no revelamos TwiML.
+      return reject();
     }
 
-    // ACE (answered) / DICE (disconnected) / NOTIFY: solo acusamos recibo. El
-    // registro de la llamada y la transcripción los maneja el bot vía sus propios
-    // endpoints (/api/telephony/bot/*) una vez la llamada llega a Asterisk.
-    return res.json({});
+    const host = (TELEPHONY_SIP_HOST || req.hostname || '').trim();
+    if (!host) return twiml('<Reject reason="rejected"/>');
+
+    // Entrega la llamada a nuestro Asterisk. El DID va como usuario del URI SIP
+    // para que el dialplan sepa a qué tienda pertenece (enrutado por DID).
+    const normDid = String(did).replace(/[^0-9]/g, '');
+    const hostPort = TELEPHONY_SIP_PORT === 5060 ? host : `${host}:${TELEPHONY_SIP_PORT}`;
+    const sipUri = xmlEscape(`sip:${normDid}@${hostPort};transport=${TELEPHONY_SIP_TRANSPORT}`);
+
+    const cli = toE164(from);
+    const maxSec = Math.min(parseInt(cfg.max_seconds) || 300, 14400);
+    // answerOnBridge: el que llama sigue escuchando el tono hasta que el bot
+    // contesta (evita "descuelgue" prematuro y tarificación temprana).
+    const callerIdAttr = cli ? ` callerId="${xmlEscape(cli)}"` : '';
+    return twiml(
+      `<Dial answerOnBridge="true" timeLimit="${maxSec}"${callerIdAttr}><Sip>${sipUri}</Sip></Dial>`
+    );
   } catch (error) {
-    console.error('[sinch/callback]', error.message);
-    // Nunca dejamos la llamada colgada por un error interno: respondemos vacío.
-    res.json({});
+    console.error('[twilio/callback]', error.message);
+    // Ante un error interno colgamos limpio en vez de dejar la llamada colgada.
+    return res.status(200).type('text/xml')
+      .send('<?xml version="1.0" encoding="UTF-8"?>\n<Response><Hangup/></Response>');
   }
 });
 
