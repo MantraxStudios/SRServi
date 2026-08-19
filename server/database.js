@@ -681,6 +681,7 @@ async function createTables() {
     CREATE TABLE IF NOT EXISTS fudo_configs (
       id INT PRIMARY KEY AUTO_INCREMENT,
       store_id INT NOT NULL UNIQUE,
+      api_key VARCHAR(255) DEFAULT '',
       api_secret VARCHAR(500) DEFAULT '',
       enabled BOOLEAN DEFAULT FALSE,
       last_sync_at TIMESTAMP NULL DEFAULT NULL,
@@ -690,6 +691,14 @@ async function createTables() {
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )
   `);
+
+  // Migration: la API de Fudo autentica con API Key + API Secret (ambos).
+  try {
+    const [has] = await pool.execute(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fudo_configs' AND COLUMN_NAME = 'api_key'`
+    );
+    if (has.length === 0) await pool.execute(`ALTER TABLE fudo_configs ADD COLUMN api_key VARCHAR(255) DEFAULT '' AFTER store_id`);
+  } catch (e) { console.warn('Migration fudo_configs.api_key:', e.message); }
 
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS tiktok_configs (
@@ -6266,14 +6275,15 @@ export async function getFudoConfig(storeId) {
   return rows[0] || null;
 }
 
-export async function saveFudoConfig(storeId, { api_secret, enabled }) {
+export async function saveFudoConfig(storeId, { api_key, api_secret, enabled }) {
   await pool.execute(`
-    INSERT INTO fudo_configs (store_id, api_secret, enabled)
-    VALUES (?, ?, ?)
+    INSERT INTO fudo_configs (store_id, api_key, api_secret, enabled)
+    VALUES (?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
+      api_key = VALUES(api_key),
       api_secret = VALUES(api_secret),
       enabled = VALUES(enabled)
-  `, [storeId, api_secret || '', enabled ? 1 : 0]);
+  `, [storeId, api_key || '', api_secret || '', enabled ? 1 : 0]);
 }
 
 export async function updateFudoSyncStatus(storeId, status, errorMsg = null) {

@@ -12,10 +12,11 @@ export default function FudoIntegration() {
   const { selectedStore } = useContext(StoreContext);
   const storeId = selectedStore?.id;
 
-  const [cfg, setCfg]         = useState({ api_secret: '', enabled: false, last_sync_at: null, last_sync_status: null, last_error: null });
+  const [cfg, setCfg]         = useState({ api_key: '', api_secret: '', enabled: false, last_sync_at: null, last_sync_status: null, last_error: null });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving]   = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [toast, setToast]     = useState(null);
 
@@ -41,12 +42,28 @@ export default function FudoIntegration() {
       const res = await fetch(`/api/fudo/${storeId}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_secret: cfg.api_secret, enabled: cfg.enabled }),
+        body: JSON.stringify({ api_key: cfg.api_key, api_secret: cfg.api_secret, enabled: cfg.enabled }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       showToast('Configuración guardada');
     } catch (e) { showToast(e.message, 'error'); }
     finally { setSaving(false); }
+  };
+
+  const testConnection = async () => {
+    if (!storeId) return;
+    setTesting(true);
+    try {
+      const res = await fetch(`/api/fudo/${storeId}/test`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: cfg.api_key, api_secret: cfg.api_secret }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      showToast('Conexión con Fudo exitosa ✓');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { setTesting(false); }
   };
 
   const sync = async () => {
@@ -59,8 +76,8 @@ export default function FudoIntegration() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      showToast('Productos sincronizados con Fudo');
-      setCfg(p => ({ ...p, last_sync_at: new Date().toISOString(), last_sync_status: 'ok', last_error: null }));
+      showToast(data.summary ? `Sincronizado con Fudo: ${data.summary}` : 'Productos sincronizados con Fudo');
+      setCfg(p => ({ ...p, last_sync_at: new Date().toISOString(), last_sync_status: data.failed ? 'error' : 'ok', last_error: data.failed ? (data.errors?.[0] || null) : null }));
     } catch (e) {
       showToast(e.message, 'error');
       setCfg(p => ({ ...p, last_sync_at: new Date().toISOString(), last_sync_status: 'error', last_error: e.message }));
@@ -99,15 +116,26 @@ export default function FudoIntegration() {
       <div style={{ ...s.card, background: '#fffbee', border: '1px solid #f5deb3', marginBottom: 16 }}>
         <p style={{ margin: 0, fontSize: 13, color: '#7a5c00', lineHeight: 1.6 }}>
           <FontAwesomeIcon icon={faExclamationTriangle} style={{ marginRight: 6 }} />
-          Esta integración requiere que tu cuenta de <strong>Fudo</strong> tenga el <strong>Plan Pro</strong> contratado con ellos (su API de productos solo está disponible en ese plan).
-          Además necesitás pedirle a soporte de Fudo que active la API para tu cuenta, y generar un "API Secret" desde Fudo → Administración → Usuarios.
+          Esta integración requiere que tu cuenta de <strong>Fudo</strong> tenga habilitada la <strong>API de propósito general</strong> (la activa el soporte de Fudo a pedido).
+          Luego generá una <strong>API Key</strong> y un <strong>API Secret</strong> desde Fudo → Administración → Usuarios → API.
         </p>
       </div>
 
       <div style={s.card}>
-        <h3 style={s.cardTitle}>API Secret de Fudo</h3>
+        <h3 style={s.cardTitle}>Credenciales de Fudo</h3>
         <div style={{ marginBottom: 14 }}>
-          <label style={s.label}>Token</label>
+          <label style={s.label}>API Key</label>
+          <input
+            type="text"
+            value={cfg.api_key}
+            onChange={e => setCfg(p => ({ ...p, api_key: e.target.value }))}
+            placeholder="Pegá acá la API Key generada en Fudo"
+            style={s.input}
+            autoComplete="off"
+          />
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={s.label}>API Secret</label>
           <div style={{ position: 'relative' }}>
             <input
               type={showSecret ? 'text' : 'password'}
@@ -115,12 +143,22 @@ export default function FudoIntegration() {
               onChange={e => setCfg(p => ({ ...p, api_secret: e.target.value }))}
               placeholder="Pegá acá el API Secret generado en Fudo"
               style={{ ...s.input, paddingRight: 42 }}
+              autoComplete="off"
             />
             <button onClick={() => setShowSecret(p => !p)} style={s.eyeBtn}>
               <FontAwesomeIcon icon={showSecret ? faEyeSlash : faEye} />
             </button>
           </div>
         </div>
+
+        <button
+          onClick={testConnection}
+          disabled={testing || !cfg.api_key || !cfg.api_secret}
+          style={{ ...s.btnPrimary, background: '#0ea5e9', marginBottom: 12, opacity: (!cfg.api_key || !cfg.api_secret || testing) ? 0.5 : 1 }}
+        >
+          {testing ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faCheckCircle} />}
+          {testing ? ' Probando...' : ' Probar conexión'}
+        </button>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div>
@@ -156,13 +194,13 @@ export default function FudoIntegration() {
           </div>
         )}
 
-        <button onClick={sync} disabled={syncing || !cfg.api_secret} style={{ ...s.btnPrimary, background: '#1e293b', opacity: (!cfg.api_secret || syncing) ? 0.5 : 1 }}>
+        <button onClick={sync} disabled={syncing || !cfg.api_key || !cfg.api_secret} style={{ ...s.btnPrimary, background: '#1e293b', opacity: (!cfg.api_key || !cfg.api_secret || syncing) ? 0.5 : 1 }}>
           {syncing ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSync} />}
           {syncing ? ' Sincronizando...' : ' Sincronizar ahora'}
         </button>
-        {!cfg.api_secret && (
+        {(!cfg.api_key || !cfg.api_secret) && (
           <p style={{ textAlign: 'center', fontSize: 12, color: '#d97706', margin: '8px 0 0', fontWeight: 600 }}>
-            Guardá tu API Secret para poder sincronizar
+            Guardá tu API Key y API Secret para poder sincronizar
           </p>
         )}
       </div>

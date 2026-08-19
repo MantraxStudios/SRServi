@@ -13279,8 +13279,8 @@ async function startServer() {
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const cfg = await getFudoConfig(req.params.storeId);
         const safe = cfg
-          ? { ...cfg, api_secret: cfg.api_secret ? '••••••' : '' }
-          : { api_secret: '', enabled: false, last_sync_at: null, last_sync_status: null, last_error: null };
+          ? { ...cfg, api_key: cfg.api_key || '', api_secret: cfg.api_secret ? '••••••' : '' }
+          : { api_key: '', api_secret: '', enabled: false, last_sync_at: null, last_sync_status: null, last_error: null };
         res.json(safe);
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
@@ -13289,10 +13289,10 @@ async function startServer() {
       try {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
-        const { api_secret, enabled } = req.body;
+        const { api_key, api_secret, enabled } = req.body;
         const existing = await getFudoConfig(req.params.storeId);
         const finalSecret = api_secret === '••••••' ? (existing?.api_secret || '') : api_secret;
-        await saveFudoConfig(req.params.storeId, { api_secret: finalSecret, enabled });
+        await saveFudoConfig(req.params.storeId, { api_key, api_secret: finalSecret, enabled });
         res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
@@ -13302,18 +13302,35 @@ async function startServer() {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const cfg = await getFudoConfig(req.params.storeId);
-        if (!cfg?.api_secret) return res.status(400).json({ error: 'Configura el API Secret de Fudo primero' });
+        if (!cfg?.api_key || !cfg?.api_secret) return res.status(400).json({ error: 'Configura la API Key y el API Secret de Fudo primero' });
 
         const products = await getProducts(parseInt(req.params.storeId));
         try {
-          await syncProductsToFudo(req.params.storeId, cfg.api_secret, products);
-          await updateFudoSyncStatus(req.params.storeId, 'ok', null);
-          res.json({ ok: true });
+          const result = await syncProductsToFudo(req.params.storeId, cfg.api_key, cfg.api_secret, products);
+          const summary = `${result.created} creados, ${result.updated} actualizados` + (result.failed ? `, ${result.failed} con error` : '');
+          await updateFudoSyncStatus(req.params.storeId, result.failed ? 'error' : 'ok', result.failed ? (result.errors[0] || null) : null);
+          res.json({ ok: true, ...result, summary });
         } catch (syncError) {
           await updateFudoSyncStatus(req.params.storeId, 'error', syncError.message);
           res.status(503).json({ error: syncError.message });
         }
       } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Prueba las credenciales de Fudo (autentica y verifica acceso a la API).
+    app.post('/api/fudo/:storeId/test', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const cfg = await getFudoConfig(req.params.storeId);
+        // Permite probar credenciales enviadas en el body sin haberlas guardado aún.
+        const apiKey = req.body?.api_key || cfg?.api_key;
+        const apiSecret = (req.body?.api_secret && req.body.api_secret !== '••••••')
+          ? req.body.api_secret : cfg?.api_secret;
+        if (!apiKey || !apiSecret) return res.status(400).json({ error: 'Ingresá la API Key y el API Secret de Fudo' });
+        await testFudoConnection(apiKey, apiSecret);
+        res.json({ ok: true });
+      } catch (e) { res.status(400).json({ error: e.message }); }
     });
 
     // Estado del servicio de generación de imágenes con IA (modelo open source FLUX.1-schnell)
