@@ -9,16 +9,25 @@ voz IA. La explicación técnica completa está en [`README.md`](./README.md).
 
 - [ ] Servidor Linux con **GPU NVIDIA**.
 - [ ] Instalado **Docker**, **Docker Compose** y **NVIDIA Container Toolkit**.
-- [ ] Un **número + troncal SIP** contratado con un proveedor (esto es lo único con costo).
-- [ ] El backend de SRServi accesible por HTTPS desde el servidor.
+- [ ] Cada tienda: una **cuenta de Twilio** con un **número (DID)** de voz y su
+      **Auth Token** (esto es lo único con costo). **NO** es un troncal SIP.
+- [ ] El backend de SRServi accesible por **HTTPS desde internet** (Twilio debe poder
+      llegar al Voice webhook).
 
 ---
 
-## 1. Token compartido
+## 1. Configura el `.env` del servidor SRServi
 
 - [ ] En el `.env` del **servidor SRServi** agrega:
-      `TELEPHONY_BOT_TOKEN=un-token-largo-y-secreto`
+      - `TELEPHONY_BOT_TOKEN=un-token-largo-y-secreto`
+      - `TELEPHONY_SIP_HOST=tu-dominio-publico` (host de ESTE Asterisk)
+      - `TWILIO_WEBHOOK_URL=https://TU_DOMINIO/api/telephony/twilio/callback` (recom.)
+      - (El **Auth Token de cada tienda NO va aquí**: se pone en el panel. `TWILIO_AUTH_TOKEN`
+        en el env es solo fallback si usas UNA cuenta Twilio compartida.)
 - [ ] **Reinicia** el servidor SRServi.
+- [ ] En **Twilio → Phone Numbers → tu número → Voice**, pon "A CALL COMES IN" como
+      **Webhook (HTTP POST)**: `https://TU_DOMINIO/api/telephony/twilio/callback`
+      (la MISMA URL para todas las tiendas)
 
 ## 2. Configura este stack (`telephony/`)
 
@@ -26,13 +35,12 @@ voz IA. La explicación técnica completa está en [`README.md`](./README.md).
 - [ ] Edita `.env`: `SRSERVI_URL`, `TELEPHONY_BOT_TOKEN` (el **mismo** del paso 1),
       `WHISPER_MODEL` (`small` recomendado).
 
-## 3. Troncales (automático, NO se edita a mano)
+## 3. SIP entrante (automático, NO se edita a mano)
 
-- [ ] Nada que hacer aquí: `asterisk/pjsip.conf` se **genera solo** desde el panel.
-      Cada tienda carga su propio troncal (host/usuario/clave/DID) en
-      **SRServi → Llamadas IA** y `sync-trunks.sh` lo aplica a Asterisk.
-- [ ] Cuando una tienda agrega o cambia su troncal, corre `./sync-trunks.sh`
-      (o déjalo en segundo plano con `./sync-trunks.sh --watch`).
+- [ ] Con **Twilio** NO hay troncal con usuario/clave: Asterisk solo **acepta el
+      INVITE** que Twilio abre por IP. `asterisk/pjsip.conf` se **genera solo** con
+      `sync-trunks.sh` (confía en los rangos de IP de señalización de Twilio).
+- [ ] Abre en tu firewall a los rangos de Twilio el **5060/udp** y el rango RTP.
 
 ## 4. Levantar
 
@@ -42,16 +50,18 @@ voz IA. La explicación técnica completa está en [`README.md`](./README.md).
 ## 5. Verificar
 
 - [ ] `curl http://localhost:8090/health`  → `{"ok":true}`
-- [ ] `docker exec -it srservi-asterisk asterisk -rx "pjsip show registrations"`
-      → el troncal debe verse **Registered**.
+- [ ] `docker exec -it srservi-asterisk asterisk -rx "pjsip show identifies"`
+      → debe verse el identify entrante de Twilio (NO hay registros/registrations).
 
 ## 6. Configurar la tienda en el panel
 
 - [ ] SRServi → **Llamadas IA**
 - [ ] Activa **Agente de voz activo**.
-- [ ] Ingresa el **número (DID)** + datos del troncal.
+- [ ] Ingresa el **número (DID)** comprado en Twilio y el **Auth Token** de tu
+      cuenta de Twilio (Account Info → Auth Token; NO el API Key `SK…`).
 - [ ] Escribe **saludo** e **instrucciones** de la IA.
-- [ ] Elige **modelo** (`llama3`) y **voz** (Piper). Guarda.
+- [ ] Elige **modelo** (`llama3`) y **voz** (Piper; por defecto *Claudia · alta*,
+      la más natural). Guarda.
 
 ## 7. Probar
 

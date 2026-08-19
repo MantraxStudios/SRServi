@@ -10,12 +10,14 @@ import {
 
 const API = 'https://srservi2.srautomatic.com';
 
-// Voces open-source de Piper en español disponibles por defecto
+// Voces open-source de Piper en español disponibles (deben coincidir con las que
+// descarga telephony/bot/Dockerfile). Ordenadas de más a menos natural: las de
+// calidad "alta" suenan más humanas.
 const PIPER_VOICES = [
-  { id: 'es_ES-carlfm-x_low', label: 'Carlos (España, rápida)' },
-  { id: 'es_ES-davefx-medium', label: 'Dave (España, media)' },
+  { id: 'es_MX-claude-high', label: 'Claudia (Latam, alta · más natural)' },
+  { id: 'es_AR-daniela-high', label: 'Daniela (Argentina, alta · muy natural)' },
   { id: 'es_ES-sharvard-medium', label: 'Sharvard (España, media)' },
-  { id: 'es_MX-claude-high', label: 'Claude (México, alta)' },
+  { id: 'es_ES-davefx-medium', label: 'Dave (España, media)' },
   { id: 'es_MX-ald-medium', label: 'Ald (México, media)' },
 ];
 
@@ -126,16 +128,32 @@ export default function Calls() {
         </div>
 
         <h3 style={{ fontSize: 14, fontWeight: 700, color: '#374151', margin: '4px 0 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FontAwesomeIcon icon={faPhone} style={{ color: '#3b82f6' }} /> Tu número de teléfono (Sinch)
+          <FontAwesomeIcon icon={faPhone} style={{ color: '#3b82f6' }} /> Tu número de teléfono (Twilio)
         </h3>
         <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 10, padding: '10px 12px', fontSize: 12.5, color: '#1e40af', marginBottom: 14, lineHeight: 1.5 }}>
-          Las llamadas funcionan con <b>Sinch</b> (proveedor único). Solo indica el <b>número (DID)</b> que
-          tienes asignado en Sinch; la conexión SIP ya está configurada en la plataforma.
+          Las llamadas funcionan con <b>Twilio</b> (proveedor único). Solo indica el <b>número (DID)</b> que
+          compraste en Twilio; la conexión SIP ya está configurada en la plataforma.
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18 }}>
           <div style={{ gridColumn: '1 / -1' }}>
-            <label style={labelStyle}>Número (DID) asignado en Sinch</label>
+            <label style={labelStyle}>Número (DID) comprado en Twilio</label>
             <input style={inputStyle} placeholder="+56 2 1234 5678" value={cfg.did_number || ''} onChange={e => set('did_number', e.target.value)} />
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}>
+              Auth Token de tu cuenta de Twilio
+              {cfg.twilio_auth_token_set && (
+                <span style={{ marginLeft: 8, fontSize: 11, color: '#22c55e', fontWeight: 700 }}>
+                  <FontAwesomeIcon icon={faCheck} /> guardado
+                </span>
+              )}
+            </label>
+            <input style={inputStyle} type="password" autoComplete="new-password"
+              placeholder={cfg.twilio_auth_token_set ? '•••••••••• (déjalo vacío para no cambiarlo)' : 'Pega tu Auth Token de Twilio'}
+              value={cfg.twilio_auth_token || ''} onChange={e => set('twilio_auth_token', e.target.value)} />
+            <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 4 }}>
+              Consola de Twilio → <b>Account Info → Auth Token</b>. NO es el API Key (SK…). Se guarda en el servidor y no se muestra de vuelta.
+            </div>
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}>Derivar a número humano — opcional</label>
@@ -165,7 +183,7 @@ export default function Calls() {
           </div>
           <div>
             <label style={labelStyle}>Voz (Piper TTS)</label>
-            <select style={inputStyle} value={cfg.piper_voice || ''} onChange={e => set('piper_voice', e.target.value)}>
+            <select style={inputStyle} value={PIPER_VOICES.some(v => v.id === cfg.piper_voice) ? cfg.piper_voice : PIPER_VOICES[0].id} onChange={e => set('piper_voice', e.target.value)}>
               {PIPER_VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
             </select>
           </div>

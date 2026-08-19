@@ -16,12 +16,23 @@ RUN wget -qO /tmp/piper.tar.gz \
     && rm /tmp/piper.tar.gz
 
 # ── Voces de Piper (es) ── (agrega más desde huggingface rhasspy/piper-voices)
+# Se priorizan voces de calidad "high" (las más naturales) para es_MX / es_AR y se
+# incluyen algunas "medium" como alternativa. NO se usa "x_low" (suena robótico).
+# IMPORTANTE: cada voz que aparezca en el panel (client/.../admin/Calls.jsx) DEBE
+# descargarse aquí; si falta el .onnx, Piper falla y la llamada queda muda.
 WORKDIR /voices
 ARG VOICES_BASE=https://huggingface.co/rhasspy/piper-voices/resolve/main/es
-RUN wget -q "${VOICES_BASE}/es_ES/davefx/medium/es_ES-davefx-medium.onnx"      -O es_ES-davefx-medium.onnx \
- && wget -q "${VOICES_BASE}/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json" -O es_ES-davefx-medium.onnx.json \
- && wget -q "${VOICES_BASE}/es_MX/ald/medium/es_MX-ald-medium.onnx"            -O es_MX-ald-medium.onnx \
- && wget -q "${VOICES_BASE}/es_MX/ald/medium/es_MX-ald-medium.onnx.json"       -O es_MX-ald-medium.onnx.json
+RUN set -eux; for V in \
+      "es_MX/claude/high/es_MX-claude-high" \
+      "es_AR/daniela/high/es_AR-daniela-high" \
+      "es_ES/sharvard/medium/es_ES-sharvard-medium" \
+      "es_ES/davefx/medium/es_ES-davefx-medium" \
+      "es_MX/ald/medium/es_MX-ald-medium" \
+    ; do \
+      name="$(basename "$V")"; \
+      wget -q "${VOICES_BASE}/${V}.onnx"      -O "${name}.onnx"; \
+      wget -q "${VOICES_BASE}/${V}.onnx.json" -O "${name}.onnx.json"; \
+    done
 
 ENV PIPER_BIN=piper
 ENV PIPER_VOICES_DIR=/voices
