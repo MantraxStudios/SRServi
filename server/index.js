@@ -23,7 +23,7 @@ import PluginManager from './plugins/PluginManager.js';
 import { initLeonIA } from './leon_ia/autostart.js';
 import { generatePromoImage, generateAiPromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
 import { getAiImageStatus, generateAiImage, generateAiVideo } from './ai-image-client.js';
-import { testFudoConnection, syncProductsToFudo } from './fudo-service.js';
+import { testFudoConnection, syncProductsToFudo, fetchProductsFromFudo } from './fudo-service.js';
 import { initInstagramService } from './instagram_autostart.js';
 
 import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings, createFeedbackCampaign, createFeedbackToken, getFeedbackToken, submitFeedbackResponse, updateCampaignSentCount, getFeedbackCampaigns, getFeedbackResponses, getAllActiveUsersForFeedback, getAdminFeedbackByUser, saveAdminFeedback, getAllAdminFeedback, getUserCreatedAt, createTotemRental, getTotemRentalByUser, updateTotemRentalMpPreference, updateTotemRentalPayment, markTotemRentalInstalled, updateTotemRentalStatus, updateTotemSubscriptionStatus, getAllTotemRentals, logTotemPayment, createSalesLead, findRecentSalesLead, updateSalesLead, getSalesLeads, getSalesLeadStats, updateSalesLeadStatus, deleteSalesLead, getFudoConfig, saveFudoConfig, updateFudoSyncStatus } from './database.js';
@@ -13328,6 +13328,89 @@ async function startServer() {
           await updateFudoSyncStatus(req.params.storeId, 'error', syncError.message);
           res.status(503).json({ error: syncError.message });
         }
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Importa el catálogo de productos DESDE Fudo HACIA SRServi.
+    // Crea los productos que no existan (match por nombre, sin distinguir
+    // mayúsculas) y crea las categorías faltantes. Respeta el límite de
+    // productos del plan Gratis, igual que el import de Excel.
+    app.post('/api/fudo/:storeId/import', authenticateToken, async (req, res) => {
+      try {
+        const storeId = parseInt(req.params.storeId);
+        const store = await getStoreById(storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const cfg = await getFudoConfig(storeId);
+        if (!cfg?.api_key || !cfg?.api_secret) return res.status(400).json({ error: 'Configura la API Key y el API Secret de Fudo primero' });
+
+        let rows;
+        try {
+          rows = await fetchProductsFromFudo(cfg.api_key, cfg.api_secret);
+        } catch (fudoError) {
+          await updateFudoSyncStatus(storeId, 'error', fudoError.message);
+          return res.status(503).json({ error: fudoError.message });
+        }
+        if (!rows.length) return res.json({ ok: true, created: 0, skipped: 0, summary: 'Fudo no devolvió productos', errors: [] });
+
+        // Límite de productos por tienda en el plan Gratis.
+        const caps = await getUserCapabilities(req.user.id);
+        let remaining = Infinity;
+        if (caps.maxProductsPerStore != null) {
+          const [[{ cnt }]] = await pool.execute('SELECT COUNT(*) AS cnt FROM products WHERE store_id = ?', [storeId]);
+          remaining = Math.max(0, caps.maxProductsPerStore - cnt);
+        }
+
+        // Productos ya existentes (para no duplicar) y categorías por nombre.
+        const [existingProds] = await pool.execute('SELECT name FROM products WHERE store_id = ?', [storeId]);
+        const existingNames = new Set(existingProds.map(p => (p.name || '').trim().toLowerCase()));
+        const [cats] = await pool.execute('SELECT id, name FROM categories WHERE store_id = ?', [storeId]);
+        const catMap = {};
+        cats.forEach(c => { catMap[c.name.trim().toLowerCase()] = c.id; });
+
+        const results = { created: 0, skipped: 0, errors: [], limited: false };
+        for (const row of rows) {
+          try {
+            const name = (row.name || '').trim();
+            if (!name || row.price === undefined) { results.skipped++; continue; }
+            if (existingNames.has(name.toLowerCase())) { results.skipped++; continue; }
+            if (results.created >= remaining) { results.limited = true; results.skipped++; continue; }
+
+            // Crea la categoría si vino de Fudo y no existe en SRServi.
+            let catId = null;
+            const catName = (row.category || '').trim();
+            if (catName) {
+              const key = catName.toLowerCase();
+              if (catMap[key] == null) {
+                const newCat = await createCategory(storeId, { name: catName });
+                catMap[key] = newCat?.id ?? newCat;
+              }
+              catId = catMap[key];
+            }
+
+            await createProduct(storeId, {
+              name,
+              description: row.description || '',
+              price: parseFloat(row.price) || 0,
+              category_id: catId,
+              barcode: row.barcode || null,
+              image: row.image_url || null,
+              has_extras: false,
+              has_ingredients: false,
+              max_extras: 0,
+              max_ingredients: 0,
+            });
+            existingNames.add(name.toLowerCase());
+            results.created++;
+          } catch (err) {
+            results.errors.push({ name: row.name, error: err.message });
+            results.skipped++;
+          }
+        }
+
+        const summary = `${results.created} importados, ${results.skipped} omitidos`
+          + (results.limited ? ' (alcanzaste el límite del plan Gratis)' : '');
+        await updateFudoSyncStatus(storeId, results.errors.length ? 'error' : 'ok', results.errors[0]?.error || null);
+        res.json({ ok: true, ...results, summary });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 

@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faSave, faSync, faSpinner, faCheckCircle, faTimesCircle,
   faExclamationTriangle, faEye, faEyeSlash, faToggleOn, faToggleOff,
+  faDownload,
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function FudoIntegration() {
@@ -16,6 +17,7 @@ export default function FudoIntegration() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving]   = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [testing, setTesting] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [toast, setToast]     = useState(null);
@@ -82,6 +84,22 @@ export default function FudoIntegration() {
       showToast(e.message, 'error');
       setCfg(p => ({ ...p, last_sync_at: new Date().toISOString(), last_sync_status: 'error', last_error: e.message }));
     } finally { setSyncing(false); }
+  };
+
+  const importFromFudo = async () => {
+    if (!storeId) return;
+    setImporting(true);
+    try {
+      const res = await fetch(`/api/fudo/${storeId}/import`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      showToast(data.summary ? `Importado desde Fudo: ${data.summary}` : 'Catálogo importado desde Fudo');
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally { setImporting(false); }
   };
 
   if (!selectedStore) {
@@ -201,6 +219,23 @@ export default function FudoIntegration() {
         {(!cfg.api_key || !cfg.api_secret) && (
           <p style={{ textAlign: 'center', fontSize: 12, color: '#d97706', margin: '8px 0 0', fontWeight: 600 }}>
             Guardá tu API Key y API Secret para poder sincronizar
+          </p>
+        )}
+      </div>
+
+      <div style={{ ...s.card, marginTop: 16 }}>
+        <h3 style={s.cardTitle}>Importar catálogo desde Fudo</h3>
+        <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 14px' }}>
+          Trae tus productos de Fudo a SRServi. Crea los que falten (por nombre) junto con sus categorías; no duplica los que ya tenés.
+        </p>
+
+        <button onClick={importFromFudo} disabled={importing || !cfg.api_key || !cfg.api_secret} style={{ ...s.btnPrimary, background: '#7c3aed', opacity: (!cfg.api_key || !cfg.api_secret || importing) ? 0.5 : 1 }}>
+          {importing ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faDownload} />}
+          {importing ? ' Importando...' : ' Importar de Fudo'}
+        </button>
+        {(!cfg.api_key || !cfg.api_secret) && (
+          <p style={{ textAlign: 'center', fontSize: 12, color: '#d97706', margin: '8px 0 0', fontWeight: 600 }}>
+            Guardá tu API Key y API Secret para poder importar
           </p>
         )}
       </div>

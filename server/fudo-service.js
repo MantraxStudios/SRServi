@@ -116,6 +116,63 @@ async function fetchAllFudoProducts(token) {
   return all;
 }
 
+// Trae todas las categorías de productos de Fudo (paginado JSON:API).
+// Devuelve un Map id -> nombre para poder resolver la categoría de cada producto.
+async function fetchFudoCategoryNames(token) {
+  const byId = new Map();
+  const size = 500;
+  // Fudo expone las categorías en /product-categories (recurso "ProductCategory").
+  for (let page = 1; page <= 50; page++) {
+    let json;
+    try {
+      json = await fudoApi(token, 'GET', `/product-categories?page%5Bsize%5D=${size}&page%5Bnumber%5D=${page}`);
+    } catch {
+      // Si la cuenta no expone categorías, seguimos sin ellas (no es crítico).
+      break;
+    }
+    const data = Array.isArray(json.data) ? json.data : [];
+    for (const c of data) {
+      const name = (c.attributes?.name || '').trim();
+      if (name) byId.set(String(c.id), name);
+    }
+    if (data.length < size) break;
+  }
+  return byId;
+}
+
+// Importa el catálogo de Fudo hacia SRServi: trae todos los productos de Fudo
+// y los normaliza a la misma forma que usa el import de Excel/Web:
+//   { name, description, price, category, barcode, image_url }
+export async function fetchProductsFromFudo(apiKey, apiSecret) {
+  const token = await getFudoToken(apiKey, apiSecret);
+  const [products, catNames] = await Promise.all([
+    fetchAllFudoProducts(token),
+    fetchFudoCategoryNames(token),
+  ]);
+
+  const rows = [];
+  for (const p of products) {
+    const a = p.attributes || {};
+    const name = (a.name || '').trim();
+    if (!name) continue;
+    // La categoría viene como relación JSON:API a "ProductCategory".
+    const catId = p.relationships?.productCategory?.data?.id
+      ?? p.relationships?.category?.data?.id;
+    const category = catId != null ? (catNames.get(String(catId)) || '') : '';
+    rows.push({
+      name,
+      description: a.description || '',
+      // Fudo maneja el precio como número; caemos a 0 si no viene.
+      price: Number(a.price ?? a.salePrice ?? 0) || 0,
+      category,
+      // Fudo usa "code" como código interno; lo tratamos como barcode.
+      barcode: a.code || a.barcode || null,
+      image_url: a.imageUrl || a.image || null,
+    });
+  }
+  return rows;
+}
+
 // Sincroniza el catálogo de SRServi hacia Fudo: crea los que no existen
 // (match por nombre, sin distinguir mayúsculas) y actualiza precio/descripción
 // de los que ya están.
