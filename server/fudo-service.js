@@ -173,6 +173,65 @@ export async function fetchProductsFromFudo(apiKey, apiSecret) {
   return rows;
 }
 
+// Trae una venta puntual de Fudo por su ID, con sus ítems y los productos de
+// cada ítem, y la normaliza para crear la orden en SRServi. Se usa desde el
+// webhook: Fudo avisa que hubo una venta y acá vamos a buscar el detalle real
+// (ítems, cantidades, precios y total) en lugar de confiar en el payload.
+export async function fetchFudoSaleById(apiKey, apiSecret, saleId) {
+  const token = await getFudoToken(apiKey, apiSecret);
+  // include= trae en la misma respuesta los ítems y el producto de cada ítem.
+  const json = await fudoApi(
+    token, 'GET',
+    `/sales/${encodeURIComponent(saleId)}?include=items,items.product`
+  );
+  const sale = json.data;
+  if (!sale) return null;
+
+  // Índice type:id de los recursos incluidos, para resolver las relaciones.
+  const byKey = new Map();
+  for (const r of (Array.isArray(json.included) ? json.included : [])) {
+    byKey.set(`${r.type}:${r.id}`, r);
+  }
+
+  const a = sale.attributes || {};
+  // Los ítems de la venta pueden venir como relación "items" o "saleItems".
+  const rawRefs = sale.relationships?.items?.data
+    ?? sale.relationships?.saleItems?.data
+    ?? [];
+  const itemRefs = Array.isArray(rawRefs) ? rawRefs : [rawRefs].filter(Boolean);
+
+  const items = [];
+  for (const ref of itemRefs) {
+    const it = byKey.get(`${ref.type}:${ref.id}`);
+    const ia = it?.attributes || {};
+    // El nombre real viene del producto relacionado, si está incluido.
+    const prodRef = it?.relationships?.product?.data;
+    const prod = prodRef ? byKey.get(`${prodRef.type}:${prodRef.id}`) : null;
+    const name = (prod?.attributes?.name || ia.name || ia.productName || 'Producto').trim();
+    items.push({
+      name,
+      quantity: Number(ia.quantity ?? ia.amount ?? 1) || 1,
+      unit_price: Number(ia.price ?? ia.unitPrice ?? ia.value ?? 0) || 0,
+      notes: ia.comment || ia.note || '',
+    });
+  }
+
+  const total = Number(
+    a.total ?? a.totalAmount ?? a.amount
+    ?? items.reduce((s, i) => s + i.unit_price * i.quantity, 0)
+  ) || 0;
+
+  return {
+    fudo_id: String(sale.id),
+    total,
+    items,
+    comment: a.comment || a.note || '',
+    customer_name: (a.customerName || a.customer || '').toString().trim(),
+    created_at: a.createdAt || a.date || null,
+    status: (a.status || a.state || '').toString(),
+  };
+}
+
 // Sincroniza el catálogo de SRServi hacia Fudo: crea los que no existen
 // (match por nombre, sin distinguir mayúsculas) y actualiza precio/descripción
 // de los que ya están.

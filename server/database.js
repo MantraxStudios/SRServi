@@ -1,5 +1,6 @@
 import mysql from 'mysql2/promise';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 let pool = null;
 
@@ -699,6 +700,16 @@ async function createTables() {
     );
     if (has.length === 0) await pool.execute(`ALTER TABLE fudo_configs ADD COLUMN api_key VARCHAR(255) DEFAULT '' AFTER store_id`);
   } catch (e) { console.warn('Migration fudo_configs.api_key:', e.message); }
+
+  // Migration: secreto del webhook con el que Fudo nos avisa de cada venta nueva
+  // (Fudo → SRServi). Se genera automáticamente y viaja en la URL/headers del
+  // webhook para autenticar que la llamada realmente viene de esa tienda.
+  try {
+    const [has] = await pool.execute(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fudo_configs' AND COLUMN_NAME = 'webhook_secret'`
+    );
+    if (has.length === 0) await pool.execute(`ALTER TABLE fudo_configs ADD COLUMN webhook_secret VARCHAR(64) DEFAULT NULL`);
+  } catch (e) { console.warn('Migration fudo_configs.webhook_secret:', e.message); }
 
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS tiktok_configs (
@@ -6284,6 +6295,22 @@ export async function saveFudoConfig(storeId, { api_key, api_secret, enabled }) 
       api_secret = VALUES(api_secret),
       enabled = VALUES(enabled)
   `, [storeId, api_key || '', api_secret || '', enabled ? 1 : 0]);
+}
+
+// Devuelve el secreto del webhook de Fudo de la tienda, generándolo la primera
+// vez. Con este secreto Fudo autentica las llamadas al webhook de ventas.
+export async function ensureFudoWebhookSecret(storeId) {
+  const cfg = await getFudoConfig(storeId);
+  if (cfg?.webhook_secret) return cfg.webhook_secret;
+  const secret = crypto.randomBytes(24).toString('hex');
+  // Crea la fila si no existía (tienda sin config previa) o setea el secreto.
+  await pool.execute(`
+    INSERT INTO fudo_configs (store_id, webhook_secret)
+    VALUES (?, ?)
+    ON DUPLICATE KEY UPDATE webhook_secret = COALESCE(webhook_secret, VALUES(webhook_secret))
+  `, [storeId, secret]);
+  const updated = await getFudoConfig(storeId);
+  return updated?.webhook_secret || secret;
 }
 
 export async function updateFudoSyncStatus(storeId, status, errorMsg = null) {

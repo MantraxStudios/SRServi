@@ -23,10 +23,10 @@ import PluginManager from './plugins/PluginManager.js';
 import { initLeonIA } from './leon_ia/autostart.js';
 import { generatePromoImage, generateAiPromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
 import { getAiImageStatus, generateAiImage, generateAiVideo } from './ai-image-client.js';
-import { testFudoConnection, syncProductsToFudo, fetchProductsFromFudo } from './fudo-service.js';
+import { testFudoConnection, syncProductsToFudo, fetchProductsFromFudo, fetchFudoSaleById } from './fudo-service.js';
 import { initInstagramService } from './instagram_autostart.js';
 
-import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings, createFeedbackCampaign, createFeedbackToken, getFeedbackToken, submitFeedbackResponse, updateCampaignSentCount, getFeedbackCampaigns, getFeedbackResponses, getAllActiveUsersForFeedback, getAdminFeedbackByUser, saveAdminFeedback, getAllAdminFeedback, getUserCreatedAt, createTotemRental, getTotemRentalByUser, updateTotemRentalMpPreference, updateTotemRentalPayment, markTotemRentalInstalled, updateTotemRentalStatus, updateTotemSubscriptionStatus, getAllTotemRentals, logTotemPayment, createSalesLead, findRecentSalesLead, updateSalesLead, getSalesLeads, getSalesLeadStats, updateSalesLeadStatus, deleteSalesLead, getFudoConfig, saveFudoConfig, updateFudoSyncStatus } from './database.js';
+import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings, createFeedbackCampaign, createFeedbackToken, getFeedbackToken, submitFeedbackResponse, updateCampaignSentCount, getFeedbackCampaigns, getFeedbackResponses, getAllActiveUsersForFeedback, getAdminFeedbackByUser, saveAdminFeedback, getAllAdminFeedback, getUserCreatedAt, createTotemRental, getTotemRentalByUser, updateTotemRentalMpPreference, updateTotemRentalPayment, markTotemRentalInstalled, updateTotemRentalStatus, updateTotemSubscriptionStatus, getAllTotemRentals, logTotemPayment, createSalesLead, findRecentSalesLead, updateSalesLead, getSalesLeads, getSalesLeadStats, updateSalesLeadStatus, deleteSalesLead, getFudoConfig, saveFudoConfig, updateFudoSyncStatus, ensureFudoWebhookSecret } from './database.js';
 import { runSrBrain, runSrBrainForStore, runWeeklySalesReport } from './sr_brain.js';
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds, setBotEnabled, getBotEnabled, getBotPhone } from './whatsapp.js';
 import cron from 'node-cron';
@@ -13292,9 +13292,14 @@ async function startServer() {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const cfg = await getFudoConfig(req.params.storeId);
+        // Secreto del webhook Fudo → SRServi (se genera la primera vez). Con la
+        // URL + este secreto el dueño configura en Fudo el aviso de venta nueva.
+        const webhookSecret = await ensureFudoWebhookSecret(req.params.storeId);
+        const serverUrl = process.env.SERVER_URL || 'https://srservi2.srautomatic.com';
+        const webhookUrl = `${serverUrl}/api/fudo/webhook/${store.code}?secret=${webhookSecret}`;
         const safe = cfg
-          ? { ...cfg, api_key: cfg.api_key || '', api_secret: cfg.api_secret ? '••••••' : '' }
-          : { api_key: '', api_secret: '', enabled: false, last_sync_at: null, last_sync_status: null, last_error: null };
+          ? { ...cfg, api_key: cfg.api_key || '', api_secret: cfg.api_secret ? '••••••' : '', webhook_secret: webhookSecret, webhook_url: webhookUrl }
+          : { api_key: '', api_secret: '', enabled: false, last_sync_at: null, last_sync_status: null, last_error: null, webhook_secret: webhookSecret, webhook_url: webhookUrl };
         res.json(safe);
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
@@ -13428,6 +13433,130 @@ async function startServer() {
         await testFudoConnection(apiKey, apiSecret);
         res.json({ ok: true });
       } catch (e) { res.status(400).json({ error: e.message }); }
+    });
+
+    // Público: webhook de Fudo → SRServi. Fudo llama acá cada vez que se cierra
+    // una venta en su POS; nosotros vamos a buscar el detalle real a la API de
+    // Fudo (ítems/total) y creamos la orden en SRServi como PAGADA, para que se
+    // represente en vivo en el panel del local. Se autentica con el secreto que
+    // viaja en la URL (?secret=) o en el header (x-fudo-secret / authorization).
+    app.post('/api/fudo/webhook/:store_code', async (req, res) => {
+      try {
+        const store = await getStoreByCode(req.params.store_code);
+        if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+
+        const cfg = await getFudoConfig(store.id);
+        if (!cfg || !cfg.enabled) return res.status(403).json({ error: 'Integración Fudo no habilitada' });
+        if (!cfg.api_key || !cfg.api_secret) return res.status(400).json({ error: 'Faltan las credenciales de Fudo' });
+
+        // Verificación del secreto (obligatoria: sin secreto configurado, rechaza).
+        const provided = req.query.secret
+          || req.headers['x-fudo-secret']
+          || req.headers['x-webhook-token']
+          || (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '');
+        if (!cfg.webhook_secret || provided !== cfg.webhook_secret) {
+          return res.status(401).json({ error: 'Secreto inválido' });
+        }
+
+        const payload = req.body || {};
+
+        // ID de la venta en Fudo (el webhook puede mandarlo en varias formas).
+        const saleId = payload.saleId || payload.sale_id || payload.id
+          || payload.data?.id || payload.resourceId || payload.entityId;
+        if (!saleId) return res.status(400).json({ error: 'El webhook no incluyó el ID de la venta' });
+
+        // Ignorar eventos de cancelación/borrado.
+        const event = (payload.event || payload.action || payload.type || '').toString().toLowerCase();
+        if (event.includes('cancel') || event.includes('delete') || event.includes('void')) {
+          return res.json({ success: true, ignored: true });
+        }
+
+        // Idempotencia: si ya importamos esta venta, no la dupliques.
+        const externalRef = `fudo:${saleId}`;
+        const [dup] = await pool.execute(
+          'SELECT id FROM orders WHERE external_reference = ? AND store_id = ? LIMIT 1',
+          [externalRef, store.id]
+        );
+        if (dup.length) return res.json({ success: true, duplicate: true });
+
+        // Traer el detalle real de la venta desde la API de Fudo.
+        let sale;
+        try {
+          sale = await fetchFudoSaleById(cfg.api_key, cfg.api_secret, saleId);
+        } catch (fetchErr) {
+          console.error('[Fudo webhook] no se pudo leer la venta:', fetchErr.message);
+          await updateFudoSyncStatus(store.id, 'error', fetchErr.message).catch(() => {});
+          return res.status(502).json({ error: fetchErr.message });
+        }
+        if (!sale) return res.status(404).json({ error: 'La venta no existe en Fudo' });
+
+        // No importar ventas canceladas.
+        if ((sale.status || '').toLowerCase().includes('cancel')) {
+          return res.json({ success: true, ignored: true });
+        }
+
+        const externalItems = (sale.items || []).map(i => ({
+          name: i.name || 'Producto',
+          quantity: Number(i.quantity) || 1,
+          unit_price: Number(i.unit_price) || 0,
+          notes: i.notes || '',
+        }));
+        const total = Number(sale.total)
+          || externalItems.reduce((s, i) => s + i.unit_price * i.quantity, 0);
+
+        const orderNumber = await generateUniqueOrderNumber(store.id);
+
+        // Venta ya cobrada en Fudo: entra como pagada/completada (payment_process=1,
+        // cash_approved=1). source='fudo' para distinguir el origen en reportes.
+        const [result] = await pool.execute(
+          `INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, total,
+           payment_method, cash_approved, payment_process, status, external_items,
+           external_reference, source, customer_name, customer_comment, order_number)
+           VALUES (?, ?, 'fudo', ?, 0, ?, 'online', 1, 1, 'completed', ?, ?, 'fudo', ?, ?, ?)`,
+          [
+            store.id, store.user_id,
+            total, total,
+            JSON.stringify(externalItems),
+            externalRef,
+            sale.customer_name || 'Cliente Fudo',
+            sale.comment || null,
+            orderNumber,
+          ]
+        );
+        const orderId = result.insertId;
+
+        // Descontar inventario (stock + recetas) mapeando ítems por nombre.
+        deductExternalOrderInventory(store.id, externalItems, orderId)
+          .catch(e => console.error('[Fudo] deduct inventory:', e.message));
+
+        const newOrder = {
+          id: orderId,
+          order_number: orderNumber,
+          store_id: store.id,
+          order_type: 'fudo',
+          total,
+          status: 'completed',
+          payment_method: 'online',
+          cash_approved: 1,
+          payment_process: 1,
+          external_items: externalItems,
+          external_reference: externalRef,
+          source: 'fudo',
+          customer_name: sale.customer_name || 'Cliente Fudo',
+          customer_comment: sale.comment || null,
+          items: externalItems,
+          created_at: new Date().toISOString(),
+        };
+
+        // Representar en vivo en el panel del local (sala de la tienda).
+        io.to(`store_${store.id}`).emit('new_order', newOrder);
+        await updateFudoSyncStatus(store.id, 'ok', null).catch(() => {});
+
+        res.json({ success: true, order_id: orderId, order_number: orderNumber });
+      } catch (e) {
+        console.error('Fudo webhook error:', e);
+        res.status(500).json({ error: e.message });
+      }
     });
 
     // Estado del servicio de generación de imágenes con IA (modelo open source FLUX.1-schnell)

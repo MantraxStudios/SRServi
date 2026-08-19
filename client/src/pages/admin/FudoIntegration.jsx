@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faSave, faSync, faSpinner, faCheckCircle, faTimesCircle,
   faExclamationTriangle, faEye, faEyeSlash, faToggleOn, faToggleOff,
-  faDownload,
+  faDownload, faCopy, faBell,
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function FudoIntegration() {
@@ -86,6 +86,14 @@ export default function FudoIntegration() {
     } finally { setSyncing(false); }
   };
 
+  const copyWebhook = async () => {
+    if (!cfg.webhook_url) return;
+    try {
+      await navigator.clipboard.writeText(cfg.webhook_url);
+      showToast('URL del webhook copiada');
+    } catch { showToast('No se pudo copiar', 'error'); }
+  };
+
   const importFromFudo = async () => {
     if (!storeId) return;
     setImporting(true);
@@ -128,7 +136,7 @@ export default function FudoIntegration() {
 
       <div style={s.header}>
         <h1 style={s.title}>Integración con Fudo</h1>
-        <p style={s.subtitle}>Sincronizá tu catálogo de productos con Fudo — <strong>{selectedStore.name}</strong></p>
+        <p style={s.subtitle}>Sincronizá tu catálogo y recibí en SRServi los pedidos de Fudo — <strong>{selectedStore.name}</strong></p>
       </div>
 
       <div style={{ ...s.card, background: '#fffbee', border: '1px solid #f5deb3', marginBottom: 16 }}>
@@ -195,6 +203,38 @@ export default function FudoIntegration() {
           {saving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />}
           {saving ? ' Guardando...' : ' Guardar configuración'}
         </button>
+      </div>
+
+      <div style={{ ...s.card, marginTop: 16 }}>
+        <h3 style={s.cardTitle}>
+          <FontAwesomeIcon icon={faBell} style={{ marginRight: 6, color: '#f59e0b' }} />
+          Recibir pedidos de Fudo
+        </h3>
+        <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 14px', lineHeight: 1.6 }}>
+          Para que las ventas hechas en Fudo aparezcan automáticamente en el panel de SRServi,
+          configurá este <strong>webhook</strong> en Fudo (Administración → Integraciones/Webhooks)
+          apuntando a la URL de abajo. Debés tener la <strong>Sincronización activa</strong> encendida.
+        </p>
+
+        {cfg.enabled ? (
+          <>
+            <label style={s.label}>URL del webhook (pegala en Fudo)</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input readOnly value={cfg.webhook_url || 'Guardá la configuración para generar la URL'} style={{ ...s.input, fontSize: 12, background: '#f9fafb' }} onFocus={e => e.target.select()} />
+              <button onClick={copyWebhook} disabled={!cfg.webhook_url} style={{ ...s.btnPrimary, width: 'auto', padding: '10px 14px', background: '#0ea5e9', flexShrink: 0, opacity: cfg.webhook_url ? 1 : 0.5 }}>
+                <FontAwesomeIcon icon={faCopy} />
+              </button>
+            </div>
+            <p style={{ fontSize: 12, color: '#6b7280', margin: '8px 0 0', lineHeight: 1.5 }}>
+              Las ventas entran como <strong>pagadas</strong> y se muestran en vivo en el panel del local.
+              El secreto ya viene incluido en la URL: no lo compartas.
+            </p>
+          </>
+        ) : (
+          <p style={{ fontSize: 13, color: '#d97706', margin: 0, fontWeight: 600 }}>
+            Activá la <strong>Sincronización activa</strong> y guardá para obtener la URL del webhook.
+          </p>
+        )}
       </div>
 
       <div style={{ ...s.card, marginTop: 16 }}>
