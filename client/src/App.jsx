@@ -62,6 +62,7 @@ import SubAccounts from './pages/admin/SubAccounts';
 import Minimarket from './pages/Minimarket';
 import Index from './pages/Index';
 import SalesAssistant from './pages/SalesAssistant';
+import FidelidadEnroll from './pages/FidelidadEnroll';
 import Store from './pages/Store';
 import TvDisplay from './pages/TvDisplay';
 import TvCart from './pages/TvCart';
@@ -284,6 +285,7 @@ function App() {
           <Route path="/rate/:code" element={<Rate />} />
           <Route path="/survey/:code" element={<ClientSurvey />} />
           <Route path="/trabajo/:code" element={<JobApplication />} />
+          <Route path="/fidelidad/:code" element={<FidelidadEnroll />} />
           <Route path="/tarjeta" element={<StampCard />} />
           <Route path="/tarjeta/:token" element={<StampCard />} />
           <Route path="/delivery" element={<DeliveryLanding />} />

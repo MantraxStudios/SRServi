@@ -53,7 +53,6 @@ export default function StampCard() {
   const [editTheme, setEditTheme] = useState(DEFAULT_THEME);
   const [editPhoto, setEditPhoto] = useState(undefined); // undefined = sin cambio, null = quitar, string = nueva
   const [saving, setSaving] = useState(false);
-  const [wallets, setWallets] = useState({ google: false, apple: false });
   const socketRef = useRef(null);
 
   const openEditor = () => {
@@ -95,17 +94,6 @@ export default function StampCard() {
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [tokenParam]);
-
-  // Qué wallets están disponibles (según las credenciales de ESTA tienda)
-  useEffect(() => {
-    if (!card?.token) return;
-    let alive = true;
-    fetch(`${API}/api/wallet/status?token=${encodeURIComponent(card.token)}`)
-      .then(r => (r.ok ? r.json() : { google: false, apple: false }))
-      .then(d => { if (alive) setWallets(d); })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [card?.token]);
 
   // Socket: confirmación en vivo cuando la tarjeta se usa en el tótem/caja
   useEffect(() => {
@@ -234,23 +222,14 @@ export default function StampCard() {
               🎨 Personalizar mi tarjeta
             </button>
 
-            {/* Añadir al teléfono (Google / Apple Wallet) */}
-            {card.token && (wallets.google || wallets.apple) && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
-                {wallets.google && (
-                  <a href={`${API}/api/card/${card.token}/google-wallet`}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '13px', borderRadius: 14, background: '#000', color: '#fff', fontWeight: 800, fontSize: 14, textDecoration: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}>
-                    <span style={{ fontSize: 18 }}>🅶</span> Añadir a Google Wallet
-                  </a>
-                )}
-                {wallets.apple && (
-                  <a href={`${API}/api/card/${card.token}/apple-wallet`}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '13px', borderRadius: 14, background: '#000', color: '#fff', fontWeight: 800, fontSize: 14, textDecoration: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}>
-                    <span style={{ fontSize: 18 }}></span> Añadir a Apple Wallet
-                  </a>
-                )}
+            {/* Beneficio de fidelización (reemplaza a Google/Apple Wallet) */}
+            <div style={{ marginTop: 12, padding: '14px 16px', borderRadius: 14, background: 'linear-gradient(135deg,#fff8e1,#fff)', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 24 }}>🎁</span>
+              <div style={{ fontSize: 13, color: '#92400e', lineHeight: 1.45 }}>
+                <strong>Beneficio de fidelización.</strong> Ya estás registrado con tu WhatsApp:
+                al comprar solo ingrésalo y suma tus beneficios.
               </div>
-            )}
+            </div>
 
             {/* QR para guardar/compartir */}
             <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 8px 30px rgba(0,0,0,0.08)', padding: 18, marginTop: 14, textAlign: 'center' }}>

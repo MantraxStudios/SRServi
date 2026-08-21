@@ -16,7 +16,7 @@ const DARK = '#232028';
 const MUTED = '#8f8a80';
 const BORDER = '#F0E8D9';
 
-function rr(ctx, x, y, w, h, r) {
+export function rr(ctx, x, y, w, h, r) {
   const rad = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
   ctx.moveTo(x + rad, y);
@@ -27,7 +27,130 @@ function rr(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-async function tryLoadImg(image, serverDir) {
+// ── Tema del mes (figuras alusivas) ─────────────────────────────────────────
+// Mapa server-side, alineado con client/src/utils/seasonalTheme.js. Se dibuja un
+// encabezado con el texto del mes + figuras vectoriales (se renderizan siempre,
+// sin depender de fuentes de emoji en el servidor).
+function nationalMonth(country) {
+  const c = (country || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  if (c.includes('argentin') || c.includes('peru') || c.includes('colombia')) return 6; // julio
+  return 8; // chile / mexico / default → septiembre
+}
+
+export function getSeason(now, country) {
+  const m = now.getMonth();
+  const nat = nationalMonth(country);
+  if (m === nat) return { label: '¡Mes de la Patria!', accent: '#da291c', shape: 'star' };
+  switch (m) {
+    case 0:  return { label: '¡Mes de vacaciones!',      accent: '#ffb703', shape: 'sun' };
+    case 1:  return { label: '¡Mes del amor!',           accent: '#ff5d8f', shape: 'heart' };
+    case 3:  return { label: '¡Otoño!',                  accent: '#e07a1f', shape: 'leaf' };
+    case 4:  return { label: '¡Mes de la Madre!',        accent: '#ff70a6', shape: 'flower' };
+    case 5:  return { label: '¡Mes del Padre!',          accent: '#457b9d', shape: 'star' };
+    case 6:  return { label: '¡Vacaciones de invierno!', accent: '#38bdf8', shape: 'snow' };
+    case 7:  return { label: '¡Mes del Niño!',           accent: '#f72585', shape: 'balloon' };
+    case 9:  return { label: '¡Mes del terror!',         accent: '#ff7518', shape: 'ghost' };
+    case 10: return { label: '¡Primavera!',              accent: '#ff70a6', shape: 'flower' };
+    case 11: return { label: '¡Feliz Navidad!',          accent: '#c1121f', shape: 'tree' };
+    default: return { label: '', accent: '#D4AF37', shape: 'star' };
+  }
+}
+
+// Dibuja una figura vectorial centrada en (cx, cy) de tamaño s, en color dado.
+export function drawShape(ctx, shape, cx, cy, s, color) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.translate(cx, cy);
+  const r = s / 2;
+  switch (shape) {
+    case 'heart': {
+      ctx.beginPath();
+      ctx.moveTo(0, r * 0.75);
+      ctx.bezierCurveTo(r * 1.4, -r * 0.2, r * 0.5, -r * 1.1, 0, -r * 0.35);
+      ctx.bezierCurveTo(-r * 0.5, -r * 1.1, -r * 1.4, -r * 0.2, 0, r * 0.75);
+      ctx.fill();
+      break;
+    }
+    case 'snow': {
+      ctx.lineWidth = Math.max(2, s * 0.09);
+      ctx.lineCap = 'round';
+      for (let k = 0; k < 6; k++) {
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, -r);
+        ctx.stroke();
+        ctx.rotate(Math.PI / 3);
+      }
+      break;
+    }
+    case 'flower': {
+      for (let k = 0; k < 6; k++) {
+        ctx.beginPath();
+        ctx.ellipse(0, -r * 0.55, r * 0.32, r * 0.55, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.rotate(Math.PI / 3);
+      }
+      ctx.beginPath(); ctx.fillStyle = '#ffd166'; ctx.arc(0, 0, r * 0.35, 0, Math.PI * 2); ctx.fill();
+      break;
+    }
+    case 'sun': {
+      ctx.lineWidth = Math.max(2, s * 0.08);
+      for (let k = 0; k < 8; k++) {
+        ctx.beginPath(); ctx.moveTo(0, -r * 0.7); ctx.lineTo(0, -r); ctx.stroke();
+        ctx.rotate(Math.PI / 4);
+      }
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2); ctx.fill();
+      break;
+    }
+    case 'balloon': {
+      ctx.beginPath(); ctx.ellipse(0, -r * 0.15, r * 0.6, r * 0.75, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.lineWidth = Math.max(1, s * 0.04);
+      ctx.beginPath(); ctx.moveTo(0, r * 0.6); ctx.lineTo(0, r); ctx.stroke();
+      break;
+    }
+    case 'ghost': {
+      ctx.beginPath();
+      ctx.arc(0, -r * 0.1, r * 0.6, Math.PI, 0);
+      ctx.lineTo(r * 0.6, r * 0.7);
+      ctx.lineTo(r * 0.3, r * 0.45); ctx.lineTo(0, r * 0.7);
+      ctx.lineTo(-r * 0.3, r * 0.45); ctx.lineTo(-r * 0.6, r * 0.7);
+      ctx.closePath(); ctx.fill();
+      break;
+    }
+    case 'tree': {
+      ctx.beginPath();
+      ctx.moveTo(0, -r); ctx.lineTo(r * 0.7, r * 0.5); ctx.lineTo(-r * 0.7, r * 0.5);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#8a5a2b';
+      ctx.fillRect(-r * 0.12, r * 0.5, r * 0.24, r * 0.35);
+      break;
+    }
+    case 'leaf': {
+      ctx.beginPath();
+      ctx.moveTo(0, -r);
+      ctx.bezierCurveTo(r, -r * 0.4, r, r * 0.4, 0, r);
+      ctx.bezierCurveTo(-r, r * 0.4, -r, -r * 0.4, 0, -r);
+      ctx.fill();
+      break;
+    }
+    case 'star':
+    default: {
+      ctx.beginPath();
+      for (let k = 0; k < 5; k++) {
+        const a = (Math.PI / 5) * (2 * k) - Math.PI / 2;
+        const a2 = a + Math.PI / 5;
+        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+        ctx.lineTo(Math.cos(a2) * r * 0.45, Math.sin(a2) * r * 0.45);
+      }
+      ctx.closePath(); ctx.fill();
+      break;
+    }
+  }
+  ctx.restore();
+}
+
+export async function tryLoadImg(image, serverDir) {
   if (!image) return null;
   // 1) URL absoluta
   if (image.startsWith('http')) {
@@ -80,23 +203,25 @@ function wrapText(ctx, text, maxWidth, maxLines) {
 
 /**
  * @param {Object} opts
- * @param {Array}  opts.products   productos (se usan los primeros 12)
- * @param {Object} opts.store      { name, currency_symbol, hide_decimals }
+ * @param {Array}  opts.products   productos de ESTA página (ya paginados)
+ * @param {Object} opts.store      { name, currency_symbol, hide_decimals, country }
  * @param {'landscape'|'portrait'} opts.orientation
  * @param {string} opts.serverDir  dir del server para resolver imágenes locales
+ * @param {number} [opts.page]        índice de página (0-based) para el indicador
+ * @param {number} [opts.totalPages]  total de páginas para el indicador "1/3"
  * @returns {Promise<Buffer>} PNG
  */
-export async function generateMenuImage({ products, store, orientation, serverDir }) {
+export async function generateMenuImage({ products, store, orientation, serverDir, page = 0, totalPages = 1 }) {
   const landscape = orientation !== 'portrait';
   const W = landscape ? 1920 : 1080;
   const H = landscape ? 1080 : 1920;
   // Columnas fijas por orientación; filas adaptativas para llenar todo el alto.
-  //   Landscape: 6 columnas (6 arriba / 6 abajo con 12 productos).
-  //   Portrait: 2 columnas → los productos se apilan hacia abajo (hasta 6 filas).
   const cols = landscape ? 6 : 2;
-  const list = (products || []).slice(0, 12);
+  const list = products || [];
   const n = list.length;
   const rows = Math.max(1, Math.ceil(n / cols));
+
+  const season = getSeason(new Date(), store?.country);
 
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');
@@ -104,6 +229,19 @@ export async function generateMenuImage({ products, store, orientation, serverDi
   // Fondo crema
   ctx.fillStyle = CREAM;
   ctx.fillRect(0, 0, W, H);
+
+  // Figuras del mes dispersas de fondo (tenues, detrás de las tarjetas)
+  if (season && season.label) {
+    const count = landscape ? 10 : 8;
+    for (let i = 0; i < count; i++) {
+      const fx = ((i * 61 + 23) % 100) / 100 * W;
+      const fy = ((i * 37 + 11) % 100) / 100 * H;
+      const fs = Math.min(W, H) * (0.05 + ((i * 13) % 5) / 100);
+      ctx.globalAlpha = 0.08;
+      drawShape(ctx, season.shape, fx, fy, fs, season.accent);
+    }
+    ctx.globalAlpha = 1;
+  }
 
   const symbol = store?.currency_symbol || '$';
   const hideDecimals = store?.hide_decimals;
@@ -115,8 +253,43 @@ export async function generateMenuImage({ products, store, orientation, serverDi
 
   const PAD = Math.round(Math.min(W, H) * 0.03);
   const GAP = Math.round(Math.min(W, H) * 0.018);
+
+  // Encabezado con el "mes" (si hay temporada) + indicador de página
+  const headerH = (season && season.label) ? Math.round(H * 0.085) : 0;
+  if (headerH) {
+    const hy = PAD;
+    const barH = Math.round(headerH * 0.9);
+    // Píldora con el texto del mes
+    ctx.save();
+    const labelFont = Math.round(barH * 0.44);
+    ctx.font = `800 ${labelFont}px Arial, sans-serif`;
+    const tw = ctx.measureText(season.label).width;
+    const iconS = barH * 0.55;
+    const pillPad = barH * 0.5;
+    const pillW = tw + iconS + pillPad * 2.4;
+    const pillX = (W - pillW) / 2;
+    rr(ctx, pillX, hy, pillW, barH, barH / 2);
+    ctx.fillStyle = season.accent;
+    ctx.fill();
+    drawShape(ctx, season.shape, pillX + pillPad + iconS / 2, hy + barH / 2, iconS, '#ffffff');
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(season.label, pillX + pillPad + iconS + pillPad * 0.4, hy + barH / 2 + labelFont * 0.05);
+    // Indicador de página (arriba a la derecha) si hay más de una
+    if (totalPages > 1) {
+      const pg = `${page + 1}/${totalPages}`;
+      ctx.font = `800 ${Math.round(barH * 0.4)}px Arial, sans-serif`;
+      ctx.fillStyle = MUTED;
+      ctx.textAlign = 'right';
+      ctx.fillText(pg, W - PAD, hy + barH / 2 + barH * 0.02);
+    }
+    ctx.restore();
+  }
+
+  const gridTop = PAD + headerH;
   const gridW = W - PAD * 2;
-  const gridH = H - PAD * 2;
+  const gridH = H - gridTop - PAD;
   const cardW = (gridW - GAP * (cols - 1)) / cols;
   const cardH = (gridH - GAP * (rows - 1)) / rows;
 
@@ -153,7 +326,7 @@ export async function generateMenuImage({ products, store, orientation, serverDi
     const col = i % cols;
     const row = Math.floor(i / cols);
     const x = PAD + col * (cardW + GAP);
-    const y = PAD + row * (cardH + GAP);
+    const y = gridTop + row * (cardH + GAP);
 
     // Sombra + tarjeta blanca
     ctx.save();

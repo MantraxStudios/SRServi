@@ -161,6 +161,7 @@ export default function Ratings() {
 
   const ratingUrl = selectedStore ? `${BASE_URL}/rate/${selectedStore.code}` : '';
   const surveyUrl = selectedStore ? `${BASE_URL}/survey/${selectedStore.code}` : '';
+  const fidelidadUrl = selectedStore ? `${BASE_URL}/fidelidad/${selectedStore.code}` : '';
   const storeName = selectedStore?.name || '';
   const storeColor = selectedStore?.primary_color || '#1a1a2e';
   const accentColor = selectedStore?.accent_color || '#D4AF37';
@@ -1484,6 +1485,29 @@ export default function Ratings() {
                   En la imagen: "Escanea los códigos y lleva GRATIS {promoGiftText.trim().toUpperCase()}"
                 </div>
               )}
+            </div>
+
+            {/* QR de inscripción guiada al beneficio de fidelización */}
+            <div style={{ marginTop: 4, padding: 16, borderRadius: 12, background: 'linear-gradient(135deg,#fff8e1,#fff)', border: '1px solid #fde68a' }}>
+              <div style={{ fontSize: 13.5, fontWeight: 800, color: '#92400e', marginBottom: 4 }}>
+                🎁 QR de inscripción al beneficio
+              </div>
+              <p style={{ fontSize: 12.5, color: '#a16207', margin: '0 0 12px', lineHeight: 1.5 }}>
+                Imprímelo o muéstralo. El cliente lo escanea y, guiado paso a paso, responde la
+                encuesta, nos califica en Google y registra su WhatsApp para obtener el beneficio.
+              </p>
+              <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ background: '#fff', padding: 10, borderRadius: 10, border: '1px solid #eee' }}>
+                  <QRCodeCanvas value={fidelidadUrl} size={132} level="H" includeMargin={false} />
+                </div>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6, wordBreak: 'break-all' }}>{fidelidadUrl}</div>
+                  <a href={fidelidadUrl} target="_blank" rel="noreferrer"
+                    style={{ display: 'inline-block', fontSize: 12.5, fontWeight: 700, color: '#92400e', textDecoration: 'underline' }}>
+                    Ver la página de inscripción
+                  </a>
+                </div>
+              </div>
             </div>
 
             {/* Save button */}

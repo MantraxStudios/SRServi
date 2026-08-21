@@ -31,6 +31,7 @@ import { runSrBrain, runSrBrainForStore, runWeeklySalesReport } from './sr_brain
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds, setBotEnabled, getBotEnabled, getBotPhone } from './whatsapp.js';
 import cron from 'node-cron';
 import { generateMenuImage } from './cctv-menu-image.js';
+import { generateBannerImage } from './banner-image.js';
 import { walletStatus, isGoogleWalletEnabled, buildGoogleWalletSaveUrl, isAppleWalletEnabled, buildApplePkpass } from './wallet-passes.js';
 
 const __serverDir = path.dirname(fileURLToPath(import.meta.url));
@@ -172,6 +173,9 @@ import {
   getUserPlan,
   getUserCapabilities,
   setUserCctvAccess,
+  getAppAccess,
+  startAppTrial,
+  activateAppSubscription,
   hasSubscribedToPlanName,
   planCapabilities,
   FREE_MAX_PRODUCTS_PER_STORE,
@@ -2618,6 +2622,31 @@ app.post('/api/public/:code/upload-image', upload.single('image'), async (req, r
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// Genera automáticamente un banner del tótem a partir de los productos de la tienda.
+app.post('/api/public/:code/auto-banner', async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+
+    const products = await getPublicProducts(auth.store.id);
+    const available = (products || []).filter(p => p && p.name && (p.available === undefined || p.available));
+    if (!available.length) return res.status(400).json({ error: 'La tienda no tiene productos para el banner' });
+
+    const buffer = await generateBannerImage({
+      products: available,
+      store: { name: auth.store.name, country: auth.store.country },
+      serverDir: __serverDir,
+    });
+
+    const filename = `banner-${Date.now()}-${Math.round(Math.random() * 1e9)}.png`;
+    fs.writeFileSync(path.join(__serverDir, 'uploads', filename), buffer);
+    res.json({ url: `/uploads/${filename}` });
+  } catch (error) {
+    console.error('❌ Error generando banner automático:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Cambiar / quitar el logo de la tienda desde el editor del tótem.
 app.post('/api/public/:code/store-logo', upload.single('image'), async (req, res) => {
   try {
@@ -2735,6 +2764,66 @@ app.get('/api/my-plan', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ── Apps de pago (mes gratis + suscripción mensual vía Mercado Pago) ──────────
+// Catálogo de apps que se cobran por separado. Hoy solo la Cartelería (CCTV).
+const PAID_APPS = {
+  cctv: { key: 'cctv', name: 'Cartelería Digital', price: 10000, currency: 'CLP', trialDays: 30 },
+};
+
+// Estado de una app de pago para el usuario (desbloqueo, trial, precio).
+app.get('/api/apps/:appKey/status', authenticateToken, async (req, res) => {
+  try {
+    const app = PAID_APPS[req.params.appKey];
+    if (!app) return res.status(404).json({ error: 'App no encontrada' });
+    const access = await getAppAccess(req.user.id, app.key);
+    res.json({ app: { key: app.key, name: app.name, price: app.price, currency: app.currency, trialDays: app.trialDays }, ...access });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Iniciar el mes gratis de una app.
+app.post('/api/apps/:appKey/start-trial', authenticateToken, async (req, res) => {
+  try {
+    const app = PAID_APPS[req.params.appKey];
+    if (!app) return res.status(404).json({ error: 'App no encontrada' });
+    const endsAt = await startAppTrial(req.user.id, app.key, app.trialDays);
+    res.json({ ok: true, status: 'trial', trialEndsAt: endsAt });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+// Crear la preferencia de pago (Mercado Pago) para suscribirse a una app.
+app.post('/api/apps/:appKey/subscribe', authenticateToken, async (req, res) => {
+  try {
+    const app = PAID_APPS[req.params.appKey];
+    if (!app) return res.status(404).json({ error: 'App no encontrada' });
+    const user = await getUserById(req.user.id);
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const preference = {
+      items: [{
+        id: `app-${app.key}`,
+        title: `Suscripción ${app.name} (mensual)`,
+        description: `Acceso mensual a ${app.name} en SRServi`,
+        quantity: 1,
+        currency_id: app.currency,
+        unit_price: Math.round(app.price),
+      }],
+      payer: { email: user.email, name: user.name || user.username },
+      external_reference: `app-${app.key}-${req.user.id}-${Date.now()}`,
+      notification_url: `${process.env.BASE_URL || 'http://localhost:3001'}/api/mercadopago-webhook`,
+      back_urls: {
+        success: `${clientUrl}/admin/cctv?payment=success`,
+        failure: `${clientUrl}/admin/cctv?payment=failure`,
+        pending: `${clientUrl}/admin/cctv?payment=pending`,
+      },
+    };
+    const preferenceClient = new Preference(mpClient);
+    const response = await preferenceClient.create({ body: preference });
+    res.json({ init_point: response.init_point || response.sandbox_init_point, id: response.id });
+  } catch (e) {
+    console.error('❌ Error creando preferencia de app:', e);
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -3028,6 +3117,15 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
             await updateTotemRentalPayment(rentalId, String(payment.id));
             await logTotemPayment(rentalId, payment.transaction_amount, 'installation', String(payment.id), 'approved');
             console.log(`[TotemRental] Pago instalación aprobado para rental #${rentalId}`);
+          }
+        } else if (externalRef && externalRef.startsWith('app-')) {
+          // Suscripción a una app de pago: app-<appKey>-<userId>-<ts>
+          const parts = externalRef.split('-');
+          const appKey = parts[1];
+          const userId = parseInt(parts[2]);
+          if (appKey && userId) {
+            await activateAppSubscription(userId, appKey, 30, String(payment.id));
+            console.log(`[Apps] Suscripción '${appKey}' activada para usuario ${userId}`);
           }
         } else if (externalRef && externalRef.startsWith('subscription-')) {
           const parts = externalRef.split('-');
@@ -13092,6 +13190,84 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
+    // ── Beneficio de fidelización (inscripción por QR) ────────────────────────
+    async function ensureLoyaltyEnrollmentsTable() {
+      await pool.execute(`CREATE TABLE IF NOT EXISTS loyalty_enrollments (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        store_id INT NOT NULL,
+        name VARCHAR(150) NOT NULL,
+        phone VARCHAR(40) NOT NULL,
+        survey_done TINYINT(1) NOT NULL DEFAULT 0,
+        google_done TINYINT(1) NOT NULL DEFAULT 0,
+        benefit_text VARCHAR(500),
+        benefit_redeemed TINYINT(1) NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_store_phone (store_id, phone),
+        FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+      )`);
+    }
+
+    // Public: config del beneficio (nombre, link de Google, beneficio, encuesta)
+    app.get('/api/public/:code/fidelidad', async (req, res) => {
+      try {
+        const store = await getStoreByCode(req.params.code);
+        if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+        const [clasRows] = await pool.execute('SELECT google_url, promo_gift_text FROM store_clasificacion WHERE store_id = ?', [store.id]).catch(() => [[]]);
+        const clas = clasRows?.[0] || {};
+        const [qRows] = await pool.execute('SELECT survey_questions FROM stores WHERE id = ?', [store.id]);
+        const custom = qRows[0]?.survey_questions;
+        const questions = custom ? (typeof custom === 'string' ? JSON.parse(custom) : custom) : DEFAULT_SURVEY_QUESTIONS;
+        res.json({
+          store: { name: store.name, code: store.code },
+          google_url: clas.google_url || '',
+          benefit: clas.promo_gift_text || '',
+          questions,
+        });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Public: inscribir al beneficio (guarda encuesta + registra teléfono)
+    app.post('/api/public/:code/fidelidad/enroll', async (req, res) => {
+      try {
+        const store = await getStoreByCode(req.params.code);
+        if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+        const { name, phone, answers, google_done } = req.body || {};
+        if (!name || !phone) return res.status(400).json({ error: 'Nombre y teléfono son obligatorios' });
+
+        // 1) Guardar la encuesta (si vino con respuestas)
+        if (answers && typeof answers === 'object' && Object.keys(answers).length) {
+          await pool.execute('INSERT INTO client_surveys (store_id, answers) VALUES (?, ?)', [store.id, JSON.stringify(answers)]);
+        }
+
+        // 2) Registrar/actualizar la inscripción por teléfono
+        await ensureLoyaltyEnrollmentsTable();
+        const [clasRows] = await pool.execute('SELECT promo_gift_text FROM store_clasificacion WHERE store_id = ?', [store.id]).catch(() => [[]]);
+        const benefit = clasRows?.[0]?.promo_gift_text || '';
+        const cleanPhone = String(phone).replace(/\s+/g, '');
+        await pool.execute(
+          `INSERT INTO loyalty_enrollments (store_id, name, phone, survey_done, google_done, benefit_text)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE name = VALUES(name), survey_done = VALUES(survey_done), google_done = VALUES(google_done), benefit_text = VALUES(benefit_text)`,
+          [store.id, String(name).slice(0, 150), cleanPhone, answers ? 1 : 0, google_done ? 1 : 0, benefit]
+        );
+
+        res.json({ success: true, benefit });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: listar inscritos al beneficio de fidelización
+    app.get('/api/loyalty-enrollments', authenticateToken, async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+        const [storeRows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+        if (!storeRows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        await ensureLoyaltyEnrollmentsTable();
+        const [rows] = await pool.execute('SELECT * FROM loyalty_enrollments WHERE store_id = ? ORDER BY created_at DESC LIMIT 500', [storeId]);
+        res.json({ enrollments: rows });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
     // Admin: get client surveys for selected store
     app.get('/api/client-surveys', authenticateToken, async (req, res) => {
       try {
@@ -14855,7 +15031,7 @@ async function startServer() {
         const available = (products || []).filter(p => p && p.name && (p.available === undefined || p.available));
         if (!available.length) return res.status(400).json({ error: 'La tienda no tiene productos para generar el menú' });
 
-        // Selección de productos: ids específicos (en ese orden), aleatorio, o los primeros.
+        // Selección de productos: ids específicos (en ese orden), aleatorio, o TODOS.
         let chosen;
         if (Array.isArray(productIds) && productIds.length) {
           const byId = new Map(available.map(p => [String(p.id), p]));
@@ -14863,28 +15039,55 @@ async function startServer() {
         } else if (random) {
           chosen = [...available].sort(() => Math.random() - 0.5);
         } else {
-          chosen = available;
+          chosen = available; // TODOS los productos que se venden
         }
-        chosen = chosen.slice(0, 12);
         if (!chosen.length) return res.status(400).json({ error: 'No se seleccionaron productos válidos' });
 
-        const buffer = await generateMenuImage({
-          products: chosen,
-          store,
-          orientation: orientation === 'portrait' ? 'portrait' : 'landscape',
-          serverDir: __serverDir,
-        });
+        const isPortrait = orientation === 'portrait';
+        // Cuántos productos por página (imagen). Se paginan TODOS y la cartelería
+        // rota entre las imágenes, así se ven todos y "se mueve".
+        const perPage = isPortrait ? 8 : 12;
+        const pages = [];
+        for (let i = 0; i < chosen.length; i += perPage) pages.push(chosen.slice(i, i + perPage));
+        const totalPages = pages.length;
 
-        const filename = `menu-${Date.now()}-${Math.round(Math.random() * 1e9)}.png`;
-        fs.writeFileSync(path.join(cctvDir, filename), buffer);
+        // Reemplazar el set de menú anterior de este usuario (evita acumular duplicados
+        // cada vez que se regenera). Se identifican por el prefijo del nombre.
+        const [oldMenus] = await pool.execute(
+          "SELECT id, filename FROM cctv_images WHERE user_id = ? AND original_name LIKE 'Menú %'",
+          [req.user.id]
+        );
+        for (const om of oldMenus) {
+          try { fs.unlinkSync(path.join(cctvDir, om.filename)); } catch { /* archivo ya no existe */ }
+        }
+        if (oldMenus.length) {
+          await pool.execute(
+            "DELETE FROM cctv_images WHERE user_id = ? AND original_name LIKE 'Menú %'",
+            [req.user.id]
+          );
+        }
 
         const [[maxRow]] = await pool.execute('SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM cctv_images WHERE user_id = ?', [req.user.id]);
-        const nextOrder = (maxRow.max_order ?? -1) + 1;
-        const originalName = `Menú ${store.name || ''} (${orientation === 'portrait' ? 'vertical' : 'horizontal'}).png`;
-        await pool.execute(
-          'INSERT INTO cctv_images (user_id, filename, original_name, file_size, url, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
-          [req.user.id, filename, originalName, buffer.length, `/uploads/cctv/${filename}`, nextOrder]
-        );
+        let nextOrder = (maxRow.max_order ?? -1) + 1;
+
+        for (let pg = 0; pg < totalPages; pg++) {
+          const buffer = await generateMenuImage({
+            products: pages[pg],
+            store,
+            orientation: isPortrait ? 'portrait' : 'landscape',
+            serverDir: __serverDir,
+            page: pg,
+            totalPages,
+          });
+          const filename = `menu-${Date.now()}-${pg}-${Math.round(Math.random() * 1e9)}.png`;
+          fs.writeFileSync(path.join(cctvDir, filename), buffer);
+          const pageTag = totalPages > 1 ? ` ${pg + 1}-${totalPages}` : '';
+          const originalName = `Menú ${store.name || ''}${pageTag} (${isPortrait ? 'vertical' : 'horizontal'}).png`;
+          await pool.execute(
+            'INSERT INTO cctv_images (user_id, filename, original_name, file_size, url, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
+            [req.user.id, filename, originalName, buffer.length, `/uploads/cctv/${filename}`, nextOrder++]
+          );
+        }
 
         const [rows] = await pool.execute('SELECT * FROM cctv_images WHERE user_id = ? ORDER BY sort_order ASC', [req.user.id]);
         res.json(rows);

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useContext, Fragment } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StoreContext } from '../../components/Layout';
-import PlanLock from '../../components/PlanLock';
+import CctvAppGate from '../../components/CctvAppGate';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faVideo, faUpload, faTrash, faDesktop, faKey, faCopy, faCheck,
@@ -315,11 +315,16 @@ export default function CCTV() {
       if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || 'No se pudo generar la imagen'); }
       const rows = await r.json();
       setImages(rows);
-      const newImg = rows[rows.length - 1]; // la recién creada (mayor sort_order)
-      if (newImg && !screen.group_id) {
+      // Cuántas páginas de menú se generaron (para el mensaje).
+      const menuPages = rows.filter(i => /^Menú /.test(i.original_name || '')).length;
+      if (rows.length && !screen.group_id) {
+        // Modo imágenes SIN fijar una sola → la pantalla ROTA entre todas las
+        // páginas del menú (así se ven todos los productos y "se mueve").
         await setScreenMode(screen, 'images');
-        await assignScreenImage(screen.id, newImg.id);
-        showSuccess('Menú generado y enviado a esta pantalla');
+        await assignScreenImage(screen.id, null);
+        showSuccess(menuPages > 1
+          ? `Menú generado en ${menuPages} páginas — la pantalla las irá rotando`
+          : 'Menú generado y enviado a esta pantalla');
       } else {
         showSuccess('Menú generado y agregado a la biblioteca');
       }
@@ -331,7 +336,7 @@ export default function CCTV() {
   // Abre el modal para elegir productos/orientación antes de generar el menú.
   const openMenuModal = async (screen) => {
     if (!selectedStore?.code) { showError('Seleccioná una tienda primero'); return; }
-    setMenuModal({ screen, orientation: 'landscape', random: false, selected: [] });
+    setMenuModal({ screen, orientation: 'landscape', all: true, random: false, selected: [] });
     setMenuProducts(null);
     try {
       const r = await fetch(`${API}/api/public/${selectedStore.code}`);
@@ -347,7 +352,6 @@ export default function CCTV() {
       if (!m) return m;
       const has = m.selected.includes(id);
       if (has) return { ...m, selected: m.selected.filter(x => x !== id) };
-      if (m.selected.length >= 12) { showError('Máximo 12 productos'); return m; }
       return { ...m, selected: [...m.selected, id] };
     });
   };
@@ -741,7 +745,7 @@ export default function CCTV() {
   );
 
   return (
-    <PlanLock feature="cctv" title="Cartelería Digital" description="El módulo de Cartelería/CCTV para controlar tus pantallas TV está disponible en los planes de pago. Actualizá tu plan para desbloquearlo.">
+    <CctvAppGate>
     <div style={{ padding: '20px 12px', fontFamily: 'inherit', maxWidth: 1180, margin: '0 auto', boxSizing: 'border-box' }}>
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
@@ -1452,7 +1456,7 @@ export default function CCTV() {
             <div style={{ padding: '18px 22px 12px', borderBottom: '1px solid #f4f4f5' }}>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#09090b' }}>Imagen del menú</h3>
               <div style={{ color: '#71717a', fontSize: 12.5, marginTop: 3 }}>
-                Pantalla: <strong>{menuModal.screen.device_name}</strong> · hasta 12 productos
+                Pantalla: <strong>{menuModal.screen.device_name}</strong> · se generan todas las páginas necesarias y la pantalla las rota
               </div>
             </div>
 
@@ -1469,19 +1473,28 @@ export default function CCTV() {
                 ))}
               </div>
 
-              {/* Aleatorio */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 12px', background: '#fafafa', border: '1px solid #e4e4e7', borderRadius: 9, cursor: 'pointer', marginBottom: 14 }}>
-                <input type="checkbox" checked={menuModal.random} onChange={e => setMenuModal(m => ({ ...m, random: e.target.checked }))} style={{ accentColor: GOLD, width: 16, height: 16 }} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#09090b' }}>Productos aleatorios</span>
-                <span style={{ fontSize: 11.5, color: '#71717a' }}>— elige 12 al azar cada vez</span>
+              {/* Todos los productos (por defecto) */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 12px', background: menuModal.all ? '#fffdf5' : '#fafafa', border: `1px solid ${menuModal.all ? GOLD : '#e4e4e7'}`, borderRadius: 9, cursor: 'pointer', marginBottom: 10 }}>
+                <input type="checkbox" checked={menuModal.all} onChange={e => setMenuModal(m => ({ ...m, all: e.target.checked }))} style={{ accentColor: GOLD, width: 16, height: 16 }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#09090b' }}>Todos los productos</span>
+                <span style={{ fontSize: 11.5, color: '#71717a' }}>— se reparten en varias páginas que la pantalla rota</span>
               </label>
 
-              {/* Lista de productos (deshabilitada si aleatorio) */}
-              {!menuModal.random && (
+              {/* Aleatorio */}
+              {!menuModal.all && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 12px', background: '#fafafa', border: '1px solid #e4e4e7', borderRadius: 9, cursor: 'pointer', marginBottom: 14 }}>
+                <input type="checkbox" checked={menuModal.random} onChange={e => setMenuModal(m => ({ ...m, random: e.target.checked }))} style={{ accentColor: GOLD, width: 16, height: 16 }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#09090b' }}>Ordenar al azar</span>
+                <span style={{ fontSize: 11.5, color: '#71717a' }}>— mezcla el orden cada vez</span>
+              </label>
+              )}
+
+              {/* Lista de productos (para elegir un subconjunto) */}
+              {!menuModal.all && !menuModal.random && (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
                     <span style={{ fontSize: 12.5, fontWeight: 700, color: '#09090b' }}>Elegí los productos</span>
-                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: menuModal.selected.length ? '#92400e' : '#a1a1aa' }}>{menuModal.selected.length}/12</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: menuModal.selected.length ? '#92400e' : '#a1a1aa' }}>{menuModal.selected.length} elegidos</span>
                   </div>
                   {menuProducts === null ? (
                     <div style={{ textAlign: 'center', color: '#71717a', padding: 24, fontSize: 13 }}>Cargando productos...</div>
@@ -1516,11 +1529,15 @@ export default function CCTV() {
               <button onClick={() => setMenuModal(null)} disabled={!!generatingMenu}
                 style={{ flex: 1, padding: '11px', background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 9, color: '#71717a', cursor: generatingMenu ? 'default' : 'pointer', fontWeight: 700, fontSize: 13 }}>Cancelar</button>
               <button
-                onClick={() => generateMenuForScreen(menuModal.screen, { orientation: menuModal.orientation, random: menuModal.random, productIds: menuModal.random ? undefined : menuModal.selected })}
-                disabled={!!generatingMenu || (!menuModal.random && menuModal.selected.length === 0)}
+                onClick={() => generateMenuForScreen(menuModal.screen, {
+                  orientation: menuModal.orientation,
+                  random: menuModal.all ? false : menuModal.random,
+                  productIds: (menuModal.all || menuModal.random) ? undefined : menuModal.selected,
+                })}
+                disabled={!!generatingMenu || (!menuModal.all && !menuModal.random && menuModal.selected.length === 0)}
                 style={{ flex: 2, padding: '11px', background: GOLD, border: 'none', borderRadius: 9, color: '#0a0a0a', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  cursor: (generatingMenu || (!menuModal.random && !menuModal.selected.length)) ? 'default' : 'pointer',
-                  opacity: (generatingMenu || (!menuModal.random && !menuModal.selected.length)) ? 0.55 : 1 }}>
+                  cursor: (generatingMenu || (!menuModal.all && !menuModal.random && !menuModal.selected.length)) ? 'default' : 'pointer',
+                  opacity: (generatingMenu || (!menuModal.all && !menuModal.random && !menuModal.selected.length)) ? 0.55 : 1 }}>
                 <FontAwesomeIcon icon={generatingMenu ? faRotate : faImage} spin={!!generatingMenu} style={{ fontSize: 12 }} />
                 {generatingMenu ? 'Generando...' : 'Generar y enviar'}
               </button>
@@ -1909,6 +1926,6 @@ export default function CCTV() {
         </div>
       )}
     </div>
-    </PlanLock>
+    </CctvAppGate>
   );
 }

@@ -5574,12 +5574,94 @@ export async function getUserCapabilities(userId) {
     const [rows] = await pool.execute('SELECT cctv_access FROM users WHERE id = ?', [userId]);
     if (rows[0]?.cctv_access) caps.cctv = true;
   } catch { /* columna aún no migrada */ }
+  // Cartelería como app de pago: mes gratis o suscripción activa la desbloquean.
+  try {
+    if (!caps.cctv && await isAppUnlocked(userId, 'cctv')) caps.cctv = true;
+  } catch { /* tabla aún no creada */ }
   return caps;
 }
 
 // El superadmin habilita/deshabilita el acceso a Cartelería sin premium para un usuario.
 export async function setUserCctvAccess(userId, enabled) {
   await pool.execute('UPDATE users SET cctv_access = ? WHERE id = ?', [enabled ? 1 : 0, userId]);
+}
+
+// ── Suscripción por app (ej. Cartelería $10.000/mes con 1 mes gratis) ──────────
+let _appSubsReady = false;
+export async function ensureAppSubscriptionsTable() {
+  if (_appSubsReady) return;
+  await pool.execute(`CREATE TABLE IF NOT EXISTS app_subscriptions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    app_key VARCHAR(40) NOT NULL,
+    status ENUM('trial','active','expired') NOT NULL DEFAULT 'trial',
+    trial_used TINYINT(1) NOT NULL DEFAULT 0,
+    trial_ends_at DATETIME NULL,
+    current_period_end DATETIME NULL,
+    mp_last_payment VARCHAR(64) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_user_app (user_id, app_key),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`);
+  _appSubsReady = true;
+}
+
+export async function getAppSubscription(userId, appKey) {
+  await ensureAppSubscriptionsTable();
+  const [rows] = await pool.execute('SELECT * FROM app_subscriptions WHERE user_id = ? AND app_key = ?', [userId, appKey]);
+  return rows[0] || null;
+}
+
+// Estado de desbloqueo: trial vigente o suscripción activa vigente.
+export async function getAppAccess(userId, appKey) {
+  const sub = await getAppSubscription(userId, appKey);
+  const now = Date.now();
+  if (!sub) return { unlocked: false, status: 'none', trialUsed: false };
+  if (sub.status === 'trial' && sub.trial_ends_at && new Date(sub.trial_ends_at).getTime() > now) {
+    return { unlocked: true, status: 'trial', trialEndsAt: sub.trial_ends_at, trialUsed: true };
+  }
+  if (sub.status === 'active' && sub.current_period_end && new Date(sub.current_period_end).getTime() > now) {
+    return { unlocked: true, status: 'active', periodEnd: sub.current_period_end, trialUsed: !!sub.trial_used };
+  }
+  return { unlocked: false, status: 'expired', trialUsed: !!sub.trial_used, trialEndsAt: sub.trial_ends_at, periodEnd: sub.current_period_end };
+}
+
+export async function isAppUnlocked(userId, appKey) {
+  try { return (await getAppAccess(userId, appKey)).unlocked; } catch { return false; }
+}
+
+// Inicia el mes gratis (solo una vez por app).
+export async function startAppTrial(userId, appKey, days = 30) {
+  await ensureAppSubscriptionsTable();
+  const existing = await getAppSubscription(userId, appKey);
+  if (existing && existing.trial_used) throw new Error('Ya usaste el mes gratis de esta app');
+  const ends = new Date(Date.now() + days * 86400000);
+  await pool.execute(
+    `INSERT INTO app_subscriptions (user_id, app_key, status, trial_used, trial_ends_at)
+     VALUES (?, ?, 'trial', 1, ?)
+     ON DUPLICATE KEY UPDATE status = 'trial', trial_used = 1, trial_ends_at = VALUES(trial_ends_at)`,
+    [userId, appKey, ends]
+  );
+  return ends;
+}
+
+// Activa/renueva la suscripción de pago por otro periodo.
+export async function activateAppSubscription(userId, appKey, days = 30, paymentId = null) {
+  await ensureAppSubscriptionsTable();
+  const sub = await getAppSubscription(userId, appKey);
+  let base = Date.now();
+  if (sub?.current_period_end && new Date(sub.current_period_end).getTime() > base) {
+    base = new Date(sub.current_period_end).getTime();
+  }
+  const end = new Date(base + days * 86400000);
+  await pool.execute(
+    `INSERT INTO app_subscriptions (user_id, app_key, status, trial_used, current_period_end, mp_last_payment)
+     VALUES (?, ?, 'active', 1, ?, ?)
+     ON DUPLICATE KEY UPDATE status = 'active', current_period_end = VALUES(current_period_end), mp_last_payment = VALUES(mp_last_payment)`,
+    [userId, appKey, end, paymentId]
+  );
+  return end;
 }
 
 // ¿El usuario ya se suscribió alguna vez a un plan con este nombre? (activo o pasado)

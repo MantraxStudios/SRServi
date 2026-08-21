@@ -1280,9 +1280,11 @@ function Store() {
   const [catIconUploading, setCatIconUploading] = useState(false);
   const catIconFileRef = useRef(null);
   const [catIconKey, setCatIconKey] = useState('');
-  // Imagen de banner del tótem (se sube desde el editor de Estilos)
+  // Imagen de banner del tótem (se sube desde el editor de Estilos o tocando el banner)
   const [bannerUploading, setBannerUploading] = useState(false);
+  const [autoBannerLoading, setAutoBannerLoading] = useState(false);
   const bannerFileRef = useRef(null);
+  const bannerEditFileRef = useRef(null);
   // Logo de la tienda (también editable desde el editor de Estilos)
   const [logoUploading, setLogoUploading] = useState(false);
   const logoFileRef = useRef(null);
@@ -5021,6 +5023,20 @@ function Store() {
     finally { setCatIconUploading(false); if (catIconFileRef.current) catIconFileRef.current.value = ''; }
   };
 
+  // Aplica un banner (o lo quita con url = '') y lo persiste al instante, para que
+  // el cambio hecho tocando el banner quede guardado sin abrir el editor de Estilos.
+  const applyBanner = async (url) => {
+    const v = { ...visualSettings, bannerImage: url || '' };
+    setVisualSettings(v);
+    applyStyles(v, customCss);
+    try {
+      await fetch(`/api/public/${code}/styles`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...getAuthBody(), visual_settings: v, custom_css: customCss }),
+      });
+    } catch { /* se reintentará al guardar estilos */ }
+  };
+
   // Sube una imagen de banner para el tótem y la guarda en visualSettings.bannerImage.
   const uploadBannerImage = async (file) => {
     if (!file) return;
@@ -5031,10 +5047,25 @@ function Store() {
       fd.append('image', file);
       const r = await fetch(`/api/public/${code}/upload-image`, { method: 'POST', body: fd });
       const d = await r.json();
-      if (r.ok && d.url) setVisualSettings(prev => ({ ...prev, bannerImage: d.url }));
+      if (r.ok && d.url) await applyBanner(d.url);
       else alert(d.error || 'No se pudo subir la imagen');
     } catch { alert('Error al subir la imagen'); }
     finally { setBannerUploading(false); if (bannerFileRef.current) bannerFileRef.current.value = ''; }
+  };
+
+  // Genera automáticamente un banner a partir de los productos de la tienda.
+  const generateAutoBanner = async () => {
+    setAutoBannerLoading(true);
+    try {
+      const r = await fetch(`/api/public/${code}/auto-banner`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getAuthBody()),
+      });
+      const d = await r.json();
+      if (r.ok && d.url) await applyBanner(d.url);
+      else alert(d.error || 'No se pudo generar el banner');
+    } catch { alert('Error al generar el banner'); }
+    finally { setAutoBannerLoading(false); }
   };
 
   // Sube (o quita) el logo de la tienda desde el editor del tótem.
@@ -5924,6 +5955,28 @@ function Store() {
               )}
             </div>
           </div>
+          {editMode && !previewMode && (
+            <div className="store-banner-edit" onClick={() => bannerEditFileRef.current?.click()}>
+              <div className="store-banner-edit-hint">
+                <FontAwesomeIcon icon={faImage} /> Toca el banner para cambiarlo
+              </div>
+              <div className="store-banner-edit-actions" onClick={(e) => e.stopPropagation()}>
+                <button type="button" onClick={() => bannerEditFileRef.current?.click()} disabled={bannerUploading || autoBannerLoading}>
+                  {bannerUploading ? 'Subiendo…' : '📷 Subir imagen'}
+                </button>
+                <button type="button" onClick={generateAutoBanner} disabled={bannerUploading || autoBannerLoading}>
+                  {autoBannerLoading ? 'Generando…' : '✨ Crear automático'}
+                </button>
+                {visualSettings?.bannerImage && (
+                  <button type="button" className="danger" onClick={() => applyBanner('')} disabled={bannerUploading || autoBannerLoading}>
+                    Quitar
+                  </button>
+                )}
+              </div>
+              <input ref={bannerEditFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+                onChange={(e) => { if (e.target.files[0]) uploadBannerImage(e.target.files[0]); }} />
+            </div>
+          )}
           {(!editMode || previewMode) && hasProducts && (
             <div className="store-banner-search">
               {voiceSupported ? (

@@ -5,8 +5,13 @@ import { useStore } from '../../components/Layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPaperPlane, faRobot, faUser, faTrash,
-  faChartLine, faBox, faClock, faLightbulb, faTags, faBars, faTimes
+  faChartLine, faBox, faClock, faLightbulb, faTags, faBars, faTimes, faMicrophone
 } from '@fortawesome/free-solid-svg-icons';
+
+// ¿El navegador soporta dictado por voz?
+const SpeechRec = typeof window !== 'undefined'
+  ? (window.SpeechRecognition || window.webkitSpeechRecognition)
+  : null;
 
 const SUGGESTIONS = [
   { icon: faChartLine, text: '¿Cuáles son los más vendidos esta semana?' },
@@ -173,8 +178,10 @@ export default function LeonIA() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [listening, setListening] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -229,6 +236,41 @@ export default function LeonIA() {
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
+
+  // Dictado por voz (Web Speech API)
+  const toggleMic = useCallback(() => {
+    if (!SpeechRec) return;
+    if (listening) {
+      try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+      return;
+    }
+    const rec = new SpeechRec();
+    rec.lang = 'es-CL';
+    rec.interimResults = true;
+    rec.continuous = false;
+    let finalText = '';
+    rec.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalText += t;
+        else interim += t;
+      }
+      setInput((finalText + interim).trim());
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+      setTimeout(() => inputRef.current?.focus(), 50);
+    };
+    recognitionRef.current = rec;
+    setListening(true);
+    try { rec.start(); } catch { setListening(false); }
+  }, [listening]);
+
+  // Cortar el reconocimiento si se desmonta el componente
+  useEffect(() => () => { try { recognitionRef.current?.stop(); } catch { /* ignore */ } }, []);
 
   const clearChat = () => {
     setMessages([{
@@ -308,6 +350,18 @@ export default function LeonIA() {
           disabled={loading}
           autoComplete="off"
         />
+        {SpeechRec && (
+          <button
+            type="button"
+            className={`leon-mic-btn${listening ? ' leon-mic-listening' : ''}`}
+            onClick={toggleMic}
+            disabled={loading}
+            title={listening ? 'Detener dictado' : 'Hablar'}
+            aria-label={listening ? 'Detener dictado' : 'Dictar por voz'}
+          >
+            <FontAwesomeIcon icon={faMicrophone} />
+          </button>
+        )}
         <button type="submit" className="leon-send-btn"
           disabled={loading || !input.trim()}>
           <FontAwesomeIcon icon={faPaperPlane} />
