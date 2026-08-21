@@ -4902,7 +4902,7 @@ const SALES_NOTIFY_EMAIL = process.env.SALES_NOTIFY_EMAIL || process.env.EMAIL_U
 const SALES_FALLBACK = [
   '¡Hola! 👋 Soy Sofía, de SRServi. Te ayudo a digitalizar tu negocio: punto de venta, pedidos, inventario y más. ¿Qué tipo de local tienes?',
   '¡Genial! SRServi funciona para restaurantes, cafeterías y minimarkets. Puedes empezar gratis con hasta 2 tiendas. ¿Quieres que te agende una demo? Déjame tu nombre y WhatsApp 📲',
-  'Con gusto te cuento los planes: Gratis (US$0), SOLO (US$11/mes), Empresas (US$50/mes) y Personalizado (US$99/mes). ¿Cuántas sucursales manejas?',
+  'Con gusto te cuento los planes: Gratis (US$0), SOLO (US$11/mes), Empresas (US$50/mes) y Personalizado (US$99/mes). En Chile también tenemos el sistema mensual desde $38.850 (IVA incl., hasta 3 sucursales) y kits todo incluido con pantalla, POS e impresora desde $420.000. ¿Cuántas sucursales manejas?',
 ];
 
 // Notifica al equipo de ventas por WhatsApp + email cuando entra un lead

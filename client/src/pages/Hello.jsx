@@ -26,6 +26,9 @@ import {
   faMinus,
   faPhone,
   faStore,
+  faGraduationCap,
+  faTabletScreenButton,
+  faHandHoldingDollar,
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import './hello.css';
@@ -127,6 +130,48 @@ const faqs = [
   },
 ];
 
+const planFeatures = [
+  'Funciona en cualquier tablet Android',
+  'Hasta 3 sucursales',
+  'Uso de tótem de autoatención',
+  'Inventarios',
+  'Análisis de tu negocio',
+  'Inteligencia artificial para preguntar y graficar todo sobre tu negocio',
+  'Uso de cupones',
+  'Ver caja',
+  'Venta con y sin tótem',
+  'Y mucho más',
+];
+
+const kitIncludes = [
+  '1 Pantalla',
+  '1 POS para vender',
+  '1 soporte para tablet (muro o mesón)',
+  '1 soporte para el POS',
+  '1 impresora',
+];
+
+const kits = [
+  { size: '10”', price: '$420.000', featured: false },
+  { size: '15,6”', price: '$888.000', featured: true },
+  { size: '21”', price: '$988.000', featured: false },
+];
+
+const extras = [
+  {
+    icon: faStore,
+    title: 'Pedestal de piso para tótem',
+    price: '$488.000',
+    desc: 'Base de piso para dejar tu tótem en cualquier lugar del local.',
+  },
+  {
+    icon: faGraduationCap,
+    title: 'Capacitación inicial',
+    price: '$150.000',
+    desc: 'Virtual o presencial, para todo el equipo. Sincronizamos todo tu menú en SRservi para que llegue listo para operar.',
+  },
+];
+
 function CTAButton({ className = '', children = 'Comenzar ahora' }) {
   return (
     <a
@@ -203,7 +248,12 @@ export default function Hello() {
               SR<span className="text-gold">servi</span>
             </span>
           </div>
-          <CTAButton className="px-5 py-2.5 text-xs">Comenzar</CTAButton>
+          <div className="flex items-center gap-5">
+            <a href="#precios" className="hidden text-sm font-semibold text-white/70 transition-colors hover:text-gold sm:inline">
+              Precios
+            </a>
+            <CTAButton className="px-5 py-2.5 text-xs">Comenzar</CTAButton>
+          </div>
         </div>
       </header>
 
@@ -386,6 +436,109 @@ export default function Hello() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Planes y precios */}
+      <section id="precios" className="border-y border-white/10 bg-white/[0.02] py-20 md:py-28">
+        <div className="mx-auto max-w-6xl px-5">
+          <SectionTitle
+            eyebrow="Planes y precios"
+            title="Un sistema completo por menos de lo que imaginas"
+            subtitle="Todos los valores incluyen IVA."
+          />
+
+          {/* Plan mensual */}
+          <div className="mx-auto mb-16 max-w-3xl overflow-hidden rounded-3xl border border-gold/30 bg-gradient-to-br from-gold/10 to-transparent">
+            <div className="grid gap-8 p-8 md:grid-cols-2 md:p-10">
+              <div className="flex flex-col justify-center border-white/10 md:border-r md:pr-8">
+                <span className="mb-3 inline-flex w-fit items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-4 py-1 text-xs font-semibold uppercase tracking-widest text-gold">
+                  <FontAwesomeIcon icon={faTabletScreenButton} /> Sistema mensual
+                </span>
+                <p className="text-sm text-white/60">Valor del sistema desde</p>
+                <div className="mt-1 flex items-end gap-2">
+                  <span className="text-5xl font-extrabold text-white">$38.850</span>
+                  <span className="mb-1.5 text-sm text-white/60">/ mes</span>
+                </div>
+                <p className="mt-1 text-xs text-white/50">IVA incluido</p>
+                <CTAButton className="mt-6 w-fit">Comenzar</CTAButton>
+              </div>
+              <ul className="grid gap-3">
+                {planFeatures.map((f) => (
+                  <li key={f} className="flex gap-3">
+                    <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-full bg-gold text-xs text-ink">
+                      <FontAwesomeIcon icon={faCheck} />
+                    </span>
+                    <span className="text-sm leading-relaxed text-white/75">{f}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Kits todo incluido */}
+          <div className="mb-10 text-center">
+            <h3 className="text-2xl font-extrabold text-white sm:text-3xl">Pantallas con kit todo incluido</h3>
+            <p className="mx-auto mt-3 max-w-2xl text-sm text-white/60">
+              Todos los kits se entregan listos para cobrar y sincronizados. Cada uno incluye:
+            </p>
+            <div className="mx-auto mt-6 flex max-w-3xl flex-wrap items-center justify-center gap-x-6 gap-y-3">
+              {kitIncludes.map((k) => (
+                <span key={k} className="inline-flex items-center gap-2 text-sm text-white/75">
+                  <FontAwesomeIcon icon={faCheck} className="text-gold" /> {k}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            {kits.map((kit) => (
+              <div
+                key={kit.size}
+                className={`relative flex flex-col rounded-2xl border p-8 text-center transition-all hover:-translate-y-1 ${
+                  kit.featured
+                    ? 'border-gold/50 bg-gradient-to-br from-gold/10 to-transparent shadow-lg shadow-gold/10'
+                    : 'border-white/10 bg-white/5 hover:border-gold/40'
+                }`}
+              >
+                {kit.featured && (
+                  <span className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold px-4 py-1 text-xs font-bold uppercase tracking-widest text-ink">
+                    Más elegido
+                  </span>
+                )}
+                <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-gold/15 text-2xl text-gold">
+                  <FontAwesomeIcon icon={faDesktop} />
+                </span>
+                <h4 className="text-lg font-bold text-white">Pantalla {kit.size}</h4>
+                <p className="mt-1 text-xs uppercase tracking-widest text-white/50">Con kit completo</p>
+                <div className="mt-5 text-4xl font-extrabold text-gold">{kit.price}</div>
+                <p className="mt-1 text-xs text-white/50">IVA incluido</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Extras */}
+          <div className="mt-10 grid gap-6 md:grid-cols-2">
+            {extras.map((e) => (
+              <div key={e.title} className="flex items-start gap-5 rounded-2xl border border-white/10 bg-white/5 p-7">
+                <span className="flex h-12 w-12 flex-none items-center justify-center rounded-xl bg-gold/15 text-xl text-gold">
+                  <FontAwesomeIcon icon={e.icon} />
+                </span>
+                <div>
+                  <div className="flex flex-wrap items-baseline gap-x-3">
+                    <h4 className="text-base font-bold text-white">{e.title}</h4>
+                    <span className="text-lg font-extrabold text-gold">{e.price}</span>
+                  </div>
+                  <p className="mt-1.5 text-sm leading-relaxed text-white/60">{e.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="mx-auto mt-10 flex max-w-2xl items-center justify-center gap-2 text-center text-sm text-white/55">
+            <FontAwesomeIcon icon={faHandHoldingDollar} className="text-gold" />
+            Todos los tótems se envían sincronizados y listos para usar y trabajar.
+          </p>
         </div>
       </section>
 
