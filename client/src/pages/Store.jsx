@@ -5925,6 +5925,60 @@ function Store() {
       {seasonalTheme && (
         <div className="store-seasonal-banner">{seasonalTheme.banner}</div>
       )}
+      {editMode && (
+        <div className="store-editor-bar">
+          <div className="store-editor-tabs">
+            <HelpVideoLink
+              url="https://www.youtube.com/watch?v=s-bfH4G7RUA"
+              label="Tutorial"
+              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)', color: '#fff', padding: '8px 12px' }}
+            />
+            <button className={`store-editor-tab${editorTab === 'products' ? ' active' : ''}`} onClick={() => setEditorTab('products')}>
+              <FontAwesomeIcon icon={faBox} /><span className="editor-tab-label">Productos</span>
+            </button>
+            <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => { setEditorTab('complements'); checkComplementDuplicates(); }} style={{ display: 'none' }}>
+              <FontAwesomeIcon icon={faPlus} /><span className="editor-tab-label">Complementos</span>
+            </button>
+            <button className={`store-editor-tab${editorTab === 'inventory' ? ' active' : ''}`} onClick={() => { setEditorTab('inventory'); setInvEditingId(null); }} style={{ display: 'none' }}>
+              <FontAwesomeIcon icon={faInfinity} /><span className="editor-tab-label">Inventario</span>
+            </button>
+            <button
+              className={`store-editor-tab${editorTab === 'orders' ? ' active' : ''}`}
+              onClick={() => { setEditorTab('orders'); setNewOrderCount(0); }}
+              style={{ position: 'relative', display: 'none' }}
+            >
+              <FontAwesomeIcon icon={faShoppingCart} /><span className="editor-tab-label">Pedidos</span>
+              {newOrderCount > 0 && (
+                <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#e53e3e', color: '#fff', borderRadius: '50%', fontSize: '10px', fontWeight: '700', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {newOrderCount > 9 ? '9+' : newOrderCount}
+                </span>
+              )}
+            </button>
+            <button className="store-editor-tab" onClick={() => { loadStoreStyles(); setStyleEditorOpen(true); }}>
+              <FontAwesomeIcon icon={faPalette} /><span className="editor-tab-label">Estilos</span>
+            </button>
+            <button className="store-editor-tab" onClick={openExcelModal}>
+              <FontAwesomeIcon icon={faFileExcel} style={{ color: '#4ade80' }} /><span className="editor-tab-label">Excel</span>
+            </button>
+            <button className="store-editor-tab" onClick={openWebModal}>
+              <FontAwesomeIcon icon={faGlobe} style={{ color: '#38bdf8' }} /><span className="editor-tab-label">Web</span>
+            </button>
+            <button className={`store-editor-tab${editorTab === 'combos' ? ' active' : ''}`} onClick={() => { setEditorTab('combos'); if (!editorCombosLoaded) loadEditorCombos(); }}>
+              <FontAwesomeIcon icon={faLayerGroup} /><span className="editor-tab-label">Combos</span>
+            </button>
+            <button
+              className="store-editor-tab"
+              onClick={() => window.open(`/store/${code}`, '_blank', 'noopener')}
+              title="Abrir la tienda sin editor para previsualizar"
+              style={{ marginLeft: 'auto', background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.35)', color: '#fff' }}
+            >
+              <FontAwesomeIcon icon={faEye} /><span className="editor-tab-label">Previsualizar</span>
+            </button>
+          </div>
+          <div className="store-editor-actions">
+          </div>
+        </div>
+      )}
       {store?.store && (
         <div
           ref={bannerRef}
@@ -6335,61 +6389,6 @@ function Store() {
           <p>
             {t('noProductsDesc', lang)}
           </p>
-        </div>
-      )}
-
-      {editMode && (
-        <div className="store-editor-bar">
-          <div className="store-editor-tabs">
-            <HelpVideoLink
-              url="https://www.youtube.com/watch?v=s-bfH4G7RUA"
-              label="Tutorial"
-              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)', color: '#fff', padding: '8px 12px' }}
-            />
-            <button className={`store-editor-tab${editorTab === 'products' ? ' active' : ''}`} onClick={() => setEditorTab('products')}>
-              <FontAwesomeIcon icon={faBox} /><span className="editor-tab-label">Productos</span>
-            </button>
-            <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => { setEditorTab('complements'); checkComplementDuplicates(); }} style={{ display: 'none' }}>
-              <FontAwesomeIcon icon={faPlus} /><span className="editor-tab-label">Complementos</span>
-            </button>
-            <button className={`store-editor-tab${editorTab === 'inventory' ? ' active' : ''}`} onClick={() => { setEditorTab('inventory'); setInvEditingId(null); }} style={{ display: 'none' }}>
-              <FontAwesomeIcon icon={faInfinity} /><span className="editor-tab-label">Inventario</span>
-            </button>
-            <button
-              className={`store-editor-tab${editorTab === 'orders' ? ' active' : ''}`}
-              onClick={() => { setEditorTab('orders'); setNewOrderCount(0); }}
-              style={{ position: 'relative', display: 'none' }}
-            >
-              <FontAwesomeIcon icon={faShoppingCart} /><span className="editor-tab-label">Pedidos</span>
-              {newOrderCount > 0 && (
-                <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#e53e3e', color: '#fff', borderRadius: '50%', fontSize: '10px', fontWeight: '700', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {newOrderCount > 9 ? '9+' : newOrderCount}
-                </span>
-              )}
-            </button>
-            <button className="store-editor-tab" onClick={() => { loadStoreStyles(); setStyleEditorOpen(true); }}>
-              <FontAwesomeIcon icon={faPalette} /><span className="editor-tab-label">Estilos</span>
-            </button>
-            <button className="store-editor-tab" onClick={openExcelModal}>
-              <FontAwesomeIcon icon={faFileExcel} style={{ color: '#4ade80' }} /><span className="editor-tab-label">Excel</span>
-            </button>
-            <button className="store-editor-tab" onClick={openWebModal}>
-              <FontAwesomeIcon icon={faGlobe} style={{ color: '#38bdf8' }} /><span className="editor-tab-label">Web</span>
-            </button>
-            <button className={`store-editor-tab${editorTab === 'combos' ? ' active' : ''}`} onClick={() => { setEditorTab('combos'); if (!editorCombosLoaded) loadEditorCombos(); }}>
-              <FontAwesomeIcon icon={faLayerGroup} /><span className="editor-tab-label">Combos</span>
-            </button>
-            <button
-              className="store-editor-tab"
-              onClick={() => window.open(`/store/${code}`, '_blank', 'noopener')}
-              title="Abrir la tienda sin editor para previsualizar"
-              style={{ marginLeft: 'auto', background: 'rgba(74,222,128,0.15)', border: '1px solid rgba(74,222,128,0.35)', color: '#fff' }}
-            >
-              <FontAwesomeIcon icon={faEye} /><span className="editor-tab-label">Previsualizar</span>
-            </button>
-          </div>
-          <div className="store-editor-actions">
-          </div>
         </div>
       )}
 
