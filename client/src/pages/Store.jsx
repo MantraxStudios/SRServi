@@ -216,7 +216,7 @@ function AddProductCard({ onClick }) {
         }}
       >
         <FontAwesomeIcon icon={faPlus} style={{ fontSize: 30 }} />
-        <span style={{ fontSize: 13, fontWeight: 700 }}>Agregar producto</span>
+        <span style={{ fontSize: 13, fontWeight: 700, textAlign: 'center', width: '100%' }}>Agregar producto</span>
       </div>
     </div>
   );
