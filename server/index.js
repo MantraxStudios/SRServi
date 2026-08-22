@@ -3690,9 +3690,13 @@ app.get('/api/telephony/config', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     const cfg = await getTelephonyConfig(storeId);
-    // Nunca devolvemos el Auth Token al panel; solo si está configurado o no.
-    const { twilio_auth_token, ...safe } = cfg;
-    res.json({ ...safe, twilio_auth_token: '', twilio_auth_token_set: !!twilio_auth_token });
+    // Nunca devolvemos credenciales sensibles al panel; solo si están configuradas.
+    const { twilio_auth_token, elevenlabs_api_key, ...safe } = cfg;
+    res.json({
+      ...safe,
+      twilio_auth_token: '', twilio_auth_token_set: !!twilio_auth_token,
+      elevenlabs_api_key: '', elevenlabs_api_key_set: !!elevenlabs_api_key,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -3811,6 +3815,10 @@ app.get('/api/telephony/bot/context', authenticateBot, async (req, res) => {
       system_prompt: cfg.system_prompt || '',
       ollama_model: cfg.ollama_model || 'llama3',
       piper_voice: cfg.piper_voice || 'es_ES-carlfm-x_low',
+      // Credenciales de ElevenLabs de ESTA tienda (cada una configura la suya). Si
+      // hay api key, el bot usa ElevenLabs; si no, cae a Piper.
+      elevenlabs_api_key: cfg.elevenlabs_api_key || '',
+      elevenlabs_model: cfg.elevenlabs_model || 'eleven_turbo_v2_5',
       max_seconds: cfg.max_seconds || 300,
       forward_number: cfg.forward_number || null,
       menu: products,

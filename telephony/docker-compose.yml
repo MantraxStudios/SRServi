@@ -37,6 +37,10 @@ services:
       SRSERVI_URL: "${SRSERVI_URL}"
       TELEPHONY_BOT_TOKEN: "${TELEPHONY_BOT_TOKEN}"
       VAD_THRESHOLD: "${VAD_THRESHOLD:-600}"
+      # ElevenLabs (TTS). Si está la API key, la voz es ElevenLabs; si no, Piper.
+      ELEVENLABS_API_KEY: "${ELEVENLABS_API_KEY:-}"
+      ELEVENLABS_MODEL_ID: "${ELEVENLABS_MODEL_ID:-eleven_turbo_v2_5}"
+      ELEVENLABS_VOICE_ID: "${ELEVENLABS_VOICE_ID:-21m00Tcm4TlvDq8ikWAM}"
     restart: unless-stopped
     depends_on:
       - whisper

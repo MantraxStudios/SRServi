@@ -10,17 +10,6 @@ import {
 
 const API = 'https://srservi2.srautomatic.com';
 
-// Voces open-source de Piper en español disponibles (deben coincidir con las que
-// descarga telephony/bot/Dockerfile). Ordenadas de más a menos natural: las de
-// calidad "alta" suenan más humanas.
-const PIPER_VOICES = [
-  { id: 'es_MX-claude-high', label: 'Claudia (Latam, alta · más natural)' },
-  { id: 'es_AR-daniela-high', label: 'Daniela (Argentina, alta · muy natural)' },
-  { id: 'es_ES-sharvard-medium', label: 'Sharvard (España, media)' },
-  { id: 'es_ES-davefx-medium', label: 'Dave (España, media)' },
-  { id: 'es_MX-ald-medium', label: 'Ald (México, media)' },
-];
-
 export default function Calls() {
   const { selectedStore } = useStore();
   const { token } = useAuth();
@@ -177,15 +166,34 @@ export default function Calls() {
             value={cfg.system_prompt || ''} onChange={e => set('system_prompt', e.target.value)} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}>
+              API Key de tu cuenta de ElevenLabs
+              {cfg.elevenlabs_api_key_set && (
+                <span style={{ marginLeft: 8, fontSize: 11, color: '#22c55e', fontWeight: 700 }}>
+                  <FontAwesomeIcon icon={faCheck} /> guardada
+                </span>
+              )}
+            </label>
+            <input style={inputStyle} type="password" autoComplete="new-password"
+              placeholder={cfg.elevenlabs_api_key_set ? '•••••••••• (déjalo vacío para no cambiarla)' : 'Pega tu API Key de ElevenLabs'}
+              value={cfg.elevenlabs_api_key || ''} onChange={e => set('elevenlabs_api_key', e.target.value)} />
+            <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 4 }}>
+              ElevenLabs → <b>Profile → API Key</b>. Cada tienda usa su propia cuenta. Si la dejas vacía, la voz será Piper (open source). Se guarda en el servidor y no se muestra de vuelta.
+            </div>
+          </div>
           <div>
             <label style={labelStyle}>Modelo LLM (Ollama)</label>
             <input style={inputStyle} placeholder="llama3" value={cfg.ollama_model || ''} onChange={e => set('ollama_model', e.target.value)} />
           </div>
           <div>
-            <label style={labelStyle}>Voz (Piper TTS)</label>
-            <select style={inputStyle} value={PIPER_VOICES.some(v => v.id === cfg.piper_voice) ? cfg.piper_voice : PIPER_VOICES[0].id} onChange={e => set('piper_voice', e.target.value)}>
-              {PIPER_VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
-            </select>
+            <label style={labelStyle}>Voz (ElevenLabs · Voice ID)</label>
+            <input style={inputStyle} placeholder="Ej: 21m00Tcm4TlvDq8ikWAM"
+              value={cfg.piper_voice || ''} onChange={e => set('piper_voice', e.target.value.trim())} />
+            <div style={{ fontSize: 11.5, color: '#71717a', marginTop: 4, lineHeight: 1.4 }}>
+              Pega el <strong>Voice ID</strong> de tu voz de ElevenLabs (Voices → tu voz → “ID”).
+              Si lo dejas vacío se usa la voz por defecto.
+            </div>
           </div>
           <div>
             <label style={labelStyle}>Idioma</label>

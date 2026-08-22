@@ -36,6 +36,7 @@ import {
   faCode,
   faFire,
   faGlobe,
+  faImage,
   faClock,
   faQrcode,
   faDownload,

@@ -9,6 +9,11 @@ const {
   PIPER_VOICES_DIR = '/voices',
   SRSERVI_URL = 'https://srservi2.srautomatic.com',
   TELEPHONY_BOT_TOKEN = '',
+  // ElevenLabs (TTS de pago). Si hay API key, se usa ElevenLabs; si no, Piper.
+  ELEVENLABS_API_KEY = '',
+  ELEVENLABS_BASE = 'https://api.elevenlabs.io',
+  ELEVENLABS_MODEL_ID = 'eleven_turbo_v2_5',   // rápido + multilingüe (bueno para teléfono)
+  ELEVENLABS_VOICE_ID = '21m00Tcm4TlvDq8ikWAM', // voz por defecto si la tienda no eligió una
 } = process.env;
 
 // ─── STT: faster-whisper (imagen onerahmet/openai-whisper-asr-webservice) ──────
@@ -41,9 +46,65 @@ export async function chat(model, messages, { json = false } = {}) {
   return data.message?.content || '';
 }
 
-// ─── TTS: Piper CLI → PCM slin 8kHz para AudioSocket ───────────────────────────
-// Piper produce WAV (16 o 22.05kHz); lo pasamos por ffmpeg a 8kHz mono s16le raw.
-export function synthesize(text, voice) {
+// ─── TTS → PCM slin 8kHz mono para AudioSocket ─────────────────────────────────
+// Con API key de ElevenLabs usamos ElevenLabs (voz de alta calidad); si no, Piper.
+// La api key/modelo/voz vienen POR TIENDA en el contexto (cada tienda configura la
+// suya); si la tienda no puso una, se usa la del .env como fallback.
+// `opts` puede ser el string de la voz (compat) o { voice, apiKey, model }.
+export function synthesize(text, opts = {}) {
+  const o = typeof opts === 'string' ? { voice: opts } : (opts || {});
+  const apiKey = (o.apiKey && String(o.apiKey).trim()) || ELEVENLABS_API_KEY;
+  const model = (o.model && String(o.model).trim()) || ELEVENLABS_MODEL_ID;
+  if (apiKey) return elevenLabsTTS(text, o.voice, apiKey, model);
+  return piperTTS(text, o.voice);
+}
+
+// Decodifica cualquier audio (mp3/wav) leído por stdin a PCM 8kHz mono s16le.
+function ffmpegDecodeToPcm8k(inputBuffer) {
+  return new Promise((resolve, reject) => {
+    const ff = spawn('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error',
+      '-i', 'pipe:0',
+      '-ar', '8000', '-ac', '1', '-f', 's16le', 'pipe:1',
+    ], { stdio: ['pipe', 'pipe', 'pipe'] });
+    const chunks = [];
+    ff.stdout.on('data', d => chunks.push(d));
+    ff.on('close', () => resolve(Buffer.concat(chunks)));
+    ff.on('error', reject);
+    ff.stdin.on('error', () => {});
+    ff.stdin.write(inputBuffer);
+    ff.stdin.end();
+  });
+}
+
+// ElevenLabs Text-to-Speech. `voice` es el Voice ID de ElevenLabs (o el default).
+// `apiKey` y `model` vienen de la config de la tienda (o del .env como fallback).
+async function elevenLabsTTS(text, voice, apiKey = ELEVENLABS_API_KEY, model = ELEVENLABS_MODEL_ID) {
+  const voiceId = (voice && String(voice).trim()) || ELEVENLABS_VOICE_ID;
+  const url = `${ELEVENLABS_BASE}/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'xi-api-key': apiKey,
+      'Content-Type': 'application/json',
+      accept: 'audio/mpeg',
+    },
+    body: JSON.stringify({
+      text,
+      model_id: model,
+      voice_settings: { stability: 0.5, similarity_boost: 0.8, style: 0, use_speaker_boost: true },
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`ElevenLabs ${res.status}: ${detail.slice(0, 200)}`);
+  }
+  const mp3 = Buffer.from(await res.arrayBuffer());
+  return ffmpegDecodeToPcm8k(mp3);
+}
+
+// Piper (TTS open source) → PCM 8kHz. Fallback si no hay ElevenLabs.
+function piperTTS(text, voice) {
   return new Promise((resolve, reject) => {
     const modelPath = `${PIPER_VOICES_DIR}/${voice}.onnx`;
     const piper = spawn(PIPER_BIN, ['--model', modelPath, '--output_file', '-'], { stdio: ['pipe', 'pipe', 'pipe'] });

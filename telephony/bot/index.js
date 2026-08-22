@@ -133,14 +133,19 @@ function listen(state, timeoutMs = 9000) {
   });
 }
 
-// Reproduce texto por voz (Piper) hacia la llamada, con barge-in.
+// Reproduce texto por voz (ElevenLabs de la tienda, o Piper) hacia la llamada.
 async function say(state, text) {
   if (!text || state.closed) return;
   const clean = text.replace(/\[FIN\]/gi, '').trim();
   if (!clean) return;
   let pcm;
-  try { pcm = await synthesize(clean, state.ctx.piper_voice); }
-  catch (e) { console.error('[bot] TTS falló:', e.message); return; }
+  try {
+    pcm = await synthesize(clean, {
+      voice: state.ctx.piper_voice,
+      apiKey: state.ctx.elevenlabs_api_key,
+      model: state.ctx.elevenlabs_model,
+    });
+  } catch (e) { console.error('[bot] TTS falló:', e.message); return; }
   state.playing = true; state.stopPlayback = false; state.bargeCount = 0;
   await streamPcm(state.socket, pcm, { shouldStop: () => state.stopPlayback || state.closed });
   state.playing = false;
