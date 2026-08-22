@@ -5962,15 +5962,15 @@ function Store() {
                 <FontAwesomeIcon icon={faImage} /> Toca el banner para cambiarlo
               </div>
               <div className="store-banner-edit-actions" onClick={(e) => e.stopPropagation()}>
-                <button type="button" onClick={() => bannerEditFileRef.current?.click()} disabled={bannerUploading || autoBannerLoading}>
-                  {bannerUploading ? 'Subiendo…' : '📷 Subir imagen'}
+                <button type="button" title="Subir imagen" onClick={() => bannerEditFileRef.current?.click()} disabled={bannerUploading || autoBannerLoading}>
+                  {bannerUploading ? '…' : '📷'}
                 </button>
-                <button type="button" onClick={generateAutoBanner} disabled={bannerUploading || autoBannerLoading}>
-                  {autoBannerLoading ? 'Generando…' : '✨ Crear automático'}
+                <button type="button" title="Crear automático" onClick={generateAutoBanner} disabled={bannerUploading || autoBannerLoading}>
+                  {autoBannerLoading ? '…' : '✨'}
                 </button>
                 {visualSettings?.bannerImage && (
-                  <button type="button" className="danger" onClick={() => applyBanner('')} disabled={bannerUploading || autoBannerLoading}>
-                    Quitar
+                  <button type="button" className="danger" title="Quitar banner" onClick={() => applyBanner('')} disabled={bannerUploading || autoBannerLoading}>
+                    ✕
                   </button>
                 )}
               </div>

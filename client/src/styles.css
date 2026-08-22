@@ -2761,32 +2761,30 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Pantallas anchas y HORIZONTALES (tablet landscape, PC, tótem apaisado):
-   las columnas crecen con el ancho disponible en vez de quedar fijas en 3,
-   así las tarjetas de producto no terminan gigantes en 1920x1080.
-   Solo en orientation: landscape — en pantallas VERTICALES grandes (tótem
-   portrait) el ancho también supera 900px, pero ahí deben quedar 3 columnas,
-   no llenarse de muchas columnas pequeñas como si fuera horizontal. */
+   se MANTIENE el diseño de pantallas pequeñas (3 columnas fijas con su
+   espacio) en todas las pantallas. Solo escala un poco el gap/padding para
+   que no quede pegado; nunca se llena de muchas columnas pequeñas. */
 @media (min-width: 900px) and (orientation: landscape) {
   .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 10px 8px;
-    padding: 4px 10px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px 10px;
+    padding: 4px 12px;
   }
 }
 
 @media (min-width: 1200px) and (orientation: landscape) {
   .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
-    gap: 10px;
-    padding: 8px 14px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px 12px;
+    padding: 8px 16px;
   }
 }
 
 @media (min-width: 1700px) and (orientation: landscape) {
   .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
-    gap: 12px;
-    padding: 10px 16px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px 14px;
+    padding: 10px 20px;
   }
 }
 
@@ -2828,10 +2826,13 @@ h1, h2, h3, h4, h5, h6 {
     overflow-x: auto;
     overflow-y: visible;
   }
+  /* Mantener el diseño de pantallas pequeñas: píldoras fijas de 76px con
+     icono arriba y nombre abajo, no píldoras anchas de texto. */
   .store-container.store-framed .category-tab {
-    width: auto;
-    padding: 11px 18px;
-    font-size: 14px;
+    flex: 0 0 76px;
+    width: 76px;
+    padding: 10px 8px;
+    font-size: 12px;
     text-align: center;
   }
 
@@ -2862,13 +2863,13 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (min-width: 1024px) and (orientation: landscape) {
   .store-body.editing .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 1700px) and (orientation: landscape) {
   .store-body.editing .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -3430,20 +3431,20 @@ html body .store-container .store-product-card * {
   position: absolute;
   inset: 0;
   z-index: 20;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
   cursor: pointer;
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.18);
   border: 2px dashed rgba(255, 255, 255, 0.8);
   border-radius: 0 0 20px 20px;
   backdrop-filter: blur(1px);
 }
 .store-banner-edit-hint {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
   color: #fff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   display: flex;
@@ -3451,17 +3452,24 @@ html body .store-container .store-product-card * {
   gap: 7px;
 }
 .store-banner-edit-actions {
+  position: absolute;
+  top: 8px;
+  left: 8px;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
+  gap: 6px;
 }
 .store-banner-edit-actions button {
   border: none;
   border-radius: 999px;
-  padding: 8px 14px;
-  font-size: 12.5px;
-  font-weight: 800;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   background: #fff;
   color: #111;
