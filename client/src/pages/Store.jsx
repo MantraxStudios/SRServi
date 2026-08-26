@@ -1329,6 +1329,23 @@ function Store() {
   const [restartingSending, setRestartingSending] = useState(false);
   const [pinOptionsModalOpen, setPinOptionsModalOpen] = useState(false);
   const [totemZoom, setTotemZoom] = useState(() => parseFloat(localStorage.getItem('srservi_totem_zoom') || '1'));
+  // Escalado UNIVERSAL: el tótem se diseña a un lienzo fijo de 1080 px de ancho
+  // (referencia 1080×1920) y se escala para verse IGUAL en cualquier pantalla —
+  // teléfonos incluidos. Nada de responsive: siempre el mismo layout, solo escalado.
+  const TOTEM_DESIGN_WIDTH = 1080;
+  const [viewport, setViewport] = useState(() => ({
+    w: typeof window !== 'undefined' ? window.innerWidth : TOTEM_DESIGN_WIDTH,
+    h: typeof window !== 'undefined' ? window.innerHeight : 1920,
+  }));
+  useEffect(() => {
+    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, []);
   // Tema Glass (estilo iOS): desactivado por defecto, se activa desde el menú del PIN.
   const [glassTheme, setGlassTheme] = useState(() => localStorage.getItem('srservi_glass_theme') === '1');
   // Voz del asistente (TTS) — por dispositivo (las voces disponibles dependen del equipo)
@@ -5890,7 +5907,18 @@ function Store() {
     <div
       ref={storeContainerRef}
       className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}${scrolled ? ' store-scrolled' : ''}${cart.length === 0 ? ' cart-empty' : ''}${glassTheme ? ' glass-theme' : ''}${posOfflineMode ? ' store-pos-offline' : ''}`}
-      style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom,
+      style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary,
+        // En la vista de cliente (no edición) escalamos el lienzo fijo de 1080 px
+        // para que TODO se vea como en 1080×1920 en cualquier pantalla. El zoom del
+        // dueño (totemZoom) queda como multiplicador fino sobre ese ajuste.
+        ...(editMode ? { zoom: totemZoom } : (() => {
+          const applied = (viewport.w / TOTEM_DESIGN_WIDTH) * totemZoom;
+          return {
+            zoom: applied,
+            width: `${viewport.w / applied}px`,   // = 1080/totemZoom en unidades de diseño
+            height: `${viewport.h / applied}px`,  // llena el alto sin dejar hueco
+          };
+        })()),
         ...(seasonalTheme ? { '--kiosk-accent': seasonalTheme.colors.accent, '--kiosk-orange': seasonalTheme.colors.primary, '--kiosk-accent-soft': seasonalTheme.colors.accent + '22' } : {}) }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
     >
@@ -5930,9 +5958,8 @@ function Store() {
           ))}
         </div>
       )}
-      {seasonalTheme && (
-        <div className="store-seasonal-banner">{seasonalTheme.banner}</div>
-      )}
+      {/* Banner de texto estacional retirado a pedido: la festividad se nota por
+         la lluvia de emojis + los colores del tema, sin la tira fea de arriba. */}
       {editMode && (
         <div className="store-editor-bar">
           <div className="store-editor-tabs">

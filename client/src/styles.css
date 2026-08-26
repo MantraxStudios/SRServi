@@ -2142,7 +2142,8 @@ h1, h2, h3, h4, h5, h6 {
    transición porque para cuando esto aplica el banner ya quedó invisible por
    JS — animarlo con CSS forzaba reflow del área de productos en cada frame y
    se trababa en gama baja. */
-.store-container.store-scrolled .store-seasonal-banner,
+/* El letrero de festividad (.store-seasonal-banner) NO se esconde al bajar:
+   queda fijo arriba. Solo las promos se ocultan con el scroll. */
 .store-container.store-scrolled .store-promos {
   display: none;
 }

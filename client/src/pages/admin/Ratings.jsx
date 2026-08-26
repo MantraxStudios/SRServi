@@ -518,9 +518,8 @@ export default function Ratings({ mode = 'ratings' }) {
   const downloadCombinedQR = async () => {
     setDownloadingGoogle(true);
     try {
-      const googleQrCanvas = document.getElementById('google-qr-canvas');
-      const idealQrCanvas = document.getElementById('ideal-qr-canvas-clasi');
-      if (!idealQrCanvas) return;
+      const fidelidadQrCanvas = document.getElementById('fidelidad-qr-canvas');
+      if (!fidelidadQrCanvas) return;
 
       // ── 1. Load all images async FIRST (logo + promo) ──
       let logoImg = null;
@@ -658,7 +657,7 @@ export default function Ratings({ mode = 'ratings' }) {
         ctx.font = '500 16px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
-        ctx.fillText('Escanea los códigos y lleva', cx, badgeY + 14);
+        ctx.fillText('Escanea el código y lleva', cx, badgeY + 14);
         ctx.shadowColor = `${accentColor}99`;
         ctx.shadowBlur = 14;
         ctx.fillStyle = '#0f172a';
@@ -670,7 +669,7 @@ export default function Ratings({ mode = 'ratings' }) {
         ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
-        ctx.fillText('↓  Escanea los códigos QR abajo  ↓', cx, badgeY + 28);
+        ctx.fillText('↓  Escanea el código QR abajo  ↓', cx, badgeY + 28);
       }
 
       // ── 10. Imágenes de producto/premio (1-3, ancho dividido equitativamente) ──
@@ -696,28 +695,28 @@ export default function Ratings({ mode = 'ratings' }) {
       ctx.setLineDash([]);
 
       // ── 12. Tarjetas QR en la parte inferior ──
-      const drawQRPanel = (cardX, qrCvs, icon, title, desc) => {
-        const pcx = cardX + cardW / 2;
+      const drawQRPanel = (cardX, qrCvs, icon, title, desc, cardWLocal = cardW) => {
+        const pcx = cardX + cardWLocal / 2;
 
         // Sombra + fondo blanco
         ctx.shadowColor = 'rgba(0,0,0,0.10)';
         ctx.shadowBlur = 22;
         ctx.shadowOffsetY = 6;
         ctx.fillStyle = '#ffffff';
-        roundRect(ctx, cardX, cardY, cardW, cardH, 20);
+        roundRect(ctx, cardX, cardY, cardWLocal, cardH, 20);
         ctx.fill();
         ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
 
         // Borde
         ctx.strokeStyle = '#e2e8f0';
         ctx.lineWidth = 1.5;
-        roundRect(ctx, cardX, cardY, cardW, cardH, 20);
+        roundRect(ctx, cardX, cardY, cardWLocal, cardH, 20);
         ctx.stroke();
 
         // Barra dorada superior
         ctx.save();
         ctx.beginPath();
-        roundRect(ctx, cardX, cardY, cardW, 8, 20);
+        roundRect(ctx, cardX, cardY, cardWLocal, 8, 20);
         ctx.fillStyle = accentColor;
         ctx.fill();
         ctx.restore();
@@ -768,7 +767,7 @@ export default function Ratings({ mode = 'ratings' }) {
           ctx.font = 'italic 11px Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'alphabetic';
-          const maxDescW = cardW - 28;
+          const maxDescW = cardWLocal - 28;
           const words = desc.split(' ');
           let line = '';
           let y = qrTop + qrSize + 36;
@@ -782,36 +781,10 @@ export default function Ratings({ mode = 'ratings' }) {
         }
       };
 
-      drawQRPanel(card1X, googleQrCanvas, '🌐', 'Clasificar en Google', googleQrDesc);
-
-      // ── Separador vertical entre tarjetas ──
-      ctx.save();
-      ctx.strokeStyle = '#d1d5db';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([6, 5]);
-      ctx.beginPath();
-      ctx.moveTo(cx, cardY + 20);
-      ctx.lineTo(cx, cardY + cardH - 20);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-      const dmY = cardY + cardH / 2;
-      ctx.save();
-      ctx.fillStyle = '#fff';
-      ctx.strokeStyle = accentColor;
-      ctx.lineWidth = 2;
-      ctx.translate(cx, dmY);
-      ctx.rotate(Math.PI / 4);
-      ctx.fillRect(-10, -10, 20, 20);
-      ctx.strokeRect(-10, -10, 20, 20);
-      ctx.restore();
-      ctx.fillStyle = accentColor;
-      ctx.font = 'bold 11px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('&', cx, dmY);
-
-      drawQRPanel(card2X, idealQrCanvas, '🎯', 'Encuesta', idealQrDesc);
+      // ── Un solo QR, centrado (encuesta + Google + registro) ──
+      const singleCardW = Math.min(460, W - pad * 2);
+      const singleCardX = cx - singleCardW / 2;
+      drawQRPanel(singleCardX, fidelidadQrCanvas, '🎯', 'Encuesta + Reseña Google', idealQrDesc, singleCardW);
 
       // ── Branding ──
       ctx.fillStyle = '#94a3b8';
@@ -1331,14 +1304,14 @@ export default function Ratings({ mode = 'ratings' }) {
       {activeTab === 'clasificacion' && (
         <div style={{ background: '#fff' }}>
           <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>
-            Genera y descarga un diseño con los 2 QR para compartir con tus clientes.
+            <b>Un solo QR</b> reúne todo: el cliente responde la encuesta, te califica en Google y se registra. Genera y descarga el diseño para compartirlo.
           </p>
           <div style={styles.grid}>
-            {/* Google QR config */}
+            {/* Configuración: link de Google (se usa DENTRO del flujo del QR único) */}
             <div style={styles.card}>
               <h3 style={styles.cardTitle}>
                 <FontAwesomeIcon icon={faGlobe} style={{ color: '#4285F4', marginRight: 8 }} />
-                QR Google — Clasificar tienda
+                Link de Google (reseñas)
               </h3>
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
@@ -1354,54 +1327,18 @@ export default function Ratings({ mode = 'ratings' }) {
                     border: '1.5px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box', outline: 'none',
                   }}
                 />
+                <p style={{ fontSize: 11, color: '#9ca3af', margin: '6px 0 0' }}>
+                  Dentro del QR, tras la encuesta, el cliente verá el botón para calificarte en Google.
+                </p>
               </div>
-              <div style={{ marginBottom: 8 }}>
+              <div style={{ marginBottom: 0 }}>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
-                  Descripción
-                </label>
-                <textarea
-                  value={googleQrDesc}
-                  onChange={e => setGoogleQrDesc(e.target.value)}
-                  placeholder="Ej: Escanea y ayúdanos dejando tu reseña en Google"
-                  rows={2}
-                  style={{
-                    width: '100%', padding: '8px 12px', borderRadius: 8,
-                    border: '1.5px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box',
-                    resize: 'vertical', outline: 'none',
-                  }}
-                />
-              </div>
-              {googleUrl ? (
-                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
-                  <div style={{ background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: 10 }}>
-                    <QRCodeCanvas id="google-qr-canvas" value={googleUrl} size={240} level="H" includeMargin={false} style={{ width: '130px', height: '130px' }} />
-                  </div>
-                </div>
-              ) : (
-                <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  height: 80, background: '#f9fafb', borderRadius: 10, marginTop: 10,
-                  border: '2px dashed #e5e7eb',
-                }}>
-                  <span style={{ fontSize: 12, color: '#9ca3af' }}>Ingresa el link para ver el QR</span>
-                </div>
-              )}
-            </div>
-
-            {/* Cliente Ideal QR config */}
-            <div style={styles.card}>
-              <h3 style={styles.cardTitle}>
-                <FontAwesomeIcon icon={faUsers} style={{ color: accentColor, marginRight: 8 }} />
-                QR Cliente Ideal
-              </h3>
-              <div style={{ marginBottom: 8 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
-                  Descripción
+                  Descripción del QR
                 </label>
                 <textarea
                   value={idealQrDesc}
                   onChange={e => setIdealQrDesc(e.target.value)}
-                  placeholder="Ej: Escanea y cuéntanos quién eres"
+                  placeholder="Ej: Escanea, cuéntanos quién eres y llévate un beneficio"
                   rows={2}
                   style={{
                     width: '100%', padding: '8px 12px', borderRadius: 8,
@@ -1410,9 +1347,20 @@ export default function Ratings({ mode = 'ratings' }) {
                   }}
                 />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+            </div>
+
+            {/* QR ÚNICO (encuesta + Google + registro) */}
+            <div style={styles.card}>
+              <h3 style={styles.cardTitle}>
+                <FontAwesomeIcon icon={faUsers} style={{ color: accentColor, marginRight: 8 }} />
+                QR único — Cliente Ideal
+              </h3>
+              <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 10px' }}>
+                Encuesta · Reseña en Google · Registro — todo en un mismo código.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
                 <div style={{ background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: 10 }}>
-                  <QRCodeCanvas id="ideal-qr-canvas-clasi" value={surveyUrl} size={240} level="H" includeMargin={false} style={{ width: '130px', height: '130px' }} />
+                  <QRCodeCanvas id="fidelidad-qr-canvas" value={fidelidadUrl} size={240} level="H" includeMargin={false} style={{ width: '150px', height: '150px' }} />
                 </div>
               </div>
             </div>
@@ -1603,11 +1551,11 @@ export default function Ratings({ mode = 'ratings' }) {
                 {/* Texto regalo o flecha */}
                 {promoGiftText.trim() ? (
                   <div style={{ marginBottom: 6 }}>
-                    <p style={{ fontSize: 10, color: '#475569', margin: '0 0 2px' }}>Escanea los códigos y lleva</p>
+                    <p style={{ fontSize: 10, color: '#475569', margin: '0 0 2px' }}>Escanea el código y lleva</p>
                     <p style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', margin: 0 }}>🎁 GRATIS {promoGiftText.trim().toUpperCase()}</p>
                   </div>
                 ) : (
-                  <p style={{ fontSize: 10, color: accentColor, fontWeight: 700, margin: '0 0 6px' }}>↓ Escanea los códigos QR ↓</p>
+                  <p style={{ fontSize: 10, color: accentColor, fontWeight: 700, margin: '0 0 6px' }}>↓ Escanea el código QR ↓</p>
                 )}
               </div>
 
@@ -1630,52 +1578,23 @@ export default function Ratings({ mode = 'ratings' }) {
                 position: 'relative', zIndex: 1,
               }} />
 
-              {/* Paneles QR */}
-              <div style={{ display: 'flex', gap: 0, padding: '0 14px 14px', position: 'relative', zIndex: 1 }}>
-                {/* Google QR */}
+              {/* Panel QR único (encuesta + Google + registro) */}
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '0 14px 14px', position: 'relative', zIndex: 1 }}>
                 <div style={{
-                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
-                  background: '#f8fafc', borderRadius: 12, padding: '14px 8px 10px',
-                  border: '1px solid #e2e8f0', margin: '0 5px 0 0',
-                  position: 'relative', overflow: 'hidden',
-                }}>
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: accentColor, borderRadius: '12px 12px 0 0' }} />
-                  <span style={{ fontSize: 14 }}>🌐</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#1e293b', textAlign: 'center' }}>Clasificar en Google</span>
-                  <div style={{ height: 1.5, background: accentColor, width: 28, borderRadius: 2 }} />
-                  <div style={{ background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 7, padding: 5, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-                    {googleUrl
-                      ? <QRCodeCanvas value={googleUrl} size={90} level="H" includeMargin={false} />
-                      : <div style={{ width: 90, height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1', fontSize: 10, textAlign: 'center', background: '#f8fafc' }}>Sin link</div>
-                    }
-                  </div>
-                  <span style={{ fontSize: 9, color: '#64748b', textAlign: 'center' }}>▲ Escanea aquí ▲</span>
-                  {googleQrDesc && <span style={{ fontSize: 9, color: '#475569', textAlign: 'center', maxWidth: 130, lineHeight: 1.3 }}>{googleQrDesc}</span>}
-                </div>
-
-                {/* Separador con rombo */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 4px', gap: 4 }}>
-                  <div style={{ flex: 1, width: 1, background: '#e2e8f0' }} />
-                  <div style={{ width: 18, height: 18, borderRadius: 3, background: '#fff', border: `1.5px solid ${accentColor}`, transform: 'rotate(45deg)' }} />
-                  <div style={{ flex: 1, width: 1, background: '#e2e8f0' }} />
-                </div>
-
-                {/* Encuesta QR */}
-                <div style={{
-                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
-                  background: '#f8fafc', borderRadius: 12, padding: '14px 8px 10px',
-                  border: '1px solid #e2e8f0', margin: '0 0 0 5px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
+                  background: '#f8fafc', borderRadius: 12, padding: '14px 18px 10px',
+                  border: '1px solid #e2e8f0', maxWidth: 220,
                   position: 'relative', overflow: 'hidden',
                 }}>
                   <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: accentColor, borderRadius: '12px 12px 0 0' }} />
                   <span style={{ fontSize: 14 }}>🎯</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#1e293b', textAlign: 'center' }}>Encuesta</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#1e293b', textAlign: 'center' }}>Encuesta + Reseña Google</span>
                   <div style={{ height: 1.5, background: accentColor, width: 28, borderRadius: 2 }} />
                   <div style={{ background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 7, padding: 5, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-                    <QRCodeCanvas value={surveyUrl} size={90} level="H" includeMargin={false} />
+                    <QRCodeCanvas value={fidelidadUrl} size={110} level="H" includeMargin={false} />
                   </div>
                   <span style={{ fontSize: 9, color: '#64748b', textAlign: 'center' }}>▲ Escanea aquí ▲</span>
-                  {idealQrDesc && <span style={{ fontSize: 9, color: '#475569', textAlign: 'center', maxWidth: 130, lineHeight: 1.3 }}>{idealQrDesc}</span>}
+                  {idealQrDesc && <span style={{ fontSize: 9, color: '#475569', textAlign: 'center', maxWidth: 150, lineHeight: 1.3 }}>{idealQrDesc}</span>}
                 </div>
               </div>
 
