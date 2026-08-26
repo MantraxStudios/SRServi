@@ -2775,6 +2775,17 @@ function Store() {
   }, []);
   const showSeasonalDeco = seasonalTheme && seasonalDecoAllowed;
 
+  // Cantidad de emojis de la lluvia: MENOS es mejor para no saturar PCs/tótems
+  // de bajos recursos. Se adapta al equipo: potente = lluvia moderada, medio =
+  // pocos. (Los muy flojos ya quedan sin lluvia por seasonalDecoAllowed.)
+  const seasonalDecoCount = useMemo(() => {
+    if (typeof navigator === 'undefined') return 7;
+    const cores = navigator.hardwareConcurrency || 0;
+    const mem = navigator.deviceMemory || 0; // GB, solo Chromium
+    if (cores >= 8 && (!mem || mem >= 8)) return 9;
+    return 6;
+  }, []);
+
   // Custom labels for the product personalization steps (admin-configurable)
   const complementsLabel = (store?.store?.complements_label || '').trim() || t('complements', lang);
   const extrasLabel = (store?.store?.extras_label || '').trim() || t('extras', lang);
@@ -5903,7 +5914,7 @@ function Store() {
       )}
       {showSeasonalDeco && (
         <div className="store-seasonal-deco" aria-hidden="true">
-          {Array.from({ length: 14 }).map((_, i) => (
+          {Array.from({ length: seasonalDecoCount }).map((_, i) => (
             <span
               key={i}
               className="store-seasonal-emoji"
@@ -6626,23 +6637,10 @@ function Store() {
 
       {editMode && !previewMode && editorTab === 'products' && (
         <>
-          <div className="store-edit-cat-filter-bar">
-            <button
-              className={`store-edit-cat-filter-btn${editCatFilter === 'all' ? ' active' : ''}`}
-              onClick={() => setEditCatFilter('all')}
-            >
-              Todas
-            </button>
-            {(store?.categories || []).map(cat => (
-              <button
-                key={cat.id}
-                className={`store-edit-cat-filter-btn${editCatFilter === cat.name ? ' active' : ''}`}
-                onClick={() => setEditCatFilter(cat.name)}
-              >
-                {cat.name}
-              </button>
-            ))}
-          </div>
+          {/* Barra de filtro por categoría (botones negros) retirada del editor a
+             pedido: duplicaba las categorías de arriba y ensuciaba la vista. El
+             editor muestra directamente la grilla editable con todas las categorías
+             (editCatFilter queda en 'all'). */}
           <div style={{ display: 'flex', gap: '8px', padding: '6px 16px 0', flexWrap: 'wrap', alignItems: 'center' }}>
             <button
               onClick={() => {
