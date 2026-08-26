@@ -5911,7 +5911,10 @@ function Store() {
           )}
         </div>
       )}
-      {showSeasonalDeco && (
+      {/* La lluvia se renderiza por PORTAL a document.body para que quede SIEMPRE
+         al frente (fuera del stacking context del contenedor de la tienda, que
+         antes la dejaba atrás del contenido). */}
+      {showSeasonalDeco && createPortal(
         <div className="store-seasonal-deco" aria-hidden="true">
           {Array.from({ length: seasonalDecoCount }).map((_, i) => (
             <span
@@ -5927,7 +5930,8 @@ function Store() {
               {seasonalTheme.decorations[i % seasonalTheme.decorations.length]}
             </span>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
       {/* Banner de texto estacional retirado a pedido: la festividad se nota por
          la lluvia de emojis + los colores del tema, sin la tira fea de arriba. */}
