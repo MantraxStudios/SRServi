@@ -4695,7 +4695,9 @@ export async function getDailySales(storeId, date) {
     date,
     orders,
     summary: {
-      totalOrders: orders.length,
+      // "Pedidos" cuenta solo los pagados (mismo criterio que Analíticas);
+      // los no confirmados se muestran aparte en "Pendientes".
+      totalOrders: completed.length,
       completedOrders: completed.length,
       pendingOrders: orders.filter(o => ['pending', 'waiting'].includes(o.status)).length,
       cancelledOrders: orders.filter(o => o.status === 'cancelled').length,
@@ -5856,7 +5858,7 @@ export async function getAnalytics(storeId, dateRange = 'week', startDate = null
   } catch (_) { /* columna tip_amount ausente: se usa solo la diferencia */ }
 
   const totalOrdersQuery = `
-    SELECT COUNT(*) as total,
+    SELECT SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') THEN 1 ELSE 0 END) as total,
            SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') THEN 1 ELSE 0 END) as completed,
            SUM(CASE WHEN status IN ('pending', 'waiting') AND payment_process = 0 THEN 1 ELSE 0 END) as pending,
            SUM(CASE WHEN status IN ('cancelled', 'canceled') THEN 1 ELSE 0 END) as cancelled,
@@ -5920,11 +5922,12 @@ export async function getSalesByDay(storeId, dateRange = 'week', startDate = nul
 
   const query = `
     SELECT DATE(created_at) as date,
-           COUNT(*) as orders,
+           SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') THEN 1 ELSE 0 END) as orders,
            SUM(CASE WHEN payment_process = 1 AND status NOT IN ('cancelled', 'canceled') THEN total ELSE 0 END) as revenue
     FROM orders
     WHERE store_id = ? ${condition}
     GROUP BY DATE(created_at)
+    HAVING orders > 0
     ORDER BY date ASC
   `;
 
@@ -6102,11 +6105,13 @@ export async function getOrdersByHour(storeId, dateRange = 'week') {
   }
 
   const query = `
-    SELECT 
+    SELECT
       HOUR(created_at) as hour,
       COUNT(*) as orders
     FROM orders
-    WHERE store_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
+    WHERE store_id = ?
+      AND payment_process = 1 AND status NOT IN ('cancelled', 'canceled')
+      AND created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
     GROUP BY HOUR(created_at)
     ORDER BY hour ASC
   `;
