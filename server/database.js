@@ -6748,6 +6748,9 @@ export async function deleteStoreExpense(id, storeId) {
  */
 export async function getIncomeStatement(storeId, from, to) {
   // Ingresos desde pedidos. Rango sobre created_at (incluye todo el día "to").
+  // Solo cuenta pedidos REALMENTE cobrados: la MISMA definición que Análisis
+  // (payment_process = 1 y no cancelados). Antes sumaba también los pedidos sin
+  // pagar/cancelados, inflando los ingresos del Estado de Resultados.
   let salesSql = `
     SELECT
       COALESCE(SUM(o.total), 0) AS total_ingresos,
@@ -6755,7 +6758,9 @@ export async function getIncomeStatement(storeId, from, to) {
       COALESCE(SUM(CASE WHEN o.payment_method <> 'cash' OR o.payment_method IS NULL THEN o.total ELSE 0 END), 0) AS ingresos_tarjeta,
       COUNT(o.id) AS total_pedidos
     FROM orders o
-    WHERE o.store_id = ?`;
+    WHERE o.store_id = ?
+      AND o.payment_process = 1
+      AND o.status NOT IN ('cancelled', 'canceled')`;
   const salesParams = [storeId];
   if (from) { salesSql += ' AND o.created_at >= ?'; salesParams.push(from + ' 00:00:00'); }
   if (to) { salesSql += ' AND o.created_at <= ?'; salesParams.push(to + ' 23:59:59'); }
