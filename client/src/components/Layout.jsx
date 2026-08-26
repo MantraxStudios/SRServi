@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, createContext, useContext } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRole } from '../context/RoleContext';
@@ -136,6 +136,9 @@ function Layout() {
   const [selectedStore, setSelectedStore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
+  // Barra inferior: bolita indicadora que se DESLIZA hasta el botón activo.
+  const sidebarRef = useRef(null);
+  const navDotRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
@@ -176,6 +179,28 @@ function Layout() {
     setAccountOpen(false);
     setFpStoreOpen(false);
   }, [location.pathname]);
+
+  // Reposiciona la bolita indicadora de la barra inferior sobre el botón activo.
+  // Se mide en el layout (offset real) para que la transición CSS la DESLICE de
+  // una opción a otra. Se recalcula al navegar, cambiar visibilidad de botones o
+  // redimensionar la ventana.
+  useLayoutEffect(() => {
+    const positionDot = () => {
+      const nav = sidebarRef.current;
+      const dot = navDotRef.current;
+      if (!nav || !dot) return;
+      const active = nav.querySelector('.isb-btn.active');
+      if (!active) { dot.style.opacity = '0'; return; }
+      const navRect = nav.getBoundingClientRect();
+      const btnRect = active.getBoundingClientRect();
+      const centerX = btnRect.left - navRect.left + btnRect.width / 2;
+      dot.style.transform = `translateX(${centerX}px)`;
+      dot.style.opacity = '1';
+    };
+    positionDot();
+    window.addEventListener('resize', positionDot);
+    return () => window.removeEventListener('resize', positionDot);
+  }, [location.pathname, settingsOpen, storeDropdownOpen, selectedStore, stores.length, loading]);
 
   // Check if user needs to add phone number — verify against server
   useEffect(() => {
@@ -615,7 +640,10 @@ function Layout() {
           <span>Auto Servicio · Creado por SRAutomatic CL</span>
         </div>
 
-        <nav className="isb-sidebar">
+        <nav className="isb-sidebar" ref={sidebarRef}>
+
+          {/* Bolita indicadora deslizante del ítem activo */}
+          <span className="isb-nav-dot" ref={navDotRef} aria-hidden="true" />
 
           {/* Logo */}
           <div className="isb-logo">

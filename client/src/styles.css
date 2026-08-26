@@ -13136,8 +13136,28 @@ html body .store-container .store-product-card * {
   padding: 0;
   z-index: 600;
   border-left: none; border-right: none; border-top: none;
-  box-shadow: 0 -1px 0 rgba(0,0,0,0.10);
+  /* Barra con CURVA arriba (esquinas redondeadas) + sombra suave para que
+     "flote" y no se vea pegada/junta al contenido. */
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -6px 22px rgba(0,0,0,0.10);
   justify-content: space-around;
+}
+
+/* ── Bolita indicadora deslizante ── */
+.isb-nav-dot {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  width: 7px; height: 7px;
+  margin-left: -3.5px;               /* centra la bolita respecto al translateX */
+  border-radius: 50%;
+  background: var(--isb-gold);
+  box-shadow: 0 0 9px 1px rgba(212,175,55,0.65);
+  opacity: 0;
+  pointer-events: none;
+  /* El deslizamiento: cubic-bezier con leve rebote para un look "pro". */
+  transition: transform 0.42s cubic-bezier(.34,1.4,.5,1), opacity 0.22s ease;
+  will-change: transform;
 }
 
 .isb-logo { display: none; }
@@ -13160,19 +13180,20 @@ html body .store-container .store-product-card * {
   text-decoration: none; outline: none;
   -webkit-tap-highlight-color: transparent;
 }
-.isb-btn-icon { display: flex; align-items: center; justify-content: center; position: relative; font-size: 19px; }
+.isb-btn-icon { display: flex; align-items: center; justify-content: center; position: relative; font-size: 19px; transition: transform 0.28s cubic-bezier(.34,1.4,.5,1); }
 .isb-btn-label { display: block; font-size: 11px; font-weight: 700; line-height: 1; white-space: nowrap; color: #333; }
 
 .isb-btn:hover { background: rgba(212,175,55,0.08); color: var(--isb-gold); }
 .isb-btn:hover .isb-btn-label { color: #111; }
-.isb-btn.active { background: rgba(212,175,55,0.12); color: var(--isb-gold); }
+.isb-btn.active { background: transparent; color: var(--isb-gold); }
 .isb-btn.active .isb-btn-label { color: #111; }
-.isb-btn.active::before {
-  content: ''; position: absolute;
-  left: 50%; right: auto; top: 0; bottom: auto; transform: translateX(-50%);
-  width: 22px; height: 2px;
-  background: var(--isb-gold); border-radius: 0 0 3px 3px;
+/* El ícono activo sube un pelín y crece: refuerza el efecto de la bolita. */
+.isb-btn.active .isb-btn-icon {
+  transform: translateY(-1px) scale(1.08);
+  transition: transform 0.28s cubic-bezier(.34,1.4,.5,1);
 }
+/* Rayita superior antigua reemplazada por la bolita deslizante (.isb-nav-dot). */
+.isb-btn.active::before { display: none; }
 
 /* tooltip — oculto en barra inferior */
 .isb-tooltip { display: none; }
@@ -13265,6 +13286,36 @@ html body .store-container .store-product-card * {
   padding: 16px 20px 36px;
   display: flex; flex-direction: column; gap: 24px;
   scrollbar-color: rgba(212,175,55,0.12) transparent;
+  /* Profundidad para la animación 3D "armándose" de los íconos al abrir. */
+  perspective: 900px;
+}
+
+/* ── Animación 3D: los íconos aparecen de ATRÁS hacia ADELANTE, escalonados,
+   como armándose. Se dispara cada vez que se abre el menú porque el panel se
+   vuelve a montar. fill-mode backwards (no forwards) para no pisar el hover. ── */
+@keyframes isbAssemble {
+  from { opacity: 0; transform: translateZ(-150px) translateY(24px) scale(0.9); }
+  60%  { opacity: 1; }
+  to   { opacity: 1; transform: translateZ(0) translateY(0) scale(1); }
+}
+.isb-fullpanel .isb-fp-link {
+  animation: isbAssemble 0.42s cubic-bezier(.2,.7,.25,1) backwards;
+  transform-style: preserve-3d;
+}
+.isb-fullpanel .isb-fp-link:nth-child(1)  { animation-delay: .02s; }
+.isb-fullpanel .isb-fp-link:nth-child(2)  { animation-delay: .05s; }
+.isb-fullpanel .isb-fp-link:nth-child(3)  { animation-delay: .08s; }
+.isb-fullpanel .isb-fp-link:nth-child(4)  { animation-delay: .11s; }
+.isb-fullpanel .isb-fp-link:nth-child(5)  { animation-delay: .14s; }
+.isb-fullpanel .isb-fp-link:nth-child(6)  { animation-delay: .17s; }
+.isb-fullpanel .isb-fp-link:nth-child(7)  { animation-delay: .20s; }
+.isb-fullpanel .isb-fp-link:nth-child(8)  { animation-delay: .23s; }
+.isb-fullpanel .isb-fp-link:nth-child(9)  { animation-delay: .26s; }
+.isb-fullpanel .isb-fp-link:nth-child(10) { animation-delay: .29s; }
+.isb-fullpanel .isb-fp-link:nth-child(11) { animation-delay: .32s; }
+.isb-fullpanel .isb-fp-link:nth-child(n+12) { animation-delay: .35s; }
+@media (prefers-reduced-motion: reduce) {
+  .isb-fullpanel .isb-fp-link { animation: none; }
 }
 .isb-fp-body::-webkit-scrollbar { width: 3px; }
 .isb-fp-body::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.15); border-radius: 3px; }
