@@ -2475,12 +2475,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Imagen del ícono de categoría: grande, ocupa casi todo el alto y ancho
-   del tab, con bordes bien redondeados. Usamos contain para mostrarla
-   completa sin recortarla. */
+   del tab, con bordes bien redondeados. Usamos cover para que llene el
+   recuadro y el redondeo de las esquinas sea visible. */
 .cat-tab-img {
   width: 100%;
   height: 68px;
-  object-fit: contain;
+  object-fit: cover;
   border-radius: 18px;
   display: block;
 }
