@@ -5908,17 +5908,11 @@ function Store() {
       ref={storeContainerRef}
       className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}${scrolled ? ' store-scrolled' : ''}${cart.length === 0 ? ' cart-empty' : ''}${glassTheme ? ' glass-theme' : ''}${posOfflineMode ? ' store-pos-offline' : ''}`}
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary,
-        // En la vista de cliente (no edición) escalamos el lienzo fijo de 1080 px
-        // para que TODO se vea como en 1080×1920 en cualquier pantalla. El zoom del
-        // dueño (totemZoom) queda como multiplicador fino sobre ese ajuste.
-        ...(editMode ? { zoom: totemZoom } : (() => {
-          const applied = (viewport.w / TOTEM_DESIGN_WIDTH) * totemZoom;
-          return {
-            zoom: applied,
-            width: `${viewport.w / applied}px`,   // = 1080/totemZoom en unidades de diseño
-            height: `${viewport.h / applied}px`,  // llena el alto sin dejar hueco
-          };
-        })()),
+        // En la vista de cliente (no edición) escalamos con zoom relativo al lienzo
+        // fijo de 1080 px para que TODO se vea como en 1080×1920 en cualquier pantalla.
+        // Solo zoom (sin forzar width/height): el zoom ya llena el ancho como el zoom
+        // manual; forzar un width fijo corría el contenido a la izquierda.
+        zoom: editMode ? totemZoom : (viewport.w / TOTEM_DESIGN_WIDTH) * totemZoom,
         ...(seasonalTheme ? { '--kiosk-accent': seasonalTheme.colors.accent, '--kiosk-orange': seasonalTheme.colors.primary, '--kiosk-accent-soft': seasonalTheme.colors.accent + '22' } : {}) }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
     >
