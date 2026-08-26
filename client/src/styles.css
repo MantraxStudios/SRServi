@@ -2885,7 +2885,7 @@ h1, h2, h3, h4, h5, h6 {
   min-width: 0;
   overflow: hidden;
   background: var(--kiosk-card, #fff);
-  border-radius: 18px;
+  border-radius: 26px;
   padding: 6px 6px 8px;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28), 0 3px 8px rgba(0, 0, 0, 0.18);
   border: 1px solid rgba(0, 0, 0, 0.06);
@@ -2944,7 +2944,7 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
   background-color: transparent;
   border: none;
-  border-radius: 14px;
+  border-radius: 22px;
   overflow: hidden;
   transition: transform var(--transition);
   box-shadow: none;
@@ -3095,7 +3095,7 @@ html body .store-container .store-product-card * {
   justify-content: center;
   overflow: hidden;
   position: relative;
-  border-radius: 12px;
+  border-radius: 20px;
 }
 
 .store-product-image img {
@@ -3103,7 +3103,7 @@ html body .store-container .store-product-card * {
   max-height: 100%;
   object-fit: contain;
   transition: transform var(--transition-slow);
-  border-radius: 12px;
+  border-radius: 20px;
 }
 
 .store-product-image img.grayscale {
@@ -3326,22 +3326,22 @@ html body .store-container .store-product-card * {
    en vez de quedar chica y "flotando" con bordes vacíos (object-fit: contain
    dejaba mucho espacio muerto en cada categoría). */
 @media (min-width: 1024px) and (orientation: landscape) {
-  .store-product-wrapper { border-radius: 22px; }
-  .store-product-card { border-radius: 18px; }
-  .store-product-image { border-radius: 16px; }
+  .store-product-wrapper { border-radius: 26px; }
+  .store-product-card { border-radius: 24px; }
+  .store-product-image { border-radius: 22px; }
   .store-product-image img {
     width: 100%;
     height: 100%;
     max-width: none;
     max-height: none;
     object-fit: cover;
-    border-radius: 16px;
+    border-radius: 22px;
   }
 }
 
 /* Phones: 3 columns need compact cards */
 @media (max-width: 480px) {
-  .store-product-wrapper { border-radius: 14px; padding: 5px 5px 6px; }
+  .store-product-wrapper { border-radius: 20px; padding: 5px 5px 6px; }
   .store-product-name { font-size: 12px; }
   .store-product-desc { font-size: 10px; -webkit-line-clamp: 1; }
   .store-product-price { font-size: 13px; }
