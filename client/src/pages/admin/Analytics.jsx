@@ -121,7 +121,7 @@ function Analytics() {
       const [summaryRes, salesRes, ordersRes, dowRes] = await Promise.all([
         fetch(`/api/analytics/summary?store_id=${storeId}&${rangeQueryParams()}`, { headers }),
         fetch(`/api/analytics/sales-by-day?store_id=${storeId}&${rangeQueryParams()}`, { headers }),
-        fetch(`/api/analytics/recent-orders?store_id=${storeId}&limit=25`, { headers }),
+        fetch(`/api/analytics/recent-orders?store_id=${storeId}&limit=25&${rangeQueryParams()}`, { headers }),
         fetch(`/api/analytics/sales-by-dow?store_id=${storeId}&${rangeQueryParams()}`, { headers }),
       ]);
 

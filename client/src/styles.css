@@ -2146,14 +2146,10 @@ h1, h2, h3, h4, h5, h6 {
 .store-container.store-scrolled .store-promos {
   display: none;
 }
-.store-container.store-scrolled .store-name-banner {
-  max-height: 0 !important;
-  min-height: 0 !important;   /* anula el min-height del hero para que colapse */
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-  border-bottom: none;
-  pointer-events: none;
-}
+/* El banner (logo + buscador) queda FIJO arriba: ya NO colapsa al bajar. Antes
+   desaparecía de golpe (max-height:0 sin transición) y mareaba al cliente. Ahora
+   permanece siempre visible; solo las promos/estacional se ocultan al hacer
+   scroll para recuperar algo de espacio para la lista de productos. */
 
 .store-header {
   background: var(--kiosk-bg, #FAF4E9) !important;
@@ -3427,7 +3423,9 @@ html body .store-container .store-product-card * {
 /* Banner superior: logo (izquierda) + selector de idioma (derecha) arriba, y el
    buscador con su botón de voz abajo. */
 .store-name-banner {
-  position: relative;
+  position: sticky;   /* queda FIJO arriba al bajar por la lista de productos */
+  top: 0;
+  z-index: 6;
   background: var(--kiosk-bg, #FAF4E9);
   padding: 8px 14px 12px;
   border-bottom: 1px solid var(--kiosk-border, #F0E8D9);
@@ -3436,10 +3434,8 @@ html body .store-container .store-product-card * {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 180px;   /* ~alto real del banner compacto (sin imagen) */
-  /* El banner queda FIJO: no se anima opacity/transform en cada frame de scroll
-     (eso generaba jank/retardo). Solo colapsa de golpe (max-height 0) cuando se
-     pasa el umbral, vía la clase .store-scrolled — un único reflow, no por frame. */
+  /* Sin colapso: el banner permanece siempre visible (logo + buscador). No se
+     anima opacity/transform por frame (evita jank) ni desaparece de golpe. */
 }
 /* Overlay de edición del banner (solo en modo edición del tótem) */
 .store-banner-edit {

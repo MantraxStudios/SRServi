@@ -6120,7 +6120,7 @@ export async function getOrdersByHour(storeId, dateRange = 'week') {
   return rows;
 }
 
-export async function getRecentOrders(storeId, limit = 10) {
+export async function getRecentOrders(storeId, limit = 10, dateRange = null, startDate = null, endDate = null) {
   // tip_amount puede faltar en instalaciones muy antiguas: si no existe se
   // reporta 0 para no romper la consulta.
   let tipCol = 'o.tip_amount';
@@ -6128,6 +6128,26 @@ export async function getRecentOrders(storeId, limit = 10) {
     const [tc] = await pool.execute("SHOW COLUMNS FROM orders LIKE 'tip_amount'");
     if (!tc.length) tipCol = '0';
   } catch (_) { tipCol = '0'; }
+
+  // Los pedidos recientes respetan el mismo filtro de fecha que el resto de
+  // Analíticas: al cambiar el rango, la lista cambia (antes traía siempre los
+  // últimos N sin importar el rango, por eso "siempre aparecía lo mismo").
+  const params = [storeId];
+  let dateCondition = '';
+  if (dateRange === 'custom' && startDate && endDate) {
+    dateCondition = `AND o.created_at >= ? AND o.created_at < DATE_ADD(?, INTERVAL 1 DAY)`;
+    params.push(startDate, endDate);
+  } else if (dateRange) {
+    let interval = '';
+    switch (dateRange) {
+      case 'today': interval = '1 DAY'; break;
+      case 'week': interval = '7 DAY'; break;
+      case 'month': interval = '30 DAY'; break;
+      case 'year': interval = '365 DAY'; break;
+    }
+    if (dateRange === 'today') dateCondition = `AND DATE(o.created_at) = CURDATE()`;
+    else if (interval) dateCondition = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})`;
+  }
 
   const query = `
     SELECT
@@ -6149,13 +6169,13 @@ export async function getRecentOrders(storeId, limit = 10) {
       COUNT(oi.id) as items_count
     FROM orders o
     LEFT JOIN order_items oi ON o.id = oi.order_id
-    WHERE o.store_id = ?
+    WHERE o.store_id = ? ${dateCondition}
     GROUP BY o.id
     ORDER BY o.created_at DESC
     LIMIT ${parseInt(limit)}
   `;
 
-  const [rows] = await pool.execute(query, [storeId]);
+  const [rows] = await pool.execute(query, params);
   return rows;
 }
 

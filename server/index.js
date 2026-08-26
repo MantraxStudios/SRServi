@@ -3629,6 +3629,9 @@ app.get('/api/analytics/recent-orders', authenticateToken, async (req, res) => {
   try {
     const storeId = req.query.store_id;
     const limit = parseInt(req.query.limit) || 10;
+    const dateRange = req.query.range || null;
+    const startDate = isValidDateStr(req.query.start_date) ? req.query.start_date : null;
+    const endDate = isValidDateStr(req.query.end_date) ? req.query.end_date : null;
     if (!storeId) {
       return res.status(400).json({ error: 'Store ID es requerido' });
     }
@@ -3636,7 +3639,7 @@ app.get('/api/analytics/recent-orders', authenticateToken, async (req, res) => {
     if (!isOwner) {
       return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
-    const orders = await getRecentOrders(parseInt(storeId), limit);
+    const orders = await getRecentOrders(parseInt(storeId), limit, dateRange, startDate, endDate);
     res.json(orders);
   } catch (error) {
     res.status(500).json({ error: error.message });
