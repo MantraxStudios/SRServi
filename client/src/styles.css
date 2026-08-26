@@ -2439,11 +2439,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .category-tab {
-  /* Ancho PROPORCIONAL al viewport (no fijo): así mantiene la misma proporción
-     que en el tótem 1080 en cualquier pantalla. 7vw ≈ 76px en 1080; en pantallas
-     chicas baja (no se agranda) y en grandes queda topeado en 88px. */
-  flex: 0 0 clamp(46px, 7vw, 88px);
-  width: clamp(46px, 7vw, 88px);
+  flex: 0 0 88px;              /* todas el MISMO ancho */
+  width: 88px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;      /* imagen/icono arriba, nombre abajo */
@@ -2496,7 +2493,7 @@ h1, h2, h3, h4, h5, h6 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: clamp(9px, 1.1vw, 12px);   /* proporcional, como en 1080 */
+  font-size: 12px;
   text-align: center;
   max-width: 100%;
 }
@@ -2838,11 +2835,10 @@ h1, h2, h3, h4, h5, h6 {
   /* Mantener el diseño de pantallas pequeñas: píldoras fijas de 76px con
      icono arriba y nombre abajo, no píldoras anchas de texto. */
   .store-container.store-framed .category-tab {
-    /* Mismo ancho proporcional que la base (7vw ≈ 76px en 1080). */
-    flex: 0 0 clamp(46px, 7vw, 88px);
-    width: clamp(46px, 7vw, 88px);
-    padding: clamp(5px, 0.9vw, 10px) clamp(4px, 0.7vw, 8px);
-    font-size: clamp(9px, 1.1vw, 12px);
+    flex: 0 0 76px;
+    width: 76px;
+    padding: 10px 8px;
+    font-size: 12px;
     text-align: center;
   }
 

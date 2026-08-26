@@ -1329,6 +1329,33 @@ function Store() {
   const [restartingSending, setRestartingSending] = useState(false);
   const [pinOptionsModalOpen, setPinOptionsModalOpen] = useState(false);
   const [totemZoom, setTotemZoom] = useState(() => parseFloat(localStorage.getItem('srservi_totem_zoom') || '1'));
+  // Escalado UNIVERSAL del tótem: el diseño se piensa a un lienzo fijo de 1080 px
+  // de ancho y se ESCALA con transform para verse IGUAL en cualquier pantalla
+  // (teléfonos incluidos), sin importar el ancho real. Se recalcula al redimensionar.
+  const TOTEM_DESIGN_WIDTH = 1080;
+  const [viewport, setViewport] = useState(() => ({
+    w: typeof window !== 'undefined' ? window.innerWidth : TOTEM_DESIGN_WIDTH,
+    h: typeof window !== 'undefined' ? window.innerHeight : 1920,
+  }));
+  useEffect(() => {
+    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, []);
+  // El lienzo escalado (position:fixed) puede desbordar el body; bloqueamos su
+  // scroll mientras se muestra la vista de cliente para que no queden barras/huecos.
+  useEffect(() => {
+    if (editMode || adminEditToken) return;
+    const html = document.documentElement, body = document.body;
+    const prevH = html.style.overflow, prevB = body.style.overflow;
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    return () => { html.style.overflow = prevH; body.style.overflow = prevB; };
+  }, [editMode, adminEditToken]);
   // Tema Glass (estilo iOS): desactivado por defecto, se activa desde el menú del PIN.
   const [glassTheme, setGlassTheme] = useState(() => localStorage.getItem('srservi_glass_theme') === '1');
   // Voz del asistente (TTS) — por dispositivo (las voces disponibles dependen del equipo)
@@ -5889,7 +5916,21 @@ function Store() {
       ref={storeContainerRef}
       className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}${scrolled ? ' store-scrolled' : ''}${cart.length === 0 ? ' cart-empty' : ''}${glassTheme ? ' glass-theme' : ''}${posOfflineMode ? ' store-pos-offline' : ''}`}
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary,
-        zoom: totemZoom,
+        // Escalado universal (solo vista de cliente): transform:scale desde el lienzo
+        // fijo de 1080 px, con origen top-left y position fixed → llena SIEMPRE desde
+        // (0,0), determinista en todas las pantallas. En editor/preview: zoom normal.
+        ...((editMode || adminEditToken)
+          ? { zoom: totemZoom }
+          : (() => {
+              const scale = (viewport.w / TOTEM_DESIGN_WIDTH) * (totemZoom || 1);
+              return {
+                position: 'fixed', top: 0, left: 0,
+                width: `${viewport.w / scale}px`,
+                height: `${viewport.h / scale}px`,
+                transform: `scale(${scale})`,
+                transformOrigin: 'top left',
+              };
+            })()),
         ...(seasonalTheme ? { '--kiosk-accent': seasonalTheme.colors.accent, '--kiosk-orange': seasonalTheme.colors.primary, '--kiosk-accent-soft': seasonalTheme.colors.accent + '22' } : {}) }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
     >
