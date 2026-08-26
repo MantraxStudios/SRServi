@@ -1329,23 +1329,6 @@ function Store() {
   const [restartingSending, setRestartingSending] = useState(false);
   const [pinOptionsModalOpen, setPinOptionsModalOpen] = useState(false);
   const [totemZoom, setTotemZoom] = useState(() => parseFloat(localStorage.getItem('srservi_totem_zoom') || '1'));
-  // Escalado UNIVERSAL: el tótem se diseña a un lienzo fijo de 1080 px de ancho
-  // (referencia 1080×1920) y se escala para verse IGUAL en cualquier pantalla —
-  // teléfonos incluidos. Nada de responsive: siempre el mismo layout, solo escalado.
-  const TOTEM_DESIGN_WIDTH = 1080;
-  const [viewport, setViewport] = useState(() => ({
-    w: typeof window !== 'undefined' ? window.innerWidth : TOTEM_DESIGN_WIDTH,
-    h: typeof window !== 'undefined' ? window.innerHeight : 1920,
-  }));
-  useEffect(() => {
-    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
-    window.addEventListener('resize', onResize);
-    window.addEventListener('orientationchange', onResize);
-    return () => {
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('orientationchange', onResize);
-    };
-  }, []);
   // Tema Glass (estilo iOS): desactivado por defecto, se activa desde el menú del PIN.
   const [glassTheme, setGlassTheme] = useState(() => localStorage.getItem('srservi_glass_theme') === '1');
   // Voz del asistente (TTS) — por dispositivo (las voces disponibles dependen del equipo)
@@ -5908,11 +5891,7 @@ function Store() {
       ref={storeContainerRef}
       className={`store-container${restaurantView && !activeTable ? ' restaurant-table-view' : ''}${!editMode && !adminEditToken ? ' store-framed' : ''}${scrolled ? ' store-scrolled' : ''}${cart.length === 0 ? ' cart-empty' : ''}${glassTheme ? ' glass-theme' : ''}${posOfflineMode ? ' store-pos-offline' : ''}`}
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary,
-        // En la vista de cliente (no edición) escalamos con zoom relativo al lienzo
-        // fijo de 1080 px para que TODO se vea como en 1080×1920 en cualquier pantalla.
-        // Solo zoom (sin forzar width/height): el zoom ya llena el ancho como el zoom
-        // manual; forzar un width fijo corría el contenido a la izquierda.
-        zoom: editMode ? totemZoom : (viewport.w / TOTEM_DESIGN_WIDTH) * totemZoom,
+        zoom: totemZoom,
         ...(seasonalTheme ? { '--kiosk-accent': seasonalTheme.colors.accent, '--kiosk-orange': seasonalTheme.colors.primary, '--kiosk-accent-soft': seasonalTheme.colors.accent + '22' } : {}) }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
     >
