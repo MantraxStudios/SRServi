@@ -124,7 +124,11 @@ function RatingBadge({ value }) {
   );
 }
 
-export default function Ratings() {
+// mode: 'ratings' → solo Calificaciones (reseñas). 'clienteIdeal' → solo el flujo
+// del QR único (Encuesta · Clasificación · Config Encuesta + Resumen Cliente Ideal),
+// como sección propia del menú, separada de Calificaciones.
+export default function Ratings({ mode = 'ratings' }) {
+  const isClienteIdeal = mode === 'clienteIdeal';
   const { token } = useAuth();
   const { selectedStore } = useContext(StoreContext);
   const [ratings, setRatings] = useState([]);
@@ -136,7 +140,7 @@ export default function Ratings() {
 
   const [surveys, setSurveys] = useState([]);
   const [surveyLoading, setSurveyLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('ratings');
+  const [activeTab, setActiveTab] = useState(mode === 'clienteIdeal' ? 'survey' : 'ratings');
 
   const [googleUrl, setGoogleUrl] = useState('');
   const [googleQrDesc, setGoogleQrDesc] = useState('');
@@ -935,30 +939,36 @@ export default function Ratings() {
       <div style={{ padding: '12px 24px 0', background: '#fff', borderBottom: '2px solid #e5e7eb', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <h1 style={{ fontSize: 18, fontWeight: 800, color: '#1e293b', margin: 0 }}>
-            <FontAwesomeIcon icon={faStar} style={{ color: '#f59e0b', marginRight: 8 }} />
-            Calificaciones — {selectedStore.name}
+            <FontAwesomeIcon icon={isClienteIdeal ? faUsers : faStar} style={{ color: isClienteIdeal ? accentColor : '#f59e0b', marginRight: 8 }} />
+            {isClienteIdeal ? 'Cliente Ideal' : 'Calificaciones'} — {selectedStore.name}
           </h1>
-          <button
-            onClick={() => setShowSurveyModal(true)}
-            style={{
-              padding: '7px 15px', borderRadius: 8, border: 'none',
-              background: accentColor, color: '#fff', fontWeight: 700, fontSize: 12,
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-              boxShadow: `0 2px 8px ${accentColor}55`,
-            }}
-          >
-            <FontAwesomeIcon icon={faChartBar} />
-            Resumen Cliente Ideal
-          </button>
+          {isClienteIdeal && (
+            <button
+              onClick={() => setShowSurveyModal(true)}
+              style={{
+                padding: '7px 15px', borderRadius: 8, border: 'none',
+                background: accentColor, color: '#fff', fontWeight: 700, fontSize: 12,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                boxShadow: `0 2px 8px ${accentColor}55`,
+              }}
+            >
+              <FontAwesomeIcon icon={faChartBar} />
+              Resumen Cliente Ideal
+            </button>
+          )}
         </div>
         {/* Tab navigation */}
         <div style={{ display: 'flex', gap: 0 }}>
-          {[
-            { key: 'ratings', icon: faStar, label: 'Calificaciones' },
-            { key: 'survey', icon: faUsers, label: 'Encuesta' },
-            { key: 'clasificacion', icon: faGlobe, label: 'Clasificación' },
-            { key: 'surveyconfig', icon: faCog, label: 'Config Encuesta' },
-          ].map(t => (
+          {(isClienteIdeal
+            ? [
+                { key: 'survey', icon: faUsers, label: 'Encuesta' },
+                { key: 'clasificacion', icon: faGlobe, label: 'Clasificación' },
+                { key: 'surveyconfig', icon: faCog, label: 'Config Encuesta' },
+              ]
+            : [
+                { key: 'ratings', icon: faStar, label: 'Calificaciones' },
+              ]
+          ).map(t => (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}

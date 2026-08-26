@@ -3319,6 +3319,25 @@ html body .store-container .store-product-card * {
   .store-product-add { width: 38px; height: 38px; font-size: 15px; }
 }
 
+/* Pantallas de mayor formato (tótem apaisado / TV / PC en horizontal):
+   las tarjetas quedan grandes, así que se redondean más las esquinas y la
+   imagen del producto LLENA la tarjeta (cover) con sus esquinas redondeadas,
+   en vez de quedar chica y "flotando" con bordes vacíos (object-fit: contain
+   dejaba mucho espacio muerto en cada categoría). */
+@media (min-width: 1024px) and (orientation: landscape) {
+  .store-product-wrapper { border-radius: 22px; }
+  .store-product-card { border-radius: 18px; }
+  .store-product-image { border-radius: 16px; }
+  .store-product-image img {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    object-fit: cover;
+    border-radius: 16px;
+  }
+}
+
 /* Phones: 3 columns need compact cards */
 @media (max-width: 480px) {
   .store-product-wrapper { border-radius: 14px; padding: 5px 5px 6px; }
@@ -3416,15 +3435,9 @@ html body .store-container .store-product-card * {
   flex-direction: column;
   gap: 8px;
   max-height: 180px;   /* ~alto real del banner compacto (sin imagen) */
-  transform: translateY(0);
-  /* opacity/transform NO llevan transición CSS: se escriben directo al DOM
-     cuadro a cuadro atados al scroll (ver handleStoreMainScroll en
-     Store.jsx), así el desvanecido queda perfectamente sincronizado con el
-     dedo del usuario en vez de perseguir un valor que ya cambió (eso se
-     sentía "mareado"/con retraso). max-height/min-height/padding cambian de
-     golpe — animarlos con CSS fuerza layout del área de productos en cada
-     frame y se traba en gama baja. */
-  will-change: opacity, transform;
+  /* El banner queda FIJO: no se anima opacity/transform en cada frame de scroll
+     (eso generaba jank/retardo). Solo colapsa de golpe (max-height 0) cuando se
+     pasa el umbral, vía la clase .store-scrolled — un único reflow, no por frame. */
 }
 /* Overlay de edición del banner (solo en modo edición del tótem) */
 .store-banner-edit {

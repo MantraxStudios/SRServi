@@ -822,6 +822,7 @@ function Layout() {
                 <NavLink to="/admin/calls" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faHeadset} /> Llamadas IA</NavLink>
                 {can('cash_registers', 'view') && <NavLink to="/admin/cash-registers" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faCashRegister} /> Historial de Caja</NavLink>}
                 {can('ratings', 'view') && <NavLink to="/admin/ratings" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faStar} /> Calificaciones</NavLink>}
+                {can('ratings', 'view') && <NavLink to="/admin/cliente-ideal" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faUsers} /> Cliente Ideal</NavLink>}
                 {can('people_counter', 'view') && <NavLink to="/admin/people-counter" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faCamera} /> Contador de Aforo</NavLink>}
                 <NavLink to="/admin/ticketeria" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faTicketAlt} /> Ticketería</NavLink>
               </div>

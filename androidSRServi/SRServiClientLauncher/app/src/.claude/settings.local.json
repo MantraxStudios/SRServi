@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Read(//c/Users/tupap/OneDrive/Escritorio/SRServi/android/SRServiClientLauncher/**)",
-      "Bash(./gradlew compileDebugKotlin)"
-    ]
-  }
-}

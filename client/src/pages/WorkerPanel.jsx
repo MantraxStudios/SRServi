@@ -1411,7 +1411,8 @@ function WorkerPanel() {
   const stats = {
     pending: orders.filter(o => o.status === 'pending').length + pendingCashOrders.length,
     ready: completedOrders.length,
-    total: formatPrice([...orders, ...completedOrders, ...pendingCashOrders].reduce((s, o) => s + Number(o.total || 0), 0))
+    // El total vendido NO debe incluir pedidos en efectivo aún no confirmados (payment_process === 0)
+    total: formatPrice([...orders, ...completedOrders].reduce((s, o) => s + Number(o.total || 0), 0))
   };
 
   return (

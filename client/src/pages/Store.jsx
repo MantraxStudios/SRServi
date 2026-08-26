@@ -5726,13 +5726,10 @@ function Store() {
     const target = e.currentTarget;
     scrolledRafRef.current = requestAnimationFrame(() => {
       scrolledRafRef.current = null;
-      const y = target.scrollTop;
-      const progress = Math.min(1, Math.max(0, y / BANNER_FADE_DIST));
-      if (bannerRef.current) {
-        bannerRef.current.style.opacity = String(1 - progress);
-        bannerRef.current.style.transform = `translateY(${-progress * 14}px)`;
-      }
-      setScrolled(y >= BANNER_FADE_DIST);
+      // El banner queda FIJO: ya no se anima opacity/transform en cada frame de
+      // scroll (eso generaba jank/retardo en pantallas grandes o equipos flojos).
+      // Solo evaluamos un umbral barato para colapsar el banner una sola vez.
+      setScrolled(target.scrollTop >= BANNER_FADE_DIST);
     });
   };
 

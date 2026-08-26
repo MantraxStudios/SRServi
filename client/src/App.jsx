@@ -350,7 +350,8 @@ function App() {
             <Route path="subdomain" element={<SubdomainConfig />} />
             <Route path="roles" element={<RolesManager />} />
             <Route path="sub-accounts" element={<SubAccounts />} />
-            <Route path="ratings" element={<PermissionGate section="ratings"><Ratings /></PermissionGate>} />
+            <Route path="ratings" element={<PermissionGate section="ratings"><Ratings mode="ratings" /></PermissionGate>} />
+            <Route path="cliente-ideal" element={<PermissionGate section="ratings"><Ratings mode="clienteIdeal" /></PermissionGate>} />
             <Route path="people-counter" element={<PermissionGate section="people_counter"><PeopleCounter /></PermissionGate>} />
             <Route path="survey-config" element={<SurveyConfig />} />
             <Route path="rappi" element={<PermissionGate section="canales"><RappiIntegration /></PermissionGate>} />

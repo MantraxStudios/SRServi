@@ -4654,7 +4654,12 @@ export async function getDailySales(storeId, date) {
     orders.push({ ...order, total: parseFloat(order.total) || 0, items });
   }
 
-  const completed = orders.filter(o => ['completed', 'paid', 'processed', 'approved'].includes(o.status));
+  // El total del día debe usar el MISMO criterio que Analíticas (getAnalytics):
+  // pago confirmado (payment_process = 1) y no cancelado. Así "Ventas del Día" y
+  // "Análisis" coinciden y NO se suman los pedidos en efectivo sin confirmar.
+  const completed = orders.filter(o =>
+    Number(o.payment_process) === 1 && !['cancelled', 'canceled'].includes(o.status)
+  );
   const totalRevenue = completed.reduce((sum, o) => sum + o.total, 0);
 
   const byPaymentMethod = {};
@@ -9388,7 +9393,7 @@ async function ensureTelephonyTables() {
       greeting_text TEXT,
       system_prompt TEXT,
       ollama_model VARCHAR(120) DEFAULT 'llama3',
-      piper_voice VARCHAR(120) DEFAULT 'es_MX-claude-high',
+      piper_voice VARCHAR(120) DEFAULT 'es_AR-daniela-high',
       max_seconds INT DEFAULT 300,
       forward_number VARCHAR(50),
       -- Auth Token de la cuenta de Twilio de ESTA tienda (cada tienda compra su
@@ -9470,7 +9475,7 @@ export async function getTelephonyConfig(storeId) {
     store_id: storeId, enabled: false, did_number: null, trunk_host: null,
     trunk_port: 5060, trunk_username: null, trunk_password: null, trunk_from_domain: null,
     language: 'es', greeting_text: null, system_prompt: null,
-    ollama_model: 'llama3', piper_voice: 'es_MX-claude-high', max_seconds: 300, forward_number: null,
+    ollama_model: 'llama3', piper_voice: 'es_AR-daniela-high', max_seconds: 300, forward_number: null,
     twilio_auth_token: null, elevenlabs_api_key: null, elevenlabs_model: 'eleven_turbo_v2_5',
   };
 }
@@ -9513,7 +9518,7 @@ export async function saveTelephonyConfig(storeId, cfg) {
     storeId, enabled ? 1 : 0, did_number || null, trunk_host || null,
     parseInt(trunk_port) || 5060, trunk_username || null, trunk_password || null,
     trunk_from_domain || null, language || 'es', greeting_text || null, system_prompt || null,
-    ollama_model || 'llama3', piper_voice || 'es_MX-claude-high', parseInt(max_seconds) || 300,
+    ollama_model || 'llama3', piper_voice || 'es_AR-daniela-high', parseInt(max_seconds) || 300,
     forward_number || null, token, elKey, elevenlabs_model || 'eleven_turbo_v2_5',
   ]);
   return getTelephonyConfig(storeId);

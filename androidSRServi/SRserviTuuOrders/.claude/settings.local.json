@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "WebFetch(domain:developers.tuu.cl)",
-      "Bash(jar tf *)"
-    ]
-  }
-}

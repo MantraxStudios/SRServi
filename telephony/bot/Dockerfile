@@ -23,7 +23,6 @@ RUN wget -qO /tmp/piper.tar.gz \
 WORKDIR /voices
 ARG VOICES_BASE=https://huggingface.co/rhasspy/piper-voices/resolve/main/es
 RUN set -eux; for V in \
-      "es_MX/claude/high/es_MX-claude-high" \
       "es_AR/daniela/high/es_AR-daniela-high" \
       "es_ES/sharvard/medium/es_ES-sharvard-medium" \
       "es_ES/davefx/medium/es_ES-davefx-medium" \
