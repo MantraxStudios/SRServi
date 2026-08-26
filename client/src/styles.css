@@ -2474,11 +2474,12 @@ h1, h2, h3, h4, h5, h6 {
   flex-shrink: 0;
 }
 
-/* Imagen del ícono de categoría: grande, ocupa el ancho del tab. */
+/* Imagen del ícono de categoría: grande, ocupa el ancho del tab.
+   Usamos contain para mostrar la imagen completa sin recortarla. */
 .cat-tab-img {
   width: 100%;
   height: 46px;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 9px;
   display: block;
 }
