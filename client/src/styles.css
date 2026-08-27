@@ -2439,8 +2439,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .category-tab {
-  flex: 0 0 88px;              /* todas el MISMO ancho */
-  width: 88px;
+  flex: 0 0 72px;              /* todas el MISMO ancho */
+  width: 72px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;      /* imagen/icono arriba, nombre abajo */
@@ -2453,7 +2453,7 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--kiosk-card, #fff);
   color: var(--kiosk-dark, #232028);
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
   transition: background-color var(--transition), box-shadow var(--transition), transform var(--transition);
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
@@ -2463,7 +2463,7 @@ h1, h2, h3, h4, h5, h6 {
 .category-tab-icon {
   width: 100%;
   color: var(--kiosk-dark, #232028);
-  font-size: 30px;
+  font-size: 24px;
   opacity: 0.9;
   display: inline-flex;
   align-items: center;
@@ -2493,7 +2493,7 @@ h1, h2, h3, h4, h5, h6 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 12px;
+  font-size: 11px;
   text-align: center;
   max-width: 100%;
 }
@@ -2835,10 +2835,10 @@ h1, h2, h3, h4, h5, h6 {
   /* Mantener el diseño de pantallas pequeñas: píldoras fijas de 76px con
      icono arriba y nombre abajo, no píldoras anchas de texto. */
   .store-container.store-framed .category-tab {
-    flex: 0 0 76px;
-    width: 76px;
-    padding: 10px 8px;
-    font-size: 12px;
+    flex: 0 0 72px;
+    width: 72px;
+    padding: 8px 6px;
+    font-size: 11px;
     text-align: center;
   }
 

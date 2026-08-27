@@ -5921,7 +5921,10 @@ function Store() {
               key={i}
               className="store-seasonal-emoji"
               style={{
-                left: `${(i * 7 + (i % 3) * 4) % 100}%`,
+                // Repartir a lo ANCHO COMPLETO: una columna por emoji + un
+                // desfase pseudo-aleatorio dentro de la columna. Antes la fórmula
+                // saturaba a ~64% y todos caían a la izquierda.
+                left: `${((i + 0.5) / seasonalDecoCount) * 100 + ((i % 3) - 1) * 5}%`,
                 animationDelay: `${(i * 0.9) % 8}s`,
                 animationDuration: `${7 + (i % 5) * 1.6}s`,
                 fontSize: `${16 + (i % 4) * 6}px`,

@@ -7342,7 +7342,8 @@ export async function getSalesFromOrders(storeId, year, month, amStart, amEnd, p
      WHERE store_id = ?
        AND YEAR(created_at) = ?
        AND MONTH(created_at) = ?
-       AND status NOT IN ('cancelled','rejected','pending')
+       AND payment_process = 1
+       AND status NOT IN ('cancelled','canceled','rejected','pending')
      GROUP BY DATE(created_at), shift
      ORDER BY date ASC, shift ASC`,
     [amStart, amEnd, pmStart, pmEnd, storeId, year, month]
