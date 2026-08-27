@@ -2921,24 +2921,14 @@ h1, h2, h3, h4, h5, h6 {
   cursor: default;
 }
 
-/* Perf: no pintar tarjetas fuera de pantalla (clave en equipos de bajos
-   recursos con catálogos grandes). Excluido del modo edición para no
-   interferir con las mediciones de drag & drop de dnd-kit.
-   El alto estimado (contain-intrinsic-size) tiene que acompañar el ancho
-   real de la tarjeta en cada breakpoint — como son cuadradas (aspect-ratio
-   1/1), una tarjeta más ancha por la grilla de 3 columnas fijas también es
-   más alta. Si el estimado queda corto, el navegador reserva menos espacio
-   del que la tarjeta necesita y aparece un hueco blanco grande hasta que
-   se pinta el contenido real. */
+/* NOTA: se quitó `content-visibility: auto` de las tarjetas. Con el alto estimado
+   (contain-intrinsic-size) distinto al alto real, el navegador dejaba HUECOS EN
+   BLANCO / hacía "desaparecer" las tarjetas al hacer scroll o al saltar a una
+   categoría (scroll programático). Ahora siempre se pintan. El costo de render es
+   asumible para catálogos normales; si algún día hay miles de productos se puede
+   virtualizar la lista de forma explícita. */
 .store-body:not(.editing) .store-product-wrapper {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 240px;
-}
-
-@media (min-width: 900px) {
-  .store-body:not(.editing) .store-product-wrapper {
-    contain-intrinsic-size: auto 320px;
-  }
+  /* content-visibility desactivado a propósito (ver nota arriba). */
 }
 
 @media (min-width: 1200px) {
