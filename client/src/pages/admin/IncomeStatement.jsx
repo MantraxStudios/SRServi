@@ -193,8 +193,11 @@ function IncomeStatement() {
             <form onSubmit={addExpense}>
               <div className="form-group">
                 <label>Monto</label>
-                <input type="number" step="0.01" min="0" value={form.amount} required placeholder="0.00"
+                <input type="number" step="0.01" value={form.amount} required placeholder="0.00"
                   onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+                <small style={{ color: '#9ca3af', fontSize: 12 }}>
+                  Podés usar un monto negativo para registrar un retiro / devolución.
+                </small>
               </div>
               <div className="form-group">
                 <label>Categoría</label>

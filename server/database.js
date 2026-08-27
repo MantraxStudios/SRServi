@@ -6727,7 +6727,9 @@ export async function getStoreExpenses(storeId, from, to) {
 
 export async function addStoreExpense(storeId, { amount, description, category, expense_date }) {
   const amt = parseFloat(amount);
-  if (!amt || amt <= 0) throw new Error('Monto inválido');
+  // Se permiten montos NEGATIVOS (para registrar un retiro/devolución); solo se
+  // rechaza un monto vacío/no numérico o exactamente 0.
+  if (isNaN(amt) || amt === 0) throw new Error('Monto inválido');
   const date = expense_date || new Date().toISOString().slice(0, 10);
   const [result] = await pool.execute(
     'INSERT INTO store_expenses (store_id, amount, description, category, expense_date) VALUES (?, ?, ?, ?, ?)',
