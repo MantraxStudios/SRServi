@@ -3096,14 +3096,12 @@ html body .store-container .store-product-card * {
 }
 
 .store-product-image img {
-  /* La imagen LLENA la tarjeta cuadrada por igual en TODAS las pantallas
-     (mismo diseño en teléfono, tablet y tótem). Antes en pantallas chicas
-     usaba object-fit: contain, así que la imagen quedaba chica y descentrada
-     mientras que en pantallas grandes llenaba la tarjeta (cover) — se veía
-     distinto según el ancho. */
+  /* La imagen se muestra COMPLETA (sin recortar ni estirar) manteniendo su
+     proporción original. Antes usaba cover, que llenaba la tarjeta pero
+     recortaba los bordes de la imagen (se veía "cortada"). */
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   transition: transform var(--transition-slow);
   border-radius: 20px;
 }
@@ -3336,7 +3334,7 @@ html body .store-container .store-product-card * {
     height: 100%;
     max-width: none;
     max-height: none;
-    object-fit: cover;
+    object-fit: contain;
     border-radius: 22px;
   }
 }
