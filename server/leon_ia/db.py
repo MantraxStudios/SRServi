@@ -110,14 +110,26 @@ def get_store_data(store_id: int) -> dict:
             for r in rows
         ]
 
-        # Ventas por hora (última semana)
-        data["ventas_por_hora"] = fetch_all(cur, """
-            SELECT HOUR(created_at) AS hora, COUNT(*) AS pedidos
-            FROM orders
-            WHERE store_id = %s AND payment_process = 1 AND status NOT IN ('cancelled','canceled')
-              AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            GROUP BY HOUR(created_at) ORDER BY pedidos DESC LIMIT 8
-        """, (store_id,))
+        # Ventas por hora — intenta 7 días; si no hay ventas, amplía la ventana
+        # a 30 y luego 90 días para SIEMPRE poder responder "¿a qué hora vendo más?"
+        ventas_por_hora, ventana_horas = [], None
+        for dias in (7, 30, 90):
+            rows = fetch_all(cur, f"""
+                SELECT HOUR(created_at) AS hora, COUNT(*) AS pedidos
+                FROM orders
+                WHERE store_id = %s AND payment_process = 1 AND status NOT IN ('cancelled','canceled')
+                  AND created_at >= DATE_SUB(NOW(), INTERVAL {dias} DAY)
+                GROUP BY HOUR(created_at) ORDER BY pedidos DESC LIMIT 8
+            """, (store_id,))
+            if rows:
+                ventas_por_hora, ventana_horas = rows, dias
+                break
+        # Formato legible de la hora ("18:00–18:59") para que el modelo no dude
+        for r in ventas_por_hora:
+            h = int(r["hora"])
+            r["franja"] = f"{h:02d}:00–{h:02d}:59"
+        data["ventas_por_hora"] = ventas_por_hora
+        data["ventas_por_hora_ventana_dias"] = ventana_horas  # None = sin ventas registradas
 
         # Stock crítico
         data["stock_critico"] = fetch_all(cur, """
@@ -204,6 +216,53 @@ def get_store_data(store_id: int) -> dict:
         data["catalogo_ingredientes"] = fetch_all(cur, """
             SELECT name FROM ingredients WHERE store_id = %s ORDER BY name LIMIT 30
         """, (store_id,))
+
+        # ── Insights pre-digeridos (en español, listos para responder) ──────────
+        # Le damos al modelo conclusiones ya masticadas para que jamás caiga en
+        # consejos genéricos de industria: siempre responde con TUS números.
+        cur_sym = data.get("currency", "$")
+        insights = []
+
+        vh = data.get("ventas_por_hora") or []
+        if vh:
+            top = vh[0]
+            vent = data.get("ventas_por_hora_ventana_dias")
+            periodo = {7: "últimos 7 días", 30: "últimos 30 días", 90: "últimos 90 días"}.get(vent, "el período con datos")
+            top3 = ", ".join(f"{h['franja']} ({int(h['pedidos'])} pedidos)" for h in vh[:3])
+            insights.append(
+                f"La HORA en que más vendes es la franja {top['franja']} con {int(top['pedidos'])} pedidos "
+                f"(datos de los {periodo}). Top horarios: {top3}."
+            )
+        else:
+            insights.append(
+                "Aún NO hay ventas registradas para calcular tus horas pico. En cuanto tengas "
+                "pedidos completados podré decírtelo con exactitud."
+            )
+
+        vd = data.get("ventas_por_dia") or []
+        if vd:
+            d0 = vd[0]
+            insights.append(
+                f"El DÍA de la semana con más ventas es el {d0['dia']} "
+                f"({int(d0['pedidos'])} pedidos, {cur_sym}{int(d0['ingresos']):,} en el último mes)."
+            )
+
+        tp = data.get("top_productos") or []
+        if tp:
+            insights.append(
+                f"Tu producto MÁS VENDIDO esta semana es \"{tp[0]['name']}\" "
+                f"({int(tp[0]['unidades'])} unidades)."
+            )
+
+        vs = data.get("ventas_semana") or {}
+        if vs:
+            insights.append(
+                f"Esta semana llevas {vs.get('pedidos', 0)} pedidos y "
+                f"{cur_sym}{int(vs.get('ingresos', 0)):,} en ingresos "
+                f"(ticket promedio {cur_sym}{int(vs.get('ticket_promedio', 0)):,})."
+            )
+
+        data["resumen_para_responder"] = insights
 
     finally:
         cur.close()
