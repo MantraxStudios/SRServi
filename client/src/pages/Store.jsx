@@ -6025,6 +6025,15 @@ function Store() {
               )}
             </div>
           </div>
+          {seasonalTheme?.banner && (
+            <div
+              className="store-season-strip"
+              style={{ '--season-accent': seasonalTheme.colors.accent }}
+              title={seasonalTheme.name}
+            >
+              <span className="store-season-strip-text">{seasonalTheme.banner}</span>
+            </div>
+          )}
           {editMode && !previewMode && (
             <div className="store-banner-edit" onClick={() => bannerEditFileRef.current?.click()}>
               <div className="store-banner-edit-hint">
