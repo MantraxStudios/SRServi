@@ -71,14 +71,18 @@ export default function AccessGate({ token, onGoToPlans, onLogout }) {
           <FontAwesomeIcon icon={faSignOutAlt} /> Salir
         </button>
 
-        <div style={s.iconBox}><FontAwesomeIcon icon={faLock} style={{ fontSize: 26, color: GOLD }} /></div>
-        <h1 style={s.title}>Tu cuenta está bloqueada</h1>
+        <div style={s.iconBox}>
+          <FontAwesomeIcon icon={(!loading && !hasClaimedTrial) ? faGift : faLock} style={{ fontSize: 26, color: GOLD }} />
+        </div>
+        <h1 style={s.title}>
+          {(!loading && !hasClaimedTrial) ? '¡Ve por tu mes gratis! 🎁' : 'Activá tu plan para continuar'}
+        </h1>
         <p style={s.sub}>
           {loading || hasClaimedTrial ? (
             <>Para usar SRServi necesitás un plan activo. Podés <strong>contratar un plan</strong> o
             <strong> solicitar un acceso gratis</strong> justificando por qué lo necesitás (lo revisamos y aprobamos).</>
           ) : (
-            <>Para usar SRServi necesitás un plan activo. ¡Reclamá tu <strong>mes gratis</strong> ahora, sin tarjeta y sin aprobación!</>
+            <>¡Te damos la bienvenida a SRServi! Empezá gratis: reclamá tu <strong>mes gratis</strong> ahora, sin tarjeta y sin aprobación.</>
           )}
         </p>
 
