@@ -4381,8 +4381,12 @@ export async function createOrder(storeId, orderData) {
   const total = orderData.custom_total != null ? Number(orderData.custom_total) : couponData.total;
 
   const fromWorker = orderData.from_worker === true;
+  // Tarjeta ya cobrada fuera de línea (terminal por Bluetooth del SRServiReceiver
+  // en el tótem offline): el pago ya está aprobado, así que se registra como
+  // pagado directamente, sin pasar por el flujo de confirm-payment.
+  const cardPrepaid = payment_method === 'card' && orderData.payment_confirmed === true;
   const cashApproved = payment_method === 'card' ? true : fromWorker;
-  const paymentProcess = fromWorker ? 1 : 0;
+  const paymentProcess = (fromWorker || cardPrepaid) ? 1 : 0;
 
   const store = await getStoreById(storeId);
   const paidStatus = ['pending', 'completed'].includes(store?.paid_order_status) ? store.paid_order_status : 'pending';

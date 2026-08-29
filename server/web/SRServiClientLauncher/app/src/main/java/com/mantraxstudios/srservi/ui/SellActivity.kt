@@ -17,6 +17,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.WindowManager
 import android.webkit.DownloadListener
+import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -42,6 +43,9 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.mantraxstudios.srservi.R
 import com.mantraxstudios.srservi.admin.SRServiDeviceAdminReceiver
 import com.mantraxstudios.srservi.offline.OfflineRepository
+import com.mantraxstudios.srservi.offline.StoreInfo
+import com.mantraxstudios.srservi.payment.BluetoothReceiverClient
+import com.mantraxstudios.srservi.payment.OfflinePaymentProcessor
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
@@ -224,6 +228,10 @@ class SellActivity : AppCompatActivity() {
         settings.allowFileAccess = true
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
 
+        // Puente nativo: permite que el tótem cobre con tarjeta por Bluetooth
+        // (SRServiReceiver) cuando se cae internet.
+        webView.addJavascriptInterface(AndroidBridge(), "AndroidBridge")
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
                 view.loadUrl(url)
@@ -291,6 +299,82 @@ class SellActivity : AppCompatActivity() {
                 }
                 return true
             }
+        }
+    }
+
+    // ── Puente nativo para el cobro con la máquina ────────────────────────────
+    /**
+     * El tótem llama `window.AndroidBridge.processTuuPayment(amount, method, orderRef)` y
+     * espera el resultado vía `window.onTuuPaymentResult(JSON.stringify({approved}))`.
+     * Si hay un equipo SRServiReceiver emparejado, el cobro se reenvía por Bluetooth
+     * (el receptor tiene el terminal/internet); si no, se cobra directo desde este equipo.
+     */
+    inner class AndroidBridge {
+        @JavascriptInterface
+        fun processTuuPayment(amount: Int, method: Int, orderRef: String) {
+            val terminals = OfflineRepository.loadTerminals(this@SellActivity)
+            val terminal = terminals.find { it.provider.equals("tuu", true) }
+                ?: terminals.find { OfflinePaymentProcessor.isAutoCharge(it.provider) }
+
+            // Sin terminal local pero con receptor Bluetooth: el receptor usa su
+            // propio terminal, así que igual se puede cobrar.
+            if (terminal == null && !BluetoothReceiverClient.isReceiverAvailable(this@SellActivity)) {
+                sendTuuResult(false)
+                runOnUiThread { Toast.makeText(this@SellActivity, "No hay terminal configurado", Toast.LENGTH_LONG).show() }
+                return
+            }
+            val store = OfflineRepository.loadStore(this@SellActivity)?.store ?: StoreInfo()
+
+            // 1) Receptor Bluetooth emparejado → delegar el cobro.
+            if (BluetoothReceiverClient.isReceiverAvailable(this@SellActivity)) {
+                Thread {
+                    val r = BluetoothReceiverClient.pay(
+                        ctx = this@SellActivity,
+                        provider = terminal?.provider ?: "tuu",
+                        amount = amount.toDouble(),
+                        currency = store.currencyCode,
+                        token = terminal?.apiKey,
+                        deviceId = terminal?.deviceId,
+                        orderRef = orderRef,
+                        method = method
+                    )
+                    if (r.available) {
+                        sendTuuResult(r.approved)
+                    } else if (terminal != null) {
+                        chargeDirect(store, terminal, amount)
+                    } else {
+                        sendTuuResult(false)
+                    }
+                }.start()
+                return
+            }
+
+            // 2) Sin receptor → cobro directo desde este equipo (requiere internet local).
+            chargeDirect(store, terminal!!, amount)
+        }
+
+        private fun chargeDirect(store: StoreInfo, terminal: com.mantraxstudios.srservi.offline.PosTerminal, amount: Int) {
+            OfflinePaymentProcessor.process(store, terminal, amount.toDouble(), "pos", object : OfflinePaymentProcessor.Callback {
+                override fun onProgress(message: String) { /* el tótem ya muestra su propio spinner */ }
+                override fun onResult(result: OfflinePaymentProcessor.PaymentResult) {
+                    sendTuuResult(result is OfflinePaymentProcessor.PaymentResult.Approved)
+                }
+            })
+        }
+
+        // ¿Hay un equipo SRServiReceiver emparejado? El tótem lo consulta para
+        // mostrar el botón de tarjeta aunque esté offline.
+        @JavascriptInterface
+        fun hasReceiver(): Boolean = BluetoothReceiverClient.isReceiverAvailable(this@SellActivity)
+
+        @JavascriptInterface
+        fun isAvailable(): Boolean = true
+    }
+
+    private fun sendTuuResult(approved: Boolean) {
+        runOnUiThread {
+            val js = "window.onTuuPaymentResult && window.onTuuPaymentResult(JSON.stringify({approved:$approved}))"
+            webView.evaluateJavascript(js, null)
         }
     }
 

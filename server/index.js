@@ -8049,7 +8049,7 @@ app.delete('/api/promos/:id', authenticateToken, async (req, res) => {
 app.post('/api/orders', async (req, res) => {
   try {
     const { store_id, items, order_type, payment_method, coupon_code, from_worker, delivery, table_number, persons, custom_total, total, terminal_id,
-            source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone, event_name, show_time, customer_comment, client_uid, tip_amount } = req.body;
+            source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone, event_name, show_time, customer_comment, client_uid, tip_amount, payment_confirmed } = req.body;
 
     if (!store_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
@@ -8063,7 +8063,7 @@ app.post('/api/orders', async (req, res) => {
       custom_total: resolvedTotal, terminal_id: terminal_id ? parseInt(terminal_id) : null,
       source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone,
       event_name: event_name || null, show_time: show_time || null, customer_comment: customer_comment || null,
-      client_uid: client_uid || null, tip_amount: tip_amount || 0
+      client_uid: client_uid || null, tip_amount: tip_amount || 0, payment_confirmed: payment_confirmed === true
     });
 
     // Pedido offline ya existente (sincronización repetida): no reprocesar hooks,
@@ -8092,9 +8092,18 @@ app.post('/api/orders', async (req, res) => {
 
     if (pluginManager) {
       pluginManager.hooks.emit('order_created', { store_id: parseInt(store_id), order });
-      if (payment_method === 'cash' || payment_method === 'free') {
+      if (payment_method === 'cash' || payment_method === 'free' || (payment_method === 'card' && payment_confirmed === true)) {
         pluginManager.hooks.emit('payment_completed', { store_id: parseInt(store_id), order, payment_method });
       }
+    }
+
+    // Tarjeta ya cobrada offline (terminal Bluetooth): avisar a caja/cocina en vivo
+    // que la venta está pagada, igual que una confirmación de pago normal.
+    if (payment_method === 'card' && payment_confirmed === true) {
+      try {
+        const items = await getOrderItems(order.id);
+        io.to(`store_${parseInt(store_id)}`).emit('payment_confirmed', { ...order, items });
+      } catch (_) { /* la orden igual quedó registrada como pagada */ }
     }
 
     // Imprimir comprobante en terminal MercadoPago para pedidos de efectivo

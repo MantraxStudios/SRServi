@@ -1295,6 +1295,9 @@ function Store() {
   const [tuuPaymentKey, setTuuPaymentKey] = useState(null);
   const [squarePaymentKey, setSquarePaymentKey] = useState(null);
   const [androidBridgeAvailable, setAndroidBridgeAvailable] = useState(false);
+  // ¿Hay un equipo SRServiReceiver emparejado por Bluetooth? Permite cobrar con
+  // TARJETA aunque el tótem esté offline (el receptor tiene el terminal/internet).
+  const [bridgeHasReceiver, setBridgeHasReceiver] = useState(false);
   const [haulmerNative, setHaulmerNative] = useState(false);
   const [haulmerReference, setHaulmerReference] = useState(null);
   const [deviceUid] = useState(() => {
@@ -4040,12 +4043,16 @@ function Store() {
     }
   };
 
-  // Detectar puente nativo Android (WebViewActivity)
+  // Detectar puente nativo Android (app launcher). Se detecta SIEMPRE (no sólo en
+  // modo tuumodepay) para que el tótem normal pueda cobrar con tarjeta por
+  // Bluetooth cuando se cae internet.
   useEffect(() => {
-    if (!tuuModePayFromUrl) return;
     const check = () => {
       if (window.AndroidBridge) {
         setAndroidBridgeAvailable(true);
+        // Consultar si hay un receptor Bluetooth emparejado (método opcional en
+        // versiones antiguas del puente → se asume que no hay).
+        try { setBridgeHasReceiver(window.AndroidBridge.hasReceiver?.() === true); } catch { /* noop */ }
         return true;
       }
       return false;
@@ -4054,15 +4061,27 @@ function Store() {
     const interval = setInterval(() => { if (check()) clearInterval(interval); }, 300);
     const timeout = setTimeout(() => clearInterval(interval), 10000);
     return () => { clearInterval(interval); clearTimeout(timeout); };
-  }, [tuuModePayFromUrl]);
+  }, []);
 
-  // Pago con terminal TUU local (app Android → Intent → TUU)
+  // Reconsultar el receptor Bluetooth al perder conexión (el operador pudo
+  // encender/emparejar el receptor justo antes de quedarse sin internet).
+  useEffect(() => {
+    if (isOnline || !androidBridgeAvailable) return;
+    try { setBridgeHasReceiver(window.AndroidBridge?.hasReceiver?.() === true); } catch { /* noop */ }
+  }, [isOnline, androidBridgeAvailable]);
+
+  // Pago con terminal por el puente nativo Android (app launcher). El nativo
+  // cobra con la máquina: directo (terminal local) o, si el tótem está offline,
+  // reenviando el cobro por Bluetooth al equipo SRServiReceiver.
   // method: 1 = crédito, 2 = débito
+  //
+  // Cobra PRIMERO y sólo registra la venta si el pago se aprueba. La venta se
+  // registra de forma resiliente: si hay servidor, se crea online; si no, se
+  // encola OFFLINE (ya marcada como pagada) y se sincroniza al volver la red.
   const handleAndroidTuuPayment = async (method) => {
     if (!window.AndroidBridge || cart.length === 0) return;
-    // Sin monto a cobrar → no se envía al terminal TUU; se registra pagado.
+    // Sin monto a cobrar → no se envía al terminal; se registra pagado.
     if (getFinalTotal() <= 0) return processFreeOrder();
-    setProcessingPayment(true);
     setPaymentError(null);
     const finalTotal = getFinalTotal();
     const storeId = store.store.id;
@@ -4089,73 +4108,67 @@ function Store() {
         ...(item._isPromo ? { promo_title: item.promo_title } : {})
       }];
     });
-    try {
-      const orderRes = await fetch(API + '/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          store_id: storeId, order_type: orderType, payment_method: 'card',
-          items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-          total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: false, table_number: null, terminal_id: null,
-          customer_comment: paymentComment || null
-        })
-      });
-      if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
-      const order = await orderRes.json();
-      const amount = Math.round(Number(finalTotal));
-      const orderRef = String(order.order_number || order.id);
-      setProcessingPayment(false);
-      setPaymentModalOpen(false);
-      setPendingOrderData({ order, storeId });
-      setAndroidTuuWaiting(true);
-      setPaymentWaiting(true);
-      setPaymentTimeLeft(300);
+    const amount = Math.round(Number(finalTotal));
+    const client_uid = newClientUid();
+    const orderRef = 'OFF-' + client_uid.slice(-5).toUpperCase();
 
-      window.onTuuPaymentResult = async (result) => {
-        const data = typeof result === 'string' ? JSON.parse(result) : result;
-        if (data.approved) {
-          try {
-            await fetch(`${API}/api/orders/${order.id}/confirm-payment`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ store_id: storeId })
-            });
-          } catch (e) { console.error('Error confirming payment:', e); }
-          setAndroidTuuWaiting(false);
-          setPaymentWaiting(false);
-          setPaymentConfirmed(true);
-          setLastOrderNumber(order.order_number);
-  
-          if (billingTableId) { refreshTableOrders(); setBillingTableId(null); }
-          setCart([]);
-          setCartOpen(false);
-          setPaymentModalOpen(false);
-  
-        } else {
-          fetch(`${API}/api/orders/${order.id}/cancel-payment`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ store_id: storeId })
-          }).catch(() => {});
-          setAndroidTuuWaiting(false);
-          setPaymentWaiting(false);
-          setProcessingPayment(false);
-          setPaymentCancelled(true);
+    setPaymentModalOpen(false);
+    setAndroidTuuWaiting(true);
+    setPaymentWaiting(true);
+    setPaymentTimeLeft(300);
+
+    window.onTuuPaymentResult = async (result) => {
+      const data = typeof result === 'string' ? JSON.parse(result) : result;
+      if (data.approved) {
+        // Pago aprobado → registrar la venta (online o encolada offline) como
+        // tarjeta ya pagada (payment_confirmed).
+        let order, offline;
+        try {
+          ({ order, offline } = await submitOrderResilient({
+            store_id: storeId, order_type: orderType, payment_method: 'card',
+            payment_confirmed: true,
+            items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
+            total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()),
+            customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null,
+            delivery: false, table_number: null, terminal_id: null,
+            customer_comment: paymentComment || null, client_uid
+          }));
+        } catch (e) {
+          console.error('Error registrando venta con tarjeta:', e);
+          order = { id: null, order_number: orderRef, total: finalTotal }; offline = true;
         }
-      };
+        recordStampPurchase();
+        printAndroidReceipt(order.order_number, 'card');
+        setAndroidTuuWaiting(false);
+        setPaymentWaiting(false);
+        setPaymentConfirmed(true);
+        setLastOrderNumber(order.order_number);
+        setPendingOrderData({ order, storeId });
+        if (!offline && billingTableId) { refreshTableOrders(); setBillingTableId(null); }
+        setCart([]);
+        setCartOpen(false);
+        setPaymentModalOpen(false);
+      } else {
+        // Rechazado/cancelado: no se registró ninguna venta (cobro primero).
+        setAndroidTuuWaiting(false);
+        setPaymentWaiting(false);
+        setProcessingPayment(false);
+        setPaymentCancelled(true);
+      }
+    };
 
-      window.AndroidBridge.processTuuPayment(amount, method, orderRef);
-    } catch (err) {
-      setAndroidTuuWaiting(false);
-      setPaymentWaiting(false);
-      setPaymentError(err.message);
-      setProcessingPayment(false);
-      alert(err.message);
-    }
+    window.AndroidBridge.processTuuPayment(amount, method, orderRef);
   };
 
+  // Cobro por el puente nativo (botones DÉBITO/CRÉDITO/Efectivo): en modo
+  // tuumodepay (POS offline nativo) o cuando el tótem normal se queda sin
+  // internet pero hay un receptor Bluetooth para cobrar con tarjeta.
+  const useBridgeCheckout = androidBridgeAvailable && (tuuModePayFromUrl || (!isOnline && bridgeHasReceiver));
+
   useEffect(() => {
-    if (!paymentWaiting || !pendingOrderData) return;
+    if (!paymentWaiting) return;
+    // El cobro por el puente (Bluetooth/terminal) no crea el pedido hasta aprobar,
+    // así que su cuenta regresiva corre sin pendingOrderData.
     if (androidTuuWaiting) {
       const timerInterval = setInterval(() => {
         setPaymentTimeLeft(prev => {
@@ -4171,6 +4184,7 @@ function Store() {
       }, 1000);
       return () => clearInterval(timerInterval);
     }
+    if (!pendingOrderData) return;
 
     const orderId = pendingOrderData.order.id;
     const storeId = pendingOrderData.storeId;
@@ -8318,8 +8332,9 @@ function Store() {
                 )}
                 <div className="flex flex-col" style={{ gap: '15px' }}>
                   {/* Puente nativo (app launcher): cobra vía Bluetooth/terminal. Funciona
-                      aunque el tótem esté offline; solo aparece si existe AndroidBridge. */}
-                  {tuuModePayFromUrl && androidBridgeAvailable && (
+                      aunque el tótem esté offline; aparece en modo tuumodepay o cuando
+                      no hay internet pero hay un receptor Bluetooth emparejado. */}
+                  {useBridgeCheckout && (
                     <>
                       <button
                         onClick={() => handleAndroidTuuPayment(2)}
@@ -8351,7 +8366,7 @@ function Store() {
                       </button>
                     </>
                   )}
-                  {!tuuModePayFromUrl && (() => {
+                  {!useBridgeCheckout && (() => {
                     const delivMethods = (selectedConfiguration?.delivery_payment_methods || 'tuu,mercadopago').split(',').map(m => m.trim());
                     const delivAllowsTuu = delivMethods.includes('tuu');
                     const delivAllowsMP = delivMethods.includes('mercadopago');

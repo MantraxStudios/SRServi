@@ -192,6 +192,10 @@ class OfflinePosActivity : AppCompatActivity() {
             })
         }
 
+        // ¿Hay un equipo SRServiReceiver emparejado? (el tótem lo consulta).
+        @JavascriptInterface
+        fun hasReceiver(): Boolean = BluetoothReceiverClient.isReceiverAvailable(this@OfflinePosActivity)
+
         // Compat: algunos flujos consultan disponibilidad del puente.
         @JavascriptInterface
         fun isAvailable(): Boolean = true
