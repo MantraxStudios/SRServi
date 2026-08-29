@@ -1,4 +1,4 @@
-const CACHE = 'srservi-v6';
+const CACHE = 'srservi-v7';
 
 const MAINTENANCE_HTML = `<!DOCTYPE html>
 <html lang="es">

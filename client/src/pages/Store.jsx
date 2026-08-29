@@ -1295,9 +1295,6 @@ function Store() {
   const [tuuPaymentKey, setTuuPaymentKey] = useState(null);
   const [squarePaymentKey, setSquarePaymentKey] = useState(null);
   const [androidBridgeAvailable, setAndroidBridgeAvailable] = useState(false);
-  // ¿Hay un equipo SRServiReceiver emparejado por Bluetooth? Permite cobrar con
-  // TARJETA aunque el tótem esté offline (el receptor tiene el terminal/internet).
-  const [bridgeHasReceiver, setBridgeHasReceiver] = useState(false);
   const [haulmerNative, setHaulmerNative] = useState(false);
   const [haulmerReference, setHaulmerReference] = useState(null);
   const [deviceUid] = useState(() => {
@@ -4044,15 +4041,12 @@ function Store() {
   };
 
   // Detectar puente nativo Android (app launcher). Se detecta SIEMPRE (no sólo en
-  // modo tuumodepay) para que el tótem normal pueda cobrar con tarjeta por
-  // Bluetooth cuando se cae internet.
+  // modo tuumodepay) para que el tótem normal pueda cobrar con tarjeta por el
+  // puente (Bluetooth al SRServiReceiver / terminal TUU) cuando se cae internet.
   useEffect(() => {
     const check = () => {
       if (window.AndroidBridge) {
         setAndroidBridgeAvailable(true);
-        // Consultar si hay un receptor Bluetooth emparejado (método opcional en
-        // versiones antiguas del puente → se asume que no hay).
-        try { setBridgeHasReceiver(window.AndroidBridge.hasReceiver?.() === true); } catch { /* noop */ }
         return true;
       }
       return false;
@@ -4062,13 +4056,6 @@ function Store() {
     const timeout = setTimeout(() => clearInterval(interval), 10000);
     return () => { clearInterval(interval); clearTimeout(timeout); };
   }, []);
-
-  // Reconsultar el receptor Bluetooth al perder conexión (el operador pudo
-  // encender/emparejar el receptor justo antes de quedarse sin internet).
-  useEffect(() => {
-    if (isOnline || !androidBridgeAvailable) return;
-    try { setBridgeHasReceiver(window.AndroidBridge?.hasReceiver?.() === true); } catch { /* noop */ }
-  }, [isOnline, androidBridgeAvailable]);
 
   // Pago con terminal por el puente nativo Android (app launcher). El nativo
   // cobra con la máquina: directo (terminal local) o, si el tótem está offline,
@@ -4162,8 +4149,9 @@ function Store() {
 
   // Cobro por el puente nativo (botones DÉBITO/CRÉDITO/Efectivo): en modo
   // tuumodepay (POS offline nativo) o cuando el tótem normal se queda sin
-  // internet pero hay un receptor Bluetooth para cobrar con tarjeta.
-  const useBridgeCheckout = androidBridgeAvailable && (tuuModePayFromUrl || (!isOnline && bridgeHasReceiver));
+  // internet. El nativo decide cómo cobrar la tarjeta: por Bluetooth al equipo
+  // SRServiReceiver (que tiene el terminal TUU) o directo si hay internet local.
+  const useBridgeCheckout = androidBridgeAvailable && (tuuModePayFromUrl || !isOnline);
 
   useEffect(() => {
     if (!paymentWaiting) return;
