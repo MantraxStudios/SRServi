@@ -150,22 +150,47 @@ export async function tryLinkReadyNotify(storeId, jid, text, sock) {
   const hasIntent = /(avis|listo|aviso|notif|liste?[nm])/i.test(t);
   if (!numMatch || !hasIntent) return false;
 
-  const orderNumber = numMatch[1].toUpperCase();
+  // Normalizamos: quitamos todo lo que no sea letra/dígito y pasamos a mayúsculas
+  // ("#h83", " H83 ", "h-83" → "H83") para comparar contra order_number igual de
+  // normalizado en la BD. Así toleramos espacios, guiones y minúsculas.
+  const orderNumber = numMatch[1].replace(/[^a-z0-9]/gi, '').toUpperCase();
   if (!orderNumber) return false;
 
-  // Buscar la orden reciente (últimas 24 h) con ese número en esta tienda.
-  // Comparación case-insensitive para tolerar "f13" vs "F13".
+  // Buscamos por número normalizado, la MÁS RECIENTE de esta tienda. No filtramos
+  // por fecha con INTERVAL (era frágil ante zona horaria y dejaba pedidos fuera);
+  // ORDER BY id DESC ya elige el pedido recién creado y evita reusos antiguos.
   const [rows] = await pool.execute(
-    `SELECT id, order_number FROM orders
-     WHERE store_id = ? AND UPPER(order_number) = ? AND created_at >= (NOW() - INTERVAL 1 DAY)
+    `SELECT id, order_number, store_id FROM orders
+     WHERE store_id = ?
+       AND UPPER(REPLACE(REPLACE(REPLACE(order_number,'#',''),'-',''),' ','')) = ?
      ORDER BY id DESC LIMIT 1`,
     [storeId, orderNumber]
   );
-  const order = rows[0];
+  let order = rows[0];
   const phone = jid.split('@')[0].replace(/[^0-9]/g, '');
 
+  // Diagnóstico: si no aparece en esta tienda, buscamos en cualquier tienda para
+  // saber si es un problema de store_id (WhatsApp conectado en otra tienda) o si
+  // el pedido de verdad no existe. Registramos el resultado en consola.
   if (!order) {
-    await sock.sendMessage(jid, { text: `No encontré un pedido reciente con el número #${orderNumber} 🤔. Revisa el número en tu comprobante e inténtalo de nuevo.` });
+    try {
+      const [any] = await pool.execute(
+        `SELECT id, store_id, order_number, created_at FROM orders
+         WHERE UPPER(REPLACE(REPLACE(REPLACE(order_number,'#',''),'-',''),' ','')) = ?
+         ORDER BY id DESC LIMIT 3`,
+        [orderNumber]
+      );
+      console.log(`[Bot:${storeId}] Aviso: no encontré "#${orderNumber}" en la tienda ${storeId}. Coincidencias en cualquier tienda:`, JSON.stringify(any));
+      // Si existe exactamente en otra tienda y solo hay una, la usamos igual
+      // (negocio con varias tiendas pero un solo WhatsApp).
+      if (any.length === 1) order = any[0];
+    } catch (e) {
+      console.error(`[Bot:${storeId}] Error en diagnóstico de aviso:`, e.message);
+    }
+  }
+
+  if (!order) {
+    await sock.sendMessage(jid, { text: `No encontré un pedido reciente con el número *${orderNumber}* 🤔. Revisa el número en tu comprobante e inténtalo de nuevo.` });
     return true;
   }
 

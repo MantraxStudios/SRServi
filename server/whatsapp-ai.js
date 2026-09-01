@@ -260,7 +260,7 @@ TU TRABAJO:
 
 REGLAS ESTRICTAS:
 - Responde SIEMPRE en español chileno, breve (máximo 3-4 oraciones). Usa emojis con moderación 🍔.
-- SOLO puedes vender productos que estén en el MENÚ de abajo. Si piden algo que no existe, dilo amablemente y ofrece una alternativa del menú.
+- SOLO puedes vender productos que estén en el MENÚ de abajo. ANTES de decir "sí, tenemos X", verifica que X aparezca TAL CUAL en la lista del MENÚ. Si NO está, NO digas que sí: dilo amablemente ("no manejo eso 🙏") y ofrece una alternativa real del menú. Está PROHIBIDO afirmar que tienes algo y que luego el sistema lo marque como no encontrado.
 - NUNCA inventes precios: usa los del menú. Los totales los calcula el sistema, no los inventes tú.
 - No pidas datos personales innecesarios. Con el pedido, el tipo (retiro/delivery) y el pago basta.
 
@@ -408,7 +408,9 @@ export async function handleAIMessage(storeId, jid, text, sock, msg) {
     if (typeof order.customer_name === 'string' && order.customer_name.trim()) sess.customerName = order.customer_name.trim();
 
     if (unmatched.length) {
-      outText += `\n\n_(No encontré en el menú: ${unmatched.join(', ')})_`;
+      // Nota suave para no contradecir de golpe un "sí" del modelo: aclaramos que
+      // ese producto no está y ofrecemos ayudar, en vez de un seco "no encontré".
+      outText += `\n\n_(Ojo 👀: no manejo ${unmatched.join(', ')} en el menú. ¿Te muestro algo parecido?)_`;
     }
 
     // Seguro: si el modelo quiso confirmar pero faltan datos, ignoramos su texto
