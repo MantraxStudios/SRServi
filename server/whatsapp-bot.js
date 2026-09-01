@@ -1,4 +1,5 @@
 import { pool, createOrder } from './database.js';
+import { handleAIMessage } from './whatsapp-ai.js';
 
 // In-memory sessions per store+jid
 const sessions = new Map();
@@ -135,6 +136,15 @@ async function tryFAQ(t, storeId, send) {
 }
 
 export async function handleBotMessage(storeId, jid, text, sock) {
+  // 1º intento: mesero virtual conversacional con Ollama (IA). Si Ollama no está
+  // disponible o falla, devuelve false y caemos al menú clásico por números.
+  try {
+    const handled = await handleAIMessage(storeId, jid, text, sock);
+    if (handled) return;
+  } catch (err) {
+    console.error(`[Bot:${storeId}] IA no disponible, usando menú clásico:`, err.message);
+  }
+
   const sess = getSession(storeId, jid);
   const t = (text || '').trim().toLowerCase();
   const send = (msg) => sock.sendMessage(jid, { text: msg });
