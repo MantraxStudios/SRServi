@@ -70,15 +70,20 @@ async function maybeFiller(sock, jid) {
   await sock.sendMessage(jid, { text: FILLERS[rand(0, FILLERS.length - 1)] });
 }
 
-// Envía como humano: muestra "escribiendo…" y espera una pausa natural. El
-// retardo se calcula contra el tiempo ya transcurrido "pensando" (la llamada a
-// Ollama ya es una pausa real), para no acumular esperas eternas ni responder
-// de golpe cuando el modelo es muy rápido.
-async function humanSend(sock, jid, text, { startedAt = Date.now(), min = 3000, max = 5000 } = {}) {
+// Envía como humano: muestra "escribiendo…" y espera un rato PROPORCIONAL al
+// largo del texto (como si lo estuviera tecleando), más un pequeño tiempo de
+// "leer/pensar". Se descuenta el tiempo ya transcurrido (la llamada a Ollama ya
+// es una pausa real) y se topa con un máximo para no eternizarse.
+const TYPE_MS_PER_CHAR = 55;   // velocidad de tipeo (~ una persona en el celu)
+const TYPE_MAX_WAIT = 8000;    // tope de espera por mensaje
+async function humanSend(sock, jid, text, { startedAt = Date.now(), floor = 1200 } = {}) {
   await setTyping(sock, jid, true);
-  const target = rand(min, max);
+  const chars = (text || '').length;
+  const think = rand(500, 1300);
+  const perChar = TYPE_MS_PER_CHAR + rand(-10, 15);
+  const target = Math.min(TYPE_MAX_WAIT, think + chars * perChar);
   const elapsed = Date.now() - startedAt;
-  const wait = Math.max(1200, target - elapsed);
+  const wait = Math.max(floor, target - elapsed);
   await sleep(wait);
   await setTyping(sock, jid, false);
   await sock.sendMessage(jid, { text });
@@ -233,10 +238,11 @@ function buildSystemPrompt(storeInfo, flat, cart) {
     return `${cat}:\n${items}`;
   }).join('\n');
 
-  const infoBits = [];
-  if (storeInfo.address) infoBits.push(`Dirección: ${storeInfo.address}`);
-  if (storeInfo.opening_hours) infoBits.push(`Horario: ${storeInfo.opening_hours}`);
-  const infoBlock = infoBits.length ? `\nINFORMACIÓN DE LA TIENDA:\n${infoBits.join('\n')}\n` : '';
+  const hours = (storeInfo.opening_hours || '').trim();
+  const address = (storeInfo.address || '').trim();
+  const infoBlock = `\nINFORMACIÓN DE LA TIENDA (úsala para responder dudas):\n` +
+    `- Horario de atención: ${hours || 'NO CONFIGURADO — si preguntan por el horario, di con amabilidad que en este momento no tienes el horario a mano y que te confirman escribiendo, o que pueden pasar en el horario habitual del local. NUNCA inventes horas.'}\n` +
+    `- Dirección: ${address || 'NO CONFIGURADA — si preguntan la dirección, di amablemente que no la tienes a mano por aquí y que pueden consultarla al local. NUNCA inventes una dirección.'}\n`;
 
   const cartBlock = cart.length
     ? `\nPEDIDO ACTUAL DEL CLIENTE (ya registrado por ti):\n${cart.map(i => `  - ${i.name} x${i.qty}`).join('\n')}\n`
@@ -248,7 +254,7 @@ TU TRABAJO:
 - Saludar, recomendar y tomar el pedido conversando de forma natural.
 - Entender lo que el cliente quiere aunque lo diga informal ("un completo italiano y una bebida", "ponme dos churrascos", "quiero algo pa' picar").
 - Confirmar el pedido, preguntar si es para retirar/comer aquí o delivery, y cómo paga (efectivo o tarjeta).
-- Responder dudas de horario, dirección y precios usando SOLO la info de abajo.
+- Responder dudas de HORARIO, dirección y precios usando SOLO la "INFORMACIÓN DE LA TIENDA" de abajo. Si el cliente pregunta a qué hora abren/cierran o si están abiertos, responde con el horario de atención indicado; nunca lo dejes sin respuesta.
 
 REGLAS ESTRICTAS:
 - Responde SIEMPRE en español chileno, breve (máximo 3-4 oraciones). Usa emojis con moderación 🍔.
@@ -343,13 +349,13 @@ export async function handleAIMessage(storeId, jid, text, sock, msg) {
   // Comando de escape universal
   if (['cancelar', 'salir', 'reiniciar'].includes(normalize(t))) {
     resetAISession(storeId, jid);
-    await send('Listo, cancelé todo 👋. Escríbeme cuando quieras pedir algo.', { min: 1400, max: 2600 });
+    await send('Listo, cancelé todo 👋. Escríbeme cuando quieras pedir algo.');
     return true;
   }
 
   const { flat, storeInfo } = await loadMenu(storeId);
   if (!flat.length) {
-    await send('Por ahora no tengo productos cargados para tomar tu pedido 🙏. Escríbenos directamente y te ayudamos.', { min: 1400, max: 2600 });
+    await send('Por ahora no tengo productos cargados para tomar tu pedido 🙏. Escríbenos directamente y te ayudamos.');
     return true;
   }
 
@@ -408,7 +414,7 @@ export async function handleAIMessage(storeId, jid, text, sock, msg) {
       sess.history.push({ role: 'user', content: t });
       sess.history.push({ role: 'assistant', content: outText });
       if (sess.history.length > 16) sess.history = sess.history.slice(-16);
-      await send(outText, { min: 2500, max: 4500 });
+      await send(outText);
       return true;
     }
 
@@ -448,6 +454,6 @@ export async function handleAIMessage(storeId, jid, text, sock, msg) {
   sess.history.push({ role: 'assistant', content: outText });
   if (sess.history.length > 16) sess.history = sess.history.slice(-16);
 
-  await send(outText, { min: 3500, max: 6000 });
+  await send(outText);
   return true;
 }
