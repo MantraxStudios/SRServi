@@ -74,10 +74,39 @@ import {
   faFont,
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+import { QRCodeCanvas } from 'qrcode.react';
 
 // Distancia de scroll (px) sobre la que el banner del tótem se desvanece por
 // completo al bajar — ver handleStoreMainScroll.
 const BANNER_FADE_DIST = 64;
+
+// QR "avísame cuando esté listo": el cliente lo escanea con su celular, se abre
+// WhatsApp con un mensaje que incluye el número de pedido y, al enviarlo, el bot
+// vincula su número a esa orden y le avisa cuando esté lista. Reemplaza el pedir
+// el teléfono a mano. Solo se muestra si el bot está conectado (botPhone) y hay
+// número de orden.
+function ReadyNotifyQR({ botPhone, orderNumber }) {
+  if (!botPhone || !orderNumber) return null;
+  const digits = String(botPhone).replace(/[^0-9]/g, '');
+  const msg = `Hola! 👋 Avísenme cuando esté listo mi pedido #${orderNumber}`;
+  const waUrl = `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
+  return (
+    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 14, padding: 16, marginBottom: 14, textAlign: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 6, color: '#15803d', fontWeight: 700, fontSize: 14 }}>
+        <FontAwesomeIcon icon={faWhatsapp} style={{ color: '#25D366', fontSize: 18 }} />
+        Te avisamos cuando esté listo
+      </div>
+      <p style={{ fontSize: 12, color: '#555', margin: '0 0 12px' }}>
+        Escanea este código con tu celular y envía el mensaje. Te avisaremos por WhatsApp apenas tu pedido esté listo. 📲
+      </p>
+      <div style={{ display: 'inline-block', background: '#fff', padding: 10, borderRadius: 12, border: '1px solid #e5e7eb' }}>
+        <a href={waUrl} target="_blank" rel="noreferrer">
+          <QRCodeCanvas value={waUrl} size={150} level="M" />
+        </a>
+      </div>
+    </div>
+  );
+}
 
 // Códigos telefónicos para el selector de país del modal de WhatsApp.
 // Chile primero (default del tótem), luego el resto alfabético por nombre.
@@ -3557,14 +3586,9 @@ function Store() {
     // por completo al modal del teléfono (quedaba "detrás" y no se veía).
     setCartOpen(false);
 
-    // Si la tienda pide avisar por WhatsApp cuando el pedido esté listo, primero
-    // hay que pedir el teléfono del cliente en su propio modal (teclado numérico)
-    // antes de mostrar cualquier otro modal de pago. Solo se pregunta una vez
-    // por pedido — se puede confirmar u omitir.
-    if (!!store?.store?.whatsapp_ready_notify && !(restaurantMode && activeTable) && !phoneAskedRef.current) {
-      setPhoneModalOpen(true);
-      return;
-    }
+    // Nota: ya no se pide el teléfono a mano. Si la tienda activó el aviso por
+    // WhatsApp, al final del pedido se muestra un QR (ReadyNotifyQR) que el
+    // cliente escanea para recibir el aviso "listo" en su propio WhatsApp.
 
     // Modo restaurante: solo confirmar pedido, agregar a mesa, sin cobrar
     if (restaurantMode && activeTable) {
@@ -8691,6 +8715,8 @@ function Store() {
                   </div>
                 )}
 
+                <ReadyNotifyQR botPhone={store?.store?.whatsapp_bot_phone} orderNumber={qrPaymentResult.order?.order_number} />
+
                 <div style={{ background: '#f8f8f8', borderRadius: '10px', padding: '12px', marginBottom: '14px', fontSize: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
                     <span style={{ color: '#888' }}>{t('amount', lang)}</span>
@@ -8759,6 +8785,7 @@ function Store() {
                 <p className="font-bold" style={{ fontSize: '48px', margin: 0 }}>{lastOrderNumber}</p>
               </div>
             )}
+            <ReadyNotifyQR botPhone={store?.store?.whatsapp_bot_phone} orderNumber={lastOrderNumber} />
             {deliveryMode && lastOrderNumber && (
               <button
                 onClick={() => downloadReceiptPng(lastOrderNumber, pendingOrderData?.order?.total)}
@@ -9016,6 +9043,7 @@ function Store() {
                 <p className="font-bold" style={{ fontSize: '48px', margin: 0 }}>{lastOrderNumber}</p>
               </div>
             )}
+            <ReadyNotifyQR botPhone={store?.store?.whatsapp_bot_phone} orderNumber={lastOrderNumber} />
             {deliveryMode && lastOrderNumber && (
               <button
                 onClick={() => downloadReceiptPng(lastOrderNumber, pendingOrderData?.order?.total, true)}

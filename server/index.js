@@ -1422,7 +1422,13 @@ app.get('/api/public/:code', async (req, res) => {
         show_top_selling: store.show_top_selling ?? true,
         complements_label: store.complements_label || null,
         extras_label: store.extras_label || null,
-        whatsapp_ready_notify: !!store.whatsapp_ready_notify
+        whatsapp_ready_notify: !!store.whatsapp_ready_notify,
+        // Número del bot de WhatsApp (solo dígitos) para armar el QR "avísame
+        // cuando esté listo" en el tótem. Solo se entrega si la función está
+        // activa y el bot está conectado en este servidor.
+        whatsapp_bot_phone: (!!store.whatsapp_ready_notify && getWhatsAppStatus(store.id).connected)
+          ? (getBotPhone(store.id) || null)
+          : null
       },
       products,
       categories,

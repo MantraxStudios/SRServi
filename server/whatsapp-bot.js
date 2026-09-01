@@ -135,7 +135,49 @@ async function tryFAQ(t, storeId, send) {
   return false;
 }
 
+// El cliente escanea el QR del tótem y envía "Avísenme cuando esté listo mi
+// pedido #123". Detectamos el número de orden + intención de aviso, guardamos su
+// WhatsApp como customer_phone de esa orden y confirmamos. Luego el aviso de
+// "listo" lo manda notifyOrderStatusWhatsApp usando ese customer_phone.
+async function tryLinkReadyNotify(storeId, jid, text, sock) {
+  const t = (text || '').toLowerCase();
+  const numMatch = t.match(/#\s*(\d+)/) || t.match(/pedido\s+(?:n[°º]?\s*)?(\d+)/);
+  const hasIntent = /(avis|listo|aviso|notif|liste?[nm])/i.test(t);
+  if (!numMatch || !hasIntent) return false;
+
+  const orderNumber = parseInt(numMatch[1]);
+  if (!orderNumber) return false;
+
+  // Buscar la orden reciente (últimas 24 h) con ese número en esta tienda
+  const [rows] = await pool.execute(
+    `SELECT id, order_number FROM orders
+     WHERE store_id = ? AND order_number = ? AND created_at >= (NOW() - INTERVAL 1 DAY)
+     ORDER BY id DESC LIMIT 1`,
+    [storeId, orderNumber]
+  );
+  const order = rows[0];
+  const phone = jid.split('@')[0].replace(/[^0-9]/g, '');
+
+  if (!order) {
+    await sock.sendMessage(jid, { text: `No encontré un pedido reciente con el número #${orderNumber} 🤔. Revisa el número en tu comprobante e inténtalo de nuevo.` });
+    return true;
+  }
+
+  await pool.execute('UPDATE orders SET customer_phone = ? WHERE id = ?', [phone, order.id]);
+  await sock.sendMessage(jid, { text: `¡Perfecto! 🙌 Te avisaré por aquí apenas tu pedido *#${orderNumber}* esté listo. ¡Gracias por tu compra! 🍽️` });
+  console.log(`[Bot:${storeId}] Cliente ${phone} vinculado al aviso del pedido #${orderNumber} (orden ${order.id})`);
+  return true;
+}
+
 export async function handleBotMessage(storeId, jid, text, sock, msg) {
+  // 0º: ¿es un cliente pidiendo que le avisen cuando su pedido esté listo (QR
+  // del tótem)? Se atiende antes que nada para no confundirlo con un pedido.
+  try {
+    if (await tryLinkReadyNotify(storeId, jid, text, sock)) return;
+  } catch (err) {
+    console.error(`[Bot:${storeId}] Error vinculando aviso de pedido:`, err.message);
+  }
+
   // 1º intento: mesero virtual conversacional con Ollama (IA). Si Ollama no está
   // disponible o falla, devuelve false y caemos al menú clásico por números.
   try {
