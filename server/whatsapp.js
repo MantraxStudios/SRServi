@@ -35,6 +35,26 @@ function saveBotConfig(cfg) {
 }
 let botConfig = loadBotConfig();
 
+// Anti-bucle: Baileys puede re-entregar el mismo mensaje (reconexiones, sync),
+// lo que hacía que el bot procesara y respondiera el mismo texto una y otra vez.
+// Recordamos los ids de mensaje ya atendidos (por tienda) durante un rato y los
+// ignoramos si vuelven a llegar.
+const _handledMsgIds = new Map(); // key `${storeId}:${msgId}` -> timestamp
+function alreadyHandled(storeId, msgId) {
+  if (!msgId) return false;
+  const key = `${storeId}:${msgId}`;
+  const now = Date.now();
+  if (_handledMsgIds.has(key)) return true;
+  _handledMsgIds.set(key, now);
+  // Limpieza perezosa: quitamos ids con más de 5 min.
+  if (_handledMsgIds.size > 500) {
+    for (const [k, ts] of _handledMsgIds) {
+      if (now - ts > 5 * 60 * 1000) _handledMsgIds.delete(k);
+    }
+  }
+  return false;
+}
+
 export function setBotEnabled(storeId, enabled) {
   botConfig[String(storeId)] = !!enabled;
   saveBotConfig(botConfig);
@@ -124,6 +144,7 @@ export async function initWhatsApp(storeId) {
     for (const msg of messages) {
       if (msg.key.fromMe) continue;
       if (msg.key.remoteJid?.endsWith('@g.us')) continue; // skip group messages
+      if (alreadyHandled(storeId, msg.key.id)) continue; // evita el bucle de re-entregas
       const text = msg.message?.conversation
         || msg.message?.extendedTextMessage?.text
         || '';

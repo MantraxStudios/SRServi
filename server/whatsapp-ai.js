@@ -444,7 +444,9 @@ export async function handleAIMessage(storeId, jid, text, sock, msg) {
           product_id: i.product_id, quantity: i.qty, unit_price: i.price,
           selected_ingredients: [], selected_extras: [],
         }));
-        const phone = jid.split('@')[0];
+        // Si es @lid (WhatsApp oculta el número), guardamos el JID completo para
+        // poder responderle luego; si es un número normal, solo los dígitos.
+        const phone = /@lid$/i.test(jid) ? jid : jid.split('@')[0];
         const created = await createOrder(storeId, {
           items, order_type: sess.lastOrderType, payment_method: sess.lastPayment,
           source: 'whatsapp', customer_phone: phone,

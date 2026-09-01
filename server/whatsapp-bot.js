@@ -167,7 +167,16 @@ export async function tryLinkReadyNotify(storeId, jid, text, sock) {
     [storeId, orderNumber]
   );
   let order = rows[0];
-  const phone = jid.split('@')[0].replace(/[^0-9]/g, '');
+  // Qué guardamos como contacto para avisarle luego:
+  // - Número normal (@s.whatsapp.net): guardamos solo los dígitos (compatible con
+  //   el resto del sistema que espera un teléfono).
+  // - @lid (WhatsApp oculta el número por privacidad): guardamos el JID COMPLETO
+  //   con su dominio @lid. Guardar solo los dígitos rompía el envío, porque el
+  //   aviso se mandaba a <digitos>@s.whatsapp.net (dominio equivocado) y no
+  //   llegaba a nadie. El @lid solo es válido en ESTA conexión, así que el aviso
+  //   debe salir por la misma tienda que lo recibió.
+  const isLid = /@lid$/i.test(jid);
+  const phone = isLid ? jid : jid.split('@')[0].replace(/[^0-9]/g, '');
 
   // Diagnóstico: si no aparece en esta tienda, buscamos en cualquier tienda para
   // saber si es un problema de store_id (WhatsApp conectado en otra tienda) o si
