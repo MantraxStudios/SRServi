@@ -8926,13 +8926,27 @@ async function notifyOrderStatusWhatsApp(storeId, orderId, status) {
       console.log(`[WhatsApp:${sid}] Aviso omitido para orden #${orderId}: whatsapp_ready_notify está apagado en la tienda.`);
       return;
     }
-    if (!getWhatsAppStatus(sid).connected) {
-      console.log(`[WhatsApp:${sid}] Aviso omitido para orden #${orderId}: WhatsApp no está conectado en este servidor.`);
-      return;
-    }
     const num = String(order.customer_phone).replace(/[^0-9]/g, '');
     if (!num) {
       console.log(`[WhatsApp:${sid}] Aviso omitido para orden #${orderId}: customer_phone no tiene dígitos válidos ("${order.customer_phone}").`);
+      return;
+    }
+    // ¿Por cuál conexión de WhatsApp mandamos? Idealmente la de la tienda del
+    // pedido (sid). Pero en negocios con VARIAS tiendas y UN solo WhatsApp, la
+    // conexión puede estar bajo otra tienda del mismo dueño (ahí se recibió el QR
+    // y se vinculó el teléfono). Si sid no está conectado, buscamos una tienda
+    // hermana (mismo user_id) que sí lo esté y enviamos por ahí.
+    let sendSid = getWhatsAppStatus(sid).connected ? sid : null;
+    if (sendSid === null && store.user_id) {
+      try {
+        const [siblings] = await pool.execute('SELECT id FROM stores WHERE user_id = ?', [store.user_id]);
+        for (const s of siblings) {
+          if (getWhatsAppStatus(s.id).connected) { sendSid = s.id; break; }
+        }
+      } catch (_) { /* si falla, se maneja abajo */ }
+    }
+    if (sendSid === null) {
+      console.log(`[WhatsApp:${sid}] Aviso omitido para orden #${orderId}: no hay ninguna tienda del dueño con WhatsApp conectado.`);
       return;
     }
     const ref = order.order_number || order.id;
@@ -8947,8 +8961,8 @@ async function notifyOrderStatusWhatsApp(storeId, orderId, status) {
       : `👨‍🍳 ¡Comenzamos a preparar tu pedido en *${store.name}*!\n\n` +
         `📋 Número de orden: *#${ref}*\n\n` +
         `Te avisaremos por acá apenas esté listo. 🙌`;
-    await sendWhatsAppMessage(sid, num, msg);
-    console.log(`[WhatsApp:${sid}] Aviso de "${status}" enviado a ${num} (orden #${orderId}).`);
+    await sendWhatsAppMessage(sendSid, num, msg);
+    console.log(`[WhatsApp:${sid}] Aviso de "${status}" enviado a ${num} (orden #${orderId})${sendSid !== sid ? ` vía tienda ${sendSid}` : ''}.`);
     try { await pool.execute(`UPDATE orders SET ${col} = 1 WHERE id = ?`, [orderId]); } catch (_) { /* columna aún no migrada */ }
   } catch (e) {
     console.error(`[WhatsApp:${sid}] No se pudo avisar estado "${status}" (orden #${orderId}):`, e.message);
