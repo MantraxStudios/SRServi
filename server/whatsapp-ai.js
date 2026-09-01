@@ -32,7 +32,7 @@ function getSession(storeId, jid) {
   if (!sessions.has(key)) sessions.set(key, new Map());
   const storeMap = sessions.get(key);
   if (!storeMap.has(jid)) {
-    storeMap.set(jid, { history: [], cart: [], lastOrderType: null, lastPayment: null });
+    storeMap.set(jid, { history: [], cart: [], lastOrderType: null, lastPayment: null, address: null, customerName: null });
   }
   return storeMap.get(jid);
 }
@@ -255,18 +255,29 @@ REGLAS ESTRICTAS:
 - SOLO puedes vender productos que estén en el MENÚ de abajo. Si piden algo que no existe, dilo amablemente y ofrece una alternativa del menú.
 - NUNCA inventes precios: usa los del menú. Los totales los calcula el sistema, no los inventes tú.
 - No pidas datos personales innecesarios. Con el pedido, el tipo (retiro/delivery) y el pago basta.
-- Antes de cerrar el pedido, confirma en palabras qué llevará el cliente.
+
+PROCESO PARA CERRAR EL PEDIDO (síguelo en orden, NO te saltes pasos):
+1) El cliente elige productos. Cuando diga que ya no quiere agregar más ("no, gracias", "eso sería", "nada más", "listo así"), NO cierres todavía: eso significa que terminó de elegir, no que confirmó.
+2) Repite en palabras qué va a llevar y pregunta: ¿es para retirar/comer aquí o delivery a domicilio?
+3) Si es DELIVERY, pide la DIRECCIÓN completa de entrega (calle y número, depto/casa, comuna si aplica) y el NOMBRE de quién recibe. Sin dirección NO se puede cerrar un delivery.
+4) Pregunta la forma de pago: ¿efectivo o tarjeta?
+5) Solo cuando YA tengas todo (productos + tipo de entrega + [dirección y nombre si es delivery] + forma de pago), recién ahí el pedido queda confirmado.
+- PROHIBIDO decir "vamos a preparar tu pedido", "gracias por tu pedido", "tu pedido está confirmado" o similares ANTES de tener TODOS los datos. Si falta alguno, tu respuesta debe ser una PREGUNTA pidiendo el dato que falta.
+- NUNCA tú escribas el comprobante final (número de pedido, total, "confirmado"): ESO LO ENVÍA EL SISTEMA automáticamente. Tú solo conversas.
+- Si el cliente se despide o agradece pero falta algún dato, no inventes una confirmación: pregunta amablemente el dato que falta o despídete sin dar por hecho un pedido que no está completo.
 ${infoBlock}
 MENÚ (nombre exacto: precio):
 ${menuLines}
 ${cartBlock}
 FORMATO DE SALIDA (MUY IMPORTANTE):
 Primero escribe tu respuesta natural para el cliente. Luego, SIEMPRE que el pedido cambie o avance, agrega en la ÚLTIMA línea un bloque JSON EXACTO (el cliente NO lo verá):
-ORDER:{"items":[{"name":"NOMBRE EXACTO DEL MENÚ","qty":2}],"order_type":"serve|delivery|null","payment":"cash|card|null","confirm":true|false}
+ORDER:{"items":[{"name":"NOMBRE EXACTO DEL MENÚ","qty":2}],"order_type":"serve|delivery|null","payment":"cash|card|null","address":"","customer_name":"","confirm":true|false}
 - "items": el pedido COMPLETO y actualizado (no solo lo nuevo). Usa el nombre EXACTO del menú.
 - "order_type": "serve" para retiro/comer aquí, "delivery" para domicilio, null si aún no lo sabes.
 - "payment": "cash" efectivo, "card" tarjeta, null si aún no lo sabes.
-- "confirm": true SOLO cuando el cliente ya confirmó el pedido Y definió tipo de entrega Y forma de pago. En cualquier otro caso, false.
+- "address": dirección de entrega tal cual la dio el cliente (solo si es delivery; "" si no la sabes o es retiro).
+- "customer_name": nombre de quién recibe (si lo dio; "" si no).
+- "confirm": true SOLO cuando ya tienes las TRES cosas juntas (productos + tipo de entrega + forma de pago) y el cliente estuvo de acuerdo. Si falta cualquiera, "confirm" es false. Un "gracias" o "no quiero nada más" NO es confirmar.
 Si el cliente solo está preguntando (horario, saludo, dudas) y no hay pedido, NO agregues el bloque ORDER.`;
 }
 
@@ -372,13 +383,38 @@ export async function handleAIMessage(storeId, jid, text, sock, msg) {
     sess.cart = cart;
     if (order.order_type === 'serve' || order.order_type === 'delivery') sess.lastOrderType = order.order_type;
     if (order.payment === 'cash' || order.payment === 'card') sess.lastPayment = order.payment;
+    if (typeof order.address === 'string' && order.address.trim().length >= 5) sess.address = order.address.trim();
+    if (typeof order.customer_name === 'string' && order.customer_name.trim()) sess.customerName = order.customer_name.trim();
 
     if (unmatched.length) {
       outText += `\n\n_(No encontré en el menú: ${unmatched.join(', ')})_`;
     }
 
+    // Seguro: si el modelo quiso confirmar pero faltan datos, ignoramos su texto
+    // (que suele decir "vamos a preparar tu pedido") y preguntamos lo que falta.
+    // Nunca damos por cerrado un pedido incompleto. En delivery exigimos dirección.
+    const needsAddress = sess.lastOrderType === 'delivery' && !sess.address;
+    const missing = order.confirm === true && sess.cart.length > 0 &&
+      (!sess.lastOrderType || needsAddress || !sess.lastPayment);
+    if (missing) {
+      const { text: sumText, total } = cartSummary(sess.cart);
+      if (!sess.lastOrderType) {
+        outText = `Perfecto, entonces te anoto:\n${sumText}\n\n💰 *Total: ${fmt(total)}*\n\n¿Es para retirar/comer aquí 🏪 o delivery a domicilio 🚀?`;
+      } else if (needsAddress) {
+        outText = `¡Genial, delivery! 🚀 ¿A qué dirección te lo enviamos? Pásame calle y número (y depto/casa y comuna si aplica), y el nombre de quién recibe 🙌`;
+      } else {
+        outText = `¡Listo! ¿Cómo prefieres pagar: efectivo 💵 o tarjeta 💳?`;
+      }
+      sess.history.push({ role: 'user', content: t });
+      sess.history.push({ role: 'assistant', content: outText });
+      if (sess.history.length > 16) sess.history = sess.history.slice(-16);
+      await send(outText, { min: 2500, max: 4500 });
+      return true;
+    }
+
     // ¿Listo para crear la orden?
-    const ready = order.confirm === true && sess.cart.length > 0 && sess.lastOrderType && sess.lastPayment;
+    const ready = order.confirm === true && sess.cart.length > 0 && sess.lastOrderType &&
+      sess.lastPayment && !(sess.lastOrderType === 'delivery' && !sess.address);
     if (ready) {
       try {
         const items = sess.cart.map(i => ({
@@ -389,11 +425,14 @@ export async function handleAIMessage(storeId, jid, text, sock, msg) {
         const created = await createOrder(storeId, {
           items, order_type: sess.lastOrderType, payment_method: sess.lastPayment,
           source: 'whatsapp', customer_phone: phone,
+          delivery_address: sess.lastOrderType === 'delivery' ? sess.address : null,
+          customer_name: sess.customerName || null,
         });
         const { text: sumText, total } = cartSummary(sess.cart);
         const typeLabel = sess.lastOrderType === 'serve' ? 'Retiro / comer aquí 🏪' : 'Delivery 🚀';
         const payLabel = sess.lastPayment === 'cash' ? 'Efectivo 💵' : 'Tarjeta 💳';
-        await send(`✅ *¡Pedido #${created.order_number} confirmado!*\n\n${sumText}\n\n💰 *Total: ${fmt(total)}*\n📦 ${typeLabel}\n💳 ${payLabel}\n\n¡Gracias! En un rato tenemos tu pedido listo 🙌`);
+        const addrLine = sess.lastOrderType === 'delivery' && sess.address ? `\n📍 ${sess.address}` : '';
+        await send(`✅ *¡Pedido #${created.order_number} confirmado!*\n\n${sumText}\n\n💰 *Total: ${fmt(total)}*\n📦 ${typeLabel}${addrLine}\n💳 ${payLabel}\n\n¡Gracias! En un rato tenemos tu pedido listo 🙌`);
         resetAISession(storeId, jid);
         return true;
       } catch (err) {
