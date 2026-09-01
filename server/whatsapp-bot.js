@@ -135,11 +135,11 @@ async function tryFAQ(t, storeId, send) {
   return false;
 }
 
-export async function handleBotMessage(storeId, jid, text, sock) {
+export async function handleBotMessage(storeId, jid, text, sock, msg) {
   // 1º intento: mesero virtual conversacional con Ollama (IA). Si Ollama no está
   // disponible o falla, devuelve false y caemos al menú clásico por números.
   try {
-    const handled = await handleAIMessage(storeId, jid, text, sock);
+    const handled = await handleAIMessage(storeId, jid, text, sock, msg);
     if (handled) return;
   } catch (err) {
     console.error(`[Bot:${storeId}] IA no disponible, usando menú clásico:`, err.message);

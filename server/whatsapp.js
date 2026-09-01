@@ -112,7 +112,7 @@ export async function initWhatsApp(storeId) {
         || '';
       if (!text) continue;
       try {
-        await handleBotMessage(storeId, msg.key.remoteJid, text, sock);
+        await handleBotMessage(storeId, msg.key.remoteJid, text, sock, msg);
       } catch (err) {
         console.error(`[Bot:${storeId}] Error:`, err.message);
       }

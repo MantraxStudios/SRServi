@@ -45,6 +45,45 @@ function fmt(p) {
   return `$${Number(p).toLocaleString('es-CL')}`;
 }
 
+// ─── Comportamiento humano (typing, pausas, muletillas) ──────────────────────
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+
+async function setTyping(sock, jid, on) {
+  try { await sock.sendPresenceUpdate(on ? 'composing' : 'paused', jid); } catch {}
+}
+
+// Muletillas naturales para "ganar tiempo" como lo haría una persona.
+const FILLERS = [
+  'Dame un segundito 🙏',
+  'Ya, un momento y te confirmo 👀',
+  'Espérame tantito ✍️',
+  'Altiro te reviso 🙌',
+];
+
+// De vez en cuando manda un "dame un segundo" antes de responder de verdad.
+async function maybeFiller(sock, jid) {
+  if (Math.random() > 0.55) return;
+  await setTyping(sock, jid, true);
+  await sleep(rand(700, 1500));
+  await setTyping(sock, jid, false);
+  await sock.sendMessage(jid, { text: FILLERS[rand(0, FILLERS.length - 1)] });
+}
+
+// Envía como humano: muestra "escribiendo…" y espera una pausa natural. El
+// retardo se calcula contra el tiempo ya transcurrido "pensando" (la llamada a
+// Ollama ya es una pausa real), para no acumular esperas eternas ni responder
+// de golpe cuando el modelo es muy rápido.
+async function humanSend(sock, jid, text, { startedAt = Date.now(), min = 3000, max = 5000 } = {}) {
+  await setTyping(sock, jid, true);
+  const target = rand(min, max);
+  const elapsed = Date.now() - startedAt;
+  const wait = Math.max(1200, target - elapsed);
+  await sleep(wait);
+  await setTyping(sock, jid, false);
+  await sock.sendMessage(jid, { text });
+}
+
 function normalize(s) {
   return (s || '')
     .toLowerCase()
@@ -278,24 +317,28 @@ function cartSummary(cart) {
 // ─── Handler principal ───────────────────────────────────────────────────────
 // Devuelve true si atendió el mensaje con IA; false si Ollama no está disponible
 // (para que whatsapp-bot.js caiga al menú clásico).
-export async function handleAIMessage(storeId, jid, text, sock) {
+export async function handleAIMessage(storeId, jid, text, sock, msg) {
+  const started = Date.now();
   const model = await getModel();
   if (!model) return false; // Ollama caído → fallback al bot clásico
 
-  const send = (msg) => sock.sendMessage(jid, { text: msg });
+  // Marcar el mensaje como leído (doble check azul) — se ve humano
+  if (msg?.key) { try { await sock.readMessages([msg.key]); } catch {} }
+
+  const send = (txt, opts) => humanSend(sock, jid, txt, { startedAt: started, ...opts });
   const sess = getSession(storeId, jid);
   const t = (text || '').trim();
 
   // Comando de escape universal
   if (['cancelar', 'salir', 'reiniciar'].includes(normalize(t))) {
     resetAISession(storeId, jid);
-    await send('Listo, cancelé todo 👋. Escríbeme cuando quieras pedir algo.');
+    await send('Listo, cancelé todo 👋. Escríbeme cuando quieras pedir algo.', { min: 1400, max: 2600 });
     return true;
   }
 
   const { flat, storeInfo } = await loadMenu(storeId);
   if (!flat.length) {
-    await send('Por ahora no tengo productos cargados para tomar tu pedido 🙏. Escríbenos directamente y te ayudamos.');
+    await send('Por ahora no tengo productos cargados para tomar tu pedido 🙏. Escríbenos directamente y te ayudamos.', { min: 1400, max: 2600 });
     return true;
   }
 
@@ -306,11 +349,17 @@ export async function handleAIMessage(storeId, jid, text, sock) {
     { role: 'user', content: t },
   ];
 
+  // Muletilla ocasional ("dame un segundito") + mantener "escribiendo…"
+  // mientras el modelo piensa. Da la sensación de una persona real atendiendo.
+  await maybeFiller(sock, jid);
+  await setTyping(sock, jid, true);
+
   let raw;
   try {
     raw = await callOllama(messages, model);
   } catch (err) {
     console.error(`[AI Bot:${storeId}] Ollama error:`, err.message);
+    await setTyping(sock, jid, false);
     return false; // fallback al menú clásico
   }
 
@@ -360,6 +409,6 @@ export async function handleAIMessage(storeId, jid, text, sock) {
   sess.history.push({ role: 'assistant', content: outText });
   if (sess.history.length > 16) sess.history = sess.history.slice(-16);
 
-  await send(outText);
+  await send(outText, { min: 3500, max: 6000 });
   return true;
 }
