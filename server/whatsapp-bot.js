@@ -139,7 +139,7 @@ async function tryFAQ(t, storeId, send) {
 // pedido #123". Detectamos el número de orden + intención de aviso, guardamos su
 // WhatsApp como customer_phone de esa orden y confirmamos. Luego el aviso de
 // "listo" lo manda notifyOrderStatusWhatsApp usando ese customer_phone.
-async function tryLinkReadyNotify(storeId, jid, text, sock) {
+export async function tryLinkReadyNotify(storeId, jid, text, sock) {
   const t = (text || '').toLowerCase();
   const numMatch = t.match(/#\s*(\d+)/) || t.match(/pedido\s+(?:n[°º]?\s*)?(\d+)/);
   const hasIntent = /(avis|listo|aviso|notif|liste?[nm])/i.test(t);

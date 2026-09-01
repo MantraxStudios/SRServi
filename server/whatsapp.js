@@ -2,7 +2,8 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
-import { handleBotMessage } from './whatsapp-bot.js';
+import { handleBotMessage, tryLinkReadyNotify } from './whatsapp-bot.js';
+import { getStoreById } from './database.js';
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -103,7 +104,23 @@ export async function initWhatsApp(storeId) {
   sock.ev.on('creds.update', saveCreds);
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
-    if (type !== 'notify' || !getBotEnabled(storeId)) return;
+    if (type !== 'notify') return;
+    // El bot de pedidos y el aviso "avísame cuando esté listo" (QR del tótem)
+    // son funciones independientes. Si el bot conversacional está apagado pero
+    // la tienda activó whatsapp_ready_notify, igual debemos atender el mensaje
+    // del QR para vincular el WhatsApp del cliente a su pedido; de lo contrario
+    // al completar el pedido en el WorkerPanel no habría a quién avisarle.
+    const botOn = getBotEnabled(storeId);
+    let readyNotifyOnly = false;
+    if (!botOn) {
+      try {
+        const store = await getStoreById(storeId);
+        if (!store?.whatsapp_ready_notify) return;
+        readyNotifyOnly = true;
+      } catch {
+        return;
+      }
+    }
     for (const msg of messages) {
       if (msg.key.fromMe) continue;
       if (msg.key.remoteJid?.endsWith('@g.us')) continue; // skip group messages
@@ -112,7 +129,11 @@ export async function initWhatsApp(storeId) {
         || '';
       if (!text) continue;
       try {
-        await handleBotMessage(storeId, msg.key.remoteJid, text, sock, msg);
+        if (readyNotifyOnly) {
+          await tryLinkReadyNotify(storeId, msg.key.remoteJid, text, sock);
+        } else {
+          await handleBotMessage(storeId, msg.key.remoteJid, text, sock, msg);
+        }
       } catch (err) {
         console.error(`[Bot:${storeId}] Error:`, err.message);
       }
