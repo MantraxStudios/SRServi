@@ -3586,9 +3586,10 @@ function Store() {
     // por completo al modal del teléfono (quedaba "detrás" y no se veía).
     setCartOpen(false);
 
-    // Nota: ya no se pide el teléfono a mano. Si la tienda activó el aviso por
+    // Nota: el teléfono no se pide a mano. Si la tienda activó el aviso por
     // WhatsApp, al final del pedido se muestra un QR (ReadyNotifyQR) que el
-    // cliente escanea para recibir el aviso "listo" en su propio WhatsApp.
+    // cliente escanea para recibir el aviso "listo" en su propio WhatsApp: al
+    // enviar ese mensaje el bot vincula su número al customer_phone del pedido.
 
     // Modo restaurante: solo confirmar pedido, agregar a mesa, sin cobrar
     if (restaurantMode && activeTable) {

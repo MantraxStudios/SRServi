@@ -140,18 +140,24 @@ async function tryFAQ(t, storeId, send) {
 // WhatsApp como customer_phone de esa orden y confirmamos. Luego el aviso de
 // "listo" lo manda notifyOrderStatusWhatsApp usando ese customer_phone.
 export async function tryLinkReadyNotify(storeId, jid, text, sock) {
-  const t = (text || '').toLowerCase();
-  const numMatch = t.match(/#\s*(\d+)/) || t.match(/pedido\s+(?:n[°º]?\s*)?(\d+)/);
+  const raw = text || '';
+  const t = raw.toLowerCase();
+  // El número de orden es ALFANUMÉRICO (generateUniqueOrderNumber crea "letra +
+  // 2 dígitos", p.ej. "F13"), no solo dígitos. Capturamos la referencia tal cual
+  // (letra opcional + dígitos) para no perder el prefijo.
+  const numMatch = raw.match(/#\s*([a-z]?\d+[a-z0-9]*)/i)
+    || raw.match(/pedido\s+(?:n[°º]?\s*)?#?\s*([a-z]?\d+[a-z0-9]*)/i);
   const hasIntent = /(avis|listo|aviso|notif|liste?[nm])/i.test(t);
   if (!numMatch || !hasIntent) return false;
 
-  const orderNumber = parseInt(numMatch[1]);
+  const orderNumber = numMatch[1].toUpperCase();
   if (!orderNumber) return false;
 
-  // Buscar la orden reciente (últimas 24 h) con ese número en esta tienda
+  // Buscar la orden reciente (últimas 24 h) con ese número en esta tienda.
+  // Comparación case-insensitive para tolerar "f13" vs "F13".
   const [rows] = await pool.execute(
     `SELECT id, order_number FROM orders
-     WHERE store_id = ? AND order_number = ? AND created_at >= (NOW() - INTERVAL 1 DAY)
+     WHERE store_id = ? AND UPPER(order_number) = ? AND created_at >= (NOW() - INTERVAL 1 DAY)
      ORDER BY id DESC LIMIT 1`,
     [storeId, orderNumber]
   );
