@@ -16,6 +16,7 @@
 import { pool, createOrder } from './database.js';
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
+const BASE_URL = process.env.BASE_URL || 'https://srservi2.srautomatic.com';
 
 // Sesiones en memoria: Map<storeId, Map<jid, { history, cart, lastOrderType, lastPayment }>>
 const sessions = new Map();
@@ -137,7 +138,7 @@ async function loadMenu(storeId) {
   const menu = cats.filter(c => c.products.length > 0);
 
   const [rows] = await pool.execute(
-    'SELECT name, address, opening_hours FROM stores WHERE id = ?', [storeId]
+    'SELECT code, name, address, opening_hours FROM stores WHERE id = ?', [storeId]
   );
   const storeInfo = rows[0] || {};
 
@@ -223,7 +224,7 @@ async function callOllama(messages, model) {
 }
 
 // ─── Prompt del sistema ──────────────────────────────────────────────────────
-function buildSystemPrompt(storeInfo, flat, cart) {
+function buildSystemPrompt(storeInfo, flat, cart, menuLink) {
   const storeName = storeInfo.name || 'la tienda';
 
   // Menú compacto por categoría (el modelo ve nombres y precios exactos)
@@ -254,7 +255,8 @@ TU TRABAJO:
 - Saludar, recomendar y tomar el pedido conversando de forma natural.
 - Entender lo que el cliente quiere aunque lo diga informal ("un completo italiano y una bebida", "ponme dos churrascos", "quiero algo pa' picar").
 - Confirmar el pedido, preguntar si es para retirar/comer aquí o delivery, y cómo paga (efectivo o tarjeta).
-- Responder dudas de HORARIO, dirección y precios usando SOLO la "INFORMACIÓN DE LA TIENDA" de abajo. Si el cliente pregunta a qué hora abren/cierran o si están abiertos, responde con el horario de atención indicado; nunca lo dejes sin respuesta.
+- Responder dudas de HORARIO, dirección y precios usando SOLO la "INFORMACIÓN DE LA TIENDA" de abajo. Si el cliente pregunta a qué hora abren/cierran o si están abiertos, responde con el horario de atención indicado; nunca lo dejes sin respuesta.${menuLink ? `
+- Si el cliente pide ver el MENÚ o la CARTA completa, NO la escribas en texto ni listes todos los productos: comparte SIEMPRE este link donde puede verlo y pedir: ${menuLink}. Igual puedes recomendar 2 o 3 opciones concretas.` : ''}
 
 REGLAS ESTRICTAS:
 - Responde SIEMPRE en español chileno, breve (máximo 3-4 oraciones). Usa emojis con moderación 🍔.
@@ -359,7 +361,20 @@ export async function handleAIMessage(storeId, jid, text, sock, msg) {
     return true;
   }
 
-  const system = buildSystemPrompt(storeInfo, flat, sess.cart);
+  const menuLink = storeInfo.code ? `${BASE_URL}/store/${storeInfo.code}` : null;
+
+  // Si el cliente pide ver el menú/la carta, se lo mandamos como LINK (no en
+  // texto). Atajo directo para las frases más comunes, sin llamar a Ollama.
+  const nt = normalize(t);
+  const wantsMenu = /(^|\b)(menu|carta)\b/.test(nt) ||
+    /\b(ver|muestra|muestrame|mandame|pasame|envia|enviame|quiero ver|tienen|tienes) (el |la )?(menu|carta)\b/.test(nt) ||
+    /\bque (tienen|venden|hay|ofrecen)\b/.test(nt);
+  if (menuLink && wantsMenu) {
+    await send(`¡Claro! 😊 Acá puedes ver todo nuestro menú y pedir directo 👇\n\n${menuLink}\n\nSi prefieres, dime qué se te antoja y te lo anoto por aquí mismo 🍽️`);
+    return true;
+  }
+
+  const system = buildSystemPrompt(storeInfo, flat, sess.cart, menuLink);
   const messages = [
     { role: 'system', content: system },
     ...sess.history.slice(-8),
