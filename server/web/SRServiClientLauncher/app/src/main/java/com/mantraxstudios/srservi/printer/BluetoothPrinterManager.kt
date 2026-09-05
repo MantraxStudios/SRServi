@@ -294,6 +294,14 @@ class BluetoothPrinterManager(private val context: Context) {
         builder.addText(dateFormat.format(Date()))
         builder.addNewLine()
 
+        if (!order.customerName.isNullOrBlank()) {
+            builder.alignLeft()
+            builder.setBold(true)
+            builder.addText("Cliente: ${order.customerName.trim()}")
+            builder.setBold(false)
+            builder.addNewLine()
+        }
+
         builder.addSeparator()
 
         builder.alignLeft()

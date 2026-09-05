@@ -2012,6 +2012,8 @@ function Store() {
   const [cashOrderApproved, setCashOrderApproved] = useState(false);
   const [paymentTimeLeft, setPaymentTimeLeft] = useState(60);
   const [paymentComment, setPaymentComment] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerNameKeyboardOpen, setCustomerNameKeyboardOpen] = useState(false);
   // Teléfono del cliente para avisarle por WhatsApp cuando su pedido esté listo
   // (solo si la tienda activó la función whatsapp_ready_notify). Se pide en un
   // modal propio con teclado numérico al confirmar el pedido, antes de mostrar
@@ -2028,6 +2030,8 @@ function Store() {
 
   useEffect(() => {
     if (cart.length === 0) {
+      setCustomerName('');
+      setCustomerNameKeyboardOpen(false);
       phoneAskedRef.current = false;
       setCustomerPhone('');
       setPhoneDigits('');
@@ -3581,6 +3585,11 @@ function Store() {
   const handleCheckout = async () => {
     if (cart.length === 0) return;
 
+    if (selectedConfiguration?.require_customer_name && !customerName.trim()) {
+      setCustomerNameKeyboardOpen(true);
+      return;
+    }
+
     // Cerrar el carrito antes de mostrar cualquier modal de checkout: el carrito
     // tiene z-index más alto que .modal-overlay, así que si queda abierto tapa
     // por completo al modal del teléfono (quedaba "detrás" y no se veía).
@@ -3617,7 +3626,8 @@ function Store() {
             table_number: activeTable.id,
             persons: tablePersons[activeTable.id] || null,
             terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
-            customer_comment: paymentComment || null
+            customer_comment: paymentComment || null,
+            customer_name: customerName.trim() || null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al enviar pedido');
@@ -3753,7 +3763,8 @@ function Store() {
           total: '0.00', delivery: deliveryMode,
           table_number: tableNum ? parseInt(tableNum) : null,
           terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
-          customer_comment: paymentComment || null
+          customer_comment: paymentComment || null,
+          customer_name: customerName.trim() || null
         })
       });
       if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
@@ -3836,7 +3847,8 @@ function Store() {
             total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null,
             terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
-            customer_comment: paymentComment || null
+            customer_comment: paymentComment || null,
+            customer_name: customerName.trim() || null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -3874,7 +3886,8 @@ function Store() {
             total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null,
             terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
-            customer_comment: paymentComment || null
+            customer_comment: paymentComment || null,
+            customer_name: customerName.trim() || null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -3908,7 +3921,8 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: selectedMethod,
             items: cartItems, selected_terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
             coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
+            table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null,
+            customer_name: customerName.trim() || null
           })
         });
         if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
@@ -3926,7 +3940,8 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
+            table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null,
+            customer_name: customerName.trim() || null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -3974,7 +3989,8 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
+            table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null,
+            customer_name: customerName.trim() || null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -4008,7 +4024,8 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
+            table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null,
+            customer_name: customerName.trim() || null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -4040,7 +4057,8 @@ function Store() {
           total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()), customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null, delivery: deliveryMode,
           table_number: tableNum ? parseInt(tableNum) : null,
           terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
-          customer_comment: paymentComment || null
+          customer_comment: paymentComment || null,
+          customer_name: customerName.trim() || null
         });
         printAndroidReceipt(order.order_number, 'card');
         // El id es null en modo offline, así que los handlers de socket que
@@ -4143,7 +4161,7 @@ function Store() {
             total: Number(finalTotal).toFixed(2), tip_amount: Math.round(getTipAmount()),
             customer_phone: (customerPhone || '').replace(/[^0-9]/g, '') || null,
             delivery: false, table_number: null, terminal_id: null,
-            customer_comment: paymentComment || null, client_uid
+            customer_comment: paymentComment || null, customer_name: customerName.trim() || null, client_uid
           }));
         } catch (e) {
           console.error('Error registrando venta con tarjeta:', e);
@@ -8119,6 +8137,24 @@ function Store() {
             )}
 
             <div style={{ marginBottom: 10 }}>
+              {selectedConfiguration?.require_customer_name && (
+                <div style={{ marginBottom: 10 }}>
+                  <label style={{ display: 'block', marginBottom: 5, fontSize: 13, fontWeight: 700, color: 'var(--store-primary, #111)' }}>
+                    Nombre del cliente
+                  </label>
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={e => setCustomerName(e.target.value.slice(0, 100))}
+                    onFocus={e => { e.target.blur(); setCustomerNameKeyboardOpen(true); }}
+                    onClick={() => setCustomerNameKeyboardOpen(true)}
+                    placeholder="Toca aquí para ingresar tu nombre"
+                    readOnly
+                    style={{ width: '100%', padding: '12px', background: 'var(--store-bg, #f9fafb)', border: `1.5px solid ${customerName.trim() ? 'rgba(0,0,0,0.1)' : 'var(--store-accent, #D4AF37)'}`, borderRadius: 10, color: 'var(--store-primary, #111)', fontSize: 15, outline: 'none', boxSizing: 'border-box', cursor: 'pointer' }}
+                  />
+                  {!customerName.trim() && <div style={{ marginTop: 4, fontSize: 11, color: '#9a6700' }}>Requerido para confirmar el pedido</div>}
+                </div>
+              )}
                 <textarea
                   placeholder="Comentario (opcional): sin cebolla, para llevar..."
                   value={paymentComment}
@@ -8127,6 +8163,15 @@ function Store() {
                   style={{ width: '100%', padding: '10px 12px', background: 'var(--store-bg, #f9fafb)', border: '1.5px solid rgba(0,0,0,0.1)', borderRadius: 10, color: 'var(--store-primary, #111)', fontSize: 13, outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}
                 />
               </div>
+
+            {customerNameKeyboardOpen && (
+              <VirtualKeyboard
+                value={customerName}
+                onChange={v => setCustomerName(v.slice(0, 100))}
+                onClose={() => setCustomerNameKeyboardOpen(false)}
+                placeholder="Nombre"
+              />
+            )}
 
             <button onClick={handleCheckout} className="store-cart-checkout-btn store-glow-pulse">
               <FontAwesomeIcon icon={faCheck} />

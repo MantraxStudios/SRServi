@@ -5,7 +5,7 @@ import {
   faHashtag, faPercent, faTruck, faTabletAlt, faClock,
   faCheck, faExclamationTriangle, faSave, faSync, faPlus,
   faChevronDown, faChevronUp, faTableCells, faFlask, faCubes, faQrcode,
-  faTrash, faCheckCircle, faCircle, faXmark, faCommentDots
+  faTrash, faCheckCircle, faCircle, faXmark, faCommentDots, faUser
 } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
@@ -37,7 +37,8 @@ const DEFAULT_FORM = {
   tip_percentage: 0,
   delivery_enabled: false,
   delivery_payment_methods: 'tuu,mercadopago',
-  require_order_comment: false
+  require_order_comment: false,
+  require_customer_name: false
 };
 
 function PillToggle({ active, onClick }) {
@@ -200,6 +201,7 @@ function ConfigCard({ config, isDefault, onSave, saving }) {
           <SectionLabel>Extras</SectionLabel>
           <Row icon={faHashtag} label="Ocultar decimales" sub="Los precios enteros no muestran .00" active={form.hide_decimals} onToggle={() => set('hide_decimals', !form.hide_decimals)} />
           <Row icon={faCommentDots} label="Pedir comentario" sub="Al confirmar pago, el cliente puede agregar una nota" active={form.require_order_comment} onToggle={() => set('require_order_comment', !form.require_order_comment)} />
+          <Row icon={faUser} label="Solicitar nombre del cliente" sub="Muestra un campo con teclado táctil antes de confirmar el pedido" active={form.require_customer_name} onToggle={() => set('require_customer_name', !form.require_customer_name)} />
 
           <Row icon={faPercent} label="Propina sugerida" sub="0 = sin propina" active={form.tip_percentage > 0}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

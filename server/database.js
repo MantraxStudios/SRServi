@@ -145,6 +145,8 @@ async function createTables() {
       tip_percentage DECIMAL(5,2) NOT NULL DEFAULT 0,
       delivery_enabled BOOLEAN NOT NULL DEFAULT FALSE,
       delivery_payment_methods VARCHAR(255) NOT NULL DEFAULT 'tuu,mercadopago',
+      require_order_comment BOOLEAN NOT NULL DEFAULT FALSE,
+      require_customer_name BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )`;
@@ -1449,6 +1451,9 @@ async function migrateTables() {
       }
       if (!configColNames.includes('require_order_comment')) {
         await pool.execute('ALTER TABLE store_configurations ADD COLUMN require_order_comment BOOLEAN NOT NULL DEFAULT FALSE');
+      }
+      if (!configColNames.includes('require_customer_name')) {
+        await pool.execute('ALTER TABLE store_configurations ADD COLUMN require_customer_name BOOLEAN NOT NULL DEFAULT FALSE');
       }
     } catch (migErr) {
       if (migErr.message.includes('Duplicate column')) {
@@ -3209,7 +3214,8 @@ export async function getStoreConfigurations(storeId) {
     hide_decimals: Boolean(row.hide_decimals),
     allow_table_service: Boolean(row.allow_table_service),
     delivery_enabled: Boolean(row.delivery_enabled),
-    require_order_comment: Boolean(row.require_order_comment)
+    require_order_comment: Boolean(row.require_order_comment),
+    require_customer_name: Boolean(row.require_customer_name)
   }));
 }
 
@@ -3222,7 +3228,7 @@ export async function getStoreConfigurationById(configId, storeId) {
 }
 
 export async function createStoreConfiguration(storeId, data) {
-  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods, require_order_comment } = data;
+  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods, require_order_comment, require_customer_name } = data;
   const tipPct = parseFloat(tip_percentage) || 0;
   const delivMethods = Array.isArray(delivery_payment_methods) ? delivery_payment_methods.join(',') : (delivery_payment_methods || 'tuu,mercadopago');
 
@@ -3234,8 +3240,8 @@ export async function createStoreConfiguration(storeId, data) {
   }
 
   const [result] = await pool.execute(
-    'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods, require_order_comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, !!is_default, !!is_minimarket, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, !!hide_decimals, !!allow_table_service, tipPct, !!delivery_enabled, delivMethods, !!require_order_comment]
+    'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods, require_order_comment, require_customer_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, !!is_default, !!is_minimarket, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, !!hide_decimals, !!allow_table_service, tipPct, !!delivery_enabled, delivMethods, !!require_order_comment, !!require_customer_name]
   );
   return {
     id: result.insertId,
@@ -3255,12 +3261,13 @@ export async function createStoreConfiguration(storeId, data) {
     tip_percentage: tipPct,
     delivery_enabled: !!delivery_enabled,
     delivery_payment_methods: delivMethods,
-    require_order_comment: !!require_order_comment
+    require_order_comment: !!require_order_comment,
+    require_customer_name: !!require_customer_name
   };
 }
 
 export async function updateStoreConfiguration(configId, storeId, data) {
-  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods, require_order_comment } = data;
+  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods, require_order_comment, require_customer_name } = data;
   const tipPct = parseFloat(tip_percentage) || 0;
   const delivMethods = Array.isArray(delivery_payment_methods) ? delivery_payment_methods.join(',') : (delivery_payment_methods || 'tuu,mercadopago');
 
@@ -3272,8 +3279,8 @@ export async function updateStoreConfiguration(configId, storeId, data) {
   }
 
   await pool.execute(
-    'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ?, is_minimarket = ?, default_minimarket_terminal = ?, allow_serve = ?, allow_takeout = ?, hide_decimals = ?, allow_table_service = ?, tip_percentage = ?, delivery_enabled = ?, delivery_payment_methods = ?, require_order_comment = ? WHERE id = ? AND store_id = ?',
-    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, !!is_default, !!is_minimarket, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, !!hide_decimals, !!allow_table_service, tipPct, !!delivery_enabled, delivMethods, !!require_order_comment, configId, storeId]
+    'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ?, is_minimarket = ?, default_minimarket_terminal = ?, allow_serve = ?, allow_takeout = ?, hide_decimals = ?, allow_table_service = ?, tip_percentage = ?, delivery_enabled = ?, delivery_payment_methods = ?, require_order_comment = ?, require_customer_name = ? WHERE id = ? AND store_id = ?',
+    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, !!is_default, !!is_minimarket, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, !!hide_decimals, !!allow_table_service, tipPct, !!delivery_enabled, delivMethods, !!require_order_comment, !!require_customer_name, configId, storeId]
   );
   return {
     id: configId,
@@ -3293,7 +3300,8 @@ export async function updateStoreConfiguration(configId, storeId, data) {
     tip_percentage: tipPct,
     delivery_enabled: !!delivery_enabled,
     delivery_payment_methods: delivMethods,
-    require_order_comment: !!require_order_comment
+    require_order_comment: !!require_order_comment,
+    require_customer_name: !!require_customer_name
   };
 }
 
