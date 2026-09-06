@@ -8344,41 +8344,67 @@ function Store() {
       {timerModalOpen && timerGameConfig?.enabled && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 100000, background: '#000',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: '24px', textAlign: 'center'
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between',
+          padding: 'clamp(28px, 6vh, 64px) 24px', textAlign: 'center'
         }}>
-          <div style={{ fontSize: 'clamp(24px, 6vw, 44px)', fontWeight: 900, color: '#fff', marginBottom: 10 }}>
-            ⏱️ ¡Juega y gana!
-          </div>
-          <div style={{ fontSize: 'clamp(15px, 3.5vw, 24px)', color: '#e5e7eb', marginBottom: 6, lineHeight: 1.4 }}>
-            Detén el cronómetro en <b style={{ color: '#22c55e' }}>{Number(timerGameConfig.target_seconds).toFixed(2)}s</b>
-            {' '}y gana <b style={{ color: '#22c55e' }}>{timerGameConfig.discount_percent}% de descuento</b>
-          </div>
-          <div style={{ fontSize: 'clamp(12px, 2.5vw, 17px)', color: '#9ca3af', marginBottom: 24 }}>
-            Margen de acierto: ±{Number(timerGameConfig.tolerance_seconds).toFixed(2)}s · 1 intento
-          </div>
-
-          {/* Cronómetro gigante en verde */}
+          {/* ── Arriba: cronómetro en cuadro gris ── */}
           <div style={{
-            fontSize: 'clamp(110px, 34vw, 380px)', fontWeight: 900, lineHeight: 0.95,
-            fontVariantNumeric: 'tabular-nums', letterSpacing: 2,
-            color: timerResult ? (timerResult.won ? '#22c55e' : '#ef4444') : '#22c55e',
-            textShadow: '0 0 40px rgba(34,197,94,.35)',
-            marginBottom: 'clamp(24px, 5vh, 60px)'
+            background: '#1c1c1e', borderRadius: 28, padding: 'clamp(20px, 4vh, 44px) clamp(24px, 8vw, 72px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 'min(88vw, 620px)'
           }}>
-            {timerElapsed.toFixed(2)}<span style={{ fontSize: '0.35em' }}>s</span>
+            <div style={{
+              fontSize: 'clamp(90px, 28vw, 300px)', fontWeight: 900, lineHeight: 0.95,
+              fontVariantNumeric: 'tabular-nums', letterSpacing: 2,
+              color: timerResult ? (timerResult.won ? '#22c55e' : '#ef4444') : '#22c55e',
+              textShadow: '0 0 40px rgba(34,197,94,.35)'
+            }}>
+              {timerElapsed.toFixed(2)}<span style={{ fontSize: '0.35em' }}>s</span>
+            </div>
           </div>
 
+          {/* ── Medio: textos ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            {!timerPlayed ? (
+              <>
+                <div style={{ fontSize: 'clamp(24px, 6vw, 44px)', fontWeight: 900, color: '#fff' }}>
+                  ⏱️ ¡Juega y gana!
+                </div>
+                <div style={{ fontSize: 'clamp(15px, 3.5vw, 24px)', color: '#e5e7eb', lineHeight: 1.4 }}>
+                  Detén el cronómetro en <b style={{ color: '#22c55e' }}>{Number(timerGameConfig.target_seconds).toFixed(2)}s</b>
+                  {' '}y gana <b style={{ color: '#22c55e' }}>{timerGameConfig.discount_percent}% de descuento</b>
+                </div>
+                <div style={{ fontSize: 'clamp(12px, 2.5vw, 17px)', color: '#9ca3af' }}>
+                  Margen de acierto: ±{Number(timerGameConfig.tolerance_seconds).toFixed(2)}s · 1 intento
+                </div>
+              </>
+            ) : (
+              <>
+                {timerResult?.won ? (
+                  <div style={{ fontSize: 'clamp(24px, 5vw, 40px)', fontWeight: 900, color: '#22c55e' }}>
+                    🎉 ¡Ganaste {timerGameConfig.discount_percent}% de descuento!
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 'clamp(20px, 4.5vw, 34px)', fontWeight: 800, color: '#ef4444' }}>
+                    ¡Casi! El objetivo era {Number(timerGameConfig.target_seconds).toFixed(2)}s
+                  </div>
+                )}
+                <div style={{ fontSize: 'clamp(14px, 3vw, 20px)', color: '#9ca3af' }}>
+                  {timerResult?.won ? 'El descuento ya se aplicó a tu cuenta.' : 'Sigue con tu compra. ¡Suerte la próxima!'}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* ── Abajo: botón rojo (o continuar) ── */}
           {!timerPlayed ? (
-            /* Botón rojo gigante en el medio */
             <button
               onClick={timerRunning ? stopTimerGame : startTimerGame}
               style={{
-                width: 'min(80vw, 340px)', height: 'min(80vw, 340px)', borderRadius: '50%',
+                width: 'min(80vw, 320px)', height: 'min(80vw, 320px)', borderRadius: '50%',
                 border: 'none', background: '#ef4444', color: '#fff',
-                fontWeight: 900, fontSize: 'clamp(34px, 9vw, 56px)', letterSpacing: 2, cursor: 'pointer',
+                fontWeight: 900, fontSize: 'clamp(34px, 9vw, 52px)', letterSpacing: 2, cursor: 'pointer',
                 boxShadow: '0 16px 50px rgba(239,68,68,.6)',
-                transition: 'transform .08s',
+                transition: 'transform .08s', flexShrink: 0,
                 animation: timerRunning ? 'none' : 'pulse-red 1.4s ease-in-out infinite'
               }}
               onMouseDown={e => e.currentTarget.style.transform = 'scale(0.95)'}
@@ -8389,29 +8415,15 @@ function Store() {
               {timerRunning ? 'DETENER' : 'INICIAR'}
             </button>
           ) : (
-            <div style={{ width: 'min(92vw, 560px)' }}>
-              {timerResult?.won ? (
-                <div style={{ fontSize: 'clamp(24px, 5vw, 40px)', fontWeight: 900, color: '#22c55e', marginBottom: 6 }}>
-                  🎉 ¡Ganaste {timerGameConfig.discount_percent}% de descuento!
-                </div>
-              ) : (
-                <div style={{ fontSize: 'clamp(20px, 4.5vw, 34px)', fontWeight: 800, color: '#ef4444', marginBottom: 6 }}>
-                  ¡Casi! El objetivo era {Number(timerGameConfig.target_seconds).toFixed(2)}s
-                </div>
-              )}
-              <div style={{ fontSize: 'clamp(14px, 3vw, 20px)', color: '#9ca3af', marginBottom: 28 }}>
-                {timerResult?.won ? 'El descuento ya se aplicó a tu cuenta.' : 'Sigue con tu compra. ¡Suerte la próxima!'}
-              </div>
-              <button
-                onClick={() => { setTimerModalOpen(false); handleCheckout(); }}
-                style={{
-                  width: '100%', padding: '20px', borderRadius: 16, border: 'none',
-                  background: '#22c55e', color: '#fff', fontWeight: 900, fontSize: 'clamp(18px, 4vw, 26px)', cursor: 'pointer'
-                }}
-              >
-                Continuar al pago →
-              </button>
-            </div>
+            <button
+              onClick={() => { setTimerModalOpen(false); handleCheckout(); }}
+              style={{
+                width: 'min(92vw, 560px)', padding: '22px', borderRadius: 16, border: 'none',
+                background: '#22c55e', color: '#fff', fontWeight: 900, fontSize: 'clamp(18px, 4vw, 26px)', cursor: 'pointer', flexShrink: 0
+              }}
+            >
+              Continuar al pago →
+            </button>
           )}
           <style>{`@keyframes pulse-red { 0%,100% { box-shadow: 0 16px 50px rgba(239,68,68,.6); } 50% { box-shadow: 0 16px 64px rgba(239,68,68,.95); } }`}</style>
         </div>
