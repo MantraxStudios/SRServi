@@ -1241,6 +1241,7 @@ function Store() {
   const [ingredientsModalOpen, setIngredientsModalOpen] = useState(false);
   const [extrasModalOpen, setExtrasModalOpen] = useState(false);
   const [complementGroupsModalOpen, setComplementGroupsModalOpen] = useState(false);
+  const [builderModalOpen, setBuilderModalOpen] = useState(false);
   const [productModalStep, setProductModalStep] = useState('main');
   const [addingToCart, setAddingToCart] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -1410,7 +1411,7 @@ function Store() {
   const [complementForm, setComplementForm] = useState({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
   const [prodModalOpen, setProdModalOpen] = useState(false);
   const [editingProd, setEditingProd] = useState(null);
-  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, max_extras: '', max_ingredients: '', image_url: '', complements_private: false, complement_group_ids: [], points: '0' });
+  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, is_builder: false, max_extras: '', max_ingredients: '', image_url: '', complements_private: false, complement_group_ids: [], points: '0' });
   const [storeComplementGroups, setStoreComplementGroups] = useState([]);
   // Edición de secciones dinámicas desde el editor del tótem
   const [sectionGroupModal, setSectionGroupModal] = useState(null); // { id?, name, min_select, max_select, required }
@@ -2859,7 +2860,10 @@ function Store() {
     const hasExtras = product.has_extras && product.extras && product.extras.length > 0;
     const hasGroups = Array.isArray(product.complement_groups) && product.complement_groups.length > 0;
 
-    if (hasIngredients) {
+    if (product.is_builder && hasGroups) {
+      setProductModalStep('builder');
+      setTimeout(() => setBuilderModalOpen(true), 100);
+    } else if (hasIngredients) {
       setProductModalStep('complements');
       setTimeout(() => setIngredientsModalOpen(true), 100);
     } else if (hasExtras) {
@@ -2882,6 +2886,7 @@ function Store() {
     setIngredientsModalOpen(false);
     setExtrasModalOpen(false);
     setComplementGroupsModalOpen(false);
+    setBuilderModalOpen(false);
     setEditingCartItemId(null);
     setProductConfig({ selectedIngredients: [], selectedExtras: [], selectedComplements: [], quantity: 1, notes: '' });
   };
@@ -2923,7 +2928,10 @@ function Store() {
     const hasExtras = product.has_extras && product.extras && product.extras.length > 0;
     const hasGroups = Array.isArray(product.complement_groups) && product.complement_groups.length > 0;
 
-    if (hasIngredients) {
+    if (product.is_builder && hasGroups) {
+      setProductModalStep('builder');
+      setTimeout(() => setBuilderModalOpen(true), 100);
+    } else if (hasIngredients) {
       setProductModalStep('complements');
       setTimeout(() => setIngredientsModalOpen(true), 100);
     } else if (hasExtras) {
@@ -2935,7 +2943,7 @@ function Store() {
     }
   };
 
-  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || complementGroupsModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal || !!labelEditModal || !!sectionGroupModal || !!sectionOptionModal || !!sectionEditingGroup || loyaltyModalOpen || timerModalOpen;
+  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || complementGroupsModalOpen || builderModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal || !!labelEditModal || !!sectionGroupModal || !!sectionOptionModal || !!sectionEditingGroup || loyaltyModalOpen || timerModalOpen;
 
   useEffect(() => {
     anyModalOpenRef.current = anyModalOpen;
@@ -3115,6 +3123,7 @@ function Store() {
     setIngredientsModalOpen(false);
     setExtrasModalOpen(false);
     setComplementGroupsModalOpen(false);
+    setBuilderModalOpen(false);
 
     const unitPrice = calculateProductPrice();
     const baseIngredients = (selectedProduct.ingredients || []).filter(i => i.included_by_default);
@@ -3280,6 +3289,21 @@ function Store() {
       }
     }
     setComplementGroupsModalOpen(false);
+    setTimeout(() => addToCart(), 100);
+  };
+
+  // Igual que finishGroupsStep pero para el armador a pantalla completa
+  const finishBuilderStep = () => {
+    const groups = selectedProduct?.complement_groups || [];
+    for (const g of groups) {
+      const count = (productConfig.selectedComplements || []).filter(s => s.group_id === g.id).length;
+      const min = g.required ? Math.max(1, g.min_select || 0) : (g.min_select || 0);
+      if (count < min) {
+        alert(`Elegí al menos ${min} en "${g.name}".`);
+        return;
+      }
+    }
+    setBuilderModalOpen(false);
     setTimeout(() => addToCart(), 100);
   };
 
@@ -5432,6 +5456,7 @@ function Store() {
       unlimited_stock: product?.unlimited_stock ?? true,
       has_extras: product?.has_extras || false,
       has_ingredients: product?.has_ingredients || false,
+      is_builder: product?.is_builder || false,
       max_extras: product?.max_extras?.toString() || '',
       max_ingredients: product?.max_ingredients?.toString() || '',
       image_url: (product?.image?.startsWith('http') ? product.image : '') || '',
@@ -5611,6 +5636,7 @@ function Store() {
       formData.append('barcode', prodForm.barcode || '');
       formData.append('has_extras', prodForm.has_extras);
       formData.append('has_ingredients', prodForm.has_ingredients);
+      formData.append('is_builder', prodForm.is_builder);
       formData.append('max_extras', prodForm.has_extras ? (parseInt(prodForm.max_extras) || 0) : 0);
       formData.append('max_ingredients', prodForm.has_ingredients ? (parseInt(prodForm.max_ingredients) || 0) : 0);
       formData.append('points', parseInt(prodForm.points) || 0);
@@ -7976,6 +8002,109 @@ function Store() {
         </div>
       )}
 
+      {/* ── Armador a pantalla completa (producto "armable") ── */}
+      {builderModalOpen && selectedProduct && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 4000, background: '#f4f4f5', display: 'flex', flexDirection: 'column' }}>
+          {/* Encabezado con el nombre configurado por el negocio */}
+          <div style={{ position: 'relative', flexShrink: 0, background: 'var(--store-primary)', color: '#fff', padding: '16px 56px 16px 16px', display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 2px 10px rgba(0,0,0,0.15)' }}>
+            <img src={getProductImageUrl(selectedProduct.image)} alt={selectedProduct.name} style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', flexShrink: 0, background: 'rgba(255,255,255,0.15)' }} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 20, fontWeight: 900, lineHeight: 1.1 }}>{selectedProduct.name}</div>
+              <div style={{ fontSize: 13, opacity: 0.85, marginTop: 3 }}>
+                {t('builderBaseFrom', lang)} {colors.currency.symbol}{formatPrice(selectedProduct.price)}
+              </div>
+            </div>
+            <button
+              onClick={() => { setBuilderModalOpen(false); closeProductModal(); }}
+              style={{ position: 'absolute', top: 12, right: 12, width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+          </div>
+
+          {/* Cuerpo con las secciones de ingredientes */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px', WebkitOverflowScrolling: 'touch' }}>
+            {(selectedProduct.complement_groups || []).map(group => {
+              const selInGroup = (productConfig.selectedComplements || []).filter(s => s.group_id === group.id);
+              const limitLabel = group.max_select > 0
+                ? `${selInGroup.length}/${group.max_select}`
+                : `${selInGroup.length}`;
+              return (
+                <div key={group.id} style={{ marginBottom: 22 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: '#1f2937' }}>
+                      {group.name} {group.required && <span style={{ color: '#dc3545', fontSize: 14 }}>*</span>}
+                    </span>
+                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                      {limitLabel} {t('builderChosen', lang)}
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 10 }}>
+                    {(group.options || []).map(opt => {
+                      const outOfStock = !opt.unlimited_stock && opt.stock === 0;
+                      const isSel = selInGroup.some(s => s.option_id === opt.id);
+                      return (
+                        <div
+                          key={opt.id}
+                          onClick={() => { if (!outOfStock) toggleComplementOption(group, opt); }}
+                          style={{
+                            position: 'relative', borderRadius: 14, overflow: 'hidden', cursor: outOfStock ? 'not-allowed' : 'pointer',
+                            background: '#fff', border: `2.5px solid ${isSel ? 'var(--store-accent)' : outOfStock ? '#fecaca' : '#e5e7eb'}`,
+                            opacity: outOfStock ? 0.55 : 1, boxShadow: isSel ? '0 4px 14px rgba(0,0,0,0.12)' : '0 1px 4px rgba(0,0,0,0.05)',
+                            transition: 'border-color .12s, box-shadow .12s'
+                          }}
+                        >
+                          <img src={getProductImageUrl(opt.image)} alt={opt.name} style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }} />
+                          <div style={{ padding: '8px 6px', textAlign: 'center' }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#1f2937', lineHeight: 1.2 }}>{opt.name}</div>
+                            {Number(opt.price) > 0 && (
+                              <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--store-primary)', marginTop: 2 }}>
+                                +{colors.currency.symbol}{formatPrice(opt.price)}
+                              </div>
+                            )}
+                            {outOfStock && <div style={{ fontSize: 10, color: '#dc3545', fontWeight: 700 }}>{t('outOfStock', lang) || 'Agotado'}</div>}
+                          </div>
+                          {isSel && (
+                            <div style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: '50%', background: 'var(--store-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }}>
+                              <FontAwesomeIcon icon={faCheck} style={{ fontSize: 13, color: 'var(--store-primary)' }} />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Pie fijo con cantidad y total grande */}
+          <div style={{ flexShrink: 0, background: '#fff', borderTop: '1px solid #e5e7eb', padding: '12px 16px calc(12px + env(safe-area-inset-bottom))', boxShadow: '0 -4px 16px rgba(0,0,0,0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f3f4f6', borderRadius: 999, padding: 4 }}>
+                <button
+                  onClick={() => setProductConfig(p => ({ ...p, quantity: Math.max(1, (p.quantity || 1) - 1) }))}
+                  style={{ width: 38, height: 38, borderRadius: '50%', border: 'none', background: '#fff', fontSize: 20, fontWeight: 700, cursor: 'pointer', color: '#374151', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+                >−</button>
+                <span style={{ minWidth: 24, textAlign: 'center', fontSize: 17, fontWeight: 800, color: '#1f2937' }}>{productConfig.quantity || 1}</span>
+                <button
+                  onClick={() => setProductConfig(p => ({ ...p, quantity: (p.quantity || 1) + 1 }))}
+                  style={{ width: 38, height: 38, borderRadius: '50%', border: 'none', background: '#fff', fontSize: 20, fontWeight: 700, cursor: 'pointer', color: '#374151', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+                >+</button>
+              </div>
+              <button
+                onClick={finishBuilderStep}
+                disabled={addingToCart}
+                className="store-glow-pulse"
+                style={{ flex: 1, padding: '14px', borderRadius: 14, border: 'none', background: addingToCart ? '#28a745' : 'var(--store-accent)', color: 'var(--store-primary)', fontSize: 16, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              >
+                {addingToCart ? t('addedExclaim', lang) : `${t('addBtn', lang)} · ${colors.currency.symbol}${formatPrice(calculateProductPrice() * (productConfig.quantity || 1))}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {cartOpen && (
         <div className="cart-overlay" onClick={() => { setCartOpen(false); setTipEnabled(false); setTipPercent(0); }} />
@@ -9586,6 +9715,19 @@ function Store() {
                       <input type="number" min="0" value={prodForm.max_extras} onChange={(e) => setProdForm({ ...prodForm, max_extras: e.target.value })} placeholder="0 = ilimitado" className="store-prod-modal-input" style={{ fontSize: 13, flex: 1 }} />
                     </div>
                   )}
+
+                  {/* Fila: Armable (pantalla de armador) */}
+                  <div style={{ padding: '8px 10px', borderRadius: 8, border: `2px solid ${prodForm.is_builder ? '#f59e0b' : '#e0e0e0'}`, background: prodForm.is_builder ? '#fef3c7' : '#fafafa' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, margin: 0 }}>
+                      <input type="checkbox" checked={prodForm.is_builder} onChange={(e) => setProdForm({ ...prodForm, is_builder: e.target.checked })} style={{ width: 18, height: 18, flexShrink: 0, cursor: 'pointer' }} />
+                      <FontAwesomeIcon icon={faPizzaSlice} style={{ color: '#f59e0b' }} /> Armable (pantalla de armador)
+                    </label>
+                    {prodForm.is_builder && (
+                      <p style={{ fontSize: 11, color: '#92400e', margin: '6px 0 0', lineHeight: 1.4 }}>
+                        Al tocar este producto se abre una pantalla completa para armarlo libremente. El precio base es el precio del producto y cada opción de las secciones de abajo suma su precio. Ideal para "Arma tu pizza", "Crea tu hamburguesa", etc.
+                      </p>
+                    )}
+                  </div>
 
                   {/* Secciones personalizadas */}
                   <div style={{ borderTop: '1px solid #eee', paddingTop: 10, marginTop: 2 }}>

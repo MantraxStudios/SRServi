@@ -2539,7 +2539,8 @@ app.post('/api/public/:code/products', upload.single('image'), async (req, res) 
       max_extras: parseInt(req.body.max_extras) || 0,
       max_ingredients: parseInt(req.body.max_ingredients) || 0,
       show_description: req.body.show_description !== 'false' && req.body.show_description !== false,
-      show_prep_time: req.body.show_prep_time !== 'false' && req.body.show_prep_time !== false
+      show_prep_time: req.body.show_prep_time !== 'false' && req.body.show_prep_time !== false,
+      is_builder: req.body.is_builder === 'true' || req.body.is_builder === true
     });
 
     const [updInv] = await pool.execute('UPDATE inventory SET unlimited_stock = 1 WHERE product_id = ?', [product.id]);
@@ -2580,7 +2581,8 @@ app.put('/api/public/:code/products/:id', upload.single('image'), async (req, re
       max_extras: parseInt(req.body.max_extras) || 0,
       max_ingredients: parseInt(req.body.max_ingredients) || 0,
       show_description: req.body.show_description !== 'false' && req.body.show_description !== false,
-      show_prep_time: req.body.show_prep_time !== 'false' && req.body.show_prep_time !== false
+      show_prep_time: req.body.show_prep_time !== 'false' && req.body.show_prep_time !== false,
+      is_builder: req.body.is_builder === 'true' || req.body.is_builder === true
     });
     emitProductUpdate(auth.store.id, 'product_updated', product);
     res.json(product);
@@ -7651,7 +7653,8 @@ app.post('/api/products', authenticateToken, upload.single('image'), async (req,
       max_ingredients: parseInt(max_ingredients) || 0,
       show_description: show_description !== 'false' && show_description !== false,
       show_prep_time: show_prep_time !== 'false' && show_prep_time !== false,
-      is_featured: req.body.is_featured === 'true' || req.body.is_featured === true
+      is_featured: req.body.is_featured === 'true' || req.body.is_featured === true,
+      is_builder: req.body.is_builder === 'true' || req.body.is_builder === true
     });
 
     // Secciones dinámicas asignadas
@@ -7709,7 +7712,8 @@ app.put('/api/products/:id', authenticateToken, upload.single('image'), async (r
       max_ingredients: parseInt(max_ingredients) || 0,
       show_description: show_description !== 'false' && show_description !== false,
       show_prep_time: show_prep_time !== 'false' && show_prep_time !== false,
-      is_featured: req.body.is_featured === 'true' || req.body.is_featured === true
+      is_featured: req.body.is_featured === 'true' || req.body.is_featured === true,
+      is_builder: req.body.is_builder === 'true' || req.body.is_builder === true
     });
 
     // Secciones dinámicas asignadas

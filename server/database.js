@@ -1142,6 +1142,10 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE products ADD COLUMN has_ingredients BOOLEAN NOT NULL DEFAULT FALSE');
         console.log('✅ Columna has_ingredients agregada a products');
       }
+      if (!productColNames.includes('is_builder')) {
+        await pool.execute('ALTER TABLE products ADD COLUMN is_builder BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna is_builder agregada a products');
+      }
       if (!productColNames.includes('max_extras')) {
         await pool.execute('ALTER TABLE products ADD COLUMN max_extras INT NOT NULL DEFAULT 0');
         console.log('✅ Columna max_extras agregada a products');
@@ -3720,6 +3724,7 @@ export async function getProducts(storeId) {
       unlimited_stock: product.unlimited_stock || false,
       has_extras: !!product.has_extras,
       has_ingredients: !!product.has_ingredients,
+      is_builder: !!product.is_builder,
       max_extras: parseInt(product.max_extras) || 0,
       max_ingredients: parseInt(product.max_ingredients) || 0,
       ingredients: await getProductIngredients(product.id, product.category_id),
@@ -3732,16 +3737,17 @@ export async function getProducts(storeId) {
 }
 
 export async function createProduct(storeId, data) {
-  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time, is_featured, points } = data;
+  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time, is_featured, points, is_builder } = data;
   const showDescription = show_description !== false;
   const showPrepTime = show_prep_time !== false;
   const isFeatured = is_featured === true || is_featured === 'true' || is_featured === 1;
+  const isBuilder = is_builder === true || is_builder === 'true' || is_builder === 1;
   const pointsVal = Math.max(0, parseInt(points) || 0);
 
   const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO products (store_id, user_id, category_id, name, barcode, description, price, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time, is_featured, points) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, category_id || null, name, barcode || null, description || null, price, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, showDescription ? 1 : 0, showPrepTime ? 1 : 0, isFeatured ? 1 : 0, pointsVal]
+    'INSERT INTO products (store_id, user_id, category_id, name, barcode, description, price, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time, is_featured, points, is_builder) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, category_id || null, name, barcode || null, description || null, price, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, showDescription ? 1 : 0, showPrepTime ? 1 : 0, isFeatured ? 1 : 0, pointsVal, isBuilder ? 1 : 0]
   );
   const productId = result.insertId;
 
@@ -3756,6 +3762,7 @@ export async function createProduct(storeId, data) {
     image,
     has_extras: !!has_extras,
     has_ingredients: !!has_ingredients,
+    is_builder: isBuilder,
     max_extras: parseInt(max_extras) || 0,
     max_ingredients: parseInt(max_ingredients) || 0,
     show_description: showDescription,
@@ -3771,15 +3778,16 @@ export async function createProduct(storeId, data) {
 }
 
 export async function updateProduct(productId, storeId, data) {
-  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time, is_featured, points } = data;
+  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients, show_description, show_prep_time, is_featured, points, is_builder } = data;
   const showDescription = show_description !== false;
   const showPrepTime = show_prep_time !== false;
   const isFeatured = is_featured === true || is_featured === 'true' || is_featured === 1;
+  const isBuilder = is_builder === true || is_builder === 'true' || is_builder === 1;
   const pointsVal = Math.max(0, parseInt(points) || 0);
 
   await pool.execute(
-    'UPDATE products SET name = ?, barcode = ?, description = ?, price = ?, category_id = ?, image = ?, has_extras = ?, has_ingredients = ?, max_extras = ?, max_ingredients = ?, show_description = ?, show_prep_time = ?, is_featured = ?, points = ? WHERE id = ? AND store_id = ?',
-    [name, barcode || null, description || null, price, category_id || null, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, showDescription ? 1 : 0, showPrepTime ? 1 : 0, isFeatured ? 1 : 0, pointsVal, productId, storeId]
+    'UPDATE products SET name = ?, barcode = ?, description = ?, price = ?, category_id = ?, image = ?, has_extras = ?, has_ingredients = ?, max_extras = ?, max_ingredients = ?, show_description = ?, show_prep_time = ?, is_featured = ?, points = ?, is_builder = ? WHERE id = ? AND store_id = ?',
+    [name, barcode || null, description || null, price, category_id || null, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, showDescription ? 1 : 0, showPrepTime ? 1 : 0, isFeatured ? 1 : 0, pointsVal, isBuilder ? 1 : 0, productId, storeId]
   );
 
   // Get current stock from inventory
@@ -3800,6 +3808,7 @@ export async function updateProduct(productId, storeId, data) {
     image,
     has_extras: !!has_extras,
     has_ingredients: !!has_ingredients,
+    is_builder: isBuilder,
     max_extras: parseInt(max_extras) || 0,
     max_ingredients: parseInt(max_ingredients) || 0,
     show_description: showDescription,
