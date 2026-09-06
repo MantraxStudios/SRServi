@@ -785,7 +785,7 @@ export default function Configurations() {
                     </div>
                   </Row>
 
-                  <Row icon={faClock} label="Margen de acierto (±)" sub="Qué tan cerca del tiempo objetivo cuenta como acierto">
+                  <Row icon={faClock} label="Margen de acierto" sub="Cuántos segundos antes del objetivo cuenta como acierto (pasarse pierde)">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontSize: 13, color: '#888', fontWeight: 600 }}>±</span>
                       <input
@@ -809,7 +809,7 @@ export default function Configurations() {
                   </Row>
 
                   <p style={{ fontSize: 12, color: '#9ca3af', margin: '8px 0 0' }}>
-                    Ejemplo: objetivo {timerCfg.target_seconds}s ±{timerCfg.tolerance_seconds}s → si el cliente detiene el cronómetro entre {Math.max(0, timerCfg.target_seconds - timerCfg.tolerance_seconds).toFixed(2)}s y {(timerCfg.target_seconds + timerCfg.tolerance_seconds).toFixed(2)}s, gana {timerCfg.discount_percent}% de descuento. Solo un intento por compra.
+                    Ejemplo: objetivo {timerCfg.target_seconds}s con margen {timerCfg.tolerance_seconds}s → si el cliente detiene el cronómetro entre {Math.max(0, timerCfg.target_seconds - timerCfg.tolerance_seconds).toFixed(2)}s y {Number(timerCfg.target_seconds).toFixed(2)}s (sin pasarse), gana {timerCfg.discount_percent}% de descuento. Pasarse del objetivo pierde. Solo un intento por compra.
                   </p>
                 </>
               )}

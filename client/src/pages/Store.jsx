@@ -3516,7 +3516,9 @@ function Store() {
     const stopped = (performance.now() - timerStartRef.current) / 1000;
     const target = Number(timerGameConfig?.target_seconds) || 0;
     const tol = Number(timerGameConfig?.tolerance_seconds) || 0;
-    const won = Math.abs(stopped - target) <= tol;
+    // Gana solo si se detiene en el objetivo SIN PASARSE: dentro de [target - tol, target].
+    // El pequeño epsilon (0.005) cubre el caso de "10.00" exacto por redondeo del display.
+    const won = stopped <= target + 0.005 && stopped >= target - tol;
     setTimerElapsed(stopped);
     setTimerRunning(false);
     setTimerPlayed(true);
@@ -8370,11 +8372,11 @@ function Store() {
                   ⏱️ ¡Juega y gana!
                 </div>
                 <div style={{ fontSize: 'clamp(15px, 3.5vw, 24px)', color: '#e5e7eb', lineHeight: 1.4 }}>
-                  Detén el cronómetro en <b style={{ color: '#22c55e' }}>{Number(timerGameConfig.target_seconds).toFixed(2)}s</b>
+                  Detén el cronómetro en <b style={{ color: '#22c55e' }}>{Number(timerGameConfig.target_seconds).toFixed(2)}s</b> (sin pasarte)
                   {' '}y gana <b style={{ color: '#22c55e' }}>{timerGameConfig.discount_percent}% de descuento</b>
                 </div>
                 <div style={{ fontSize: 'clamp(12px, 2.5vw, 17px)', color: '#9ca3af' }}>
-                  Margen de acierto: ±{Number(timerGameConfig.tolerance_seconds).toFixed(2)}s · 1 intento
+                  Vale entre {Math.max(0, Number(timerGameConfig.target_seconds) - Number(timerGameConfig.tolerance_seconds)).toFixed(2)}s y {Number(timerGameConfig.target_seconds).toFixed(2)}s · 1 intento
                 </div>
               </>
             ) : (
