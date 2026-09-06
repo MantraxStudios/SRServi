@@ -2860,7 +2860,7 @@ function Store() {
     const hasExtras = product.has_extras && product.extras && product.extras.length > 0;
     const hasGroups = Array.isArray(product.complement_groups) && product.complement_groups.length > 0;
 
-    if (product.is_builder && hasGroups) {
+    if (product.is_builder) {
       setProductModalStep('builder');
       setTimeout(() => setBuilderModalOpen(true), 100);
     } else if (hasIngredients) {
@@ -2899,7 +2899,7 @@ function Store() {
     const hasIngredients = product.has_ingredients && product.ingredients && product.ingredients.length > 0;
     const hasExtras = product.has_extras && product.extras && product.extras.length > 0;
     const hasGroups = Array.isArray(product.complement_groups) && product.complement_groups.length > 0;
-    return (hasIngredients || hasExtras || hasGroups) ? product : null;
+    return (product.is_builder || hasIngredients || hasExtras || hasGroups) ? product : null;
   };
 
   // Reabre el modal del producto pre-cargado con la selección guardada para editarla.
@@ -2928,7 +2928,7 @@ function Store() {
     const hasExtras = product.has_extras && product.extras && product.extras.length > 0;
     const hasGroups = Array.isArray(product.complement_groups) && product.complement_groups.length > 0;
 
-    if (product.is_builder && hasGroups) {
+    if (product.is_builder) {
       setProductModalStep('builder');
       setTimeout(() => setBuilderModalOpen(true), 100);
     } else if (hasIngredients) {
@@ -8024,6 +8024,12 @@ function Store() {
 
           {/* Cuerpo con las secciones de ingredientes */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px', WebkitOverflowScrolling: 'touch' }}>
+            {(selectedProduct.complement_groups || []).length === 0 && (
+              <div style={{ textAlign: 'center', color: '#9ca3af', padding: '48px 20px', fontSize: 14 }}>
+                <FontAwesomeIcon icon={faPizzaSlice} style={{ fontSize: 40, marginBottom: 14, opacity: 0.5 }} />
+                <div>{t('builderNoSections', lang)}</div>
+              </div>
+            )}
             {(selectedProduct.complement_groups || []).map(group => {
               const selInGroup = (productConfig.selectedComplements || []).filter(s => s.group_id === group.id);
               const limitLabel = group.max_select > 0
