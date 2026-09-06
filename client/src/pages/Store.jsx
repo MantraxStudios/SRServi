@@ -1276,6 +1276,14 @@ function Store() {
   const [stampError, setStampError] = useState('');
   const [stampLookupLoading, setStampLookupLoading] = useState(false);
   const [stampPointsToUse, setStampPointsToUse] = useState(0); // puntos que el cliente decide canjear
+  // ── Juego del cronómetro ──
+  const [timerGameConfig, setTimerGameConfig] = useState(null);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [timerElapsed, setTimerElapsed] = useState(0); // segundos transcurridos (mostrados)
+  const [timerResult, setTimerResult] = useState(null); // null | { won: bool, stopped: number }
+  const [timerPlayed, setTimerPlayed] = useState(false); // ya usó su único intento de esta compra
+  const timerStartRef = useRef(0);
+  const timerRafRef = useRef(null);
   const [pendingOrderData, setPendingOrderData] = useState(null);
   const [comboModal, setComboModal] = useState(null);
   const [comboQty, setComboQty] = useState(1);
@@ -2067,6 +2075,7 @@ function Store() {
     }
     // Record stamp card purchase / redeem
     recordStampPurchase();
+    resetTimerGame();
     setPaymentComment('');
     setCustomerPhone('');
     const toRatingTimer = setTimeout(() => {
@@ -2092,6 +2101,7 @@ function Store() {
     }
     // Record stamp card purchase / redeem
     recordStampPurchase();
+    resetTimerGame();
     setPaymentComment('');
     setCustomerPhone('');
     const toRatingTimer = setTimeout(() => {
@@ -2601,6 +2611,12 @@ function Store() {
       fetch(`/api/public/${code}/stamp-card`)
         .then(r => r.ok ? r.json() : null)
         .then(d => { if (d?.config?.enabled) setStampConfig(d.config); })
+        .catch(() => {});
+
+      // Fetch juego del cronómetro (descuento por detener el cronómetro a tiempo)
+      fetch(`/api/public/${code}/timer-game`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.config?.enabled) setTimerGameConfig(d.config); })
         .catch(() => {});
 
       // Welcome/language modal disabled — no longer shown on page load
@@ -3470,12 +3486,74 @@ function Store() {
     setStampPointsToUse(0);
   };
 
+  // ── Juego del cronómetro ──
+  // El cliente inicia y detiene un cronómetro; si lo para dentro de la ventana
+  // del tiempo objetivo, gana un % de descuento sobre el total. Un intento por compra.
+  const stopTimerGame = () => {
+    if (!timerRunning) return;
+    if (timerRafRef.current) cancelAnimationFrame(timerRafRef.current);
+    timerRafRef.current = null;
+    const stopped = (performance.now() - timerStartRef.current) / 1000;
+    const target = Number(timerGameConfig?.target_seconds) || 0;
+    const tol = Number(timerGameConfig?.tolerance_seconds) || 0;
+    const won = Math.abs(stopped - target) <= tol;
+    setTimerElapsed(stopped);
+    setTimerRunning(false);
+    setTimerPlayed(true);
+    setTimerResult({ won, stopped });
+  };
+
+  const startTimerGame = () => {
+    if (timerRunning || timerPlayed || !timerGameConfig?.enabled) return;
+    setTimerResult(null);
+    setTimerElapsed(0);
+    timerStartRef.current = performance.now();
+    setTimerRunning(true);
+    const tick = () => {
+      const el = (performance.now() - timerStartRef.current) / 1000;
+      setTimerElapsed(el);
+      // Corte de seguridad: si nadie detiene, terminar como fallido a los +5s del objetivo
+      const maxT = (Number(timerGameConfig?.target_seconds) || 10) + 5;
+      if (el >= maxT) { stopTimerGame(); return; }
+      timerRafRef.current = requestAnimationFrame(tick);
+    };
+    timerRafRef.current = requestAnimationFrame(tick);
+  };
+
+  const resetTimerGame = () => {
+    if (timerRafRef.current) cancelAnimationFrame(timerRafRef.current);
+    timerRafRef.current = null;
+    setTimerRunning(false);
+    setTimerElapsed(0);
+    setTimerResult(null);
+    setTimerPlayed(false);
+  };
+
+  useEffect(() => () => { if (timerRafRef.current) cancelAnimationFrame(timerRafRef.current); }, []);
+
+  // Si el carrito queda vacío (compra finalizada o cliente nuevo), reiniciar el juego
+  useEffect(() => { if (cart.length === 0 && timerPlayed) resetTimerGame(); }, [cart.length]);
+
+  // Descuento en $ ganado con el juego del cronómetro (sobre el total tras otros descuentos)
+  const getTimerGameDiscount = () => {
+    if (!timerGameConfig?.enabled || !timerResult?.won) return 0;
+    const pct = Number(timerGameConfig?.discount_percent) || 0;
+    if (pct <= 0) return 0;
+    const subtotal = getCartTotal();
+    const couponDiscount = Number(appliedCoupon?.discount_total || 0);
+    const loyalDiscountAmt = getLoyaltyDiscountAmount();
+    const stampDiscountAmt = getStampDiscountAmount();
+    const base = Math.max(subtotal - couponDiscount - loyalDiscountAmt - stampDiscountAmt, 0);
+    return Math.round(base * pct / 100);
+  };
+
   const getCartSubtotal = () => {
     const subtotal = getCartTotal();
     const couponDiscount = Number(appliedCoupon?.discount_total || 0);
     const loyalDiscountAmt = getLoyaltyDiscountAmount();
     const stampDiscountAmt = getStampDiscountAmount();
-    return Math.max(subtotal - couponDiscount - loyalDiscountAmt - stampDiscountAmt, 0);
+    const timerDiscountAmt = getTimerGameDiscount();
+    return Math.max(subtotal - couponDiscount - loyalDiscountAmt - stampDiscountAmt - timerDiscountAmt, 0);
   };
 
   const SQUARE_COMMISSION_RATE = 0.086;
@@ -7982,6 +8060,12 @@ function Store() {
                     <span>-{colors.currency.symbol}{formatPrice(getStampDiscountAmount())}</span>
                   </div>
                 )}
+                {getTimerGameDiscount() > 0 && (
+                  <div className="store-cart-summary-row store-cart-discount" style={{ color: '#16a34a' }}>
+                    <span>⏱️ Cronómetro ({timerGameConfig?.discount_percent}%)</span>
+                    <span>-{colors.currency.symbol}{formatPrice(getTimerGameDiscount())}</span>
+                  </div>
+                )}
                 <div className="store-cart-summary-total">
                   <span>{selectedTerminalProvider === 'square' ? t('subtotal', lang) : t('total', lang)}</span>
                   <span>{colors.currency.symbol}{formatPrice(getCartSubtotal())}</span>
@@ -8099,6 +8183,57 @@ function Store() {
                     )}
                   </div>
                 )}
+
+                {timerGameConfig?.enabled && (
+                  <div style={{ marginTop: 10, padding: '14px', borderRadius: 12, background: '#f0f7ff', border: '1.5px solid #cfe2ff', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#1d4ed8', marginBottom: 4 }}>
+                      ⏱️ Juego del cronómetro
+                    </div>
+                    <div style={{ fontSize: 12, color: '#3b5bdb', marginBottom: 10 }}>
+                      ¡Detén el cronómetro en <b>{Number(timerGameConfig.target_seconds).toFixed(2)}s</b> y gana <b>{timerGameConfig.discount_percent}% de descuento</b>!
+                    </div>
+
+                    <div style={{
+                      fontSize: 38, fontWeight: 800, letterSpacing: 1,
+                      fontVariantNumeric: 'tabular-nums',
+                      color: timerResult ? (timerResult.won ? '#16a34a' : '#ef4444') : '#111',
+                      marginBottom: 10, lineHeight: 1
+                    }}>
+                      {timerElapsed.toFixed(2)}<span style={{ fontSize: 18 }}>s</span>
+                    </div>
+
+                    {!timerPlayed ? (
+                      timerRunning ? (
+                        <button
+                          onClick={stopTimerGame}
+                          style={{ width: '100%', padding: '13px', borderRadius: 10, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}
+                        >
+                          DETENER
+                        </button>
+                      ) : (
+                        <button
+                          onClick={startTimerGame}
+                          style={{ width: '100%', padding: '13px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}
+                        >
+                          INICIAR
+                        </button>
+                      )
+                    ) : (
+                      <div>
+                        {timerResult?.won ? (
+                          <div style={{ fontSize: 14, fontWeight: 700, color: '#16a34a' }}>
+                            🎉 ¡Ganaste {timerGameConfig.discount_percent}% de descuento!
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 14, fontWeight: 700, color: '#ef4444' }}>
+                            Casi... el objetivo era {Number(timerGameConfig.target_seconds).toFixed(2)}s. ¡Suerte la próxima!
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {vkbOpen && (
                   <VirtualKeyboard
                     value={couponCodeInput}

@@ -322,6 +322,8 @@ import {
   deleteLoyalCustomer,
   getStampCardConfig,
   saveStampCardConfig,
+  getTimerGameConfig,
+  saveTimerGameConfig,
   getStoreWalletConfig,
   saveStoreWalletConfig,
   getStampCardByToken,
@@ -17947,6 +17949,37 @@ app.put('/api/stamp-card/config', authenticateToken, async (req, res) => {
     if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
     await saveStampCardConfig(parseInt(store_id), { enabled, money_per_point });
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Juego del cronómetro ─────────────────────────────────────────────────────
+// Admin: leer configuración del juego del cronómetro
+app.get('/api/timer-game/config', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const config = await getTimerGameConfig(storeId);
+    res.json(config);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: guardar configuración del juego del cronómetro
+app.put('/api/timer-game/config', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, enabled, target_seconds, tolerance_seconds, discount_percent } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+    await saveTimerGameConfig(parseInt(store_id), { enabled, target_seconds, tolerance_seconds, discount_percent });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Público: config del juego del cronómetro por código de tienda (para el tótem)
+app.get('/api/public/:code/timer-game', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const config = await getTimerGameConfig(store.id);
+    res.json({ config });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

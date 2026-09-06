@@ -5,7 +5,7 @@ import {
   faHashtag, faPercent, faTruck, faTabletAlt, faClock,
   faCheck, faExclamationTriangle, faSave, faSync, faPlus,
   faChevronDown, faChevronUp, faTableCells, faFlask, faCubes, faQrcode,
-  faTrash, faCheckCircle, faCircle, faXmark, faCommentDots, faUser
+  faTrash, faCheckCircle, faCircle, faXmark, faCommentDots, faUser, faStopwatch
 } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
@@ -395,6 +395,9 @@ export default function Configurations() {
   const [walletOpen, setWalletOpen] = useState(false);
   const [walletSaving, setWalletSaving] = useState(false);
   const [walletSaved, setWalletSaved] = useState(false);
+  const [timerCfg, setTimerCfg] = useState(null);
+  const [timerSaving, setTimerSaving] = useState(false);
+  const [timerSaved, setTimerSaved] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -405,14 +408,15 @@ export default function Configurations() {
   const loadAll = async () => {
     setLoading(true);
     const token = localStorage.getItem('token');
-    const [cfgRes, devRes, ingRes, extRes, stampCfgRes, stampCardsRes, walletRes] = await Promise.all([
+    const [cfgRes, devRes, ingRes, extRes, stampCfgRes, stampCardsRes, walletRes, timerRes] = await Promise.all([
       fetch(`/api/store-configurations?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(API + `/api/store-devices?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`/api/ingredients?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`/api/extras?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`/api/stamp-card/config?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
       fetch(`/api/stamp-card/cards?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`/api/stamp-card/wallet-config?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } })
+      fetch(`/api/stamp-card/wallet-config?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`/api/timer-game/config?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } })
     ]);
     const cfgData = await cfgRes.json();
     const devData = devRes.ok ? await devRes.json() : [];
@@ -421,6 +425,7 @@ export default function Configurations() {
     const stampCfgData = stampCfgRes.ok ? await stampCfgRes.json() : null;
     const stampCardsData = stampCardsRes.ok ? await stampCardsRes.json() : [];
     const walletCfgData = walletRes.ok ? await walletRes.json() : null;
+    const timerCfgData = timerRes.ok ? await timerRes.json() : null;
     setConfigs(Array.isArray(cfgData) ? cfgData : []);
     setDevices(Array.isArray(devData) ? devData : []);
     setIngredients(Array.isArray(ingData) ? ingData : []);
@@ -431,7 +436,31 @@ export default function Configurations() {
     } : { enabled: false, money_per_point: 1 });
     setStampCards(Array.isArray(stampCardsData) ? stampCardsData : []);
     setWalletCfg(walletCfgData || {});
+    setTimerCfg(timerCfgData ? {
+      enabled: !!timerCfgData.enabled,
+      target_seconds: Number(timerCfgData.target_seconds) || 10,
+      tolerance_seconds: Number(timerCfgData.tolerance_seconds) || 0.3,
+      discount_percent: Number(timerCfgData.discount_percent) || 10
+    } : { enabled: false, target_seconds: 10, tolerance_seconds: 0.3, discount_percent: 10 });
     setLoading(false);
+  };
+
+  const saveTimerCfg = async () => {
+    if (!timerCfg) return;
+    setTimerSaving(true);
+    setTimerSaved(false);
+    const token = localStorage.getItem('token');
+    try {
+      await fetch('/api/timer-game/config', {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...timerCfg, store_id: selectedStore.id })
+      });
+      setTimerSaved(true);
+      setTimeout(() => setTimerSaved(false), 2500);
+    } finally {
+      setTimerSaving(false);
+    }
   };
 
   const saveWalletCfg = async () => {
@@ -723,6 +752,81 @@ export default function Configurations() {
               >
                 <FontAwesomeIcon icon={stampSaving ? faSync : faSave} spin={stampSaving} />
                 {stampSaving ? 'Guardando...' : stampSaved ? '¡Guardado!' : 'Guardar tarjeta de puntos'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Juego del cronómetro ── */}
+        {timerCfg && (
+          <div style={{ marginBottom: 36 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 12 }}>
+              Juego del cronómetro
+            </div>
+            <div style={{ background: '#fff', border: `1.5px solid ${timerCfg.enabled ? GOLD : '#e8e8e8'}`, borderRadius: 14, padding: '4px 18px 18px', boxShadow: '0 1px 4px rgba(0,0,0,.04)' }}>
+              <Row
+                icon={faStopwatch}
+                label="Activar juego del cronómetro"
+                sub="El cliente detiene un cronómetro en el tótem; si acierta el tiempo, gana un descuento en su cuenta"
+                active={timerCfg.enabled}
+                onToggle={() => setTimerCfg(p => ({ ...p, enabled: !p.enabled }))}
+              />
+
+              {timerCfg.enabled && (
+                <>
+                  <Row icon={faStopwatch} label="Tiempo objetivo" sub="Segundos exactos en que debe detener el cronómetro">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <input
+                        type="number" min="0.1" step="0.1" value={timerCfg.target_seconds}
+                        onChange={e => setTimerCfg(p => ({ ...p, target_seconds: Math.max(0.1, parseFloat(e.target.value) || 0) }))}
+                        style={{ width: 70, padding: '6px 8px', border: '1.5px solid #e0e0e0', borderRadius: 8, fontSize: 14, fontWeight: 700, textAlign: 'center', outline: 'none' }}
+                      />
+                      <span style={{ fontSize: 13, color: '#888', fontWeight: 600 }}>seg</span>
+                    </div>
+                  </Row>
+
+                  <Row icon={faClock} label="Margen de acierto (±)" sub="Qué tan cerca del tiempo objetivo cuenta como acierto">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 13, color: '#888', fontWeight: 600 }}>±</span>
+                      <input
+                        type="number" min="0" step="0.05" value={timerCfg.tolerance_seconds}
+                        onChange={e => setTimerCfg(p => ({ ...p, tolerance_seconds: Math.max(0, parseFloat(e.target.value) || 0) }))}
+                        style={{ width: 70, padding: '6px 8px', border: '1.5px solid #e0e0e0', borderRadius: 8, fontSize: 14, fontWeight: 700, textAlign: 'center', outline: 'none' }}
+                      />
+                      <span style={{ fontSize: 13, color: '#888', fontWeight: 600 }}>seg</span>
+                    </div>
+                  </Row>
+
+                  <Row icon={faPercent} label="Descuento al acertar" sub="Porcentaje que se descuenta del total de la cuenta">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <input
+                        type="number" min="0" max="100" step="1" value={timerCfg.discount_percent}
+                        onChange={e => setTimerCfg(p => ({ ...p, discount_percent: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)) }))}
+                        style={{ width: 70, padding: '6px 8px', border: '1.5px solid #e0e0e0', borderRadius: 8, fontSize: 14, fontWeight: 700, textAlign: 'center', outline: 'none' }}
+                      />
+                      <span style={{ fontSize: 13, color: '#888', fontWeight: 600 }}>%</span>
+                    </div>
+                  </Row>
+
+                  <p style={{ fontSize: 12, color: '#9ca3af', margin: '8px 0 0' }}>
+                    Ejemplo: objetivo {timerCfg.target_seconds}s ±{timerCfg.tolerance_seconds}s → si el cliente detiene el cronómetro entre {Math.max(0, timerCfg.target_seconds - timerCfg.tolerance_seconds).toFixed(2)}s y {(timerCfg.target_seconds + timerCfg.tolerance_seconds).toFixed(2)}s, gana {timerCfg.discount_percent}% de descuento. Solo un intento por compra.
+                  </p>
+                </>
+              )}
+
+              <button
+                type="button"
+                disabled={timerSaving}
+                onClick={saveTimerCfg}
+                style={{
+                  width: '100%', marginTop: 18, padding: '12px', borderRadius: 10, border: 'none',
+                  background: timerSaved ? '#22c55e' : '#111', color: '#fff',
+                  fontWeight: 700, fontSize: 14, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                }}
+              >
+                <FontAwesomeIcon icon={timerSaving ? faSync : faSave} spin={timerSaving} />
+                {timerSaving ? 'Guardando...' : timerSaved ? '¡Guardado!' : 'Guardar juego del cronómetro'}
               </button>
             </div>
           </div>

@@ -8347,6 +8347,66 @@ export async function saveStampCardConfig(storeId, { enabled, money_per_point })
   ]);
 }
 
+// ─── Juego del cronómetro: descuento por detener el cronómetro a tiempo ───────
+// El cliente detiene un cronómetro en el tótem; si lo para dentro de la ventana
+// del tiempo objetivo configurado por el administrador, gana un % de descuento.
+let _timerGameReady = false;
+async function ensureTimerGameTable() {
+  if (_timerGameReady) return;
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS timer_game_config (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL UNIQUE,
+      enabled BOOLEAN DEFAULT FALSE,
+      target_seconds DECIMAL(6,2) DEFAULT 10.00,
+      tolerance_seconds DECIMAL(6,2) DEFAULT 0.30,
+      discount_percent DECIMAL(5,2) DEFAULT 10.00,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_timergame_store (store_id),
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `).catch(e => console.error('timer_game_config table:', e.message));
+  _timerGameReady = true;
+}
+
+export async function getTimerGameConfig(storeId) {
+  await ensureTimerGameTable();
+  const [rows] = await pool.execute(
+    'SELECT * FROM timer_game_config WHERE store_id = ?',
+    [storeId]
+  );
+  if (rows[0]) {
+    const r = rows[0];
+    return {
+      store_id: storeId,
+      enabled: !!r.enabled,
+      target_seconds: Number(r.target_seconds),
+      tolerance_seconds: Number(r.tolerance_seconds),
+      discount_percent: Number(r.discount_percent)
+    };
+  }
+  return { store_id: storeId, enabled: false, target_seconds: 10, tolerance_seconds: 0.30, discount_percent: 10 };
+}
+
+export async function saveTimerGameConfig(storeId, { enabled, target_seconds, tolerance_seconds, discount_percent }) {
+  await ensureTimerGameTable();
+  await pool.execute(`
+    INSERT INTO timer_game_config (store_id, enabled, target_seconds, tolerance_seconds, discount_percent)
+    VALUES (?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      enabled = VALUES(enabled),
+      target_seconds = VALUES(target_seconds),
+      tolerance_seconds = VALUES(tolerance_seconds),
+      discount_percent = VALUES(discount_percent)
+  `, [
+    storeId,
+    enabled ? 1 : 0,
+    Math.max(0.1, parseFloat(target_seconds) || 10),
+    Math.max(0, parseFloat(tolerance_seconds) || 0),
+    Math.max(0, Math.min(100, parseFloat(discount_percent) || 0))
+  ]);
+}
+
 // ─── Wallet Passes: credenciales por tienda ──────────────────────────────────
 // Cada negocio configura SUS PROPIAS credenciales de Google/Apple Wallet, para
 // que los pases se emitan bajo su cuenta y no bajo una compartida por todos.
