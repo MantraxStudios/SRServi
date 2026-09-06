@@ -441,7 +441,7 @@ export default function Configurations() {
       target_seconds: Number(timerCfgData.target_seconds) || 10,
       tolerance_seconds: Number(timerCfgData.tolerance_seconds) || 0.3,
       discount_percent: Number(timerCfgData.discount_percent) || 10
-    } : { enabled: false, target_seconds: 10, tolerance_seconds: 0.3, discount_percent: 10 });
+    } : { enabled: true, target_seconds: 10, tolerance_seconds: 0.3, discount_percent: 10 });
     setLoading(false);
   };
 

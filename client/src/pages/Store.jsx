@@ -8095,7 +8095,7 @@ function Store() {
                 )}
                 {getTimerGameDiscount() > 0 && (
                   <div className="store-cart-summary-row store-cart-discount" style={{ color: '#16a34a' }}>
-                    <span>⏱️ Cronómetro ({timerGameConfig?.discount_percent}%)</span>
+                    <span>⏱️ {t('tgCartLabel', lang)} ({timerGameConfig?.discount_percent}%)</span>
                     <span>-{colors.currency.symbol}{formatPrice(getTimerGameDiscount())}</span>
                   </div>
                 )}
@@ -8369,29 +8369,31 @@ function Store() {
             {!timerPlayed ? (
               <>
                 <div style={{ fontSize: 'clamp(24px, 6vw, 44px)', fontWeight: 900, color: '#fff' }}>
-                  ⏱️ ¡Juega y gana!
+                  {t('tgTitle', lang)}
                 </div>
                 <div style={{ fontSize: 'clamp(15px, 3.5vw, 24px)', color: '#e5e7eb', lineHeight: 1.4 }}>
-                  Detén el cronómetro en <b style={{ color: '#22c55e' }}>{Number(timerGameConfig.target_seconds).toFixed(2)}s</b> (sin pasarte)
-                  {' '}y gana <b style={{ color: '#22c55e' }}>{timerGameConfig.discount_percent}% de descuento</b>
+                  {t('tgStopBefore', lang)}<b style={{ color: '#22c55e' }}>{Number(timerGameConfig.target_seconds).toFixed(2)}s</b>
+                  {t('tgStopAfter', lang)}<b style={{ color: '#22c55e' }}>{timerGameConfig.discount_percent}%</b>{t('tgDiscountWord', lang)}
                 </div>
                 <div style={{ fontSize: 'clamp(12px, 2.5vw, 17px)', color: '#9ca3af' }}>
-                  Vale entre {Math.max(0, Number(timerGameConfig.target_seconds) - Number(timerGameConfig.tolerance_seconds)).toFixed(2)}s y {Number(timerGameConfig.target_seconds).toFixed(2)}s · 1 intento
+                  {t('tgValidRange', lang)
+                    .replace('{min}', Math.max(0, Number(timerGameConfig.target_seconds) - Number(timerGameConfig.tolerance_seconds)).toFixed(2))
+                    .replace('{max}', Number(timerGameConfig.target_seconds).toFixed(2))}
                 </div>
               </>
             ) : (
               <>
                 {timerResult?.won ? (
                   <div style={{ fontSize: 'clamp(24px, 5vw, 40px)', fontWeight: 900, color: '#22c55e' }}>
-                    🎉 ¡Ganaste {timerGameConfig.discount_percent}% de descuento!
+                    {t('tgWin', lang).replace('{d}', timerGameConfig.discount_percent)}
                   </div>
                 ) : (
                   <div style={{ fontSize: 'clamp(20px, 4.5vw, 34px)', fontWeight: 800, color: '#ef4444' }}>
-                    ¡Casi! El objetivo era {Number(timerGameConfig.target_seconds).toFixed(2)}s
+                    {t('tgLose', lang).replace('{t}', Number(timerGameConfig.target_seconds).toFixed(2))}
                   </div>
                 )}
                 <div style={{ fontSize: 'clamp(14px, 3vw, 20px)', color: '#9ca3af' }}>
-                  {timerResult?.won ? 'El descuento ya se aplicó a tu cuenta.' : 'Sigue con tu compra. ¡Suerte la próxima!'}
+                  {timerResult?.won ? t('tgWinNote', lang) : t('tgLoseNote', lang)}
                 </div>
               </>
             )}
@@ -8414,7 +8416,7 @@ function Store() {
               onTouchStart={e => e.currentTarget.style.transform = 'scale(0.95)'}
               onTouchEnd={e => e.currentTarget.style.transform = 'scale(1)'}
             >
-              {timerRunning ? 'DETENER' : 'INICIAR'}
+              {timerRunning ? t('tgStop', lang) : t('tgStart', lang)}
             </button>
           ) : (
             <button
@@ -8424,7 +8426,7 @@ function Store() {
                 background: '#22c55e', color: '#fff', fontWeight: 900, fontSize: 'clamp(18px, 4vw, 26px)', cursor: 'pointer', flexShrink: 0
               }}
             >
-              Continuar al pago →
+              {t('tgContinue', lang)}
             </button>
           )}
           <style>{`@keyframes pulse-red { 0%,100% { box-shadow: 0 16px 50px rgba(239,68,68,.6); } 50% { box-shadow: 0 16px 64px rgba(239,68,68,.95); } }`}</style>
