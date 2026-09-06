@@ -3475,8 +3475,9 @@ async function getProductIngredients(productId, categoryId = null) {
     SELECT i.*, COALESCE(i.stock, 0) as stock, COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
     FROM ingredients i
     WHERE i.store_id = ? AND COALESCE(i.is_active, 1) = 1
+      AND (i.owner_product_id IS NULL OR i.owner_product_id = ?)
     ORDER BY i.sort_order, i.name
-  `, [store_id]);
+  `, [store_id, productId]);
   return rows.map(mapRow);
 }
 
@@ -3513,8 +3514,9 @@ async function getProductExtras(productId, categoryId = null) {
     SELECT e.*, COALESCE(e.stock, 0) as stock, COALESCE(e.unlimited_stock, FALSE) as unlimited_stock
     FROM extras e
     WHERE e.store_id = ? AND COALESCE(e.is_active, 1) = 1
+      AND (e.owner_product_id IS NULL OR e.owner_product_id = ?)
     ORDER BY e.sort_order, e.name
-  `, [store_id]);
+  `, [store_id, productId]);
   return rows.map(mapRow);
 }
 
