@@ -3337,7 +3337,11 @@ function Store() {
   };
 
   const openComboModal = (combo) => {
-    const itemConfigs = (combo.items || []).map(it => ({
+    const itemConfigs = (combo.items || []).map((it, idx) => ({
+      // Identificador único por línea del combo. Un combo puede incluir el mismo
+      // producto más de una vez; sin un id único, seleccionar un extra en una
+      // línea contaminaba a las demás líneas del mismo producto.
+      _key: it.id != null ? `it_${it.id}` : `idx_${idx}`,
       product_id: it.product_id,
       product_name: it.product_name,
       product_image: it.product_image,
@@ -3354,25 +3358,40 @@ function Store() {
     setComboQty(1);
   };
 
-  const updateComboItemConfig = (productId, field, value) => {
+  const updateComboItemConfig = (itemKey, field, value) => {
     setComboModal(prev => ({
       ...prev,
       itemConfigs: prev.itemConfigs.map(ic =>
-        String(ic.product_id) === String(productId) ? { ...ic, [field]: value } : ic
+        ic._key === itemKey ? { ...ic, [field]: value } : ic
       )
     }));
   };
+
+  // Suma de extras + complementos elegidos en una línea del combo (una vez por línea).
+  const getComboItemExtras = (ic) => {
+    const extras = (ic.selected_extras || []).reduce((s, x) => s + (Number(x?.price) || 0), 0);
+    const comps = (ic.selected_complements || []).reduce((s, x) => s + (Number(x?.price) || 0), 0);
+    return extras + comps;
+  };
+
+  // Recargo total del combo por los extras/complementos de todas sus líneas.
+  const getComboExtrasTotal = (itemConfigs) =>
+    (itemConfigs || []).reduce((s, ic) => s + getComboItemExtras(ic), 0);
 
   const addComboToCart = () => {
     if (!comboModal) return;
     const { combo, itemConfigs } = comboModal;
     const autoPrice = combo.auto_price || (combo.items || []).reduce((s, it) => s + it.product_price * it.quantity, 0);
-    const comboPrice = combo.price;
+    const comboPrice = Number(combo.price) || 0;
+    // Los extras/complementos elegidos por línea se cobran aparte del precio del
+    // combo (el descuento del combo aplica solo al precio base de los productos).
+    const extrasTotal = getComboExtrasTotal(itemConfigs);
+    const comboUnitPrice = comboPrice + extrasTotal;
     const _comboConfig = itemConfigs.map(ic => ({
       product_id: ic.product_id,
       product_name: ic.product_name,
       quantity: ic.quantity,
-      unit_price: autoPrice > 0 ? ic.product_price * comboPrice / autoPrice : 0,
+      unit_price: (autoPrice > 0 ? ic.product_price * comboPrice / autoPrice : 0) + getComboItemExtras(ic),
       selected_ingredients: ic.selected_ingredients,
       selected_extras: ic.selected_extras,
       selected_complements: ic.selected_complements
@@ -3385,8 +3404,8 @@ function Store() {
       product_name: combo.name,
       product_image: combo.image,
       quantity: comboQty,
-      unit_price: comboPrice,
-      total: comboPrice * comboQty,
+      unit_price: comboUnitPrice,
+      total: comboUnitPrice * comboQty,
       _comboConfig,
       selected_ingredients: [],
       selected_extras: [],
@@ -11360,7 +11379,7 @@ function Store() {
 
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {comboModal.itemConfigs.map(ic => (
-                <div key={ic.product_id} style={{ background: '#f9f9f9', borderRadius: '12px', padding: '12px', border: '1px solid #e5e7eb' }}>
+                <div key={ic._key} style={{ background: '#f9f9f9', borderRadius: '12px', padding: '12px', border: '1px solid #e5e7eb' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                     <div style={{ width: '44px', height: '44px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {ic.product_image
@@ -11381,7 +11400,7 @@ function Store() {
                           const sel = ic.selected_ingredients.includes(ing.name);
                           return (
                             <button key={ing.id} type="button"
-                              onClick={() => updateComboItemConfig(ic.product_id, 'selected_ingredients',
+                              onClick={() => updateComboItemConfig(ic._key, 'selected_ingredients',
                                 sel ? ic.selected_ingredients.filter(x => x !== ing.name) : [...ic.selected_ingredients, ing.name])}
                               style={{
                                 padding: '4px 10px', fontSize: '0.75rem', borderRadius: '20px', cursor: 'pointer',
@@ -11406,7 +11425,7 @@ function Store() {
                           const sel = ic.selected_extras.some(x => (x?.id || x) === ex.id);
                           return (
                             <button key={ex.id} type="button"
-                              onClick={() => updateComboItemConfig(ic.product_id, 'selected_extras',
+                              onClick={() => updateComboItemConfig(ic._key, 'selected_extras',
                                 sel ? ic.selected_extras.filter(x => (x?.id || x) !== ex.id) : [...ic.selected_extras, { id: ex.id, name: ex.name, price: ex.price }])}
                               style={{
                                 padding: '4px 10px', fontSize: '0.75rem', borderRadius: '20px', cursor: 'pointer',
@@ -11436,10 +11455,10 @@ function Store() {
                                 const maxSel = group.max_select || 0;
                                 const curSel = ic.selected_complements.filter(x => x?.group_id === group.id);
                                 if (sel) {
-                                  updateComboItemConfig(ic.product_id, 'selected_complements',
+                                  updateComboItemConfig(ic._key, 'selected_complements',
                                     ic.selected_complements.filter(x => (x?.id || x) !== opt.id));
                                 } else if (maxSel === 0 || curSel.length < maxSel) {
-                                  updateComboItemConfig(ic.product_id, 'selected_complements',
+                                  updateComboItemConfig(ic._key, 'selected_complements',
                                     [...ic.selected_complements, { id: opt.id, name: opt.name, price: opt.price, group_id: group.id }]);
                                 }
                               }}
@@ -11473,7 +11492,7 @@ function Store() {
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '0.75rem', color: '#888' }}>Total</div>
                   <div style={{ fontWeight: 800, fontSize: '1.3rem', color: 'var(--store-accent)' }}>
-                    {colors?.currency?.symbol || '$'}{formatPrice(comboModal.combo.price * comboQty)}
+                    {colors?.currency?.symbol || '$'}{formatPrice(((Number(comboModal.combo.price) || 0) + getComboExtrasTotal(comboModal.itemConfigs)) * comboQty)}
                   </div>
                 </div>
               </div>
