@@ -8361,7 +8361,7 @@ async function ensureTimerGameTable() {
       store_id INT NOT NULL UNIQUE,
       enabled BOOLEAN DEFAULT TRUE,
       target_seconds DECIMAL(6,2) DEFAULT 10.00,
-      tolerance_seconds DECIMAL(6,2) DEFAULT 0.30,
+      tolerance_seconds DECIMAL(6,2) DEFAULT 0.00,
       discount_percent DECIMAL(5,2) DEFAULT 10.00,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_timergame_store (store_id),
@@ -8388,7 +8388,7 @@ export async function getTimerGameConfig(storeId) {
     };
   }
   // Activo por defecto en todos los locales que aún no lo han configurado.
-  return { store_id: storeId, enabled: true, target_seconds: 10, tolerance_seconds: 0.30, discount_percent: 10 };
+  return { store_id: storeId, enabled: true, target_seconds: 10, tolerance_seconds: 0, discount_percent: 10 };
 }
 
 export async function saveTimerGameConfig(storeId, { enabled, target_seconds, tolerance_seconds, discount_percent }) {

@@ -439,9 +439,9 @@ export default function Configurations() {
     setTimerCfg(timerCfgData ? {
       enabled: !!timerCfgData.enabled,
       target_seconds: Number(timerCfgData.target_seconds) || 10,
-      tolerance_seconds: Number(timerCfgData.tolerance_seconds) || 0.3,
+      tolerance_seconds: Number(timerCfgData.tolerance_seconds) || 0,
       discount_percent: Number(timerCfgData.discount_percent) || 10
-    } : { enabled: true, target_seconds: 10, tolerance_seconds: 0.3, discount_percent: 10 });
+    } : { enabled: true, target_seconds: 10, tolerance_seconds: 0, discount_percent: 10 });
     setLoading(false);
   };
 
@@ -454,7 +454,7 @@ export default function Configurations() {
       await fetch('/api/timer-game/config', {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...timerCfg, store_id: selectedStore.id })
+        body: JSON.stringify({ ...timerCfg, tolerance_seconds: 0, store_id: selectedStore.id })
       });
       setTimerSaved(true);
       setTimeout(() => setTimerSaved(false), 2500);
@@ -785,18 +785,6 @@ export default function Configurations() {
                     </div>
                   </Row>
 
-                  <Row icon={faClock} label="Margen de acierto" sub="Cuántos segundos antes del objetivo cuenta como acierto (pasarse pierde)">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 13, color: '#888', fontWeight: 600 }}>±</span>
-                      <input
-                        type="number" min="0" step="0.05" value={timerCfg.tolerance_seconds}
-                        onChange={e => setTimerCfg(p => ({ ...p, tolerance_seconds: Math.max(0, parseFloat(e.target.value) || 0) }))}
-                        style={{ width: 70, padding: '6px 8px', border: '1.5px solid #e0e0e0', borderRadius: 8, fontSize: 14, fontWeight: 700, textAlign: 'center', outline: 'none' }}
-                      />
-                      <span style={{ fontSize: 13, color: '#888', fontWeight: 600 }}>seg</span>
-                    </div>
-                  </Row>
-
                   <Row icon={faPercent} label="Descuento al acertar" sub="Porcentaje que se descuenta del total de la cuenta">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <input
@@ -809,7 +797,8 @@ export default function Configurations() {
                   </Row>
 
                   <p style={{ fontSize: 12, color: '#9ca3af', margin: '8px 0 0' }}>
-                    Ejemplo: objetivo {timerCfg.target_seconds}s con margen {timerCfg.tolerance_seconds}s → si el cliente detiene el cronómetro entre {Math.max(0, timerCfg.target_seconds - timerCfg.tolerance_seconds).toFixed(2)}s y {Number(timerCfg.target_seconds).toFixed(2)}s (sin pasarse), gana {timerCfg.discount_percent}% de descuento. Pasarse del objetivo pierde. Solo un intento por compra.
+                    {`El cliente debe detener el cronómetro EXACTAMENTE en ${Number(timerCfg.target_seconds).toFixed(2)}s para ganar el ${timerCfg.discount_percent}% de descuento.`}
+                    {' '}Solo un intento por compra.
                   </p>
                 </>
               )}

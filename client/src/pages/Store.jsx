@@ -3515,10 +3515,9 @@ function Store() {
     timerRafRef.current = null;
     const stopped = (performance.now() - timerStartRef.current) / 1000;
     const target = Number(timerGameConfig?.target_seconds) || 0;
-    const tol = Number(timerGameConfig?.tolerance_seconds) || 0;
-    // Gana solo si se detiene en el objetivo SIN PASARSE: dentro de [target - tol, target].
-    // El pequeño epsilon (0.005) cubre el caso de "10.00" exacto por redondeo del display.
-    const won = stopped <= target + 0.005 && stopped >= target - tol;
+    // Gana SOLO si el cronómetro marca EXACTAMENTE el tiempo configurado
+    // (mismo valor mostrado con 2 decimales). Sin margen de acierto.
+    const won = stopped.toFixed(2) === Number(target).toFixed(2);
     setTimerElapsed(stopped);
     setTimerRunning(false);
     setTimerPlayed(true);
@@ -8376,9 +8375,7 @@ function Store() {
                   {t('tgStopAfter', lang)}<b style={{ color: '#22c55e' }}>{timerGameConfig.discount_percent}%</b>{t('tgDiscountWord', lang)}
                 </div>
                 <div style={{ fontSize: 'clamp(12px, 2.5vw, 17px)', color: '#9ca3af' }}>
-                  {t('tgValidRange', lang)
-                    .replace('{min}', Math.max(0, Number(timerGameConfig.target_seconds) - Number(timerGameConfig.tolerance_seconds)).toFixed(2))
-                    .replace('{max}', Number(timerGameConfig.target_seconds).toFixed(2))}
+                  {t('tgExact', lang).replace('{t}', Number(timerGameConfig.target_seconds).toFixed(2))}
                 </div>
               </>
             ) : (
