@@ -1411,7 +1411,7 @@ function Store() {
   const [complementForm, setComplementForm] = useState({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
   const [prodModalOpen, setProdModalOpen] = useState(false);
   const [editingProd, setEditingProd] = useState(null);
-  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, is_builder: false, max_extras: '', max_ingredients: '', image_url: '', complements_private: false, complement_group_ids: [], points: '0' });
+  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, is_builder: false, builder_icon: '', builder_subtitle: '', max_extras: '', max_ingredients: '', image_url: '', complements_private: false, complement_group_ids: [], points: '0' });
   const [storeComplementGroups, setStoreComplementGroups] = useState([]);
   // Edición de secciones dinámicas desde el editor del tótem
   const [sectionGroupModal, setSectionGroupModal] = useState(null); // { id?, name, min_select, max_select, required }
@@ -3111,7 +3111,7 @@ function Store() {
     });
 
     (productConfig.selectedComplements || []).forEach(sel => {
-      price += sel.price || 0;
+      price += (sel.price || 0) * (sel.qty || 1);
     });
 
     return price;
@@ -3305,6 +3305,44 @@ function Store() {
     }
     setBuilderModalOpen(false);
     setTimeout(() => addToCart(), 100);
+  };
+
+  // Cantidad elegida de una opción del armador (0 si no está)
+  const builderOptionQty = (optionId) =>
+    (productConfig.selectedComplements || []).find(s => s.option_id === optionId)?.qty || 0;
+
+  // Total de unidades elegidas en un grupo (para respetar max_select)
+  const builderGroupCount = (groupId) =>
+    (productConfig.selectedComplements || [])
+      .filter(s => s.group_id === groupId)
+      .reduce((n, s) => n + (s.qty || 1), 0);
+
+  // + / − de una opción del armador. Suma unidades respetando max_select del grupo.
+  const changeBuilderOption = (group, option, delta) => {
+    setProductConfig(prev => {
+      const list = prev.selectedComplements || [];
+      const idx = list.findIndex(s => s.option_id === option.id);
+      const curQty = idx >= 0 ? (list[idx].qty || 1) : 0;
+      const nextQty = curQty + delta;
+
+      if (delta > 0 && group.max_select > 0) {
+        const groupUnits = list.filter(s => s.group_id === group.id).reduce((n, s) => n + (s.qty || 1), 0);
+        if (groupUnits >= group.max_select) return prev; // alcanzó el máximo del grupo
+      }
+
+      if (nextQty <= 0) {
+        return { ...prev, selectedComplements: list.filter(s => s.option_id !== option.id) };
+      }
+      if (idx >= 0) {
+        const copy = [...list];
+        copy[idx] = { ...copy[idx], qty: nextQty };
+        return { ...prev, selectedComplements: copy };
+      }
+      return {
+        ...prev,
+        selectedComplements: [...list, { group_id: group.id, group_name: group.name, option_id: option.id, name: option.name, price: Number(option.price) || 0, qty: nextQty }]
+      };
+    });
   };
 
   // Alterna una opción de una sección respetando el máximo del grupo
@@ -3632,7 +3670,7 @@ function Store() {
           price: i.unit_price,
           ingredients: i.selected_ingredients || [],
           extras: i.selected_extras || [],
-          complements: (i.selected_complements || []).map(c => typeof c === 'string' ? c : (c?.name || c?.option_name || '')),
+          complements: (i.selected_complements || []).map(c => typeof c === 'string' ? c : ((c?.qty > 1 ? `${c.qty}x ` : '') + (c?.name || c?.option_name || ''))),
         })),
         subtotal: getCartTotal(),
         discount: 0,
@@ -5457,6 +5495,8 @@ function Store() {
       has_extras: product?.has_extras || false,
       has_ingredients: product?.has_ingredients || false,
       is_builder: product?.is_builder || false,
+      builder_icon: product?.builder_icon || '',
+      builder_subtitle: product?.builder_subtitle || '',
       max_extras: product?.max_extras?.toString() || '',
       max_ingredients: product?.max_ingredients?.toString() || '',
       image_url: (product?.image?.startsWith('http') ? product.image : '') || '',
@@ -5637,6 +5677,8 @@ function Store() {
       formData.append('has_extras', prodForm.has_extras);
       formData.append('has_ingredients', prodForm.has_ingredients);
       formData.append('is_builder', prodForm.is_builder);
+      formData.append('builder_icon', prodForm.builder_icon || '');
+      formData.append('builder_subtitle', prodForm.builder_subtitle || '');
       formData.append('max_extras', prodForm.has_extras ? (parseInt(prodForm.max_extras) || 0) : 0);
       formData.append('max_ingredients', prodForm.has_ingredients ? (parseInt(prodForm.max_ingredients) || 0) : 0);
       formData.append('points', parseInt(prodForm.points) || 0);
@@ -8005,13 +8047,17 @@ function Store() {
       {/* ── Armador a pantalla completa (producto "armable") ── */}
       {builderModalOpen && selectedProduct && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 4000, background: '#f4f4f5', display: 'flex', flexDirection: 'column' }}>
-          {/* Encabezado con el nombre configurado por el negocio */}
+          {/* Encabezado: ícono/emoji + nombre + texto configurables por el negocio */}
           <div style={{ position: 'relative', flexShrink: 0, background: 'var(--store-primary)', color: '#fff', padding: '16px 56px 16px 16px', display: 'flex', alignItems: 'center', gap: 14, boxShadow: '0 2px 10px rgba(0,0,0,0.15)' }}>
-            <img src={getProductImageUrl(selectedProduct.image)} alt={selectedProduct.name} style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', flexShrink: 0, background: 'rgba(255,255,255,0.15)' }} />
+            {selectedProduct.builder_icon
+              ? <div style={{ width: 56, height: 56, borderRadius: 12, flexShrink: 0, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 34, lineHeight: 1 }}>{selectedProduct.builder_icon}</div>
+              : <img src={getProductImageUrl(selectedProduct.image)} alt={selectedProduct.name} style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', flexShrink: 0, background: 'rgba(255,255,255,0.15)' }} />}
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 20, fontWeight: 900, lineHeight: 1.1 }}>{selectedProduct.name}</div>
-              <div style={{ fontSize: 13, opacity: 0.85, marginTop: 3 }}>
-                {t('builderBaseFrom', lang)} {colors.currency.symbol}{formatPrice(selectedProduct.price)}
+              <div style={{ fontSize: 13, opacity: 0.9, marginTop: 3 }}>
+                {selectedProduct.builder_subtitle
+                  ? selectedProduct.builder_subtitle
+                  : `${t('builderBaseFrom', lang)} ${colors.currency.symbol}${formatPrice(selectedProduct.price)}`}
               </div>
             </div>
             <button
@@ -8022,66 +8068,75 @@ function Store() {
             </button>
           </div>
 
-          {/* Cuerpo con las secciones de ingredientes */}
+          {/* Cuerpo centrado: lista de ingredientes con + / − por cada uno */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px', WebkitOverflowScrolling: 'touch' }}>
-            {(selectedProduct.complement_groups || []).length === 0 && (
-              <div style={{ textAlign: 'center', color: '#9ca3af', padding: '48px 20px', fontSize: 14 }}>
-                <FontAwesomeIcon icon={faPizzaSlice} style={{ fontSize: 40, marginBottom: 14, opacity: 0.5 }} />
-                <div>{t('builderNoSections', lang)}</div>
-              </div>
-            )}
-            {(selectedProduct.complement_groups || []).map(group => {
-              const selInGroup = (productConfig.selectedComplements || []).filter(s => s.group_id === group.id);
-              const limitLabel = group.max_select > 0
-                ? `${selInGroup.length}/${group.max_select}`
-                : `${selInGroup.length}`;
-              return (
-                <div key={group.id} style={{ marginBottom: 22 }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: '#1f2937' }}>
-                      {group.name} {group.required && <span style={{ color: '#dc3545', fontSize: 14 }}>*</span>}
-                    </span>
-                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
-                      {limitLabel} {t('builderChosen', lang)}
-                    </span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 10 }}>
-                    {(group.options || []).map(opt => {
-                      const outOfStock = !opt.unlimited_stock && opt.stock === 0;
-                      const isSel = selInGroup.some(s => s.option_id === opt.id);
-                      return (
-                        <div
-                          key={opt.id}
-                          onClick={() => { if (!outOfStock) toggleComplementOption(group, opt); }}
-                          style={{
-                            position: 'relative', borderRadius: 14, overflow: 'hidden', cursor: outOfStock ? 'not-allowed' : 'pointer',
-                            background: '#fff', border: `2.5px solid ${isSel ? 'var(--store-accent)' : outOfStock ? '#fecaca' : '#e5e7eb'}`,
-                            opacity: outOfStock ? 0.55 : 1, boxShadow: isSel ? '0 4px 14px rgba(0,0,0,0.12)' : '0 1px 4px rgba(0,0,0,0.05)',
-                            transition: 'border-color .12s, box-shadow .12s'
-                          }}
-                        >
-                          <img src={getProductImageUrl(opt.image)} alt={opt.name} style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }} />
-                          <div style={{ padding: '8px 6px', textAlign: 'center' }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: '#1f2937', lineHeight: 1.2 }}>{opt.name}</div>
-                            {Number(opt.price) > 0 && (
-                              <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--store-primary)', marginTop: 2 }}>
-                                +{colors.currency.symbol}{formatPrice(opt.price)}
+            <div style={{ maxWidth: 560, margin: '0 auto' }}>
+              {(selectedProduct.complement_groups || []).length === 0 && (
+                <div style={{ textAlign: 'center', color: '#9ca3af', padding: '48px 20px', fontSize: 14 }}>
+                  <FontAwesomeIcon icon={faPizzaSlice} style={{ fontSize: 40, marginBottom: 14, opacity: 0.5 }} />
+                  <div>{t('builderNoSections', lang)}</div>
+                </div>
+              )}
+              {(selectedProduct.complement_groups || []).map(group => {
+                const groupCount = builderGroupCount(group.id);
+                const limitLabel = group.max_select > 0 ? `${groupCount}/${group.max_select}` : `${groupCount}`;
+                const atMax = group.max_select > 0 && groupCount >= group.max_select;
+                return (
+                  <div key={group.id} style={{ marginBottom: 22 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <span style={{ fontSize: 18, fontWeight: 800, color: '#1f2937' }}>
+                        {group.name} {group.required && <span style={{ color: '#dc3545', fontSize: 14 }}>*</span>}
+                      </span>
+                      <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+                        {limitLabel} {t('builderChosen', lang)}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {(group.options || []).map(opt => {
+                        const outOfStock = !opt.unlimited_stock && opt.stock === 0;
+                        const qty = builderOptionQty(opt.id);
+                        return (
+                          <div
+                            key={opt.id}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', borderRadius: 14,
+                              background: '#fff', border: `2px solid ${qty > 0 ? 'var(--store-accent)' : '#e5e7eb'}`,
+                              opacity: outOfStock ? 0.55 : 1, boxShadow: qty > 0 ? '0 3px 12px rgba(0,0,0,0.10)' : '0 1px 3px rgba(0,0,0,0.04)'
+                            }}
+                          >
+                            <img src={getProductImageUrl(opt.image)} alt={opt.name} style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover', flexShrink: 0, background: '#f3f4f6' }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 15, fontWeight: 700, color: '#1f2937', lineHeight: 1.2 }}>{opt.name}</div>
+                              {Number(opt.price) > 0 && (
+                                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--store-primary)', marginTop: 2 }}>
+                                  +{colors.currency.symbol}{formatPrice(opt.price)}
+                                </div>
+                              )}
+                              {outOfStock && <div style={{ fontSize: 11, color: '#dc3545', fontWeight: 700 }}>{t('outOfStock', lang) || 'Agotado'}</div>}
+                            </div>
+                            {!outOfStock && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                                <button
+                                  onClick={() => changeBuilderOption(group, opt, -1)}
+                                  disabled={qty === 0}
+                                  style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: qty === 0 ? '#f3f4f6' : '#eef2ff', color: qty === 0 ? '#cbd5e1' : 'var(--store-primary)', fontSize: 22, fontWeight: 700, cursor: qty === 0 ? 'default' : 'pointer', lineHeight: 1 }}
+                                >−</button>
+                                <span style={{ minWidth: 22, textAlign: 'center', fontSize: 17, fontWeight: 800, color: qty > 0 ? '#1f2937' : '#9ca3af' }}>{qty}</span>
+                                <button
+                                  onClick={() => changeBuilderOption(group, opt, +1)}
+                                  disabled={atMax}
+                                  style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: atMax ? '#f3f4f6' : 'var(--store-accent)', color: atMax ? '#cbd5e1' : 'var(--store-primary)', fontSize: 22, fontWeight: 700, cursor: atMax ? 'default' : 'pointer', lineHeight: 1 }}
+                                >+</button>
                               </div>
                             )}
-                            {outOfStock && <div style={{ fontSize: 10, color: '#dc3545', fontWeight: 700 }}>{t('outOfStock', lang) || 'Agotado'}</div>}
                           </div>
-                          {isSel && (
-                            <div style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: '50%', background: 'var(--store-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }}>
-                              <FontAwesomeIcon icon={faCheck} style={{ fontSize: 13, color: 'var(--store-primary)' }} />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
           {/* Pie fijo con cantidad y total grande */}
@@ -8176,7 +8231,7 @@ function Store() {
                       <div key={ci.product_id} style={{ fontSize: '0.75rem', color: 'rgba(0,0,0,0.55)', lineHeight: 1.4 }}>
                         {ci.quantity}× {ci.product_name}
                         {ci.selected_extras?.length > 0 && <span> +{ci.selected_extras.map(x => x?.name || x).join(', ')}</span>}
-                        {ci.selected_complements?.length > 0 && <span> +{ci.selected_complements.map(x => x?.name || x).join(', ')}</span>}
+                        {ci.selected_complements?.length > 0 && <span> +{ci.selected_complements.map(x => (x?.qty > 1 ? `${x.qty}x ` : '') + (x?.name || x)).join(', ')}</span>}
                       </div>
                     ))}
 
@@ -8187,7 +8242,7 @@ function Store() {
                       <div className="store-cart-item-extras">+ {item.selected_extras.map(x => typeof x === 'string' ? x : x?.name).filter(Boolean).join(', ')}</div>
                     )}
                     {!item._isCombo && item.selected_complements && item.selected_complements.length > 0 && (
-                      <div className="store-cart-item-extras">+ {item.selected_complements.map(x => typeof x === 'string' ? x : x?.name).filter(Boolean).join(', ')}</div>
+                      <div className="store-cart-item-extras">+ {item.selected_complements.map(x => typeof x === 'string' ? x : ((x?.qty > 1 ? `${x.qty}x ` : '') + x?.name)).filter(Boolean).join(', ')}</div>
                     )}
 
                     <div className="store-cart-item-bottom">
@@ -9729,9 +9784,36 @@ function Store() {
                       <FontAwesomeIcon icon={faPizzaSlice} style={{ color: '#f59e0b' }} /> Armable (pantalla de armador)
                     </label>
                     {prodForm.is_builder && (
-                      <p style={{ fontSize: 11, color: '#92400e', margin: '6px 0 0', lineHeight: 1.4 }}>
-                        Al tocar este producto se abre una pantalla completa para armarlo libremente. El precio base es el precio del producto y cada opción de las secciones de abajo suma su precio. Ideal para "Arma tu pizza", "Crea tu hamburguesa", etc.
-                      </p>
+                      <>
+                        <p style={{ fontSize: 11, color: '#92400e', margin: '6px 0 8px', lineHeight: 1.4 }}>
+                          Al tocar este producto se abre una pantalla completa para armarlo libremente. El precio base es el precio del producto y cada opción de las secciones de abajo suma su precio. El cliente elige la cantidad de cada ingrediente con + / −.
+                        </p>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                          <div style={{ flexShrink: 0 }}>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: '#92400e', display: 'block', marginBottom: 3 }}>Ícono</label>
+                            <input
+                              type="text"
+                              value={prodForm.builder_icon}
+                              onChange={(e) => setProdForm({ ...prodForm, builder_icon: e.target.value })}
+                              placeholder="🍕"
+                              maxLength={4}
+                              style={{ width: 54, textAlign: 'center', fontSize: 20, padding: '6px 4px', border: '1.5px solid #e0e0e0', borderRadius: 8 }}
+                            />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: '#92400e', display: 'block', marginBottom: 3 }}>Texto del encabezado</label>
+                            <input
+                              type="text"
+                              value={prodForm.builder_subtitle}
+                              onChange={(e) => setProdForm({ ...prodForm, builder_subtitle: e.target.value })}
+                              placeholder="Elegí tus ingredientes favoritos"
+                              maxLength={120}
+                              className="store-prod-modal-input"
+                              style={{ fontSize: 13, width: '100%' }}
+                            />
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
 
