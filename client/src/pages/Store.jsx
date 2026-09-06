@@ -3317,18 +3317,13 @@ function Store() {
       .filter(s => s.group_id === groupId)
       .reduce((n, s) => n + (s.qty || 1), 0);
 
-  // + / − de una opción del armador. Suma unidades respetando max_select del grupo.
+  // + / − de una opción del armador. Sin límite de cantidad: el cliente agrega lo que quiera.
   const changeBuilderOption = (group, option, delta) => {
     setProductConfig(prev => {
       const list = prev.selectedComplements || [];
       const idx = list.findIndex(s => s.option_id === option.id);
       const curQty = idx >= 0 ? (list[idx].qty || 1) : 0;
       const nextQty = curQty + delta;
-
-      if (delta > 0 && group.max_select > 0) {
-        const groupUnits = list.filter(s => s.group_id === group.id).reduce((n, s) => n + (s.qty || 1), 0);
-        if (groupUnits >= group.max_select) return prev; // alcanzó el máximo del grupo
-      }
 
       if (nextQty <= 0) {
         return { ...prev, selectedComplements: list.filter(s => s.option_id !== option.id) };
@@ -8079,8 +8074,7 @@ function Store() {
               )}
               {(selectedProduct.complement_groups || []).map(group => {
                 const groupCount = builderGroupCount(group.id);
-                const limitLabel = group.max_select > 0 ? `${groupCount}/${group.max_select}` : `${groupCount}`;
-                const atMax = group.max_select > 0 && groupCount >= group.max_select;
+                const limitLabel = `${groupCount}`;
                 return (
                   <div key={group.id} style={{ marginBottom: 22 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -8124,8 +8118,7 @@ function Store() {
                                 <span style={{ minWidth: 22, textAlign: 'center', fontSize: 17, fontWeight: 800, color: qty > 0 ? '#1f2937' : '#9ca3af' }}>{qty}</span>
                                 <button
                                   onClick={() => changeBuilderOption(group, opt, +1)}
-                                  disabled={atMax}
-                                  style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: atMax ? '#f3f4f6' : 'var(--store-accent)', color: atMax ? '#cbd5e1' : 'var(--store-primary)', fontSize: 22, fontWeight: 700, cursor: atMax ? 'default' : 'pointer', lineHeight: 1 }}
+                                  style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'var(--store-accent)', color: 'var(--store-primary)', fontSize: 22, fontWeight: 700, cursor: 'pointer', lineHeight: 1 }}
                                 >+</button>
                               </div>
                             )}
