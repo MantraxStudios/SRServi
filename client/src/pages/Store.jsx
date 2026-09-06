@@ -1282,6 +1282,7 @@ function Store() {
   const [timerElapsed, setTimerElapsed] = useState(0); // segundos transcurridos (mostrados)
   const [timerResult, setTimerResult] = useState(null); // null | { won: bool, stopped: number }
   const [timerPlayed, setTimerPlayed] = useState(false); // ya usó su único intento de esta compra
+  const [timerModalOpen, setTimerModalOpen] = useState(false); // modal del juego al completar compra
   const timerStartRef = useRef(0);
   const timerRafRef = useRef(null);
   const [pendingOrderData, setPendingOrderData] = useState(null);
@@ -2934,7 +2935,7 @@ function Store() {
     }
   };
 
-  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || complementGroupsModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal || !!labelEditModal || !!sectionGroupModal || !!sectionOptionModal || !!sectionEditingGroup || loyaltyModalOpen;
+  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || complementGroupsModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal || !!labelEditModal || !!sectionGroupModal || !!sectionOptionModal || !!sectionEditingGroup || loyaltyModalOpen || timerModalOpen;
 
   useEffect(() => {
     anyModalOpenRef.current = anyModalOpen;
@@ -3546,6 +3547,7 @@ function Store() {
     setTimerElapsed(0);
     setTimerResult(null);
     setTimerPlayed(false);
+    setTimerModalOpen(false);
   };
 
   useEffect(() => () => { if (timerRafRef.current) cancelAnimationFrame(timerRafRef.current); }, []);
@@ -3684,6 +3686,16 @@ function Store() {
 
     if (selectedConfiguration?.require_customer_name && !customerName.trim()) {
       setCustomerNameKeyboardOpen(true);
+      return;
+    }
+
+    // Juego del cronómetro: se muestra un modal grande antes de pagar. Cuando
+    // el cliente termina su intento (gane o pierda), pulsa "Continuar" y se
+    // vuelve a llamar a handleCheckout (ya con timerPlayed=true) para pagar.
+    if (timerGameConfig?.enabled && !timerPlayed) {
+      resetTimerGame();
+      setCartOpen(false);
+      setTimerModalOpen(true);
       return;
     }
 
@@ -8203,56 +8215,6 @@ function Store() {
                   </div>
                 )}
 
-                {timerGameConfig?.enabled && (
-                  <div style={{ marginTop: 10, padding: '14px', borderRadius: 12, background: '#f0f7ff', border: '1.5px solid #cfe2ff', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#1d4ed8', marginBottom: 4 }}>
-                      ⏱️ Juego del cronómetro
-                    </div>
-                    <div style={{ fontSize: 12, color: '#3b5bdb', marginBottom: 10 }}>
-                      ¡Detén el cronómetro en <b>{Number(timerGameConfig.target_seconds).toFixed(2)}s</b> y gana <b>{timerGameConfig.discount_percent}% de descuento</b>!
-                    </div>
-
-                    <div style={{
-                      fontSize: 38, fontWeight: 800, letterSpacing: 1,
-                      fontVariantNumeric: 'tabular-nums',
-                      color: timerResult ? (timerResult.won ? '#16a34a' : '#ef4444') : '#111',
-                      marginBottom: 10, lineHeight: 1
-                    }}>
-                      {timerElapsed.toFixed(2)}<span style={{ fontSize: 18 }}>s</span>
-                    </div>
-
-                    {!timerPlayed ? (
-                      timerRunning ? (
-                        <button
-                          onClick={stopTimerGame}
-                          style={{ width: '100%', padding: '13px', borderRadius: 10, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}
-                        >
-                          DETENER
-                        </button>
-                      ) : (
-                        <button
-                          onClick={startTimerGame}
-                          style={{ width: '100%', padding: '13px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}
-                        >
-                          INICIAR
-                        </button>
-                      )
-                    ) : (
-                      <div>
-                        {timerResult?.won ? (
-                          <div style={{ fontSize: 14, fontWeight: 700, color: '#16a34a' }}>
-                            🎉 ¡Ganaste {timerGameConfig.discount_percent}% de descuento!
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: 14, fontWeight: 700, color: '#ef4444' }}>
-                            Casi... el objetivo era {Number(timerGameConfig.target_seconds).toFixed(2)}s. ¡Suerte la próxima!
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 {vkbOpen && (
                   <VirtualKeyboard
                     value={couponCodeInput}
@@ -8376,6 +8338,84 @@ function Store() {
             }}
           />
         </Suspense>
+      )}
+
+      {/* ── Modal del Juego del Cronómetro (al completar compra) ── */}
+      {timerModalOpen && timerGameConfig?.enabled && (
+        <div className="modal-overlay" style={{ zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="text-center" style={{
+            background: '#fff', borderRadius: 24, padding: '32px 28px',
+            width: 'min(92vw, 520px)', boxShadow: '0 20px 60px rgba(0,0,0,.35)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center'
+          }}>
+            <div style={{ fontSize: 26, fontWeight: 900, color: '#111', marginBottom: 6 }}>
+              ⏱️ ¡Juega y gana!
+            </div>
+            <div style={{ fontSize: 16, color: '#555', marginBottom: 4, lineHeight: 1.4 }}>
+              Detén el cronómetro en <b style={{ color: '#2563eb' }}>{Number(timerGameConfig.target_seconds).toFixed(2)}s</b>
+              {' '}y gana <b style={{ color: '#16a34a' }}>{timerGameConfig.discount_percent}% de descuento</b>
+            </div>
+            <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 20 }}>
+              Margen de acierto: ±{Number(timerGameConfig.tolerance_seconds).toFixed(2)}s · 1 intento
+            </div>
+
+            {/* Cronómetro grande */}
+            <div style={{
+              fontSize: 'clamp(64px, 18vw, 110px)', fontWeight: 900, lineHeight: 1,
+              fontVariantNumeric: 'tabular-nums', letterSpacing: 1,
+              color: timerResult ? (timerResult.won ? '#16a34a' : '#ef4444') : '#111',
+              marginBottom: 28
+            }}>
+              {timerElapsed.toFixed(2)}<span style={{ fontSize: '0.4em' }}>s</span>
+            </div>
+
+            {!timerPlayed ? (
+              /* Botón rojo grande en el medio */
+              <button
+                onClick={timerRunning ? stopTimerGame : startTimerGame}
+                style={{
+                  width: 'min(70vw, 240px)', height: 'min(70vw, 240px)', borderRadius: '50%',
+                  border: 'none', background: '#ef4444', color: '#fff',
+                  fontWeight: 900, fontSize: 32, letterSpacing: 1, cursor: 'pointer',
+                  boxShadow: '0 12px 30px rgba(239,68,68,.5)',
+                  transition: 'transform .08s, background .15s',
+                  animation: timerRunning ? 'none' : 'pulse-red 1.4s ease-in-out infinite'
+                }}
+                onMouseDown={e => e.currentTarget.style.transform = 'scale(0.95)'}
+                onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+                onTouchStart={e => e.currentTarget.style.transform = 'scale(0.95)'}
+                onTouchEnd={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {timerRunning ? 'DETENER' : 'INICIAR'}
+              </button>
+            ) : (
+              <div style={{ width: '100%' }}>
+                {timerResult?.won ? (
+                  <div style={{ fontSize: 22, fontWeight: 900, color: '#16a34a', marginBottom: 4 }}>
+                    🎉 ¡Ganaste {timerGameConfig.discount_percent}% de descuento!
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 20, fontWeight: 800, color: '#ef4444', marginBottom: 4 }}>
+                    ¡Casi! El objetivo era {Number(timerGameConfig.target_seconds).toFixed(2)}s
+                  </div>
+                )}
+                <div style={{ fontSize: 14, color: '#9ca3af', marginBottom: 20 }}>
+                  {timerResult?.won ? 'El descuento ya se aplicó a tu cuenta.' : 'Sigue con tu compra. ¡Suerte la próxima!'}
+                </div>
+                <button
+                  onClick={() => { setTimerModalOpen(false); handleCheckout(); }}
+                  style={{
+                    width: '100%', padding: '16px', borderRadius: 14, border: 'none',
+                    background: '#111', color: '#fff', fontWeight: 800, fontSize: 18, cursor: 'pointer'
+                  }}
+                >
+                  Continuar al pago →
+                </button>
+              </div>
+            )}
+          </div>
+          <style>{`@keyframes pulse-red { 0%,100% { box-shadow: 0 12px 30px rgba(239,68,68,.5); } 50% { box-shadow: 0 12px 44px rgba(239,68,68,.85); } }`}</style>
+        </div>
       )}
 
       {phoneModalOpen && (
